@@ -1,12 +1,16 @@
 use crate::{
+    capability::Capability,
     crypto::{did_from_keypair, jwt_algorithm_for_keypair},
     time::now,
-    types::{Capability, CapabilityAuthority, CapabilitySemantics, Fact},
+    types::{CapabilityAuthority, CapabilitySemantics},
     ucan::{UcanHeader, UcanPayload},
+    ProofChain,
 };
 use anyhow::{anyhow, Context, Result};
 use did_key::CoreSign;
-use std::sync::Arc;
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
+use std::{collections::BTreeSet, sync::Arc};
 use textnonce::TextNonce;
 
 use crate::crypto::KeyPair;
@@ -16,12 +20,12 @@ pub struct Token<'a> {
     pub issuer: Arc<&'a KeyPair>,
     pub audience: String,
 
-    pub capabilities: Vec<Capability>,
+    pub capabilities: Vec<Value>,
 
     pub expiration: u64,
     pub not_before: Option<u64>,
 
-    pub facts: Vec<Fact>,
+    pub facts: Vec<Value>,
     pub proofs: Vec<String>,
     pub add_nonce: bool,
 }
@@ -82,14 +86,14 @@ pub struct TokenBuilder<'a> {
     issuer: Option<Arc<&'a KeyPair>>,
     audience: Option<String>,
 
-    capabilities: Vec<Capability>,
+    capabilities: Vec<Value>,
 
     lifetime: Option<u64>,
     expiration: Option<u64>,
     not_before: Option<u64>,
 
-    facts: Vec<Fact>,
-    proofs: Vec<String>,
+    facts: Vec<Value>,
+    proofs: BTreeSet<String>,
     add_nonce: bool,
 }
 
@@ -114,7 +118,7 @@ impl<'a> TokenBuilder<'a> {
             not_before: None,
 
             facts: Vec::new(),
-            proofs: Vec::new(),
+            proofs: BTreeSet::new(),
             add_nonce: false,
         }
     }
@@ -157,8 +161,11 @@ impl<'a> TokenBuilder<'a> {
     }
 
     /// Add a fact or proof of knowledge to this UCAN.
-    pub fn with_fact(mut self, fact: Fact) -> Self {
-        self.facts.push(fact);
+    pub fn with_fact<T: Serialize + DeserializeOwned>(mut self, fact: T) -> Self {
+        match serde_json::to_value(fact) {
+            Ok(value) => self.facts.push(value),
+            Err(error) => warn!("Could not add fact to UCAN: {}", error),
+        }
         self
     }
 
@@ -169,18 +176,34 @@ impl<'a> TokenBuilder<'a> {
     }
 
     /// Claim capabilities 'by parenthood'.
-    pub fn claim_capability(mut self, capability: Capability) -> Self {
-        self.capabilities.push(capability);
+    pub fn claim_capability<T: Capability>(mut self, capability: T) -> Self {
+        match serde_json::to_value(capability) {
+            Ok(value) => self.capabilities.push(value),
+            Err(error) => warn!("UCAN could not claim capability: {}", error),
+        }
         self
     }
 
     /// Delegate capabilities from a given proof to the audience of the UCAN you're building.
-    pub fn delegate_capability(
-        semantics: CapabilitySemantics,
-        required_capability: Capability,
-        authority: CapabilityAuthority,
-    ) -> Self {
-        todo!();
+    pub fn delegate_capability<T: Capability>(mut self, capability: T, authority: &Ucan) -> Self {
+        let result = match authority.encoded() {
+            Ok(proof) => match serde_json::to_value(capability) {
+                Ok(value) => {
+                    self.proofs.insert(proof);
+                    self.capabilities.push(value);
+                    Ok(())
+                }
+                Err(error) => Err(error).context("Unable to convert capability to JSON value"),
+            },
+            Err(error) => Err(error).context("Could not encode authoritative UCAN"),
+        };
+
+        match result {
+            Err(error) => warn!("Could not delegate capability: {:?}", error),
+            _ => (),
+        };
+
+        self
     }
 
     fn implied_expiration(&self) -> Option<u64> {
@@ -205,7 +228,7 @@ impl<'a> TokenBuilder<'a> {
                         expiration,
                         facts: self.facts.clone(),
                         capabilities: self.capabilities.clone(),
-                        proofs: self.proofs.clone(),
+                        proofs: self.proofs.iter().map(|value| value.clone()).collect(),
                         add_nonce: self.add_nonce,
                     }),
                     None => Err(anyhow!("Ambiguous lifetime")),

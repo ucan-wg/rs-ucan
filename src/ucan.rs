@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::str;
 
 use crate::crypto::verify_signature;
 use crate::time::now;
-use crate::types::{Capability, Fact};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UcanHeader {
@@ -20,8 +20,8 @@ pub struct UcanPayload {
     pub exp: u64,
     pub nbf: Option<u64>,
     pub nnc: Option<String>,
-    pub att: Vec<Capability>,
-    pub fct: Vec<Fact>,
+    pub att: Vec<Value>,
+    pub fct: Vec<Value>,
     pub prf: Vec<String>,
 }
 
@@ -47,9 +47,7 @@ impl Ucan {
         }
     }
 
-    /**
-     * Deserialize an encoded UCAN token string into a UCAN
-     */
+    /// Deserialize an encoded UCAN token string into a UCAN
     pub fn from_token_string(ucan_token_string: &str) -> Result<Ucan> {
         let mut parts = ucan_token_string
             .split('.')
@@ -108,9 +106,7 @@ impl Ucan {
         Ok(Ucan::new(header, payload, signed_data, signature))
     }
 
-    /**
-     * Validate the UCAN's signature and timestamps
-     */
+    /// Validate the UCAN's signature and timestamps
     pub fn validate(&self) -> Result<()> {
         if self.is_expired() {
             return Err(anyhow!("Expired"));
@@ -133,16 +129,22 @@ impl Ucan {
         }
     }
 
-    /**
-     * Returns true if the UCAN has past its expiration date
-     */
-    fn is_expired(&self) -> bool {
+    /// Produce a base64-encoded serialization of the UCAN suitable for
+    /// transferring in a header field
+    pub fn encoded(&self) -> Result<String> {
+        let header = base64::encode(serde_json::to_string(&self.header)?.as_bytes());
+        let payload = base64::encode(serde_json::to_string(&self.payload)?.as_bytes());
+        let signature = base64::encode(self.signature.as_slice());
+
+        Ok(format!("{}.{}.{}", header, payload, signature.as_str()))
+    }
+
+    /// Returns true if the UCAN has past its expiration date
+    pub fn is_expired(&self) -> bool {
         self.payload.exp > now()
     }
 
-    /**
-     * Returns true if the not-before ("nbf") time is still in the future
-     */
+    /// Returns true if the not-before ("nbf") time is still in the future
     fn is_too_early(&self) -> bool {
         match self.payload.nbf {
             Some(nbf) => nbf > now(),
@@ -178,11 +180,11 @@ impl Ucan {
         &self.payload.nnc
     }
 
-    pub fn attenuation(&self) -> &Vec<Capability> {
+    pub fn attenuation(&self) -> &Vec<Value> {
         &self.payload.att
     }
 
-    pub fn facts(&self) -> &Vec<Fact> {
+    pub fn facts(&self) -> &Vec<Value> {
         &self.payload.fct
     }
 }
