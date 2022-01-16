@@ -2,19 +2,17 @@
 extern crate log;
 
 mod attenuation;
+mod builder;
 mod capability;
 mod chain;
 mod crypto;
 mod time;
-mod token;
 mod types;
 mod ucan;
 
+pub use builder::{Signable, UcanBuilder};
 pub use chain::ProofChain;
-pub use token::{Token, TokenBuilder};
 pub use ucan::Ucan;
-
-// pub use token::TokenBuilder;
 
 #[cfg(test)]
 mod tests;

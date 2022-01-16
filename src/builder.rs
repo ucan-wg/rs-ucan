@@ -16,7 +16,7 @@ use textnonce::TextNonce;
 use crate::crypto::KeyPair;
 use crate::ucan::Ucan;
 
-pub struct Token<'a> {
+pub struct Signable<'a> {
     pub issuer: Arc<&'a KeyPair>,
     pub audience: String,
 
@@ -30,7 +30,7 @@ pub struct Token<'a> {
     pub add_nonce: bool,
 }
 
-impl<'a> Token<'a> {
+impl<'a> Signable<'a> {
     pub const UCAN_VERSION: &'static str = "0.7.0";
 
     pub fn ucan_header(&self) -> UcanHeader {
@@ -64,16 +64,16 @@ impl<'a> Token<'a> {
         let payload = self.ucan_payload();
 
         let header_base64 = match serde_json::to_string(&header) {
-            Ok(json) => base64::encode(json.as_bytes()),
+            Ok(json) => base64::encode_config(json.as_bytes(), base64::URL_SAFE_NO_PAD),
             Err(error) => return Err(error).context("Unable to serialize UCAN header as JSON"),
         };
 
         let payload_base64 = match serde_json::to_string(&payload) {
-            Ok(json) => base64::encode(json.as_bytes()),
+            Ok(json) => base64::encode_config(json.as_bytes(), base64::URL_SAFE_NO_PAD),
             Err(error) => return Err(error).context("Unable to serialize UCAN payload as JSON"),
         };
 
-        let data_to_sign = Vec::from((header_base64 + "." + payload_base64.as_str()).as_bytes());
+        let data_to_sign = Vec::from(format!("{}.{}", header_base64, payload_base64).as_bytes());
         let signature = self.issuer.sign(data_to_sign.as_slice());
 
         Ok(Ucan::new(header, payload, data_to_sign, signature))
@@ -82,7 +82,7 @@ impl<'a> Token<'a> {
 
 /// A builder API for UCAN tokens
 #[derive(Clone)]
-pub struct TokenBuilder<'a> {
+pub struct UcanBuilder<'a> {
     issuer: Option<Arc<&'a KeyPair>>,
     audience: Option<String>,
 
@@ -97,7 +97,7 @@ pub struct TokenBuilder<'a> {
     add_nonce: bool,
 }
 
-impl<'a> TokenBuilder<'a> {
+impl<'a> UcanBuilder<'a> {
     /// Create an empty builder.
     /// Before finalising the builder, you need to at least call:
     ///
@@ -107,7 +107,7 @@ impl<'a> TokenBuilder<'a> {
     ///
     /// To finalise the builder, call its `build` or `build_parts` method.
     pub fn new() -> Self {
-        TokenBuilder {
+        UcanBuilder {
             issuer: None,
             audience: None,
 
@@ -217,11 +217,11 @@ impl<'a> TokenBuilder<'a> {
         }
     }
 
-    pub fn build(self) -> Result<Token<'a>> {
+    pub fn build(self) -> Result<Signable<'a>> {
         match &self.issuer {
             Some(issuer) => match &self.audience {
                 Some(audience) => match self.implied_expiration() {
-                    Some(expiration) => Ok(Token {
+                    Some(expiration) => Ok(Signable {
                         issuer: issuer.clone(),
                         audience: audience.clone(),
                         not_before: self.not_before,

@@ -25,6 +25,7 @@ pub struct UcanPayload {
     pub prf: Vec<String>,
 }
 
+#[derive(Debug)]
 pub struct Ucan {
     header: UcanHeader,
     payload: UcanPayload,
@@ -49,47 +50,34 @@ impl Ucan {
 
     /// Deserialize an encoded UCAN token string into a UCAN
     pub fn from_token_string(ucan_token_string: &str) -> Result<Ucan> {
-        let mut parts = ucan_token_string
+        let signed_data = ucan_token_string
             .split('.')
-            .map(|str| base64::decode(str).map_err(|error| anyhow!(error)));
+            .take(2)
+            .map(|str| String::from(str))
+            .reduce(|l, r| format!("{}.{}", l, r))
+            .ok_or(anyhow!("Could not parse signed data from token string"))?;
 
-        let mut signed_data: Vec<u8> = Vec::new();
+        let mut parts = ucan_token_string.split('.').map(|str| {
+            base64::decode_config(str, base64::URL_SAFE_NO_PAD).map_err(|error| anyhow!(error))
+        });
 
         let header: UcanHeader = match parts.next() {
             Some(part) => match part {
-                Ok(mut decoded) => {
-                    let header: UcanHeader = match serde_json::from_slice(decoded.as_slice()) {
-                        Ok(header) => header,
-                        Err(error) => {
-                            return Err(error).context("Could not parse UCAN header JSON")
-                        }
-                    };
-
-                    signed_data.append(&mut decoded);
-
-                    header
-                }
+                Ok(decoded) => match serde_json::from_slice(decoded.as_slice()) {
+                    Ok(header) => header,
+                    Err(error) => return Err(error).context("Could not parse UCAN header JSON"),
+                },
                 Err(error) => return Err(error).context("Could not decode UCAN header base64"),
             },
             None => return Err(anyhow!("Missing UCAN header in token part")),
         };
 
-        signed_data.extend_from_slice(".".as_bytes());
-
         let payload: UcanPayload = match parts.next() {
             Some(part) => match part {
-                Ok(mut decoded) => {
-                    let payload: UcanPayload = match serde_json::from_slice(decoded.as_slice()) {
-                        Ok(payload) => payload,
-                        Err(error) => {
-                            return Err(error).context("Could not parse UCAN payload JSON")
-                        }
-                    };
-
-                    signed_data.append(&mut decoded);
-
-                    payload
-                }
+                Ok(decoded) => match serde_json::from_slice(decoded.as_slice()) {
+                    Ok(payload) => payload,
+                    Err(error) => return Err(error).context("Could not parse UCAN payload JSON"),
+                },
                 Err(error) => return Err(error).context("Could not parse UCAN payload base64"),
             },
             None => return Err(anyhow!("Missing UCAN payload in token part")),
@@ -103,7 +91,12 @@ impl Ucan {
             None => return Err(anyhow!("Missing UCAN signature in token part")),
         };
 
-        Ok(Ucan::new(header, payload, signed_data, signature))
+        Ok(Ucan::new(
+            header,
+            payload,
+            signed_data.as_bytes().into(),
+            signature,
+        ))
     }
 
     /// Validate the UCAN's signature and timestamps
@@ -119,7 +112,8 @@ impl Ucan {
         self.check_signature()
     }
 
-    fn check_signature(&self) -> Result<()> {
+    /// Validate that the signed data was signed by the stated issuer
+    pub fn check_signature(&self) -> Result<()> {
         match verify_signature(&self.signed_data, &self.signature, &self.payload.iss) {
             Err(error) => Err(error).context(format!(
                 "Invalid signature on UCAN ({:?}, {:?}, signature: {:?})",
@@ -132,16 +126,27 @@ impl Ucan {
     /// Produce a base64-encoded serialization of the UCAN suitable for
     /// transferring in a header field
     pub fn encoded(&self) -> Result<String> {
-        let header = base64::encode(serde_json::to_string(&self.header)?.as_bytes());
-        let payload = base64::encode(serde_json::to_string(&self.payload)?.as_bytes());
-        let signature = base64::encode(self.signature.as_slice());
+        let header = base64::encode_config(
+            serde_json::to_string(&self.header)?.as_bytes(),
+            base64::URL_SAFE_NO_PAD,
+        );
+        let payload = base64::encode_config(
+            serde_json::to_string(&self.payload)?.as_bytes(),
+            base64::URL_SAFE_NO_PAD,
+        );
+        let signature = base64::encode_config(self.signature.as_slice(), base64::URL_SAFE_NO_PAD);
 
         Ok(format!("{}.{}.{}", header, payload, signature.as_str()))
     }
 
     /// Returns true if the UCAN has past its expiration date
     pub fn is_expired(&self) -> bool {
-        self.payload.exp > now()
+        self.payload.exp < now()
+    }
+
+    /// Raw bytes of signed data for this UCAN
+    pub fn signed_data(&self) -> &Vec<u8> {
+        &self.signed_data
     }
 
     /// Returns true if the not-before ("nbf") time is still in the future

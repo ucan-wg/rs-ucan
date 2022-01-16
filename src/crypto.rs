@@ -9,7 +9,7 @@ pub fn verify_signature(data: &Vec<u8>, signature: &Vec<u8>, did: &String) -> Re
     Ok(())
 }
 
-pub fn did_from_keypair<T: Fingerprint + Into<KeyPair>>(keypair: &T) -> String {
+pub fn did_from_keypair<T: Fingerprint>(keypair: &T) -> String {
     format!("did:key:{}", keypair.fingerprint())
 }
 
