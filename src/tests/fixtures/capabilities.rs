@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::capability::Capability;
-use anyhow::{anyhow, Result};
 
 #[derive(PartialEq, PartialOrd)]
 pub enum WNFSCapLevel {

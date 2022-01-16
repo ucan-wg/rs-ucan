@@ -150,7 +150,7 @@ impl Ucan {
     }
 
     /// Returns true if the not-before ("nbf") time is still in the future
-    fn is_too_early(&self) -> bool {
+    pub fn is_too_early(&self) -> bool {
         match self.payload.nbf {
             Some(nbf) => nbf > now(),
             None => false,

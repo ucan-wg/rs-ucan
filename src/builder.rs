@@ -2,9 +2,7 @@ use crate::{
     capability::Capability,
     crypto::{did_from_keypair, jwt_algorithm_for_keypair},
     time::now,
-    types::{CapabilityAuthority, CapabilitySemantics},
     ucan::{UcanHeader, UcanPayload},
-    ProofChain,
 };
 use anyhow::{anyhow, Context, Result};
 use did_key::CoreSign;
@@ -16,6 +14,11 @@ use textnonce::TextNonce;
 use crate::crypto::KeyPair;
 use crate::ucan::Ucan;
 
+/// A signable is a UCAN that has all the state it needs in order to be signed,
+/// but has not yet been signed.
+/// NOTE: This may be useful for bespoke signing flows down the road. It is
+/// meant to approximate the way that ts-ucan produces an unsigned intermediate
+/// artifact (e.g., https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278)
 pub struct Signable<'a> {
     pub issuer: Arc<&'a KeyPair>,
     pub audience: String,

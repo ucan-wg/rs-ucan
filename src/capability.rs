@@ -4,13 +4,18 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::Ucan;
 
+/// A trait that must be implemented by capabilities
 pub trait Capability: Serialize + DeserializeOwned {
-    fn delegate_to(&self, other: &Self) -> Option<Self> {
+    /// Delegate this capability to an implied descendant, returning an
+    /// appropriately attenuated capability, or None if the delegation cannot
+    /// take place
+    fn delegate_to(&self, _other: &Self) -> Option<Self> {
         None
     }
-    // fn reduce<T: DelegatableCapability>(&self, proof_chain: ProofChain) -> T {}
 }
 
+/// An iterator over all capabilities in a UCAN's attenuations field that
+/// deserialize to a specified type
 pub struct CapabilityIterator<'a, T>
 where
     T: Capability,

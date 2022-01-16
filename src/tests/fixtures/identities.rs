@@ -1,5 +1,4 @@
 use did_key::{Ed25519KeyPair, Generate, KeyPair};
-use serde::{Deserialize, Serialize};
 
 use crate::crypto::did_from_keypair;
 

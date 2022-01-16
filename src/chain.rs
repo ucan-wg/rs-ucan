@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 
+/// A deserialized chain of ancestral proofs that are linked to a UCAN
 pub struct ProofChain {
     ucan: Ucan,
     proofs: Vec<ProofChain>,
@@ -22,6 +23,10 @@ impl ProofChain {
         }
 
         Ok(ProofChain { ucan, proofs })
+    }
+
+    pub async fn from_cid(_cid: &str) -> Result<ProofChain> {
+        todo!("Resolving a proof from a CID not yet implemented")
     }
 
     pub fn from_token_string(ucan_token_string: &str) -> Result<ProofChain> {
