@@ -1,15 +1,22 @@
 [package]
 name = "rs-ucan"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["rsa_support"]
+rsa_support = ["rsa", "pkcs1", "did_url", "bs58"]
 
 [dependencies]
-did-key = "0.1.0"
+did-key = "0.1.1"
 anyhow = "1.0.52"
 serde_json = "1.0.74"
 serde = "1.0.133"
 base64 = "0.13.0"
 textnonce = "1.0.0"
 log = "0.4.14"
+url = "2.2.2"
+bs58 = { version = "0.4.0", optional = true }
+did_url = { version = "0.1.0", optional = true }
+rsa = { version = "0.5.0", optional = true, features = ["alloc"] }
+pkcs1 = { version = "0.2.3", optional = true }

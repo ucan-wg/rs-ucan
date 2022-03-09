@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str;
 
-use crate::crypto::verify_signature;
+use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
+use crate::crypto::{verify_signature, SigningKey};
 use crate::time::now;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -114,12 +115,17 @@ impl Ucan {
 
     /// Validate that the signed data was signed by the stated issuer
     pub fn check_signature(&self) -> Result<()> {
-        match verify_signature(&self.signed_data, &self.signature, &self.payload.iss) {
-            Err(error) => Err(error).context(format!(
-                "Invalid signature on UCAN ({:?}, {:?}, signature: {:?})",
-                self.header, self.payload, self.signature
-            )),
-            _ => Ok(()),
+        let key = did_to_signing_key(self.payload.iss.clone())?;
+
+        match key {
+            SigningKeyResult::Ed25519(signing_key) => {
+                verify_signature(&self.signed_data, &self.signature, &signing_key)
+            }
+
+            #[cfg(feature = "rsa_support")]
+            SigningKeyResult::Rsa(signing_key) => {
+                verify_signature(&self.signed_data, &self.signature, &signing_key)
+            }
         }
     }
 

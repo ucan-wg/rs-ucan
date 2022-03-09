@@ -1,5 +1,6 @@
 use crate::{
-    tests::fixtures::{EmailCapability, Identities, WNFSCapability},
+    capability::{CapabilitySemantics, RawCapability},
+    tests::fixtures::{EmailSemantics, Identities, WNFSSemantics},
     time::now,
     UcanBuilder,
 };
@@ -18,15 +19,19 @@ fn it_builds_with_a_simple_example() {
         "hash": "sth"
     });
 
-    let cap_1 = EmailCapability {
-        email: "alice@gmail.com".into(),
-        cap: "SEND".into(),
-    };
+    let email_semantics = EmailSemantics {};
+    let wnfs_semantics = WNFSSemantics {};
 
-    let cap_2 = WNFSCapability {
-        wnfs: "alice.fission.name/public".into(),
-        cap: "SUPER_USER".into(),
-    };
+    let cap_1 = email_semantics
+        .parse("mailto:alice@gmail.com".into(), "email/SEND".into())
+        .unwrap();
+
+    let cap_2 = wnfs_semantics
+        .parse(
+            "wnfs://alice.fission.name/public".into(),
+            "wnfs/SUPER_USER".into(),
+        )
+        .unwrap();
 
     let expiration = now() + 30;
     let not_before = now() - 30;
@@ -54,8 +59,8 @@ fn it_builds_with_a_simple_example() {
     assert_eq!(*ucan.facts(), Vec::from([fact_1, fact_2]));
 
     let expected_attenuations = Vec::from([
-        serde_json::to_value(cap_1).unwrap(),
-        serde_json::to_value(cap_2).unwrap(),
+        serde_json::to_value(RawCapability::from(cap_1)).unwrap(),
+        serde_json::to_value(RawCapability::from(cap_2)).unwrap(),
     ]);
 
     assert_eq!(*ucan.attenuation(), expected_attenuations);
@@ -80,10 +85,14 @@ fn it_builds_with_lifetime_in_seconds() {
 
 #[test]
 fn it_prevents_duplicate_proofs() {
-    let parent_cap = WNFSCapability {
-        wnfs: "alice.fission.name/public".into(),
-        cap: "SUPER_USER".into(),
-    };
+    let wnfs_semantics = WNFSSemantics {};
+
+    let parent_cap = wnfs_semantics
+        .parse(
+            "wnfs://alice.fission.name/public".into(),
+            "wnfs/SUPER_USER".into(),
+        )
+        .unwrap();
 
     let identities = Identities::new();
     let ucan = UcanBuilder::new()
@@ -96,15 +105,19 @@ fn it_prevents_duplicate_proofs() {
         .sign()
         .unwrap();
 
-    let attenuated_cap_1 = WNFSCapability {
-        wnfs: "alice.fission.name/public/Apps".into(),
-        cap: "CREATE".into(),
-    };
+    let attenuated_cap_1 = wnfs_semantics
+        .parse(
+            "wnfs://alice.fission.name/public/Apps".into(),
+            "wnfs/CREATE".into(),
+        )
+        .unwrap();
 
-    let attenuated_cap_2 = WNFSCapability {
-        wnfs: "alice.fission.name/public/Documents".into(),
-        cap: "OVERWRITE".into(),
-    };
+    let attenuated_cap_2 = wnfs_semantics
+        .parse(
+            "wnfs://alice.fission.name/public/Domains".into(),
+            "wnfs/CREATE".into(),
+        )
+        .unwrap();
 
     let next_ucan = UcanBuilder::new()
         .issued_by(&identities.bob_key)

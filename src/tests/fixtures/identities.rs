@@ -1,6 +1,6 @@
 use did_key::{Ed25519KeyPair, Generate, KeyPair};
 
-use crate::crypto::did_from_keypair;
+use crate::crypto::SigningKey;
 
 pub struct Identities {
     pub alice_key: KeyPair,
@@ -23,9 +23,9 @@ impl Identities {
         let mallory_key = KeyPair::from(Ed25519KeyPair::from_secret_key(&base64::decode("LR9AL2MYkMARuvmV3MJV8sKvbSOdBtpggFCW8K62oZDR6UViSXdSV/dDcD8S9xVjS61vh62JITx7qmLgfQUSZQ==".as_bytes()).unwrap().as_slice()[0..32]));
 
         Identities {
-            alice_did: did_from_keypair(&alice_key),
-            bob_did: did_from_keypair(&bob_key),
-            mallory_did: did_from_keypair(&mallory_key),
+            alice_did: alice_key.get_did(),
+            bob_did: bob_key.get_did(),
+            mallory_did: mallory_key.get_did(),
 
             alice_key,
             bob_key,

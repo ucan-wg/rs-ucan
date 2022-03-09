@@ -1,13 +1,21 @@
+use std::collections::BTreeSet;
+
 use crate::{
-    capability::{Capability, CapabilityIterator},
+    capability::{
+        proof::{ProofDelegationSemantics, ProofSelection},
+        Action, Capability, CapabilityIterator, CapabilitySemantics, Resource, Scope, With,
+    },
     ucan::Ucan,
 };
 use anyhow::{anyhow, Result};
+
+const PROOF_DELEGATION_SEMANTICS: ProofDelegationSemantics = ProofDelegationSemantics {};
 
 /// A deserialized chain of ancestral proofs that are linked to a UCAN
 pub struct ProofChain {
     ucan: Ucan,
     proofs: Vec<ProofChain>,
+    redelegations: BTreeSet<usize>,
 }
 
 impl ProofChain {
@@ -22,7 +30,38 @@ impl ProofChain {
             proofs.push(proof_chain);
         }
 
-        Ok(ProofChain { ucan, proofs })
+        let mut redelegations = BTreeSet::<usize>::new();
+
+        for capability in CapabilityIterator::new(&ucan, &PROOF_DELEGATION_SEMANTICS) {
+            match capability.with() {
+                With::Resource {
+                    kind: Resource::Scoped(ProofSelection::All),
+                } => {
+                    for index in 0..proofs.len() {
+                        redelegations.insert(index);
+                    }
+                }
+                With::Resource {
+                    kind: Resource::Scoped(ProofSelection::Index(index)),
+                } => {
+                    if *index < proofs.len() {
+                        redelegations.insert(index.clone());
+                    } else {
+                        return Err(anyhow!(
+                            "Unable to redelegate proof; no proof at zero-based index {}",
+                            index
+                        ));
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        Ok(ProofChain {
+            ucan,
+            proofs,
+            redelegations,
+        })
     }
 
     pub async fn from_cid(_cid: &str) -> Result<ProofChain> {
@@ -56,34 +95,77 @@ impl ProofChain {
         &self.proofs
     }
 
-    /// A reduced list of capabilities that have been authoritatively
-    /// delegated to the UCAN at this link in the chain, taking into
-    /// account the chain of delegation through ancestral proofs
-    pub fn reduce_capabilities<T: Capability>(&self) -> Vec<T> {
-        let ancestral_capabilities: Vec<T> = self
+    pub fn reduce_capabilities<Semantics, S, A>(
+        &self,
+        semantics: &Semantics,
+    ) -> Vec<Capability<S, A>>
+    where
+        Semantics: CapabilitySemantics<S, A>,
+        S: Scope,
+        A: Action,
+    {
+        let ancestral_capabilities: Vec<Capability<S, A>> = self
             .proofs
             .iter()
-            .map(|chain| chain.reduce_capabilities::<T>())
+            .enumerate()
+            .map(|(index, ancestor_chain)| {
+                if self.redelegations.contains(&index) {
+                    Vec::new()
+                } else {
+                    ancestor_chain.reduce_capabilities(semantics)
+                }
+            })
             .flatten()
             .collect();
 
-        let iter = CapabilityIterator::<T>::new(&self.ucan);
+        let mut redelegated_capabilities: Vec<Capability<S, A>> = self
+            .redelegations
+            .iter()
+            .map(|index| {
+                self.proofs
+                    .get(*index)
+                    .unwrap()
+                    .reduce_capabilities(semantics)
+            })
+            .flatten()
+            .collect();
 
-        match self.proofs.len() {
-            0 => iter.collect(),
-            _ => iter
+        let self_capabilities_iter = CapabilityIterator::new(&self.ucan, semantics);
+
+        let mut self_capabilities: Vec<Capability<S, A>> = match self.proofs.len() {
+            0 => self_capabilities_iter.collect(),
+            _ => self_capabilities_iter
                 .filter_map(|capability| {
                     for ancestral_capability in ancestral_capabilities.iter() {
-                        match ancestral_capability.delegate_to(&capability) {
-                            Some(delegated) => return Some(delegated),
-                            None => continue,
-                        };
+                        match ancestral_capability.enables(&capability) {
+                            true => return Some(capability),
+                            false => continue,
+                        }
                     }
 
+                    // TODO: No ancestor witnesses this capability. Right
+                    // now we just discard the capability. Should this be a
+                    // critical failure?
                     None
                 })
                 .collect(),
+        };
+
+        self_capabilities.append(&mut redelegated_capabilities);
+
+        let mut merged_capabilities = Vec::<Capability<S, A>>::new();
+
+        'merge: while let Some(capability) = self_capabilities.pop() {
+            for remaining_capability in &self_capabilities {
+                if remaining_capability.enables(&capability) {
+                    continue 'merge;
+                }
+            }
+
+            merged_capabilities.push(capability);
         }
+
+        merged_capabilities
     }
 }
 

@@ -1,17 +1,16 @@
 use crate::{
-    capability::Capability,
-    crypto::{did_from_keypair, jwt_algorithm_for_keypair},
+    capability::{Action, Capability, RawCapability, Scope},
+    crypto::SigningKey,
     time::now,
     ucan::{UcanHeader, UcanPayload},
 };
 use anyhow::{anyhow, Context, Result};
-use did_key::CoreSign;
+pub use did_key::CoreSign;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{collections::BTreeSet, sync::Arc};
 use textnonce::TextNonce;
 
-use crate::crypto::KeyPair;
 use crate::ucan::Ucan;
 
 /// A signable is a UCAN that has all the state it needs in order to be signed,
@@ -19,8 +18,11 @@ use crate::ucan::Ucan;
 /// NOTE: This may be useful for bespoke signing flows down the road. It is
 /// meant to approximate the way that ts-ucan produces an unsigned intermediate
 /// artifact (e.g., https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278)
-pub struct Signable<'a> {
-    pub issuer: Arc<&'a KeyPair>,
+pub struct Signable<'a, K>
+where
+    K: SigningKey,
+{
+    pub issuer: Arc<&'a K>,
     pub audience: String,
 
     pub capabilities: Vec<Value>,
@@ -33,12 +35,15 @@ pub struct Signable<'a> {
     pub add_nonce: bool,
 }
 
-impl<'a> Signable<'a> {
-    pub const UCAN_VERSION: &'static str = "0.7.0";
+impl<'a, K> Signable<'a, K>
+where
+    K: SigningKey,
+{
+    pub const UCAN_VERSION: &'static str = "0.8.1";
 
     pub fn ucan_header(&self) -> UcanHeader {
         UcanHeader {
-            alg: jwt_algorithm_for_keypair(*self.issuer),
+            alg: self.issuer.get_jwt_algorithm_name(),
             typ: "JWT".into(),
             ucv: Self::UCAN_VERSION.into(),
         }
@@ -52,7 +57,7 @@ impl<'a> Signable<'a> {
 
         UcanPayload {
             aud: self.audience.clone(),
-            iss: did_from_keypair(*self.issuer),
+            iss: self.issuer.get_did(),
             exp: self.expiration,
             nbf: self.not_before,
             nnc: nonce,
@@ -85,8 +90,11 @@ impl<'a> Signable<'a> {
 
 /// A builder API for UCAN tokens
 #[derive(Clone)]
-pub struct UcanBuilder<'a> {
-    issuer: Option<Arc<&'a KeyPair>>,
+pub struct UcanBuilder<'a, K>
+where
+    K: SigningKey,
+{
+    issuer: Option<Arc<&'a K>>,
     audience: Option<String>,
 
     capabilities: Vec<Value>,
@@ -100,7 +108,10 @@ pub struct UcanBuilder<'a> {
     add_nonce: bool,
 }
 
-impl<'a> UcanBuilder<'a> {
+impl<'a, K> UcanBuilder<'a, K>
+where
+    K: SigningKey,
+{
     /// Create an empty builder.
     /// Before finalising the builder, you need to at least call:
     ///
@@ -127,7 +138,7 @@ impl<'a> UcanBuilder<'a> {
     }
 
     /// The UCAN must be signed with the private key of the issuer to be valid.
-    pub fn issued_by(mut self, issuer: &'a KeyPair) -> Self {
+    pub fn issued_by(mut self, issuer: &'a K) -> Self {
         self.issuer = Some(Arc::new(issuer));
         self
     }
@@ -179,8 +190,14 @@ impl<'a> UcanBuilder<'a> {
     }
 
     /// Claim capabilities 'by parenthood'.
-    pub fn claim_capability<T: Capability>(mut self, capability: T) -> Self {
-        match serde_json::to_value(capability) {
+    pub fn claim_capability<S, A>(mut self, capability: Capability<S, A>) -> Self
+    where
+        S: Scope,
+        A: Action,
+    {
+        let raw_capability: RawCapability = capability.into();
+
+        match serde_json::to_value(raw_capability) {
             Ok(value) => self.capabilities.push(value),
             Err(error) => warn!("UCAN could not claim capability: {}", error),
         }
@@ -188,9 +205,18 @@ impl<'a> UcanBuilder<'a> {
     }
 
     /// Delegate capabilities from a given proof to the audience of the UCAN you're building.
-    pub fn delegate_capability<T: Capability>(mut self, capability: T, authority: &Ucan) -> Self {
+    pub fn delegate_capability<S, A>(
+        mut self,
+        capability: Capability<S, A>,
+        authority: &Ucan,
+    ) -> Self
+    where
+        S: Scope,
+        A: Action,
+    {
+        let raw_capability: RawCapability = capability.into();
         let result = match authority.encoded() {
-            Ok(proof) => match serde_json::to_value(capability) {
+            Ok(proof) => match serde_json::to_value(raw_capability) {
                 Ok(value) => {
                     self.proofs.insert(proof);
                     self.capabilities.push(value);
@@ -220,7 +246,7 @@ impl<'a> UcanBuilder<'a> {
         }
     }
 
-    pub fn build(self) -> Result<Signable<'a>> {
+    pub fn build(self) -> Result<Signable<'a, K>> {
         match &self.issuer {
             Some(issuer) => match &self.audience {
                 Some(audience) => match self.implied_expiration() {
