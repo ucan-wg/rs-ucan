@@ -6,14 +6,14 @@ mod validate {
         let identities = Identities::new();
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
-            .to_audience(identities.bob_did.as_str())
+            .for_audience(identities.bob_did.as_str())
             .with_lifetime(30)
             .build()
             .unwrap()
             .sign()
             .unwrap();
 
-        let encoded_ucan = ucan.encoded().unwrap();
+        let encoded_ucan = ucan.encode().unwrap();
         let decoded_ucan = Ucan::from_token_string(encoded_ucan.as_str()).unwrap();
 
         decoded_ucan.validate().unwrap();
@@ -24,7 +24,7 @@ mod validate {
         let identities = Identities::new();
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
-            .to_audience(identities.bob_did.as_str())
+            .for_audience(identities.bob_did.as_str())
             .not_before(now() + 30)
             .with_lifetime(30)
             .build()
@@ -40,7 +40,7 @@ mod validate {
         let identities = Identities::new();
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
-            .to_audience(identities.bob_did.as_str())
+            .for_audience(identities.bob_did.as_str())
             .not_before(now() / 1000)
             .with_lifetime(30)
             .build()

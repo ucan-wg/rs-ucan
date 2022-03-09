@@ -131,7 +131,7 @@ impl Ucan {
 
     /// Produce a base64-encoded serialization of the UCAN suitable for
     /// transferring in a header field
-    pub fn encoded(&self) -> Result<String> {
+    pub fn encode(&self) -> Result<String> {
         let header = base64::encode_config(
             serde_json::to_string(&self.header)?.as_bytes(),
             base64::URL_SAFE_NO_PAD,

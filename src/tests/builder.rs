@@ -38,7 +38,7 @@ fn it_builds_with_a_simple_example() {
 
     let token = UcanBuilder::new()
         .issued_by(&identities.alice_key)
-        .to_audience(identities.bob_did.as_str())
+        .for_audience(identities.bob_did.as_str())
         .with_expiration(expiration)
         .not_before(not_before)
         .with_fact(fact_1.clone())
@@ -73,7 +73,7 @@ fn it_builds_with_lifetime_in_seconds() {
 
     let ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
-        .to_audience(identities.bob_did.as_str())
+        .for_audience(identities.bob_did.as_str())
         .with_lifetime(300)
         .build()
         .unwrap()
@@ -97,7 +97,7 @@ fn it_prevents_duplicate_proofs() {
     let identities = Identities::new();
     let ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
-        .to_audience(identities.bob_did.as_str())
+        .for_audience(identities.bob_did.as_str())
         .with_lifetime(30)
         .claim_capability(parent_cap)
         .build()
@@ -121,7 +121,7 @@ fn it_prevents_duplicate_proofs() {
 
     let next_ucan = UcanBuilder::new()
         .issued_by(&identities.bob_key)
-        .to_audience(identities.mallory_did.as_str())
+        .for_audience(identities.mallory_did.as_str())
         .with_lifetime(30)
         .delegate_capability(attenuated_cap_1, &ucan)
         .delegate_capability(attenuated_cap_2, &ucan)
@@ -130,5 +130,5 @@ fn it_prevents_duplicate_proofs() {
         .sign()
         .unwrap();
 
-    assert_eq!(*next_ucan.proofs(), Vec::from([ucan.encoded().unwrap()]))
+    assert_eq!(*next_ucan.proofs(), Vec::from([ucan.encode().unwrap()]))
 }

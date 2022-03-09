@@ -148,7 +148,7 @@ where
     /// It could e.g. be the DID of a service you're posting this UCAN as a JWT to,
     /// or it could be the DID of something that'll use this UCAN as a proof to
     /// continue the UCAN chain as an issuer.
-    pub fn to_audience(mut self, audience: &str) -> Self {
+    pub fn for_audience(mut self, audience: &str) -> Self {
         self.audience = Some(String::from(audience));
         self
     }
@@ -215,7 +215,7 @@ where
         A: Action,
     {
         let raw_capability: RawCapability = capability.into();
-        let result = match authority.encoded() {
+        let result = match authority.encode() {
             Ok(proof) => match serde_json::to_value(raw_capability) {
                 Ok(value) => {
                     self.proofs.insert(proof);
