@@ -1,5 +1,8 @@
 use crate::{
-    capability::{Action, Capability, RawCapability, Scope},
+    capability::{
+        proof::ProofDelegationSemantics, Action, Capability, CapabilitySemantics, RawCapability,
+        Scope,
+    },
     crypto::SigningKey,
     time::now,
     ucan::{UcanHeader, UcanPayload},
@@ -8,7 +11,7 @@ use anyhow::{anyhow, Context, Result};
 pub use did_key::CoreSign;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 use textnonce::TextNonce;
 
 use crate::ucan::Ucan;
@@ -104,7 +107,7 @@ where
     not_before: Option<u64>,
 
     facts: Vec<Value>,
-    proofs: BTreeSet<String>,
+    proofs: Vec<String>,
     add_nonce: bool,
 }
 
@@ -132,7 +135,7 @@ where
             not_before: None,
 
             facts: Vec::new(),
-            proofs: BTreeSet::new(),
+            proofs: Vec::new(),
             add_nonce: false,
         }
     }
@@ -189,8 +192,21 @@ where
         self
     }
 
-    /// Claim capabilities 'by parenthood'.
-    pub fn claim_capability<S, A>(mut self, capability: Capability<S, A>) -> Self
+    /// Includes a UCAN in the list of proofs for the UCAN to be built.
+    /// Note that the proof's audience must match this UCAN's issuer
+    /// or else the proof chain will be invalidated!
+    pub fn with_proof(mut self, authority: &Ucan) -> Self {
+        match authority.encode() {
+            Ok(proof) => self.proofs.push(proof),
+            Err(error) => warn!("Failed to add authority to proofs: {}", error),
+        }
+
+        self
+    }
+
+    /// Claim a capability by inheritance (from an authorizing proof) or
+    /// implicitly by ownership of the resource
+    pub fn claiming_capability<S, A>(mut self, capability: Capability<S, A>) -> Self
     where
         S: Scope,
         A: Action,
@@ -204,32 +220,31 @@ where
         self
     }
 
-    /// Delegate capabilities from a given proof to the audience of the UCAN you're building.
-    pub fn delegate_capability<S, A>(
-        mut self,
-        capability: Capability<S, A>,
-        authority: &Ucan,
-    ) -> Self
-    where
-        S: Scope,
-        A: Action,
-    {
-        let raw_capability: RawCapability = capability.into();
-        let result = match authority.encode() {
-            Ok(proof) => match serde_json::to_value(raw_capability) {
-                Ok(value) => {
-                    self.proofs.insert(proof);
-                    self.capabilities.push(value);
-                    Ok(())
-                }
-                Err(error) => Err(error).context("Unable to convert capability to JSON value"),
-            },
-            Err(error) => Err(error).context("Could not encode authoritative UCAN"),
-        };
+    /// Delegate all capabilities from a given proof to the audience of the UCAN
+    /// you're building
+    pub fn delegating_from(mut self, authority: &Ucan) -> Self {
+        match authority.encode() {
+            Ok(proof) => {
+                self.proofs.push(proof);
+                let proof_index = self.proofs.len() - 1;
+                let proof_delegation = ProofDelegationSemantics {};
+                let capability =
+                    proof_delegation.parse(format!("prf:{}", proof_index), "ucan/DELEGATE".into());
 
-        match result {
-            Err(error) => warn!("Could not delegate capability: {:?}", error),
-            _ => (),
+                match capability {
+                    Some(capability) => {
+                        let raw_capability: RawCapability = capability.into();
+                        match serde_json::to_value(raw_capability) {
+                            Ok(value) => self.capabilities.push(value),
+                            Err(error) => {
+                                warn!("Unable to convert capability to JSON value: {:?}", error);
+                            }
+                        }
+                    }
+                    None => warn!("Could not produce delegation capability"),
+                }
+            }
+            Err(error) => warn!("Could not encode authoritative UCAN: {:?}", error),
         };
 
         self
@@ -257,7 +272,7 @@ where
                         expiration,
                         facts: self.facts.clone(),
                         capabilities: self.capabilities.clone(),
-                        proofs: self.proofs.iter().map(|value| value.clone()).collect(),
+                        proofs: self.proofs.clone(),
                         add_nonce: self.add_nonce,
                     }),
                     None => Err(anyhow!("Ambiguous lifetime")),

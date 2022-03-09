@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::str;
 
 use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
-use crate::crypto::{verify_signature, SigningKey};
+use crate::crypto::verify_signature;
 use crate::time::now;
 
 #[derive(Serialize, Deserialize, Debug)]
