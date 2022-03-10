@@ -195,7 +195,7 @@ where
     /// Includes a UCAN in the list of proofs for the UCAN to be built.
     /// Note that the proof's audience must match this UCAN's issuer
     /// or else the proof chain will be invalidated!
-    pub fn with_proof(mut self, authority: &Ucan) -> Self {
+    pub fn witnessed_by(mut self, authority: &Ucan) -> Self {
         match authority.encode() {
             Ok(proof) => self.proofs.push(proof),
             Err(error) => warn!("Failed to add authority to proofs: {}", error),
@@ -205,13 +205,13 @@ where
     }
 
     /// Claim a capability by inheritance (from an authorizing proof) or
-    /// implicitly by ownership of the resource
-    pub fn claiming_capability<S, A>(mut self, capability: Capability<S, A>) -> Self
+    /// implicitly by ownership of the resource by this UCAN's issuer
+    pub fn claiming_capability<S, A>(mut self, capability: &Capability<S, A>) -> Self
     where
         S: Scope,
         A: Action,
     {
-        let raw_capability: RawCapability = capability.into();
+        let raw_capability: RawCapability = capability.clone().into();
 
         match serde_json::to_value(raw_capability) {
             Ok(value) => self.capabilities.push(value),

@@ -2,7 +2,7 @@ use crate::capability::{Action, CapabilitySemantics, Scope};
 use anyhow::{anyhow, Result};
 use url::Url;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct EmailAddress(String);
 
 impl Scope for EmailAddress {
@@ -13,7 +13,7 @@ impl Scope for EmailAddress {
 
 impl ToString for EmailAddress {
     fn to_string(&self) -> String {
-        self.0.clone()
+        format!("mailto:{}", self.0.clone())
     }
 }
 

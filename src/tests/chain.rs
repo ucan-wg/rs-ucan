@@ -1,8 +1,5 @@
 use super::fixtures::Identities;
-use crate::{
-    capability::{proof::ProofDelegationSemantics, CapabilitySemantics},
-    ProofChain, UcanBuilder,
-};
+use crate::{ProofChain, UcanBuilder};
 
 #[test]
 pub fn it_decodes_deep_ucan_chains() {
@@ -20,7 +17,7 @@ pub fn it_decodes_deep_ucan_chains() {
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
-        .with_proof(&leaf_ucan)
+        .witnessed_by(&leaf_ucan)
         .build()
         .unwrap()
         .sign()
@@ -53,7 +50,7 @@ pub fn it_fails_with_incorrect_chaining() {
         .issued_by(&identities.alice_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
-        .with_proof(&leaf_ucan)
+        .witnessed_by(&leaf_ucan)
         .build()
         .unwrap()
         .sign()
@@ -91,8 +88,8 @@ pub fn it_can_handle_multiple_leaves() {
         .issued_by(&identities.bob_key)
         .for_audience(identities.alice_did.as_str())
         .with_lifetime(50)
-        .with_proof(&leaf_ucan_1)
-        .with_proof(&leaf_ucan_2)
+        .witnessed_by(&leaf_ucan_1)
+        .witnessed_by(&leaf_ucan_2)
         .build()
         .unwrap()
         .sign()

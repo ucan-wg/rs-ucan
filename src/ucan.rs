@@ -163,6 +163,28 @@ impl Ucan {
         }
     }
 
+    /// Returns true if this UCAN's lifetime begins no later than the other
+    /// Note that if a UCAN specifies an NBF but the other does not, the
+    /// other has an unbounded start time and this function will return
+    /// false.
+    pub fn lifetime_begins_before(&self, other: &Ucan) -> bool {
+        match (self.payload.nbf, other.payload.nbf) {
+            (Some(nbf), Some(other_nbf)) => nbf <= other_nbf,
+            (Some(_), None) => false,
+            _ => true,
+        }
+    }
+
+    /// Returns true if this UCAN expires no earlier than the other
+    pub fn lifetime_ends_after(&self, other: &Ucan) -> bool {
+        self.payload.exp >= other.payload.exp
+    }
+
+    /// Returns true if this UCAN's lifetime fully encompasses the other
+    pub fn lifetime_encompasses(&self, other: &Ucan) -> bool {
+        self.lifetime_begins_before(other) && self.lifetime_ends_after(other)
+    }
+
     pub fn algorithm(&self) -> &String {
         &self.header.alg
     }

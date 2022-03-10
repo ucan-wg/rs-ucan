@@ -1,3 +1,4 @@
+mod attenuation;
 mod builder;
 mod chain;
 mod crypto;

@@ -42,7 +42,7 @@ impl ToString for WNFSCapLevel {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct WNFSScope {
     origin: String,
     path: String,
