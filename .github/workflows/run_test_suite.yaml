@@ -1,0 +1,17 @@
+on: push
+
+name: Run test suite
+
+jobs:
+  run-test-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-cargo-artifacts
+      - run: cargo test
+        shell: bash
