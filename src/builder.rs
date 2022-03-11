@@ -163,8 +163,8 @@ where
     /// The number of seconds into the future (relative to when build() is
     /// invoked) to set the expiration. This is ignored if an explicit expiration
     /// is set.
-    pub fn with_lifetime(mut self, lifetime: u64) -> Self {
-        self.lifetime = Some(lifetime);
+    pub fn with_lifetime(mut self, seconds: u64) -> Self {
+        self.lifetime = Some(seconds);
         self
     }
 

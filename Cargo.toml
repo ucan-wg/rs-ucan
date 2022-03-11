@@ -1,6 +1,19 @@
 [package]
-name = "rs-ucan"
-version = "0.2.0"
+name = "ucan"
+description = "Implement UCAN-based authorization with conciseness and ease!"
+keywords = ["ucan", "authz", "jwt", "pki"]
+categories = [
+  "authorization",
+  "cryptography",
+  "encoding",
+  "web-programming"
+]
+documentation = "https://docs.rs/ucan"
+repository = "https://github.com/cdata/rs-ucan/"
+homepage = "https://github.com/cdata/rs-ucan"
+license = "Apache-2.0"
+readme = "README.md"
+version = "0.3.0-alpha.1"
 edition = "2021"
 
 [features]

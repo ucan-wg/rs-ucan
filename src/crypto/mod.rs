@@ -4,7 +4,7 @@ pub mod rsa;
 pub mod did;
 
 use anyhow::{anyhow, Result};
-pub use did_key::{CoreSign, Ed25519KeyPair, Fingerprint, KeyPair};
+pub use did_key::{CoreSign, Ed25519KeyPair, Fingerprint, Generate, KeyPair};
 
 /// This trait must be implemented by a struct that encapsulates cryptographic
 /// keypair data. It depends on traits from the did-key crate, which are
