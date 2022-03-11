@@ -33,6 +33,7 @@ impl Identities {
         }
     }
 
+    #[allow(dead_code)]
     pub fn name_for(&self, did: String) -> String {
         match did {
             _ if did == self.alice_did => "alice".into(),
