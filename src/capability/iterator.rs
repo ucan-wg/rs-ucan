@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::Ucan;
+use crate::ucan::Ucan;
 
 use super::{Action, Capability, CapabilitySemantics, RawCapability, Scope};
 pub struct CapabilityIterator<'a, Semantics, S, A>

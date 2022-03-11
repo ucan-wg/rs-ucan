@@ -1,5 +1,6 @@
+use crate::{builder::UcanBuilder, chain::ProofChain};
+
 use super::fixtures::Identities;
-use crate::{ProofChain, UcanBuilder};
 
 #[test]
 pub fn it_decodes_deep_ucan_chains() {

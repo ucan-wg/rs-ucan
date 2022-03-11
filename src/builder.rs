@@ -20,7 +20,7 @@ use crate::ucan::Ucan;
 /// but has not yet been signed.
 /// NOTE: This may be useful for bespoke signing flows down the road. It is
 /// meant to approximate the way that ts-ucan produces an unsigned intermediate
-/// artifact (e.g., https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278)
+/// artifact (e.g., <https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278>)
 pub struct Signable<'a, K>
 where
     K: SigningKey,
@@ -44,6 +44,7 @@ where
 {
     pub const UCAN_VERSION: &'static str = "0.8.1";
 
+    /// The header field components of the UCAN JWT
     pub fn ucan_header(&self) -> UcanHeader {
         UcanHeader {
             alg: self.issuer.get_jwt_algorithm_name(),
@@ -52,6 +53,7 @@ where
         }
     }
 
+    /// The payload field components of the UCAN JWT
     pub fn ucan_payload(&self) -> UcanPayload {
         let nonce = match self.add_nonce {
             true => Some(TextNonce::new().to_string()),
@@ -70,6 +72,8 @@ where
         }
     }
 
+    /// Produces a Ucan, which contains finalized UCAN fields along with signed
+    /// data suitable for encoding as a JWT token string
     pub fn sign(&self) -> Result<Ucan> {
         let header = self.ucan_header();
         let payload = self.ucan_payload();

@@ -1,11 +1,11 @@
 use std::collections::BTreeSet;
 
-use super::fixtures::EmailSemantics;
-use super::fixtures::Identities;
+use super::fixtures::{EmailSemantics, Identities};
 use crate::capability::CapabilitySemantics;
-use crate::chain::CapabilityInfo;
-use crate::ProofChain;
-use crate::UcanBuilder;
+use crate::{
+    builder::UcanBuilder,
+    chain::{CapabilityInfo, ProofChain},
+};
 
 #[test]
 pub fn it_works_with_a_simple_example() {

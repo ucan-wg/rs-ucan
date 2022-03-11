@@ -1,8 +1,8 @@
 use crate::{
+    builder::UcanBuilder,
     capability::{CapabilitySemantics, RawCapability},
     tests::fixtures::{EmailSemantics, Identities, WNFSSemantics},
     time::now,
-    UcanBuilder,
 };
 use serde_json::json;
 

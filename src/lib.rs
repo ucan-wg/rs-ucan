@@ -1,16 +1,14 @@
 #[macro_use]
 extern crate log;
 
-mod builder;
-mod capability;
-mod chain;
-mod crypto;
-mod time;
-mod ucan;
+pub mod crypto;
+pub mod time;
+// pub mod ucan;
 
-pub use builder::{Signable, UcanBuilder};
-pub use chain::ProofChain;
-pub use ucan::Ucan;
+pub mod builder;
+pub mod capability;
+pub mod chain;
+pub mod ucan;
 
 #[cfg(test)]
 mod tests;

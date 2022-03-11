@@ -1,5 +1,5 @@
 mod validate {
-    use crate::{tests::fixtures::Identities, time::now, Ucan, UcanBuilder};
+    use crate::{builder::UcanBuilder, tests::fixtures::Identities, time::now, ucan::Ucan};
 
     #[test]
     fn it_round_trips_with_encode() {
