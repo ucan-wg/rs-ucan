@@ -23,9 +23,9 @@ impl Identities {
         let mallory_key = KeyPair::from(Ed25519KeyPair::from_secret_key(&base64::decode("LR9AL2MYkMARuvmV3MJV8sKvbSOdBtpggFCW8K62oZDR6UViSXdSV/dDcD8S9xVjS61vh62JITx7qmLgfQUSZQ==".as_bytes()).unwrap().as_slice()[0..32]));
 
         Identities {
-            alice_did: alice_key.get_did(),
-            bob_did: bob_key.get_did(),
-            mallory_did: mallory_key.get_did(),
+            alice_did: alice_key.as_did(),
+            bob_did: bob_key.as_did(),
+            mallory_did: mallory_key.as_did(),
 
             alice_key,
             bob_key,

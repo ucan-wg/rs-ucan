@@ -11,14 +11,21 @@ pub use did_key::{CoreSign, Ed25519KeyPair, Fingerprint, Generate, KeyPair};
 /// republished in this module. Together, the traits represent the minimum
 /// required API capability for producing a signed UCAN from a cryptographic
 /// keypair.
-pub trait SigningKey: CoreSign + Fingerprint + Sized {
-    fn try_from_did(did: String) -> Result<Self>;
-
+pub trait SigningKey: Sized {
     fn get_jwt_algorithm_name(&self) -> String;
 
-    fn get_did(&self) -> String {
+    fn try_from_did(did: String) -> Result<Self>;
+
+    fn as_did(&self) -> String;
+
+    fn sign(&self, payload: &[u8]) -> Vec<u8>;
+
+    fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()>;
+
+    /*
+     {
         format!("did:key:{}", self.fingerprint())
-    }
+    }*/
 }
 
 impl SigningKey for KeyPair {
@@ -31,6 +38,19 @@ impl SigningKey for KeyPair {
 
     fn try_from_did(did: String) -> Result<Self> {
         did_key::resolve(&did).map_err(|_| anyhow!("Failed to parse DID: {}", did))
+    }
+
+    fn as_did(&self) -> String {
+        todo!()
+    }
+
+    fn sign(&self, payload: &[u8]) -> Vec<u8> {
+        // use did_key::CoreSign;
+        self.sign(payload)
+    }
+
+    fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()> {
+        todo!()
     }
 }
 

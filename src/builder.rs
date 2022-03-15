@@ -62,7 +62,7 @@ where
 
         UcanPayload {
             aud: self.audience.clone(),
-            iss: self.issuer.get_did(),
+            iss: self.issuer.as_did(),
             exp: self.expiration,
             nbf: self.not_before,
             nnc: nonce,

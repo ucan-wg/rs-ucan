@@ -17,7 +17,7 @@ mod did_from_keypair {
         );
 
         let expected_did = "did:key:z4MXj1wBzi9jUstyNvmiK5WLRRL4rr9UvzPxhry1CudCLKWLyMbP1WoTwDfttBTpxDKf5hAJEjqNbeYx2EEvrJmSWHAu7TJRPTrE3QodbMfRvRNRDyYvaN1FSQus2ziS1rWXwAi5Gpc16bY3JwjyLCPJLfdRWHZhRXiay5FWEkfoSKy6aftnzAvqNkKBg2AxgzGMinR6d1WiH4w5mEXFtUeZkeo4uwtRTd8rD9BoVaHVkGwJkksDybE23CsBNXiNfbweFVRcwfTMhcQsTsYhUWDcSC6QE3zt9h4Rsrj7XRYdwYSK5bc1qFRsg5HULKBp2uZ1gcayiW2FqHFcMRjBieC4LnSMSD1AZB1WUncVRbPpVkn1UGhCU";
-        let result_did = keypair.get_did();
+        let result_did = keypair.as_did();
 
         assert_eq!(expected_did, result_did.as_str());
     }
@@ -28,7 +28,7 @@ mod did_from_keypair {
         let keypair = KeyPair::Ed25519(Ed25519KeyPair::from_public_key(&pub_key));
 
         let expected_did = "did:key:z6MkgYGF3thn8k1Fv4p4dWXKtsXCnLH7q9yw4QgNPULDmDKB";
-        let result_did = keypair.get_did();
+        let result_did = keypair.as_did();
 
         assert_eq!(expected_did, result_did.as_str());
     }
@@ -40,8 +40,41 @@ mod did_from_keypair {
         let keypair = KeyPair::Bls12381G1G2(Bls12381KeyPairs::from_public_key(&pub_key));
 
         let expected_did = "did:key:z6HpYD1br5P4QVh5rjRGAkBfKMWes44uhKmKdJ6dN2Nm9gHK";
-        let result_did = keypair.get_did();
+        let result_did = keypair.as_did();
 
         assert_eq!(expected_did, result_did.as_str());
+    }
+}
+
+pub mod web {
+    use crate::builder::UcanBuilder;
+    use crate::crypto::rsa::web::WebCryptoRsaKeyPair;
+    use crate::crypto::SigningKey;
+    use crate::tests::fixtures::Identities;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    async fn it_can_generate_a_keypair() {
+        let signing_key = WebCryptoRsaKeyPair::generate().await;
+        assert!(signing_key.is_ok());
+    }
+
+    #[wasm_bindgen_test]
+    async fn it_can_sign_a_ucan_with_a_web_crypto_key() {
+        let identities = Identities::new();
+        let signing_key = WebCryptoRsaKeyPair::generate().await.unwrap();
+
+        UcanBuilder::new()
+            .issued_by(&signing_key)
+            .for_audience(identities.alice_did.as_str())
+            .with_lifetime(60)
+            .build()
+            .unwrap()
+            .sign()
+            .unwrap()
+            .encode()
+            .unwrap();
     }
 }

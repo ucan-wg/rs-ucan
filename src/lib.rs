@@ -73,4 +73,4 @@ pub mod chain;
 pub mod ucan;
 
 #[cfg(test)]
-mod tests;
+pub mod tests;

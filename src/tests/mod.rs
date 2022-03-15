@@ -1,6 +1,6 @@
 mod attenuation;
 mod builder;
 mod chain;
-mod crypto;
+pub mod crypto;
 mod fixtures;
 mod ucan;

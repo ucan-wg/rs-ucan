@@ -20,6 +20,9 @@ edition = "2021"
 default = ["rsa_support"]
 rsa_support = ["rsa", "pkcs1", "did_url", "bs58"]
 
+[target.'cfg(target_arch="wasm32")']
+runner = "wasm-bindgen-test-runner"
+
 [dependencies]
 did-key = "0.1.1"
 anyhow = "1.0.52"
@@ -33,3 +36,22 @@ bs58 = { version = "0.4.0", optional = true }
 did_url = { version = "0.1.0", optional = true }
 rsa = { version = "0.5.0", optional = true, features = ["alloc"] }
 pkcs1 = { version = "0.2.3", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.29"
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+wasm-bindgen = "0.2.79"
+wasm-bindgen-futures = "0.4.29"
+js-sys = "0.3.56"
+
+[target.'cfg(target_arch="wasm32")'.dependencies.web-sys]
+version = "0.3.56"
+features = [
+  'Window',
+  'SubtleCrypto',
+  'Crypto',
+  'CryptoKey',
+  'CryptoKeyPair'
+]
+
