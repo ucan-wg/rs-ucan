@@ -33,7 +33,8 @@
 //! ```
 //!
 //! The crate also offers a validating parser to interpret UCAN tokens and
-//! the capabilities they grant via their issuer and/or witnessing proofs.
+//! the capabilities they grant via their issuer and/or witnessing proofs:
+//! the [`chain::ProofChain`].
 //!
 //! Most capabilities are closely tied to a specific application domain. See the
 //! [`capability`] module documentation to read more about defining your own
@@ -62,6 +63,11 @@
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```
+//!
+//! Note that you must bring your own key support in order to build a
+//! `ProofChain`, via a [`crypto::did::DidParser`]. This is so that the core
+//! library can remain agnostic of backing implementations for specific key
+//! types.
 //!
 //! [JWT docs]: https://jwt.io/
 //! [UCAN docs]: https://ucan.xyz/

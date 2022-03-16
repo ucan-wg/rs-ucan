@@ -11,6 +11,10 @@ pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
 
 pub const BASE58_DID_PREFIX: &str = "did:key:z";
 
+/// A parser that is able to convert from a DID string into a corresponding
+/// [`crypto::SigningKey`] implementation. The parser extracts the signature
+/// magic bytes from a given DID and tries to match them to a corresponding
+/// constructor function that produces a `SigningKey`.
 pub struct DidParser {
     key_constructors: KeyConstructors,
 }
