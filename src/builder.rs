@@ -8,7 +8,6 @@ use crate::{
     ucan::{UcanHeader, UcanPayload},
 };
 use anyhow::{anyhow, Context, Result};
-pub use did_key::CoreSign;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -89,7 +88,7 @@ where
         };
 
         let data_to_sign = Vec::from(format!("{}.{}", header_base64, payload_base64).as_bytes());
-        let signature = self.issuer.sign(data_to_sign.as_slice());
+        let signature = self.issuer.sign(data_to_sign.as_slice())?;
 
         Ok(Ucan::new(header, payload, data_to_sign, signature))
     }

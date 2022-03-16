@@ -1,10 +1,12 @@
-use crate::{builder::UcanBuilder, chain::ProofChain};
+use crate::{builder::UcanBuilder, chain::ProofChain, crypto::did::DidParser};
 
-use super::fixtures::Identities;
+use super::fixtures::{Identities, SUPPORTED_KEYS};
 
 #[test]
 pub fn it_decodes_deep_ucan_chains() {
     let identities = Identities::new();
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
+
     let leaf_ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
@@ -26,7 +28,7 @@ pub fn it_decodes_deep_ucan_chains() {
         .encode()
         .unwrap();
 
-    let chain = ProofChain::from_token_string(delegated_token.as_str()).unwrap();
+    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser).unwrap();
 
     assert_eq!(chain.ucan().audience(), &identities.mallory_did);
     assert_eq!(
@@ -38,6 +40,8 @@ pub fn it_decodes_deep_ucan_chains() {
 #[test]
 pub fn it_fails_with_incorrect_chaining() {
     let identities = Identities::new();
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
+
     let leaf_ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
@@ -59,7 +63,8 @@ pub fn it_fails_with_incorrect_chaining() {
         .encode()
         .unwrap();
 
-    let parse_token_result = ProofChain::from_token_string(delegated_token.as_str());
+    let parse_token_result =
+        ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser);
 
     assert!(parse_token_result.is_err());
 }
@@ -67,6 +72,8 @@ pub fn it_fails_with_incorrect_chaining() {
 #[test]
 pub fn it_can_handle_multiple_leaves() {
     let identities = Identities::new();
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
+
     let leaf_ucan_1 = UcanBuilder::new()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
@@ -98,5 +105,5 @@ pub fn it_can_handle_multiple_leaves() {
         .encode()
         .unwrap();
 
-    ProofChain::from_token_string(&delegated_token).unwrap();
+    ProofChain::try_from_token_string(&delegated_token, &did_parser).unwrap();
 }

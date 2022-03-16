@@ -42,8 +42,13 @@
 //! ```rust
 //! use ucan::{
 //!   chain::{ProofChain, CapabilityInfo},
-//!   capability::{CapabilitySemantics, Scope, Action}
+//!   capability::{CapabilitySemantics, Scope, Action},
+//!   crypto::did::{DidParser, KeyConstructorSlice}
 //! };
+//!
+//! const SUPPORTED_KEY_TYPES: &KeyConstructorSlice = &[
+//!     // You must bring your own key support
+//! ];
 //!
 //! fn get_capabilities<'a, Semantics, S, A>(ucan_token: &'a str, semantics: &'a Semantics) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
 //!     where
@@ -51,7 +56,9 @@
 //!         S: Scope,
 //!         A: Action
 //! {
-//!     Ok(ProofChain::from_token_string(ucan_token)?
+//!     let did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
+//!
+//!     Ok(ProofChain::try_from_token_string(ucan_token, &did_parser)?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```

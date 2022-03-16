@@ -1,9 +1,17 @@
 mod validate {
-    use crate::{builder::UcanBuilder, tests::fixtures::Identities, time::now, ucan::Ucan};
+    use crate::{
+        builder::UcanBuilder,
+        crypto::did::DidParser,
+        tests::fixtures::{Identities, SUPPORTED_KEYS},
+        time::now,
+        ucan::Ucan,
+    };
 
     #[test]
     fn it_round_trips_with_encode() {
         let identities = Identities::new();
+        let did_parser = DidParser::new(SUPPORTED_KEYS);
+
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
             .for_audience(identities.bob_did.as_str())
@@ -14,14 +22,15 @@ mod validate {
             .unwrap();
 
         let encoded_ucan = ucan.encode().unwrap();
-        let decoded_ucan = Ucan::from_token_string(encoded_ucan.as_str()).unwrap();
+        let decoded_ucan = Ucan::try_from_token_string(encoded_ucan.as_str()).unwrap();
 
-        decoded_ucan.validate().unwrap();
+        decoded_ucan.validate(&did_parser).unwrap();
     }
 
     #[test]
     fn it_identifies_a_ucan_that_is_not_active_yet() {
         let identities = Identities::new();
+
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
             .for_audience(identities.bob_did.as_str())

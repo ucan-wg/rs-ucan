@@ -1,37 +1,20 @@
-#[cfg(feature = "rsa_support")]
-pub mod rsa;
-
 pub mod did;
 
 use anyhow::{anyhow, Result};
-pub use did_key::{CoreSign, Ed25519KeyPair, Fingerprint, Generate, KeyPair};
 
 /// This trait must be implemented by a struct that encapsulates cryptographic
-/// keypair data. It depends on traits from the did-key crate, which are
-/// republished in this module. Together, the traits represent the minimum
-/// required API capability for producing a signed UCAN from a cryptographic
-/// keypair.
-pub trait SigningKey: CoreSign + Fingerprint + Sized {
-    fn try_from_did(did: String) -> Result<Self>;
-
+/// keypair data. The trait represent the minimum required API capability for
+/// producing a signed UCAN from a cryptographic keypair, and verifying such
+/// signatures.
+pub trait SigningKey {
     fn get_jwt_algorithm_name(&self) -> String;
+    fn get_did(&self) -> String;
 
-    fn get_did(&self) -> String {
-        format!("did:key:{}", self.fingerprint())
-    }
-}
+    /// Sign some data with this key
+    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>>;
 
-impl SigningKey for KeyPair {
-    fn get_jwt_algorithm_name(&self) -> String {
-        match self {
-            KeyPair::Ed25519(_) => "EdDSA".into(),
-            _ => "UNSUPPORTED".into(),
-        }
-    }
-
-    fn try_from_did(did: String) -> Result<Self> {
-        did_key::resolve(&did).map_err(|_| anyhow!("Failed to parse DID: {}", did))
-    }
+    /// Verify the alleged signature of some data against this key
+    fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()>;
 }
 
 /// Verify an alleged signature of some data given a DID

@@ -6,6 +6,7 @@ use crate::{
         proof::{ProofDelegationSemantics, ProofSelection},
         Action, Capability, CapabilityIterator, CapabilitySemantics, Resource, Scope, With,
     },
+    crypto::did::DidParser,
     ucan::Ucan,
 };
 use anyhow::{anyhow, Result};
@@ -43,13 +44,13 @@ pub struct ProofChain {
 }
 
 impl ProofChain {
-    pub fn from_ucan(ucan: Ucan) -> Result<ProofChain> {
-        ucan.validate()?;
+    pub fn from_ucan<'a>(ucan: Ucan, did_parser: &'a DidParser) -> Result<ProofChain> {
+        ucan.validate(did_parser)?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
         for proof_string in ucan.proofs().iter() {
-            let proof_chain = Self::from_token_string(proof_string)?;
+            let proof_chain = Self::try_from_token_string(proof_string, did_parser)?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -88,13 +89,16 @@ impl ProofChain {
         })
     }
 
-    pub async fn from_cid(_cid: &str) -> Result<ProofChain> {
+    pub async fn from_cid<'a>(_cid: &str, _did_parser: &'a DidParser) -> Result<ProofChain> {
         todo!("Resolving a proof from a CID not yet implemented")
     }
 
-    pub fn from_token_string(ucan_token_string: &str) -> Result<ProofChain> {
-        let ucan = Ucan::from_token_string(ucan_token_string)?;
-        Self::from_ucan(ucan)
+    pub fn try_from_token_string<'a>(
+        ucan_token_string: &str,
+        did_parser: &'a DidParser,
+    ) -> Result<ProofChain> {
+        let ucan = Ucan::try_from_token_string(ucan_token_string)?;
+        Self::from_ucan(ucan, did_parser)
     }
 
     fn validate_link_to(&self, ucan: &Ucan) -> Result<()> {
@@ -238,10 +242,10 @@ impl ProofChain {
     }
 }
 
-impl TryFrom<Ucan> for ProofChain {
-    fn try_from(ucan: Ucan) -> Result<Self> {
-        ProofChain::from_ucan(ucan)
-    }
+// impl TryFrom<Ucan> for ProofChain {
+//     fn try_from(ucan: Ucan) -> Result<Self> {
+//         ProofChain::from_ucan(ucan)
+//     }
 
-    type Error = anyhow::Error;
-}
+//     type Error = anyhow::Error;
+// }

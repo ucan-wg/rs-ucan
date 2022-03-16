@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str;
 
-use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
-use crate::crypto::verify_signature;
+// use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
+use crate::crypto::did::DidParser;
 use crate::time::now;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,7 +50,7 @@ impl Ucan {
     }
 
     /// Deserialize an encoded UCAN token string into a UCAN
-    pub fn from_token_string(ucan_token_string: &str) -> Result<Ucan> {
+    pub fn try_from_token_string<'a>(ucan_token_string: &str) -> Result<Ucan> {
         let signed_data = ucan_token_string
             .split('.')
             .take(2)
@@ -101,7 +101,7 @@ impl Ucan {
     }
 
     /// Validate the UCAN's signature and timestamps
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
         if self.is_expired() {
             return Err(anyhow!("Expired"));
         }
@@ -110,23 +110,13 @@ impl Ucan {
             return Err(anyhow!("Not active yet (too early)"));
         }
 
-        self.check_signature()
+        self.check_signature(did_parser)
     }
 
     /// Validate that the signed data was signed by the stated issuer
-    pub fn check_signature(&self) -> Result<()> {
-        let key = did_to_signing_key(self.payload.iss.clone())?;
-
-        match key {
-            SigningKeyResult::Ed25519(signing_key) => {
-                verify_signature(&self.signed_data, &self.signature, &signing_key)
-            }
-
-            #[cfg(feature = "rsa_support")]
-            SigningKeyResult::Rsa(signing_key) => {
-                verify_signature(&self.signed_data, &self.signature, &signing_key)
-            }
-        }
+    pub fn check_signature<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
+        let key = did_parser.parse(self.payload.iss.clone())?;
+        key.verify(&self.signed_data, &self.signature)
     }
 
     /// Produce a base64-encoded serialization of the UCAN suitable for

@@ -1,30 +1,40 @@
+use std::collections::BTreeMap;
+
 use anyhow::{anyhow, Result};
-use did_key::KeyPair;
 
 use super::SigningKey;
 
-#[cfg(feature = "rsa_support")]
-use super::rsa::RsaKeyPair;
+pub type DidPrefix = [u8; 2];
+pub type BytesToKey = fn(Vec<u8>) -> Box<dyn SigningKey>;
+pub type KeyConstructors = BTreeMap<DidPrefix, BytesToKey>;
+pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
 
-pub enum SigningKeyResult {
-    Ed25519(KeyPair),
+pub const BASE58_DID_PREFIX: &str = "did:key:z";
 
-    #[cfg(feature = "rsa_support")]
-    Rsa(RsaKeyPair),
+pub struct DidParser {
+    key_constructors: KeyConstructors,
 }
 
-pub fn did_to_signing_key(did: String) -> Result<SigningKeyResult> {
-    if !did.starts_with("did:key:") {
-        return Err(anyhow!("String is not a valid DID key: {}", did));
+impl DidParser {
+    pub fn new<'a>(key_constructor_slice: &'a KeyConstructorSlice) -> Self {
+        let mut key_constructors = BTreeMap::new();
+        for pair in key_constructor_slice {
+            key_constructors.insert(pair.0, pair.1);
+        }
+        DidParser { key_constructors }
     }
 
-    #[cfg(feature = "rsa_support")]
-    {
-        match RsaKeyPair::try_from_did(did.clone()) {
-            Ok(keypair) => return Ok(SigningKeyResult::Rsa(keypair)),
-            _ => (),
-        };
-    }
+    pub fn parse(&self, did: String) -> Result<Box<dyn SigningKey>> {
+        if !did.starts_with(BASE58_DID_PREFIX) {
+            return Err(anyhow!("Not a DID: {}", did));
+        }
 
-    KeyPair::try_from_did(did).map(|keypair| SigningKeyResult::Ed25519(keypair))
+        let did_bytes = bs58::decode(&did[BASE58_DID_PREFIX.len()..]).into_vec()?;
+        let magic_bytes = &did_bytes[0..2];
+
+        match self.key_constructors.get(magic_bytes) {
+            Some(ctor) => Ok(ctor(Vec::from(&did_bytes[2..]))),
+            None => Err(anyhow!("Unrecognized magic bytes: {:?}", magic_bytes)),
+        }
+    }
 }
