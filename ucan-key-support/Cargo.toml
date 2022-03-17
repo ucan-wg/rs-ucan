@@ -1,0 +1,40 @@
+[package]
+name = "ucan-key-support"
+description = "Ready to use SigningKey implementations for the ucan crate"
+edition = "2021"
+keywords = ["ucan", "authz", "jwt", "pki"]
+categories = [
+  "authorization",
+  "cryptography",
+  "encoding",
+  "web-programming"
+]
+documentation = "https://docs.rs/ucan"
+repository = "https://github.com/cdata/rs-ucan/"
+homepage = "https://github.com/cdata/rs-ucan"
+license = "Apache-2.0"
+readme = "README.md"
+version = "0.1.0-alpha.1"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+ucan = "0.3.0-alpha.4"
+anyhow = "1.0.52"
+ring = "0.16"
+bs58 = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2.79", optional = true }
+wasm-bindgen-futures = { version = "0.4.29", optional = true }
+js-sys = { version = "0.3.56", optional = true }
+
+[target.'cfg(target_arch="wasm32")'.dependencies.web-sys]
+version = "0.3.56"
+optional = true
+features = [
+  'Window',
+  'SubtleCrypto',
+  'Crypto',
+  'CryptoKey',
+  'CryptoKeyPair'
+]
