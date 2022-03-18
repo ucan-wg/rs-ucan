@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use anyhow::{anyhow, Result};
 
-use super::SigningKey;
+use super::KeyMaterial;
 
 pub type DidPrefix = [u8; 2];
-pub type BytesToKey = fn(Vec<u8>) -> Box<dyn SigningKey>;
+pub type BytesToKey = fn(Vec<u8>) -> Box<dyn KeyMaterial>;
 pub type KeyConstructors = BTreeMap<DidPrefix, BytesToKey>;
 pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
 
@@ -28,7 +28,7 @@ impl DidParser {
         DidParser { key_constructors }
     }
 
-    pub fn parse(&self, did: String) -> Result<Box<dyn SigningKey>> {
+    pub fn parse(&self, did: String) -> Result<Box<dyn KeyMaterial>> {
         if !did.starts_with(BASE58_DID_PREFIX) {
             return Err(anyhow!("Not a DID: {}", did));
         }

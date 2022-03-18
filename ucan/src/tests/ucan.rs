@@ -7,8 +7,8 @@ mod validate {
         ucan::Ucan,
     };
 
-    #[test]
-    fn it_round_trips_with_encode() {
+    #[tokio::test]
+    async fn it_round_trips_with_encode() {
         let identities = Identities::new();
         let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -19,16 +19,17 @@ mod validate {
             .build()
             .unwrap()
             .sign()
+            .await
             .unwrap();
 
         let encoded_ucan = ucan.encode().unwrap();
         let decoded_ucan = Ucan::try_from_token_string(encoded_ucan.as_str()).unwrap();
 
-        decoded_ucan.validate(&did_parser).unwrap();
+        decoded_ucan.validate(&did_parser).await.unwrap();
     }
 
-    #[test]
-    fn it_identifies_a_ucan_that_is_not_active_yet() {
+    #[tokio::test]
+    async fn it_identifies_a_ucan_that_is_not_active_yet() {
         let identities = Identities::new();
 
         let ucan = UcanBuilder::new()
@@ -39,13 +40,14 @@ mod validate {
             .build()
             .unwrap()
             .sign()
+            .await
             .unwrap();
 
         assert!(ucan.is_too_early());
     }
 
-    #[test]
-    fn it_identifies_a_ucan_that_has_become_active() {
+    #[tokio::test]
+    async fn it_identifies_a_ucan_that_has_become_active() {
         let identities = Identities::new();
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
@@ -55,6 +57,7 @@ mod validate {
             .build()
             .unwrap()
             .sign()
+            .await
             .unwrap();
 
         assert!(!ucan.is_too_early());

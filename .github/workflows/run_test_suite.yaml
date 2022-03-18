@@ -8,13 +8,37 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
+        if: always()
         with:
           path: |
             ~/.cargo
             ./target
           key: ${{ runner.os }}-cargo-artifacts
-      - run: cargo test
+      - name: 'Run tests'
+        run: cargo test
         shell: bash
+      - name: 'Setup Browserstack environment'
+        uses: 'browserstack/github-actions/setup-env@master'
+        with:
+          username: ${{ secrets.BROWSERSTACK_USERNAME }}
+          access-key: ${{ secrets.BROWSERSTACK_TOKEN }}
+          build-name: BUILD_INFO
+          project-name: REPO_NAME
+      - name: 'Open connection to Browserstack'
+        uses: 'browserstack/github-actions/setup-local@master'
+        with:
+          local-testing: start
+          local-identifier: random
+      - name: 'Run browser tests for ucan-key-support crate'
+        run: |
+          cd ./ucan-key-support
+          BROWSERSTACK=1 ./scripts/run_browser_tests.sh
+        shell: bash
+      - name: 'Close connection to Browserstack'
+        uses: browserstack/github-actions/setup-local@master
+        if: always()
+        with:
+          local-testing: stop
   publish-release:
     runs-on: ubuntu-latest
     needs: [run-test-suite]

@@ -1,5 +1,5 @@
 [workspace]
 members = [
   "ucan",
-  "ucan-key-support"
+  "ucan-key-support",
 ]

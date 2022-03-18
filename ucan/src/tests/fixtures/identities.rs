@@ -1,6 +1,6 @@
 use did_key::{Ed25519KeyPair, Generate, KeyPair};
 
-use crate::crypto::SigningKey;
+use crate::crypto::KeyMaterial;
 
 pub struct Identities {
     pub alice_key: KeyPair,

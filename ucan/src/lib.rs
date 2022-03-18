@@ -18,16 +18,16 @@
 //! ```rust
 //! use ucan::{
 //!   builder::UcanBuilder,
-//!   crypto::SigningKey,
+//!   crypto::KeyMaterial,
 //! };
 //!
-//! fn generate_token<'a, K: SigningKey>(issuer_key: &'a K, audience_did: &'a str) -> Result<String, anyhow::Error> {
+//! async fn generate_token<'a, K: KeyMaterial>(issuer_key: &'a K, audience_did: &'a str) -> Result<String, anyhow::Error> {
 //!     UcanBuilder::new()
 //!       .issued_by(issuer_key)
 //!       .for_audience(audience_did)
 //!       .with_lifetime(60)
 //!       .build()?
-//!       .sign()?
+//!       .sign().await?
 //!       .encode()
 //! }
 //! ```
@@ -51,7 +51,7 @@
 //!     // You must bring your own key support
 //! ];
 //!
-//! fn get_capabilities<'a, Semantics, S, A>(ucan_token: &'a str, semantics: &'a Semantics) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
+//! async fn get_capabilities<'a, Semantics, S, A>(ucan_token: &'a str, semantics: &'a Semantics) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
 //!     where
 //!         Semantics: CapabilitySemantics<S, A>,
 //!         S: Scope,
@@ -59,7 +59,7 @@
 //! {
 //!     let did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
 //!
-//!     Ok(ProofChain::try_from_token_string(ucan_token, &did_parser)?
+//!     Ok(ProofChain::try_from_token_string(ucan_token, &did_parser).await?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```

@@ -1,0 +1,6 @@
+{
+  "browserName": "chrome",
+  "goog:chromeOptions": {
+    "args": ["enable-features=SharedArrayBuffer"]
+  }
+}

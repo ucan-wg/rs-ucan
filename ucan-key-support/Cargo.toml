@@ -14,14 +14,31 @@ repository = "https://github.com/cdata/rs-ucan/"
 homepage = "https://github.com/cdata/rs-ucan"
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.1.0-alpha.1"
+version = "0.2.0-alpha.1"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+web = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "ucan/web"]
+
 [dependencies]
-ucan = "0.3.0-alpha.4"
+# ucan = "0.4.0-alpha.1"
+ucan = { path = "../ucan" }
 anyhow = "1.0.52"
-ring = "0.16"
+async-trait = "0.1.52"
+ed25519-zebra = "^3"
+rsa = "0.5.0"
 bs58 = "0.4"
+log = "0.4"
+
+[build-dependencies]
+npm_rs = "0.2.1"
+
+[dev-dependencies]
+rand = "0.8"
+# NOTE: This is needed so that rand can be included in WASM builds
+getrandom = { version = "0.2.5", features = ["js"] }
+wasm-bindgen-test = "0.3.29"
+pkcs8 = "0.7.5"
+tokio = { version = "^1", features = ["macros", "rt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.79", optional = true }
@@ -36,5 +53,9 @@ features = [
   'SubtleCrypto',
   'Crypto',
   'CryptoKey',
-  'CryptoKeyPair'
+  'CryptoKeyPair',
+  'DedicatedWorkerGlobalScope'
 ]
+
+[target.'cfg(target_arch="wasm32")'.dev-dependencies]
+pollster = "0.2.5"
