@@ -13,7 +13,7 @@ jobs:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-cargo-artifacts
+          key: ${{ runner.os }}-cargo-artifacts-${{ hashFiles('**/Cargo.toml') }}
       - name: 'Run tests'
         run: cargo test
         shell: bash
@@ -34,14 +34,6 @@ jobs:
           cd ./ucan-key-support
           BROWSERSTACK=1 ./scripts/run_browser_tests.sh
         shell: bash
-      - uses: actions/upload-artifact@v3
-        with:
-          name: webdriver.json
-          path: ./ucan-key-support/webdriver.json
-      - uses: actions/upload-artifact@v3
-        with:
-          name: browserstack_session.json
-          path: ./ucan-key-support/browserstack_session.json
       - name: 'Close connection to Browserstack'
         uses: browserstack/github-actions/setup-local@master
         if: always()
