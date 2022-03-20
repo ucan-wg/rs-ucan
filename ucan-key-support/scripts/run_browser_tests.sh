@@ -43,7 +43,7 @@ else
     echo $WEBDRIVER | jq ". + $BROWSERSTACK_SESSION" > webdriver.json
 
     cargo build --target wasm32-unknown-unknown --features web
-    RUST_LOG=trace WASM_BINDGEN_TEST_TIMEOUT=180 CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub \
+    RUST_LOG=trace WASM_BINDGEN_TEST_TIMEOUT=180 CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub/session \
         cargo test --target wasm32-unknown-unknown --features web -- --nocapture
 
     set +x
