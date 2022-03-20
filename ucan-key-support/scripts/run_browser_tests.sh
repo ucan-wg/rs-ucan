@@ -13,7 +13,9 @@ cargo install toml-cli
 
 WASM_BINDGEN_VERSION=`toml get ./Cargo.toml 'target."cfg(target_arch = \"wasm32\")".dependencies.wasm-bindgen.version' | xargs echo`
 
-cargo install wasm-bindgen-cli --vers $WASM_BINDGEN_VERSION
+# There is a wasm-bindgen-test-runner-bug
+# cargo install wasm-bindgen-cli --vers $WASM_BINDGEN_VERSION
+cargo install --git https://github.com/cdata/wasm-bindgen wasm-bindgen-cli
 
 if [ -z ${BROWSERSTACK+x} ]; then
     cargo install webdriver-install
