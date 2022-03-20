@@ -43,8 +43,8 @@ else
     echo $WEBDRIVER | jq ". + $BROWSERSTACK_SESSION" > webdriver.json
 
     cargo build --target wasm32-unknown-unknown --features web
-    CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub/ \
-        cargo test --target wasm32-unknown-unknown --features web
+    RUST_LOG=debug CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub/ \
+        cargo test --target wasm32-unknown-unknown --features web -- --nocapture
 
     set +x
 fi
