@@ -46,7 +46,7 @@ else
 
     cargo build --target wasm32-unknown-unknown --features web
     CHROMEDRIVER_REMOTE=https://hub-cloud.browserstack.com/wd/hub/ \
-        cargo test --target wasm32-unknown-unknown --features web -- --nocapture
+        cargo test --target wasm32-unknown-unknown --features web
 
     set +x
 fi
