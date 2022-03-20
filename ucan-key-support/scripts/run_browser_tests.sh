@@ -35,6 +35,8 @@ else
     \"browserstack.user\": \"$BROWSERSTACK_USERNAME\",
     \"browserstack.key\": \"$BROWSERSTACK_ACCESS_KEY\"
 }"
+
+    echo "$BROWSERSTACK_SESSION" > ./browserstack_session.json
     # TODO: Locate webdriver.json relative to script being invoked..
     cat ./webdriver.json | jq ". + $BROWSERSTACK_SESSION" > ./webdriver.json
 
