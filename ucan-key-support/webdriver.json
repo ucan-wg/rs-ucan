@@ -1,6 +1,6 @@
 {
   "os": "Windows",
   "os_version": "11",
-  "browserName": "chrome",
+  "browser": "chrome",
   "browser_version": "latest"
 }
