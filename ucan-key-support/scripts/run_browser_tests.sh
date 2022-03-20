@@ -23,6 +23,8 @@ if [ -z ${BROWSERSTACK+x} ]; then
         cargo test --target wasm32-unknown-unknown --features web
 else
 
+    set -x
+
     if [ -z `which jq` ]; then
         sudo apt install jq
     fi
@@ -36,13 +38,14 @@ else
     \"browserstack.key\": \"$BROWSERSTACK_ACCESS_KEY\"
 }"
 
-    echo "$BROWSERSTACK_SESSION" > ./browserstack_session.json
     # TODO: Locate webdriver.json relative to script being invoked..
     cat ./webdriver.json | jq ". + $BROWSERSTACK_SESSION" > ./webdriver.json
 
     cat ./webdriver.json
 
     cargo build --target wasm32-unknown-unknown --features web
-    # CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub \
-    #     cargo test --target wasm32-unknown-unknown --features web
+    CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub \
+        cargo test --target wasm32-unknown-unknown --features web
+
+    set +x
 fi
