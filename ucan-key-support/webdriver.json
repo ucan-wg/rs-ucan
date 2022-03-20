@@ -1,4 +1,6 @@
 {
+  "os": "windows",
+  "os_version": "11",
   "browserName": "chrome",
-  "browserVersion": "latest"
+  "browser_version": "latest"
 }
