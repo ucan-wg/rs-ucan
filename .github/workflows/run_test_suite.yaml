@@ -34,6 +34,10 @@ jobs:
           cd ./ucan-key-support
           BROWSERSTACK=1 ./scripts/run_browser_tests.sh
         shell: bash
+      - uses: actions/upload-artifact@v3
+        with:
+          name: webdriver.json
+          path: ./ucan-key-support/webdriver.json
       - name: 'Close connection to Browserstack'
         uses: browserstack/github-actions/setup-local@master
         if: always()
