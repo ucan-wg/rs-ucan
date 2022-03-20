@@ -1,5 +1,5 @@
 {
-  "os": "windows",
+  "os": "Windows",
   "os_version": "11",
   "browserName": "chrome",
   "browser_version": "latest"
