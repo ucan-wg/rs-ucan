@@ -32,7 +32,7 @@ else
     BROWSERSTACK_SESSION="{
     \"build\": \"$BROWSERSTACK_BUILD_NAME\",
     \"project\": \"$BROWSERSTACK_PROJECT_NAME\",
-    \"browserstack.local\": true,
+    \"browserstack.local\": \"true\",
     \"browserstack.localIdentifier\": \"$BROWSERSTACK_LOCAL_IDENTIFIER\",
     \"browserstack.user\": \"$BROWSERSTACK_USERNAME\",
     \"browserstack.key\": \"$BROWSERSTACK_ACCESS_KEY\"
