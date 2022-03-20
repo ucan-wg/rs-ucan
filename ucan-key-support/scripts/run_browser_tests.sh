@@ -39,9 +39,8 @@ else
 }"
 
     # TODO: Locate webdriver.json relative to script being invoked..
-    cat ./webdriver.json | jq ". + $BROWSERSTACK_SESSION" > ./webdriver.json
-
-    cat ./webdriver.json
+    WEBDRIVER="`cat ./webdriver.json`"
+    echo $WEBDRIVER | jq ". + $BROWSERSTACK_SESSION" > webdriver.json
 
     cargo build --target wasm32-unknown-unknown --features web
     CHROMEDRIVER_REMOTE=http://hub-cloud.browserstack.com/wd/hub \
