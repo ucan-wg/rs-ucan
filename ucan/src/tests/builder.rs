@@ -6,8 +6,8 @@ use crate::{
 };
 use serde_json::json;
 
-#[test]
-fn it_builds_with_a_simple_example() {
+#[tokio::test]
+async fn it_builds_with_a_simple_example() {
     let identities = Identities::new();
 
     let fact_1 = json!({
@@ -49,7 +49,7 @@ fn it_builds_with_a_simple_example() {
         .build()
         .unwrap();
 
-    let ucan = token.sign().unwrap();
+    let ucan = token.sign().await.unwrap();
 
     assert_eq!(*ucan.issuer(), identities.alice_did);
     assert_eq!(*ucan.audience(), identities.bob_did);
@@ -67,8 +67,8 @@ fn it_builds_with_a_simple_example() {
     assert!(ucan.nonce().is_some());
 }
 
-#[test]
-fn it_builds_with_lifetime_in_seconds() {
+#[tokio::test]
+async fn it_builds_with_lifetime_in_seconds() {
     let identities = Identities::new();
 
     let ucan = UcanBuilder::new()
@@ -78,13 +78,14 @@ fn it_builds_with_lifetime_in_seconds() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     assert!(*ucan.expires_at() > (now() + 290));
 }
 
-#[test]
-fn it_prevents_duplicate_proofs() {
+#[tokio::test]
+async fn it_prevents_duplicate_proofs() {
     let wnfs_semantics = WNFSSemantics {};
 
     let parent_cap = wnfs_semantics
@@ -103,6 +104,7 @@ fn it_prevents_duplicate_proofs() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let attenuated_cap_1 = wnfs_semantics
@@ -129,6 +131,7 @@ fn it_prevents_duplicate_proofs() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     assert_eq!(*next_ucan.proofs(), Vec::from([ucan.encode().unwrap()]))

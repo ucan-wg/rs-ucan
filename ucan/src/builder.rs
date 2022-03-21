@@ -3,7 +3,7 @@ use crate::{
         proof::ProofDelegationSemantics, Action, Capability, CapabilitySemantics, RawCapability,
         Scope,
     },
-    crypto::SigningKey,
+    crypto::KeyMaterial,
     time::now,
     ucan::{UcanHeader, UcanPayload},
 };
@@ -22,7 +22,7 @@ use crate::ucan::Ucan;
 /// artifact (e.g., <https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278>)
 pub struct Signable<'a, K>
 where
-    K: SigningKey,
+    K: KeyMaterial,
 {
     pub issuer: Arc<&'a K>,
     pub audience: String,
@@ -39,7 +39,7 @@ where
 
 impl<'a, K> Signable<'a, K>
 where
-    K: SigningKey,
+    K: KeyMaterial,
 {
     pub const UCAN_VERSION: &'static str = "0.8.1";
 
@@ -73,7 +73,7 @@ where
 
     /// Produces a Ucan, which contains finalized UCAN fields along with signed
     /// data suitable for encoding as a JWT token string
-    pub fn sign(&self) -> Result<Ucan> {
+    pub async fn sign(&self) -> Result<Ucan> {
         let header = self.ucan_header();
         let payload = self.ucan_payload();
 
@@ -88,7 +88,7 @@ where
         };
 
         let data_to_sign = Vec::from(format!("{}.{}", header_base64, payload_base64).as_bytes());
-        let signature = self.issuer.sign(data_to_sign.as_slice())?;
+        let signature = self.issuer.sign(data_to_sign.as_slice()).await?;
 
         Ok(Ucan::new(header, payload, data_to_sign, signature))
     }
@@ -98,7 +98,7 @@ where
 #[derive(Clone)]
 pub struct UcanBuilder<'a, K>
 where
-    K: SigningKey,
+    K: KeyMaterial,
 {
     issuer: Option<Arc<&'a K>>,
     audience: Option<String>,
@@ -116,7 +116,7 @@ where
 
 impl<'a, K> UcanBuilder<'a, K>
 where
-    K: SigningKey,
+    K: KeyMaterial,
 {
     /// Create an empty builder.
     /// Before finalising the builder, you need to at least call:

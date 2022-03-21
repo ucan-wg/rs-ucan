@@ -8,8 +8,8 @@ use crate::{
     crypto::did::DidParser,
 };
 
-#[test]
-pub fn it_works_with_a_simple_example() {
+#[tokio::test]
+pub async fn it_works_with_a_simple_example() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -26,6 +26,7 @@ pub fn it_works_with_a_simple_example() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let attenuated_token = UcanBuilder::new()
@@ -37,11 +38,14 @@ pub fn it_works_with_a_simple_example() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap()
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(attenuated_token.as_str(), &did_parser).unwrap();
+    let chain = ProofChain::try_from_token_string(attenuated_token.as_str(), &did_parser)
+        .await
+        .unwrap();
 
     let capability_infos = chain.reduce_capabilities(&email_semantics);
 
@@ -56,8 +60,8 @@ pub fn it_works_with_a_simple_example() {
     assert_eq!(info.capability.can().to_string().as_str(), "email/SEND");
 }
 
-#[test]
-pub fn it_reports_the_first_issuer_in_the_chain_as_originator() {
+#[tokio::test]
+pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -73,6 +77,7 @@ pub fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let ucan_token = UcanBuilder::new()
@@ -84,11 +89,13 @@ pub fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap()
         .encode()
         .unwrap();
 
     let capability_infos = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+        .await
         .unwrap()
         .reduce_capabilities(&email_semantics);
 
@@ -103,8 +110,8 @@ pub fn it_reports_the_first_issuer_in_the_chain_as_originator() {
     assert_eq!(info.capability, send_email_as_bob);
 }
 
-#[test]
-pub fn it_finds_the_right_proof_chain_for_the_originator() {
+#[tokio::test]
+pub async fn it_finds_the_right_proof_chain_for_the_originator() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -124,6 +131,7 @@ pub fn it_finds_the_right_proof_chain_for_the_originator() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let leaf_ucan_bob = UcanBuilder::new()
@@ -134,6 +142,7 @@ pub fn it_finds_the_right_proof_chain_for_the_originator() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let ucan = UcanBuilder::new()
@@ -147,11 +156,14 @@ pub fn it_finds_the_right_proof_chain_for_the_originator() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser).unwrap();
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+        .await
+        .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);
 
     assert_eq!(capability_infos.len(), 2);
@@ -180,8 +192,8 @@ pub fn it_finds_the_right_proof_chain_for_the_originator() {
     );
 }
 
-#[test]
-pub fn it_reports_all_chain_options() {
+#[tokio::test]
+pub async fn it_reports_all_chain_options() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -198,6 +210,7 @@ pub fn it_reports_all_chain_options() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let leaf_ucan_bob = UcanBuilder::new()
@@ -208,6 +221,7 @@ pub fn it_reports_all_chain_options() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let ucan = UcanBuilder::new()
@@ -220,11 +234,14 @@ pub fn it_reports_all_chain_options() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser).unwrap();
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+        .await
+        .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);
 
     assert_eq!(capability_infos.len(), 1);

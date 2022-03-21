@@ -1,3 +1,4 @@
+use async_recursion::async_recursion;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
@@ -44,13 +45,14 @@ pub struct ProofChain {
 }
 
 impl ProofChain {
-    pub fn from_ucan<'a>(ucan: Ucan, did_parser: &'a DidParser) -> Result<ProofChain> {
-        ucan.validate(did_parser)?;
+    #[async_recursion(?Send)]
+    pub async fn from_ucan<'a>(ucan: Ucan, did_parser: &'a DidParser) -> Result<ProofChain> {
+        ucan.validate(did_parser).await?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
         for proof_string in ucan.proofs().iter() {
-            let proof_chain = Self::try_from_token_string(proof_string, did_parser)?;
+            let proof_chain = Self::try_from_token_string(proof_string, did_parser).await?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -93,12 +95,12 @@ impl ProofChain {
         todo!("Resolving a proof from a CID not yet implemented")
     }
 
-    pub fn try_from_token_string<'a>(
+    pub async fn try_from_token_string<'a>(
         ucan_token_string: &str,
         did_parser: &'a DidParser,
     ) -> Result<ProofChain> {
         let ucan = Ucan::try_from_token_string(ucan_token_string)?;
-        Self::from_ucan(ucan, did_parser)
+        Self::from_ucan(ucan, did_parser).await
     }
 
     fn validate_link_to(&self, ucan: &Ucan) -> Result<()> {

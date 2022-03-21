@@ -101,7 +101,7 @@ impl Ucan {
     }
 
     /// Validate the UCAN's signature and timestamps
-    pub fn validate<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
+    pub async fn validate<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
         if self.is_expired() {
             return Err(anyhow!("Expired"));
         }
@@ -110,13 +110,13 @@ impl Ucan {
             return Err(anyhow!("Not active yet (too early)"));
         }
 
-        self.check_signature(did_parser)
+        self.check_signature(did_parser).await
     }
 
     /// Validate that the signed data was signed by the stated issuer
-    pub fn check_signature<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
+    pub async fn check_signature<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
         let key = did_parser.parse(self.payload.iss.clone())?;
-        key.verify(&self.signed_data, &self.signature)
+        key.verify(&self.signed_data, &self.signature).await
     }
 
     /// Produce a base64-encoded serialization of the UCAN suitable for

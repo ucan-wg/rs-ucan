@@ -1,7 +1,7 @@
 mod did_from_keypair {
     use did_key::{Bls12381KeyPairs, Ed25519KeyPair, Generate, KeyPair};
 
-    use crate::crypto::SigningKey;
+    use crate::crypto::KeyMaterial;
 
     #[cfg(feature = "rsa_support")]
     #[test]

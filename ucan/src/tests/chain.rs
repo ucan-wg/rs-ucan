@@ -2,8 +2,8 @@ use crate::{builder::UcanBuilder, chain::ProofChain, crypto::did::DidParser};
 
 use super::fixtures::{Identities, SUPPORTED_KEYS};
 
-#[test]
-pub fn it_decodes_deep_ucan_chains() {
+#[tokio::test]
+pub async fn it_decodes_deep_ucan_chains() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -14,6 +14,7 @@ pub fn it_decodes_deep_ucan_chains() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let delegated_token = UcanBuilder::new()
@@ -24,11 +25,14 @@ pub fn it_decodes_deep_ucan_chains() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap()
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser).unwrap();
+    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser)
+        .await
+        .unwrap();
 
     assert_eq!(chain.ucan().audience(), &identities.mallory_did);
     assert_eq!(
@@ -37,8 +41,8 @@ pub fn it_decodes_deep_ucan_chains() {
     );
 }
 
-#[test]
-pub fn it_fails_with_incorrect_chaining() {
+#[tokio::test]
+pub async fn it_fails_with_incorrect_chaining() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -49,6 +53,7 @@ pub fn it_fails_with_incorrect_chaining() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let delegated_token = UcanBuilder::new()
@@ -59,18 +64,19 @@ pub fn it_fails_with_incorrect_chaining() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap()
         .encode()
         .unwrap();
 
     let parse_token_result =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser);
+        ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser).await;
 
     assert!(parse_token_result.is_err());
 }
 
-#[test]
-pub fn it_can_handle_multiple_leaves() {
+#[tokio::test]
+pub async fn it_can_handle_multiple_leaves() {
     let identities = Identities::new();
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
@@ -81,6 +87,7 @@ pub fn it_can_handle_multiple_leaves() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let leaf_ucan_2 = UcanBuilder::new()
@@ -90,6 +97,7 @@ pub fn it_can_handle_multiple_leaves() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap();
 
     let delegated_token = UcanBuilder::new()
@@ -101,9 +109,12 @@ pub fn it_can_handle_multiple_leaves() {
         .build()
         .unwrap()
         .sign()
+        .await
         .unwrap()
         .encode()
         .unwrap();
 
-    ProofChain::try_from_token_string(&delegated_token, &did_parser).unwrap();
+    ProofChain::try_from_token_string(&delegated_token, &did_parser)
+        .await
+        .unwrap();
 }
