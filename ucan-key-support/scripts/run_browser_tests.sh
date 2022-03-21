@@ -13,7 +13,7 @@ cargo install toml-cli
 
 WASM_BINDGEN_VERSION=`toml get ./Cargo.toml 'target."cfg(target_arch = \"wasm32\")".dependencies.wasm-bindgen.version' | xargs echo`
 
-# There is a wasm-bindgen-test-runner-bug
+# See: https://github.com/rustwasm/wasm-bindgen/issues/2841
 # cargo install wasm-bindgen-cli --vers $WASM_BINDGEN_VERSION
 cargo install --git https://github.com/cdata/wasm-bindgen wasm-bindgen-cli
 
