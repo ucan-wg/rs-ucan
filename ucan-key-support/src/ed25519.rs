@@ -9,7 +9,7 @@ use ucan::crypto::KeyMaterial;
 
 pub const ED25519_MAGIC_BYTES: &[u8] = &[0xed, 0x01];
 
-pub struct Ed25519KeyMaterial<'a>(pub &'a Ed25519PublicKey, Option<&'a Ed25519PrivateKey>);
+pub struct Ed25519KeyMaterial<'a>(pub &'a Ed25519PublicKey, pub Option<&'a Ed25519PrivateKey>);
 
 #[cfg_attr(feature = "web", async_trait(?Send))]
 #[cfg_attr(not(feature = "web"), async_trait)]
