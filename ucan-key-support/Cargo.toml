@@ -20,8 +20,7 @@ version = "0.2.0-alpha.1"
 web = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "ucan/web"]
 
 [dependencies]
-# ucan = "0.4.0-alpha.1"
-ucan = { path = "../ucan" }
+ucan = "0.4.0-alpha.1"
 anyhow = "1.0.52"
 async-trait = "0.1.52"
 ed25519-zebra = "^3"
