@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use super::KeyMaterial;
 
 pub type DidPrefix = [u8; 2];
-pub type BytesToKey = fn(Vec<u8>) -> Box<dyn KeyMaterial>;
+pub type BytesToKey = fn(Vec<u8>) -> Result<Box<dyn KeyMaterial>>;
 pub type KeyConstructors = BTreeMap<DidPrefix, BytesToKey>;
 pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
 
@@ -37,7 +37,7 @@ impl DidParser {
         let magic_bytes = &did_bytes[0..2];
 
         match self.key_constructors.get(magic_bytes) {
-            Some(ctor) => Ok(ctor(Vec::from(&did_bytes[2..]))),
+            Some(ctor) => Ok(ctor(Vec::from(&did_bytes[2..]))?),
             None => Err(anyhow!("Unrecognized magic bytes: {:?}", magic_bytes)),
         }
     }

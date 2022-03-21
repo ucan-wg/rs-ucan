@@ -8,10 +8,10 @@ pub const SUPPORTED_KEYS: &KeyConstructorSlice = &[
     ([0xed, 0x01], bytes_to_ed25519_key),
 ];
 
-pub fn bytes_to_ed25519_key(bytes: Vec<u8>) -> Box<dyn KeyMaterial> {
-    Box::new(KeyPair::Ed25519(Ed25519KeyPair::from_public_key(
+pub fn bytes_to_ed25519_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
+    Ok(Box::new(KeyPair::Ed25519(Ed25519KeyPair::from_public_key(
         bytes.as_slice(),
-    )))
+    ))))
 }
 
 #[cfg_attr(feature = "web", async_trait(?Send))]
