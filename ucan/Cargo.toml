@@ -13,25 +13,25 @@ repository = "https://github.com/cdata/rs-ucan/"
 homepage = "https://github.com/cdata/rs-ucan"
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.4.0-alpha.2"
+version = "0.5.0-alpha.1"
 edition = "2021"
 
 [features]
-default = []
 web = []
 
 [dependencies]
 anyhow = "1.0.52"
 async-trait = "0.1.52"
 async-recursion = "1.0.0"
+async-std = { git = "https://github.com/async-rs/async-std"}
 serde_json = "1.0.74"
 serde = { version = "1.0.133", features = ["derive"] }
 base64 = "0.13.0"
 textnonce = "1.0.0"
-log = "0.4.14"
+log = "0.4.16"
 url = "2.2.2"
 bs58 = "0.4"
 
 [dev-dependencies]
-did-key = "0.1.1"
+did-key = "0.1"
 tokio = { version = "^1", features = ["macros", "rt"] }

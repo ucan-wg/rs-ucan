@@ -30,7 +30,7 @@ pub async fn it_decodes_deep_ucan_chains() {
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser)
+    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), did_parser)
         .await
         .unwrap();
 
@@ -70,7 +70,7 @@ pub async fn it_fails_with_incorrect_chaining() {
         .unwrap();
 
     let parse_token_result =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &did_parser).await;
+        ProofChain::try_from_token_string(delegated_token.as_str(), did_parser).await;
 
     assert!(parse_token_result.is_err());
 }
@@ -114,7 +114,7 @@ pub async fn it_can_handle_multiple_leaves() {
         .encode()
         .unwrap();
 
-    ProofChain::try_from_token_string(&delegated_token, &did_parser)
+    ProofChain::try_from_token_string(&delegated_token, did_parser)
         .await
         .unwrap();
 }

@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::{anyhow, Result};
+pub use async_std::sync::Mutex;
 
 use super::KeyMaterial;
 
@@ -8,6 +9,7 @@ pub type DidPrefix = [u8; 2];
 pub type BytesToKey = fn(Vec<u8>) -> Result<Box<dyn KeyMaterial>>;
 pub type KeyConstructors = BTreeMap<DidPrefix, BytesToKey>;
 pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
+pub type KeyCache = BTreeMap<String, Arc<Box<dyn KeyMaterial>>>;
 
 pub const BASE58_DID_PREFIX: &str = "did:key:z";
 
@@ -17,18 +19,22 @@ pub const BASE58_DID_PREFIX: &str = "did:key:z";
 /// constructor function that produces a `SigningKey`.
 pub struct DidParser {
     key_constructors: KeyConstructors,
+    key_cache: KeyCache,
 }
 
 impl DidParser {
-    pub fn new<'a>(key_constructor_slice: &'a KeyConstructorSlice) -> Self {
+    pub fn new<'a>(key_constructor_slice: &'a KeyConstructorSlice) -> Arc<Mutex<Self>> {
         let mut key_constructors = BTreeMap::new();
         for pair in key_constructor_slice {
             key_constructors.insert(pair.0, pair.1);
         }
-        DidParser { key_constructors }
+        Arc::new(Mutex::new(DidParser {
+            key_constructors,
+            key_cache: BTreeMap::new(),
+        }))
     }
 
-    pub fn parse(&self, did: String) -> Result<Box<dyn KeyMaterial>> {
+    pub fn parse(&mut self, did: String) -> Result<Arc<Box<dyn KeyMaterial>>> {
         if !did.starts_with(BASE58_DID_PREFIX) {
             return Err(anyhow!("Not a DID: {}", did));
         }
@@ -36,8 +42,20 @@ impl DidParser {
         let did_bytes = bs58::decode(&did[BASE58_DID_PREFIX.len()..]).into_vec()?;
         let magic_bytes = &did_bytes[0..2];
 
+        if let Some(key) = self.key_cache.get(&did) {
+            return Ok(key.clone());
+        }
+
         match self.key_constructors.get(magic_bytes) {
-            Some(ctor) => Ok(ctor(Vec::from(&did_bytes[2..]))?),
+            Some(ctor) => {
+                let key = ctor(Vec::from(&did_bytes[2..]))?;
+                self.key_cache.insert(did.clone(), Arc::new(key));
+
+                self.key_cache
+                    .get(&did)
+                    .ok_or(anyhow!("Couldn't find cached key"))
+                    .map(|key| key.clone())
+            }
             None => Err(anyhow!("Unrecognized magic bytes: {:?}", magic_bytes)),
         }
     }

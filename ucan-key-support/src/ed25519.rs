@@ -7,19 +7,25 @@ use ed25519_zebra::{
 
 use ucan::crypto::KeyMaterial;
 
-pub const ED25519_MAGIC_BYTES: &[u8] = &[0xed, 0x01];
+pub const ED25519_MAGIC_BYTES: [u8; 2] = [0xed, 0x01];
 
-pub struct Ed25519KeyMaterial<'a>(pub &'a Ed25519PublicKey, pub Option<&'a Ed25519PrivateKey>);
+pub fn bytes_to_ed25519_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
+    let public_key = Ed25519PublicKey::try_from(bytes.as_slice())?;
+    Ok(Box::new(Ed25519KeyMaterial(public_key, None)))
+}
+
+#[derive(Clone)]
+pub struct Ed25519KeyMaterial(pub Ed25519PublicKey, pub Option<Ed25519PrivateKey>);
 
 #[cfg_attr(feature = "web", async_trait(?Send))]
 #[cfg_attr(not(feature = "web"), async_trait)]
-impl<'a> KeyMaterial for Ed25519KeyMaterial<'a> {
+impl KeyMaterial for Ed25519KeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
         "EdDSA".into()
     }
 
     fn get_did(&self) -> String {
-        let bytes = [ED25519_MAGIC_BYTES, self.0.as_ref()].concat();
+        let bytes = [ED25519_MAGIC_BYTES.as_slice(), self.0.as_ref()].concat();
         format!("did:key:z{}", bs58::encode(bytes).into_string())
     }
 
@@ -55,7 +61,7 @@ mod tests {
         let private_key = Ed25519PrivateKey::new(rng);
         let public_key = Ed25519PublicKey::from(&private_key);
 
-        let signing_key = Ed25519KeyMaterial(&public_key, Some(&private_key));
+        let signing_key = Ed25519KeyMaterial(public_key, Some(private_key));
         let data = &[0xdeu8, 0xad, 0xbe, 0xef];
         let signature = signing_key.sign(data).await.unwrap();
 

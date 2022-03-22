@@ -25,7 +25,7 @@ mod validate {
         let encoded_ucan = ucan.encode().unwrap();
         let decoded_ucan = Ucan::try_from_token_string(encoded_ucan.as_str()).unwrap();
 
-        decoded_ucan.validate(&did_parser).await.unwrap();
+        decoded_ucan.validate(did_parser).await.unwrap();
     }
 
     #[tokio::test]

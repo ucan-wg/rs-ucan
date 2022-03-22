@@ -7,9 +7,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{CryptoKey, DedicatedWorkerGlobalScope, SubtleCrypto};
 
-pub struct WebCryptoRsaKeyMaterial<'a>(pub &'a CryptoKey, pub Option<&'a CryptoKey>);
+pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
 
-impl WebCryptoRsaKeyMaterial<'_> {
+impl WebCryptoRsaKeyMaterial {
     fn get_subtle_crypto() -> Result<SubtleCrypto> {
         match web_sys::window() {
             Some(window) => Ok(window
@@ -27,7 +27,7 @@ impl WebCryptoRsaKeyMaterial<'_> {
     }
 
     fn private_key(&self) -> Result<&CryptoKey> {
-        match self.1 {
+        match &self.1 {
             Some(key) => Ok(key),
             None => Err(anyhow!("No private key configured")),
         }
@@ -35,7 +35,7 @@ impl WebCryptoRsaKeyMaterial<'_> {
 }
 
 #[async_trait(?Send)]
-impl<'a> KeyMaterial for WebCryptoRsaKeyMaterial<'a> {
+impl KeyMaterial for WebCryptoRsaKeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
         RSA_ALGORITHM.into()
     }
@@ -79,7 +79,7 @@ impl<'a> KeyMaterial for WebCryptoRsaKeyMaterial<'a> {
     }
 
     async fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()> {
-        let key = self.0;
+        let key = &self.0;
         let subtle_crypto = Self::get_subtle_crypto()?;
         let algorithm = Object::new();
 
@@ -132,7 +132,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn it_can_sign_and_verify_data() {
         let (public_key, private_key) = generate_web_crypto_rsa_key_pair().await.unwrap();
-        let key_material = WebCryptoRsaKeyMaterial(&public_key, Some(&private_key));
+        let key_material = WebCryptoRsaKeyMaterial(public_key, Some(private_key));
         let data = &[0xdeu8, 0xad, 0xbe, 0xef];
         let signature = key_material.sign(data).await.unwrap();
 

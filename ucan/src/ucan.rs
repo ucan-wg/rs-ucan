@@ -1,7 +1,9 @@
 use anyhow::{anyhow, Context, Result};
+use async_std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str;
+use std::sync::Arc;
 
 // use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
 use crate::crypto::did::DidParser;
@@ -101,7 +103,7 @@ impl Ucan {
     }
 
     /// Validate the UCAN's signature and timestamps
-    pub async fn validate<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
+    pub async fn validate<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
         if self.is_expired() {
             return Err(anyhow!("Expired"));
         }
@@ -114,9 +116,10 @@ impl Ucan {
     }
 
     /// Validate that the signed data was signed by the stated issuer
-    pub async fn check_signature<'a>(&self, did_parser: &'a DidParser) -> Result<()> {
+    pub async fn check_signature<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
+        let mut did_parser = did_parser.lock().await;
         let key = did_parser.parse(self.payload.iss.clone())?;
-        key.verify(&self.signed_data, &self.signature).await
+        Ok(key.verify(&self.signed_data, &self.signature).await?)
     }
 
     /// Produce a base64-encoded serialization of the UCAN suitable for

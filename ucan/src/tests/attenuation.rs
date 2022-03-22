@@ -43,7 +43,7 @@ pub async fn it_works_with_a_simple_example() {
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(attenuated_token.as_str(), &did_parser)
+    let chain = ProofChain::try_from_token_string(attenuated_token.as_str(), did_parser)
         .await
         .unwrap();
 
@@ -94,7 +94,7 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .encode()
         .unwrap();
 
-    let capability_infos = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+    let capability_infos = ProofChain::try_from_token_string(&ucan_token, did_parser)
         .await
         .unwrap()
         .reduce_capabilities(&email_semantics);
@@ -161,7 +161,7 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, did_parser)
         .await
         .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);
@@ -239,7 +239,7 @@ pub async fn it_reports_all_chain_options() {
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &did_parser)
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, did_parser)
         .await
         .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);

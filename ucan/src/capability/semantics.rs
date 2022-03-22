@@ -195,8 +195,8 @@ where
     S: Scope,
     A: Action,
 {
-    with: With<S>,
-    can: A,
+    pub with: With<S>,
+    pub can: A,
 }
 
 impl<S, A> Debug for Capability<S, A>
