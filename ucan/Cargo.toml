@@ -23,7 +23,7 @@ web = []
 anyhow = "1.0.52"
 async-trait = "0.1.52"
 async-recursion = "1.0.0"
-async-std = { git = "https://github.com/async-rs/async-std"}
+async-std = "^1"
 serde_json = "1.0.74"
 serde = { version = "1.0.133", features = ["derive"] }
 base64 = "0.13.0"
