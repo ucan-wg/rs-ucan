@@ -6,5 +6,3 @@ pub mod web_crypto;
 
 pub mod ed25519;
 pub mod rsa;
-
-mod fixtures;
