@@ -10,7 +10,7 @@ use crate::{
 
 #[tokio::test]
 pub async fn it_works_with_a_simple_example() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
@@ -62,7 +62,7 @@ pub async fn it_works_with_a_simple_example() {
 
 #[tokio::test]
 pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
@@ -112,7 +112,7 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
 
 #[tokio::test]
 pub async fn it_finds_the_right_proof_chain_for_the_originator() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
@@ -194,7 +194,7 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
 
 #[tokio::test]
 pub async fn it_reports_all_chain_options() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};

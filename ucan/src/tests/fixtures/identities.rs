@@ -15,7 +15,7 @@ pub struct Identities {
 /// An adaptation of the fixtures used in the canonical ts-ucan repo
 /// See: https://github.com/ucan-wg/ts-ucan/blob/main/tests/fixtures.ts
 impl Identities {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         // NOTE: tweetnacl secret keys concat the public keys, so we only care
         // about the first 32 bytes
         let alice_key = KeyPair::from(Ed25519KeyPair::from_secret_key(&base64::decode("U+bzp2GaFQHso587iSFWPSeCzbSfn/CbNHEz7ilKRZ1UQMmMS7qq4UhTzKn3X9Nj/4xgrwa+UqhMOeo4Ki8JUw==".as_bytes()).unwrap().as_slice()[0..32]));
@@ -23,9 +23,9 @@ impl Identities {
         let mallory_key = KeyPair::from(Ed25519KeyPair::from_secret_key(&base64::decode("LR9AL2MYkMARuvmV3MJV8sKvbSOdBtpggFCW8K62oZDR6UViSXdSV/dDcD8S9xVjS61vh62JITx7qmLgfQUSZQ==".as_bytes()).unwrap().as_slice()[0..32]));
 
         Identities {
-            alice_did: alice_key.get_did(),
-            bob_did: bob_key.get_did(),
-            mallory_did: mallory_key.get_did(),
+            alice_did: alice_key.get_did().await.unwrap(),
+            bob_did: bob_key.get_did().await.unwrap(),
+            mallory_did: mallory_key.get_did().await.unwrap(),
 
             alice_key,
             bob_key,

@@ -4,7 +4,7 @@ use super::fixtures::{Identities, SUPPORTED_KEYS};
 
 #[tokio::test]
 pub async fn it_decodes_deep_ucan_chains() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan = UcanBuilder::new()
@@ -43,7 +43,7 @@ pub async fn it_decodes_deep_ucan_chains() {
 
 #[tokio::test]
 pub async fn it_fails_with_incorrect_chaining() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan = UcanBuilder::new()
@@ -77,7 +77,7 @@ pub async fn it_fails_with_incorrect_chaining() {
 
 #[tokio::test]
 pub async fn it_can_handle_multiple_leaves() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan_1 = UcanBuilder::new()

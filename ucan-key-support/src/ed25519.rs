@@ -24,9 +24,9 @@ impl KeyMaterial for Ed25519KeyMaterial {
         "EdDSA".into()
     }
 
-    fn get_did(&self) -> String {
+    async fn get_did(&self) -> Result<String> {
         let bytes = [ED25519_MAGIC_BYTES.as_slice(), self.0.as_ref()].concat();
-        format!("did:key:z{}", bs58::encode(bytes).into_string())
+        Ok(format!("did:key:z{}", bs58::encode(bytes).into_string()))
     }
 
     async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>> {

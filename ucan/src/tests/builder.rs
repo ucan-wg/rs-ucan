@@ -8,7 +8,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn it_builds_with_a_simple_example() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
 
     let fact_1 = json!({
         "test": true
@@ -69,7 +69,7 @@ async fn it_builds_with_a_simple_example() {
 
 #[tokio::test]
 async fn it_builds_with_lifetime_in_seconds() {
-    let identities = Identities::new();
+    let identities = Identities::new().await;
 
     let ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
@@ -95,7 +95,7 @@ async fn it_prevents_duplicate_proofs() {
         )
         .unwrap();
 
-    let identities = Identities::new();
+    let identities = Identities::new().await;
     let ucan = UcanBuilder::new()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())

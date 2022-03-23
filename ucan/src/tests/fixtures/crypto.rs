@@ -21,8 +21,8 @@ impl KeyMaterial for KeyPair {
         "EdDSA".into()
     }
 
-    fn get_did(&self) -> String {
-        format!("did:key:{}", self.fingerprint())
+    async fn get_did(&self) -> Result<String> {
+        Ok(format!("did:key:{}", self.fingerprint()))
     }
 
     async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>> {

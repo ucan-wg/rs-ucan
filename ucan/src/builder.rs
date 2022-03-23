@@ -53,29 +53,32 @@ where
     }
 
     /// The payload field components of the UCAN JWT
-    pub fn ucan_payload(&self) -> UcanPayload {
+    pub async fn ucan_payload(&self) -> Result<UcanPayload> {
         let nonce = match self.add_nonce {
             true => Some(TextNonce::new().to_string()),
             false => None,
         };
 
-        UcanPayload {
+        Ok(UcanPayload {
             aud: self.audience.clone(),
-            iss: self.issuer.get_did(),
+            iss: self.issuer.get_did().await?,
             exp: self.expiration,
             nbf: self.not_before,
             nnc: nonce,
             att: self.capabilities.clone(),
             fct: self.facts.clone(),
             prf: self.proofs.clone(),
-        }
+        })
     }
 
     /// Produces a Ucan, which contains finalized UCAN fields along with signed
     /// data suitable for encoding as a JWT token string
     pub async fn sign(&self) -> Result<Ucan> {
         let header = self.ucan_header();
-        let payload = self.ucan_payload();
+        let payload = self
+            .ucan_payload()
+            .await
+            .expect("Unable to generate UCAN payload");
 
         let header_base64 = match serde_json::to_string(&header) {
             Ok(json) => base64::encode_config(json.as_bytes(), base64::URL_SAFE_NO_PAD),

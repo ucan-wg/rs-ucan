@@ -1,28 +1,24 @@
-use crate::rsa::RSA_ALGORITHM;
+use crate::rsa::{RsaKeyMaterial, RSA_ALGORITHM};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use js_sys::{Array, Boolean, Object, Reflect, Uint8Array};
+use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
+use rsa::{pkcs8::FromPublicKey, RsaPublicKey};
 use ucan::crypto::KeyMaterial;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{CryptoKey, CryptoKeyPair, DedicatedWorkerGlobalScope, SubtleCrypto};
+use web_sys::{Crypto, CryptoKey, CryptoKeyPair, SubtleCrypto};
 
-pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
+pub struct WebCryptoRsaKeyMaterial(CryptoKey, Option<CryptoKey>);
 
 impl WebCryptoRsaKeyMaterial {
     fn get_subtle_crypto() -> Result<SubtleCrypto> {
-        match web_sys::window() {
-            Some(window) => Ok(window
-                .crypto()
-                .map_err(|error| anyhow!("{:?}", error))?
-                .subtle()),
-            None => match js_sys::global().dyn_into::<DedicatedWorkerGlobalScope>() {
-                Ok(global) => Ok(global
-                    .crypto()
-                    .map_err(|error| anyhow!("{:?}", error))?
-                    .subtle()),
-                Err(error) => Err(anyhow!("{:?}", error)),
-            },
+        // NOTE: Accessing either `Window` or `DedicatedWorkerGlobalScope` in
+        // a context where they are not defined will cause a JS error, so we
+        // do a sneaky workaround here:
+        let global = js_sys::global();
+        match Reflect::get(&global, &JsValue::from("crypto")) {
+            Ok(value) => Ok(value.dyn_into::<Crypto>().expect("Unexpected API").subtle()),
+            _ => Err(anyhow!("Could not access WebCrypto API")),
         }
     }
 
@@ -33,7 +29,7 @@ impl WebCryptoRsaKeyMaterial {
         }
     }
 
-    async fn generate(key_size: Option<u32>) -> Result<WebCryptoRsaKeyMaterial> {
+    pub async fn generate(key_size: Option<u32>) -> Result<WebCryptoRsaKeyMaterial> {
         let subtle_crypto = Self::get_subtle_crypto()?;
         let algorithm = Object::new();
 
@@ -102,8 +98,27 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         RSA_ALGORITHM.into()
     }
 
-    fn get_did(&self) -> String {
-        todo!()
+    async fn get_did(&self) -> Result<String> {
+        let public_key = &self.0;
+        let subtle_crypto = Self::get_subtle_crypto()?;
+
+        let public_key_bytes = Uint8Array::new(
+            &JsFuture::from(
+                subtle_crypto
+                    .export_key("spki", public_key)
+                    .expect("Could not access key extraction API"),
+            )
+            .await
+            .expect("Failed to extract public key bytes")
+            .dyn_into::<ArrayBuffer>()
+            .expect("Bytes were not an ArrayBuffer"),
+        );
+
+        let public_key_bytes = public_key_bytes.to_vec();
+
+        let public_key = RsaPublicKey::from_public_key_der(public_key_bytes.as_slice())?;
+
+        Ok(RsaKeyMaterial(public_key, None).get_did().await?)
     }
 
     async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>> {
@@ -196,5 +211,11 @@ mod tests {
         let signature = key_material.sign(data).await.unwrap();
 
         key_material.verify(data, signature.as_ref()).await.unwrap();
+    }
+
+    #[wasm_bindgen_test]
+    async fn it_can_produce_a_did() {
+        let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
+        key_material.get_did().await.unwrap();
     }
 }

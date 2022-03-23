@@ -26,7 +26,7 @@ impl KeyMaterial for RsaKeyMaterial {
         RSA_ALGORITHM.into()
     }
 
-    fn get_did(&self) -> String {
+    async fn get_did(&self) -> Result<String> {
         let bytes = match self.0.to_pkcs1_der() {
             Ok(document) => [RSA_MAGIC_BYTES.as_slice(), document.as_der()].concat(),
             Err(error) => {
@@ -35,7 +35,7 @@ impl KeyMaterial for RsaKeyMaterial {
                 Vec::new()
             }
         };
-        format!("did:key:z{}", bs58::encode(bytes).into_string())
+        Ok(format!("did:key:z{}", bs58::encode(bytes).into_string()))
     }
 
     async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>> {

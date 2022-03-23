@@ -13,7 +13,7 @@ mod internal {
     #[async_trait(?Send)]
     pub trait KeyMaterial {
         fn get_jwt_algorithm_name(&self) -> String;
-        fn get_did(&self) -> String;
+        async fn get_did(&self) -> Result<String>;
 
         /// Sign some data with this key
         async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>>;
@@ -30,7 +30,7 @@ mod internal {
     #[async_trait]
     pub trait KeyMaterial: Sync + Send {
         fn get_jwt_algorithm_name(&self) -> String;
-        fn get_did(&self) -> String;
+        async fn get_did(&self) -> Result<String>;
 
         /// Sign some data with this key
         async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>>;

@@ -9,7 +9,7 @@ mod validate {
 
     #[tokio::test]
     async fn it_round_trips_with_encode() {
-        let identities = Identities::new();
+        let identities = Identities::new().await;
         let did_parser = DidParser::new(SUPPORTED_KEYS);
 
         let ucan = UcanBuilder::new()
@@ -30,7 +30,7 @@ mod validate {
 
     #[tokio::test]
     async fn it_identifies_a_ucan_that_is_not_active_yet() {
-        let identities = Identities::new();
+        let identities = Identities::new().await;
 
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
@@ -48,7 +48,7 @@ mod validate {
 
     #[tokio::test]
     async fn it_identifies_a_ucan_that_has_become_active() {
-        let identities = Identities::new();
+        let identities = Identities::new().await;
         let ucan = UcanBuilder::new()
             .issued_by(&identities.alice_key)
             .for_audience(identities.bob_did.as_str())
