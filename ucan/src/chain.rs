@@ -46,8 +46,11 @@ pub struct ProofChain {
 }
 
 impl ProofChain {
-    #[cfg_attr(feature = "web", async_recursion(?Send))]
-    #[cfg_attr(not(feature = "web"), async_recursion)]
+    #[cfg_attr(all(target_arch="wasm32", feature = "web"), async_recursion(?Send))]
+    #[cfg_attr(
+        any(not(target_arch = "wasm32"), not(feature = "web")),
+        async_recursion
+    )]
     pub async fn from_ucan(ucan: Ucan, did_parser: Arc<Mutex<DidParser>>) -> Result<ProofChain> {
         ucan.validate(did_parser.clone()).await?;
 

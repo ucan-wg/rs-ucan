@@ -8,7 +8,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Crypto, CryptoKey, CryptoKeyPair, SubtleCrypto};
 
-pub struct WebCryptoRsaKeyMaterial(CryptoKey, Option<CryptoKey>);
+pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
 
 impl WebCryptoRsaKeyMaterial {
     fn get_subtle_crypto() -> Result<SubtleCrypto> {
@@ -203,6 +203,7 @@ mod tests {
 
     use super::WebCryptoRsaKeyMaterial;
     use ucan::crypto::KeyMaterial;
+    use ucan::builder::UcanBuilder;
 
     #[wasm_bindgen_test]
     async fn it_can_sign_and_verify_data() {
@@ -217,5 +218,20 @@ mod tests {
     async fn it_can_produce_a_did() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
         key_material.get_did().await.unwrap();
+    }
+
+    #[wasm_bindgen_test]
+    async fn it_can_sign_a_ucan() {
+        let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
+
+        let ucan = UcanBuilder::new()
+            .issued_by(&key_material)
+            .for_audience(key_material.get_did().await.unwrap().as_str())
+            .with_lifetime(300)
+            .build()
+            .unwrap()
+            .sign()
+            .await
+            .unwrap();
     }
 }

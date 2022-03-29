@@ -19,8 +19,8 @@ pub fn bytes_to_rsa_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
 #[derive(Clone)]
 pub struct RsaKeyMaterial(pub RsaPublicKey, pub Option<RsaPrivateKey>);
 
-#[cfg_attr(feature = "web", async_trait(?Send))]
-#[cfg_attr(not(feature = "web"), async_trait)]
+#[cfg_attr(all(target_arch="wasm32", feature = "web"), async_trait(?Send))]
+#[cfg_attr(any(not(target_arch = "wasm32"), not(feature = "web")), async_trait)]
 impl KeyMaterial for RsaKeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
         RSA_ALGORITHM.into()

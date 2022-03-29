@@ -5,7 +5,7 @@
 /// keypair data. The trait represent the minimum required API capability for
 /// producing a signed UCAN from a cryptographic keypair, and verifying such
 /// signatures.
-#[cfg(feature = "web")]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 mod internal {
     use anyhow::Result;
     use async_trait::async_trait;
@@ -22,7 +22,7 @@ mod internal {
         async fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()>;
     }
 }
-#[cfg(not(feature = "web"))]
+#[cfg(any(not(target_arch = "wasm32"), not(feature = "web")))]
 mod internal {
     use anyhow::Result;
     use async_trait::async_trait;
