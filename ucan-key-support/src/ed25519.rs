@@ -50,21 +50,36 @@ impl KeyMaterial for Ed25519KeyMaterial {
 
 #[cfg(test)]
 mod tests {
-    use super::Ed25519KeyMaterial;
-    use ed25519_zebra::SigningKey as Ed25519PrivateKey;
-    use ed25519_zebra::VerificationKey as Ed25519PublicKey;
-    use ucan::crypto::KeyMaterial;
+    use super::{bytes_to_ed25519_key, Ed25519KeyMaterial, ED25519_MAGIC_BYTES};
+    use ed25519_zebra::{SigningKey as Ed25519PrivateKey, VerificationKey as Ed25519PublicKey};
+    use ucan::{
+        builder::UcanBuilder,
+        crypto::{did::DidParser, KeyMaterial},
+        ucan::Ucan,
+    };
 
     #[tokio::test]
-    async fn it_can_sign_and_verify_data() {
+    async fn it_can_sign_and_verify_a_ucan() {
         let rng = rand::thread_rng();
         let private_key = Ed25519PrivateKey::new(rng);
         let public_key = Ed25519PublicKey::from(&private_key);
 
-        let signing_key = Ed25519KeyMaterial(public_key, Some(private_key));
-        let data = &[0xdeu8, 0xad, 0xbe, 0xef];
-        let signature = signing_key.sign(data).await.unwrap();
+        let key_material = Ed25519KeyMaterial(public_key, Some(private_key));
+        let token_string = UcanBuilder::new()
+            .issued_by(&key_material)
+            .for_audience(key_material.get_did().await.unwrap().as_str())
+            .with_lifetime(60)
+            .build()
+            .unwrap()
+            .sign()
+            .await
+            .unwrap()
+            .encode()
+            .unwrap();
 
-        signing_key.verify(data, &signature).await.unwrap();
+        let did_parser = DidParser::new(&[(ED25519_MAGIC_BYTES, bytes_to_ed25519_key)]);
+
+        let ucan = Ucan::try_from_token_string(token_string.as_str()).unwrap();
+        ucan.check_signature(did_parser.clone()).await.unwrap();
     }
 }

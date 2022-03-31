@@ -251,11 +251,3 @@ impl ProofChain {
         merged_capability_infos
     }
 }
-
-// impl TryFrom<Ucan> for ProofChain {
-//     fn try_from(ucan: Ucan) -> Result<Self> {
-//         ProofChain::from_ucan(ucan)
-//     }
-
-//     type Error = anyhow::Error;
-// }

@@ -2,12 +2,21 @@ use crate::rsa::{RsaKeyMaterial, RSA_ALGORITHM};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
-use rsa::{pkcs8::FromPublicKey, RsaPublicKey};
+use rsa::pkcs1::FromRsaPublicKey;
+use rsa::RsaPublicKey;
 use ucan::crypto::KeyMaterial;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Crypto, CryptoKey, CryptoKeyPair, SubtleCrypto};
 
+pub fn convert_spki_to_rsa_public_key(spki_bytes: &[u8]) -> Result<Vec<u8>> {
+    // TODO: This is maybe a not-good, hacky solution; verifying the first
+    // 24 bytes would be more wholesome
+    // SEE: https://github.com/ucan-wg/ts-ucan/issues/30#issuecomment-1007333500
+    Ok(Vec::from(&spki_bytes[24..]))
+}
+
+#[derive(Debug)]
 pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
 
 impl WebCryptoRsaKeyMaterial {
@@ -115,8 +124,10 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         );
 
         let public_key_bytes = public_key_bytes.to_vec();
+        let public_key_bytes = convert_spki_to_rsa_public_key(public_key_bytes.as_slice())?;
 
-        let public_key = RsaPublicKey::from_public_key_der(public_key_bytes.as_slice())?;
+        let public_key = rsa::pkcs1::RsaPublicKey::try_from(public_key_bytes.as_slice())?;
+        let public_key = RsaPublicKey::from_pkcs1_public_key(public_key)?;
 
         Ok(RsaKeyMaterial(public_key, None).get_did().await?)
     }
@@ -202,8 +213,12 @@ mod tests {
     wasm_bindgen_test_configure!(run_in_browser);
 
     use super::WebCryptoRsaKeyMaterial;
-    use ucan::crypto::KeyMaterial;
-    use ucan::builder::UcanBuilder;
+    use crate::rsa::{bytes_to_rsa_key, RSA_MAGIC_BYTES};
+    use ucan::{
+        builder::UcanBuilder,
+        crypto::{did::DidParser, KeyMaterial},
+        ucan::Ucan,
+    };
 
     #[wasm_bindgen_test]
     async fn it_can_sign_and_verify_data() {
@@ -215,16 +230,19 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn it_can_produce_a_did() {
+    async fn it_produces_a_legible_rsa_did() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
-        key_material.get_did().await.unwrap();
+        let did = key_material.get_did().await.unwrap();
+        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+
+        did_parser.lock().await.parse(did).unwrap();
     }
 
     #[wasm_bindgen_test]
-    async fn it_can_sign_a_ucan() {
+    async fn it_signs_ucans_that_can_be_verified_elsewhere() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
 
-        let ucan = UcanBuilder::new()
+        let token = UcanBuilder::new()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(300)
@@ -232,6 +250,13 @@ mod tests {
             .unwrap()
             .sign()
             .await
+            .unwrap()
+            .encode()
             .unwrap();
+
+        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let ucan = Ucan::try_from_token_string(token.as_str()).unwrap();
+
+        ucan.check_signature(did_parser).await.unwrap();
     }
 }
