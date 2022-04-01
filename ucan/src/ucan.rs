@@ -5,7 +5,6 @@ use serde_json::Value;
 use std::str;
 use std::sync::Arc;
 
-// use crate::crypto::did::{did_to_signing_key, SigningKeyResult};
 use crate::crypto::did::DidParser;
 use crate::time::now;
 
@@ -21,7 +20,9 @@ pub struct UcanPayload {
     pub iss: String,
     pub aud: String,
     pub exp: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nbf: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nnc: Option<String>,
     pub att: Vec<Value>,
     pub fct: Vec<Value>,

@@ -14,14 +14,14 @@ repository = "https://github.com/cdata/rs-ucan/"
 homepage = "https://github.com/cdata/rs-ucan"
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.3.0-alpha.5"
+version = "0.3.0-alpha.6"
 
 [features]
 default = []
 web = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "ucan/web", "getrandom/js"]
 
 [dependencies]
-ucan = {path = "../ucan", version = "0.5.0-alpha.5" }
+ucan = {path = "../ucan", version = "0.5.0-alpha.6" }
 anyhow = "1.0.52"
 async-trait = "0.1.52"
 ed25519-zebra = "^3"
