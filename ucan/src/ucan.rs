@@ -53,13 +53,13 @@ impl Ucan {
     }
 
     /// Deserialize an encoded UCAN token string into a UCAN
-    pub fn try_from_token_string<'a>(ucan_token_string: &str) -> Result<Ucan> {
+    pub fn try_from_token_string(ucan_token_string: &str) -> Result<Ucan> {
         let signed_data = ucan_token_string
             .split('.')
             .take(2)
-            .map(|str| String::from(str))
+            .map(String::from)
             .reduce(|l, r| format!("{}.{}", l, r))
-            .ok_or(anyhow!("Could not parse signed data from token string"))?;
+            .ok_or_else(|| anyhow!("Could not parse signed data from token string"))?;
 
         let mut parts = ucan_token_string.split('.').map(|str| {
             base64::decode_config(str, base64::URL_SAFE_NO_PAD).map_err(|error| anyhow!(error))
@@ -120,7 +120,7 @@ impl Ucan {
     pub async fn check_signature<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
         let mut did_parser = did_parser.lock().await;
         let key = did_parser.parse(self.payload.iss.clone())?;
-        Ok(key.verify(&self.signed_data, &self.signature).await?)
+        key.verify(&self.signed_data, &self.signature).await
     }
 
     /// Produce a base64-encoded serialization of the UCAN suitable for

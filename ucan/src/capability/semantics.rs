@@ -134,17 +134,17 @@ where
     fn extract_did(&self, path: &str) -> Option<(String, String)> {
         let mut path_parts = path.split(':');
 
-        match path_parts.nth(0) {
+        match path_parts.next() {
             Some("did") => (),
             _ => return None,
         };
 
-        match path_parts.nth(0) {
+        match path_parts.next() {
             Some("key") => (),
             _ => return None,
         };
 
-        let value = match path_parts.nth(0) {
+        let value = match path_parts.next() {
             Some(value) => value,
             _ => return None,
         };

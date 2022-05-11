@@ -10,7 +10,6 @@ use crate::{
 use anyhow::{anyhow, Context, Result};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 use textnonce::TextNonce;
 
 use crate::ucan::Ucan;
@@ -24,7 +23,7 @@ pub struct Signable<'a, K>
 where
     K: KeyMaterial,
 {
-    pub issuer: Arc<&'a K>,
+    pub issuer: &'a K,
     pub audience: String,
 
     pub capabilities: Vec<Value>,
@@ -103,7 +102,7 @@ pub struct UcanBuilder<'a, K>
 where
     K: KeyMaterial,
 {
-    issuer: Option<Arc<&'a K>>,
+    issuer: Option<&'a K>,
     audience: Option<String>,
 
     capabilities: Vec<Value>,
@@ -117,7 +116,7 @@ where
     add_nonce: bool,
 }
 
-impl<'a, K> UcanBuilder<'a, K>
+impl<'a, K> Default for UcanBuilder<'a, K>
 where
     K: KeyMaterial,
 {
@@ -129,7 +128,7 @@ where
     /// - `with_lifetime` or `with_expiration`.
     ///
     /// To finalise the builder, call its `build` or `build_parts` method.
-    pub fn new() -> Self {
+    fn default() -> Self {
         UcanBuilder {
             issuer: None,
             audience: None,
@@ -145,10 +144,15 @@ where
             add_nonce: false,
         }
     }
+}
 
+impl<'a, K> UcanBuilder<'a, K>
+where
+    K: KeyMaterial,
+{
     /// The UCAN must be signed with the private key of the issuer to be valid.
     pub fn issued_by(mut self, issuer: &'a K) -> Self {
-        self.issuer = Some(Arc::new(issuer));
+        self.issuer = Some(issuer);
         self
     }
 
@@ -260,10 +264,7 @@ where
         if self.expiration.is_some() {
             self.expiration
         } else {
-            match self.lifetime {
-                Some(lifetime) => Some(now() + lifetime),
-                None => None,
-            }
+            self.lifetime.map(|lifetime| now() + lifetime)
         }
     }
 
@@ -272,7 +273,7 @@ where
             Some(issuer) => match &self.audience {
                 Some(audience) => match self.implied_expiration() {
                     Some(expiration) => Ok(Signable {
-                        issuer: issuer.clone(),
+                        issuer,
                         audience: audience.clone(),
                         not_before: self.not_before,
                         expiration,

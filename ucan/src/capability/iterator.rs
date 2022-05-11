@@ -41,7 +41,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(capability_json) = self.ucan.attenuation().get(self.index) {
-            self.index = self.index + 1;
+            self.index += 1;
 
             let (raw_with, raw_can) = match serde_json::from_value(capability_json.clone()) {
                 Ok(RawCapability { with, can }) => (with, can),

@@ -242,7 +242,7 @@ mod tests {
     async fn it_signs_ucans_that_can_be_verified_elsewhere() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
 
-        let token = UcanBuilder::new()
+        let token = UcanBuilder::default()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(300)

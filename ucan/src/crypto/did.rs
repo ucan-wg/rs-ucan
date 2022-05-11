@@ -23,7 +23,7 @@ pub struct DidParser {
 }
 
 impl DidParser {
-    pub fn new<'a>(key_constructor_slice: &'a KeyConstructorSlice) -> Arc<Mutex<Self>> {
+    pub fn new(key_constructor_slice: &KeyConstructorSlice) -> Arc<Mutex<Self>> {
         let mut key_constructors = BTreeMap::new();
         for pair in key_constructor_slice {
             key_constructors.insert(pair.0, pair.1);
@@ -53,7 +53,7 @@ impl DidParser {
 
                 self.key_cache
                     .get(&did)
-                    .ok_or(anyhow!("Couldn't find cached key"))
+                    .ok_or_else(|| anyhow!("Couldn't find cached key"))
                     .map(|key| key.clone())
             }
             None => Err(anyhow!("Unrecognized magic bytes: {:?}", magic_bytes)),

@@ -22,7 +22,7 @@
 //! };
 //!
 //! async fn generate_token<'a, K: KeyMaterial>(issuer_key: &'a K, audience_did: &'a str) -> Result<String, anyhow::Error> {
-//!     UcanBuilder::new()
+//!     UcanBuilder::default()
 //!       .issued_by(issuer_key)
 //!       .for_audience(audience_did)
 //!       .with_lifetime(60)

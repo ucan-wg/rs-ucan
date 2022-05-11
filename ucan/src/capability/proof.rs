@@ -40,7 +40,7 @@ pub enum ProofSelection {
 
 impl Scope for ProofSelection {
     fn contains(&self, other: &Self) -> bool {
-        return self == other || *self == ProofSelection::All;
+        self == other || *self == ProofSelection::All
     }
 }
 
@@ -49,9 +49,7 @@ impl TryFrom<Url> for ProofSelection {
 
     fn try_from(value: Url) -> Result<Self, Self::Error> {
         match value.scheme() {
-            "prf" => match value.path() {
-                scope => String::from(scope).try_into(),
-            },
+            "prf" => String::from(value.path()).try_into(),
             _ => Err(anyhow!("Unrecognized URI scheme")),
         }
     }
@@ -63,7 +61,7 @@ impl TryFrom<String> for ProofSelection {
     fn try_from(value: String) -> Result<Self> {
         match value.as_str() {
             "*" => Ok(ProofSelection::All),
-            selection => Ok(ProofSelection::Index(usize::from_str_radix(selection, 10)?)),
+            selection => Ok(ProofSelection::Index(selection.parse::<usize>()?)),
         }
     }
 }
@@ -72,7 +70,7 @@ impl ToString for ProofSelection {
     fn to_string(&self) -> String {
         match self {
             ProofSelection::Index(usize) => format!("prf:{}", usize),
-            ProofSelection::All => format!("prf:*"),
+            ProofSelection::All => "prf:*".to_string(),
         }
     }
 }

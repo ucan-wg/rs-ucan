@@ -18,7 +18,7 @@ pub async fn it_works_with_a_simple_example() {
         .parse("mailto:alice@email.com".into(), "email/SEND".into())
         .unwrap();
 
-    let leaf_ucan = UcanBuilder::new()
+    let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -29,7 +29,7 @@ pub async fn it_works_with_a_simple_example() {
         .await
         .unwrap();
 
-    let attenuated_token = UcanBuilder::new()
+    let attenuated_token = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
@@ -70,7 +70,7 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .parse("mailto:bob@email.com".into(), "email/SEND".into())
         .unwrap();
 
-    let leaf_ucan = UcanBuilder::new()
+    let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -80,7 +80,7 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .await
         .unwrap();
 
-    let ucan_token = UcanBuilder::new()
+    let ucan_token = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
@@ -123,7 +123,7 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
         .parse("mailto:alice@email.com".into(), "email/SEND".into())
         .unwrap();
 
-    let leaf_ucan_alice = UcanBuilder::new()
+    let leaf_ucan_alice = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(60)
@@ -134,7 +134,7 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
         .await
         .unwrap();
 
-    let leaf_ucan_bob = UcanBuilder::new()
+    let leaf_ucan_bob = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(60)
@@ -145,7 +145,7 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
         .await
         .unwrap();
 
-    let ucan = UcanBuilder::new()
+    let ucan = UcanBuilder::default()
         .issued_by(&identities.mallory_key)
         .for_audience(identities.alice_did.as_str())
         .with_lifetime(50)
@@ -202,7 +202,7 @@ pub async fn it_reports_all_chain_options() {
         .parse("mailto:alice@email.com".into(), "email/SEND".into())
         .unwrap();
 
-    let leaf_ucan_alice = UcanBuilder::new()
+    let leaf_ucan_alice = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(60)
@@ -213,7 +213,7 @@ pub async fn it_reports_all_chain_options() {
         .await
         .unwrap();
 
-    let leaf_ucan_bob = UcanBuilder::new()
+    let leaf_ucan_bob = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(60)
@@ -224,7 +224,7 @@ pub async fn it_reports_all_chain_options() {
         .await
         .unwrap();
 
-    let ucan = UcanBuilder::new()
+    let ucan = UcanBuilder::default()
         .issued_by(&identities.mallory_key)
         .for_audience(identities.alice_did.as_str())
         .with_lifetime(50)

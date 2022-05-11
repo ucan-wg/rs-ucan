@@ -7,7 +7,7 @@ pub async fn it_decodes_deep_ucan_chains() {
     let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
-    let leaf_ucan = UcanBuilder::new()
+    let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -17,7 +17,7 @@ pub async fn it_decodes_deep_ucan_chains() {
         .await
         .unwrap();
 
-    let delegated_token = UcanBuilder::new()
+    let delegated_token = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
@@ -46,7 +46,7 @@ pub async fn it_fails_with_incorrect_chaining() {
     let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
-    let leaf_ucan = UcanBuilder::new()
+    let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -56,7 +56,7 @@ pub async fn it_fails_with_incorrect_chaining() {
         .await
         .unwrap();
 
-    let delegated_token = UcanBuilder::new()
+    let delegated_token = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(50)
@@ -80,7 +80,7 @@ pub async fn it_can_handle_multiple_leaves() {
     let identities = Identities::new().await;
     let did_parser = DidParser::new(SUPPORTED_KEYS);
 
-    let leaf_ucan_1 = UcanBuilder::new()
+    let leaf_ucan_1 = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -90,7 +90,7 @@ pub async fn it_can_handle_multiple_leaves() {
         .await
         .unwrap();
 
-    let leaf_ucan_2 = UcanBuilder::new()
+    let leaf_ucan_2 = UcanBuilder::default()
         .issued_by(&identities.mallory_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(60)
@@ -100,7 +100,7 @@ pub async fn it_can_handle_multiple_leaves() {
         .await
         .unwrap();
 
-    let delegated_token = UcanBuilder::new()
+    let delegated_token = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.alice_did.as_str())
         .with_lifetime(50)

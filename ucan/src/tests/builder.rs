@@ -36,7 +36,7 @@ async fn it_builds_with_a_simple_example() {
     let expiration = now() + 30;
     let not_before = now() - 30;
 
-    let token = UcanBuilder::new()
+    let token = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_expiration(expiration)
@@ -71,7 +71,7 @@ async fn it_builds_with_a_simple_example() {
 async fn it_builds_with_lifetime_in_seconds() {
     let identities = Identities::new().await;
 
-    let ucan = UcanBuilder::new()
+    let ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(300)
@@ -96,7 +96,7 @@ async fn it_prevents_duplicate_proofs() {
         .unwrap();
 
     let identities = Identities::new().await;
-    let ucan = UcanBuilder::new()
+    let ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
         .for_audience(identities.bob_did.as_str())
         .with_lifetime(30)
@@ -121,7 +121,7 @@ async fn it_prevents_duplicate_proofs() {
         )
         .unwrap();
 
-    let next_ucan = UcanBuilder::new()
+    let next_ucan = UcanBuilder::default()
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(30)

@@ -65,7 +65,7 @@ mod tests {
         let public_key = Ed25519PublicKey::from(&private_key);
 
         let key_material = Ed25519KeyMaterial(public_key, Some(private_key));
-        let token_string = UcanBuilder::new()
+        let token_string = UcanBuilder::default()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(60)
