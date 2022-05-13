@@ -77,9 +77,9 @@ mod tests {
             .encode()
             .unwrap();
 
-        let did_parser = DidParser::new(&[(ED25519_MAGIC_BYTES, bytes_to_ed25519_key)]);
+        let mut did_parser = DidParser::new(&[(ED25519_MAGIC_BYTES, bytes_to_ed25519_key)]);
 
         let ucan = Ucan::try_from_token_string(token_string.as_str()).unwrap();
-        ucan.check_signature(did_parser.clone()).await.unwrap();
+        ucan.check_signature(&mut did_parser).await.unwrap();
     }
 }

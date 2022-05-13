@@ -8,6 +8,7 @@ use crate::{
     ucan::{UcanHeader, UcanPayload},
 };
 use anyhow::{anyhow, Context, Result};
+use log::warn;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use textnonce::TextNonce;

@@ -1,7 +1,6 @@
 use async_recursion::async_recursion;
-use async_std::sync::Mutex;
 use std::fmt::Debug;
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 
 use crate::{
     capability::{
@@ -51,13 +50,13 @@ impl ProofChain {
         any(not(target_arch = "wasm32"), not(feature = "web")),
         async_recursion
     )]
-    pub async fn from_ucan(ucan: Ucan, did_parser: Arc<Mutex<DidParser>>) -> Result<ProofChain> {
-        ucan.validate(did_parser.clone()).await?;
+    pub async fn from_ucan(ucan: Ucan, did_parser: &mut DidParser) -> Result<ProofChain> {
+        ucan.validate(did_parser).await?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
         for proof_string in ucan.proofs().iter() {
-            let proof_chain = Self::try_from_token_string(proof_string, did_parser.clone()).await?;
+            let proof_chain = Self::try_from_token_string(proof_string, did_parser).await?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -96,16 +95,13 @@ impl ProofChain {
         })
     }
 
-    pub async fn from_cid<'a>(
-        _cid: &str,
-        _did_parser: Arc<Mutex<DidParser>>,
-    ) -> Result<ProofChain> {
+    pub async fn from_cid<'a>(_cid: &str, _did_parser: &mut DidParser) -> Result<ProofChain> {
         todo!("Resolving a proof from a CID not yet implemented")
     }
 
     pub async fn try_from_token_string<'a>(
         ucan_token_string: &str,
-        did_parser: Arc<Mutex<DidParser>>,
+        did_parser: &mut DidParser,
     ) -> Result<ProofChain> {
         let ucan = Ucan::try_from_token_string(ucan_token_string)?;
         Self::from_ucan(ucan, did_parser).await

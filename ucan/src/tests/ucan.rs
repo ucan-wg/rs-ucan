@@ -10,7 +10,7 @@ mod validate {
     #[tokio::test]
     async fn it_round_trips_with_encode() {
         let identities = Identities::new().await;
-        let did_parser = DidParser::new(SUPPORTED_KEYS);
+        let mut did_parser = DidParser::new(SUPPORTED_KEYS);
 
         let ucan = UcanBuilder::default()
             .issued_by(&identities.alice_key)
@@ -25,7 +25,7 @@ mod validate {
         let encoded_ucan = ucan.encode().unwrap();
         let decoded_ucan = Ucan::try_from_token_string(encoded_ucan.as_str()).unwrap();
 
-        decoded_ucan.validate(did_parser).await.unwrap();
+        decoded_ucan.validate(&mut did_parser).await.unwrap();
     }
 
     #[tokio::test]
