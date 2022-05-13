@@ -34,18 +34,19 @@ impl DidParser {
         }))
     }
 
-    pub fn parse(&mut self, did: String) -> Result<Arc<Box<dyn KeyMaterial>>> {
+    pub fn parse(&mut self, did: &str) -> Result<Arc<Box<dyn KeyMaterial>>> {
         if !did.starts_with(BASE58_DID_PREFIX) {
             return Err(anyhow!("Not a DID: {}", did));
         }
 
         let did_bytes = bs58::decode(&did[BASE58_DID_PREFIX.len()..]).into_vec()?;
-        let magic_bytes = &did_bytes[0..2];
+        let did = did.to_owned();
 
         if let Some(key) = self.key_cache.get(&did) {
             return Ok(key.clone());
         }
 
+        let magic_bytes = &did_bytes[0..2];
         match self.key_constructors.get(magic_bytes) {
             Some(ctor) => {
                 let key = ctor(Vec::from(&did_bytes[2..]))?;

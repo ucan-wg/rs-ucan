@@ -119,7 +119,7 @@ impl Ucan {
     /// Validate that the signed data was signed by the stated issuer
     pub async fn check_signature<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
         let mut did_parser = did_parser.lock().await;
-        let key = did_parser.parse(self.payload.iss.clone())?;
+        let key = did_parser.parse(&self.payload.iss)?;
         key.verify(&self.signed_data, &self.signature).await
     }
 
