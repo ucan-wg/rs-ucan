@@ -233,9 +233,9 @@ mod tests {
     async fn it_produces_a_legible_rsa_did() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
         let did = key_material.get_did().await.unwrap();
-        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
 
-        did_parser.lock().await.parse(did).unwrap();
+        did_parser.parse(&did).unwrap();
     }
 
     #[wasm_bindgen_test]
@@ -254,9 +254,9 @@ mod tests {
             .encode()
             .unwrap();
 
-        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
         let ucan = Ucan::try_from_token_string(token.as_str()).unwrap();
 
-        ucan.check_signature(did_parser).await.unwrap();
+        ucan.check_signature(&mut did_parser).await.unwrap();
     }
 }
