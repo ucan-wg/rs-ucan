@@ -22,7 +22,7 @@
 //! };
 //!
 //! async fn generate_token<'a, K: KeyMaterial>(issuer_key: &'a K, audience_did: &'a str) -> Result<String, anyhow::Error> {
-//!     UcanBuilder::new()
+//!     UcanBuilder::default()
 //!       .issued_by(issuer_key)
 //!       .for_audience(audience_did)
 //!       .with_lifetime(60)
@@ -57,9 +57,9 @@
 //!         S: Scope,
 //!         A: Action
 //! {
-//!     let did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
+//!     let mut did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
 //!
-//!     Ok(ProofChain::try_from_token_string(ucan_token, did_parser).await?
+//!     Ok(ProofChain::try_from_token_string(ucan_token, &mut did_parser).await?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```
@@ -73,9 +73,6 @@
 //! [UCAN docs]: https://ucan.xyz/
 //! [DID spec]: https://www.w3.org/TR/did-core/
 //! [DID Key spec]: https://w3c-ccg.github.io/did-method-key/
-
-#[macro_use]
-extern crate log;
 
 pub mod crypto;
 pub mod time;

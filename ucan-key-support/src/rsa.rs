@@ -101,7 +101,7 @@ mod tests {
         let public_key = RsaPublicKey::from(&private_key);
 
         let key_material = RsaKeyMaterial(public_key, Some(private_key));
-        let token_string = UcanBuilder::new()
+        let token_string = UcanBuilder::default()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(60)
@@ -113,9 +113,9 @@ mod tests {
             .encode()
             .unwrap();
 
-        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
 
         let ucan = Ucan::try_from_token_string(token_string.as_str()).unwrap();
-        ucan.check_signature(did_parser.clone()).await.unwrap();
+        ucan.check_signature(&mut did_parser).await.unwrap();
     }
 }

@@ -1,9 +1,6 @@
 use anyhow::{anyhow, Context, Result};
-use async_std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::str;
-use std::sync::Arc;
 
 use crate::crypto::did::DidParser;
 use crate::time::now;
@@ -53,13 +50,13 @@ impl Ucan {
     }
 
     /// Deserialize an encoded UCAN token string into a UCAN
-    pub fn try_from_token_string<'a>(ucan_token_string: &str) -> Result<Ucan> {
+    pub fn try_from_token_string(ucan_token_string: &str) -> Result<Ucan> {
         let signed_data = ucan_token_string
             .split('.')
             .take(2)
-            .map(|str| String::from(str))
+            .map(String::from)
             .reduce(|l, r| format!("{}.{}", l, r))
-            .ok_or(anyhow!("Could not parse signed data from token string"))?;
+            .ok_or_else(|| anyhow!("Could not parse signed data from token string"))?;
 
         let mut parts = ucan_token_string.split('.').map(|str| {
             base64::decode_config(str, base64::URL_SAFE_NO_PAD).map_err(|error| anyhow!(error))
@@ -104,7 +101,7 @@ impl Ucan {
     }
 
     /// Validate the UCAN's signature and timestamps
-    pub async fn validate<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
+    pub async fn validate<'a>(&self, did_parser: &mut DidParser) -> Result<()> {
         if self.is_expired() {
             return Err(anyhow!("Expired"));
         }
@@ -117,10 +114,9 @@ impl Ucan {
     }
 
     /// Validate that the signed data was signed by the stated issuer
-    pub async fn check_signature<'a>(&self, did_parser: Arc<Mutex<DidParser>>) -> Result<()> {
-        let mut did_parser = did_parser.lock().await;
-        let key = did_parser.parse(self.payload.iss.clone())?;
-        Ok(key.verify(&self.signed_data, &self.signature).await?)
+    pub async fn check_signature<'a>(&self, did_parser: &mut DidParser) -> Result<()> {
+        let key = did_parser.parse(&self.payload.iss)?;
+        key.verify(&self.signed_data, &self.signature).await
     }
 
     /// Produce a base64-encoded serialization of the UCAN suitable for

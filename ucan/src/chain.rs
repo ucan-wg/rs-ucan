@@ -1,7 +1,6 @@
 use async_recursion::async_recursion;
-use async_std::sync::Mutex;
 use std::fmt::Debug;
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 
 use crate::{
     capability::{
@@ -51,13 +50,13 @@ impl ProofChain {
         any(not(target_arch = "wasm32"), not(feature = "web")),
         async_recursion
     )]
-    pub async fn from_ucan(ucan: Ucan, did_parser: Arc<Mutex<DidParser>>) -> Result<ProofChain> {
-        ucan.validate(did_parser.clone()).await?;
+    pub async fn from_ucan(ucan: Ucan, did_parser: &mut DidParser) -> Result<ProofChain> {
+        ucan.validate(did_parser).await?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
         for proof_string in ucan.proofs().iter() {
-            let proof_chain = Self::try_from_token_string(proof_string, did_parser.clone()).await?;
+            let proof_chain = Self::try_from_token_string(proof_string, did_parser).await?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -77,7 +76,7 @@ impl ProofChain {
                     kind: Resource::Scoped(ProofSelection::Index(index)),
                 } => {
                     if *index < proofs.len() {
-                        redelegations.insert(index.clone());
+                        redelegations.insert(*index);
                     } else {
                         return Err(anyhow!(
                             "Unable to redelegate proof; no proof at zero-based index {}",
@@ -96,16 +95,13 @@ impl ProofChain {
         })
     }
 
-    pub async fn from_cid<'a>(
-        _cid: &str,
-        _did_parser: Arc<Mutex<DidParser>>,
-    ) -> Result<ProofChain> {
+    pub async fn from_cid<'a>(_cid: &str, _did_parser: &mut DidParser) -> Result<ProofChain> {
         todo!("Resolving a proof from a CID not yet implemented")
     }
 
     pub async fn try_from_token_string<'a>(
         ucan_token_string: &str,
-        did_parser: Arc<Mutex<DidParser>>,
+        did_parser: &mut DidParser,
     ) -> Result<ProofChain> {
         let ucan = Ucan::try_from_token_string(ucan_token_string)?;
         Self::from_ucan(ucan, did_parser).await
@@ -116,7 +112,7 @@ impl ProofChain {
         let issuer = ucan.issuer();
 
         match audience == issuer {
-            true => match self.ucan.lifetime_encompasses(&ucan) {
+            true => match self.ucan.lifetime_encompasses(ucan) {
                 true => Ok(()),
                 false => Err(anyhow!("Invalid UCAN link: lifetime exceeds attenuation")),
             },
@@ -151,14 +147,13 @@ impl ProofChain {
             .proofs
             .iter()
             .enumerate()
-            .map(|(index, ancestor_chain)| {
+            .flat_map(|(index, ancestor_chain)| {
                 if self.redelegations.contains(&index) {
                     Vec::new()
                 } else {
                     ancestor_chain.reduce_capabilities(semantics)
                 }
             })
-            .flatten()
             .collect();
 
         // Get the set of capabilities that are blanket redelegated from
@@ -166,7 +161,7 @@ impl ProofChain {
         let mut redelegated_capability_infos: Vec<CapabilityInfo<S, A>> = self
             .redelegations
             .iter()
-            .map(|index| {
+            .flat_map(|index| {
                 self.proofs
                     .get(*index)
                     .unwrap()
@@ -175,12 +170,11 @@ impl ProofChain {
                     .map(|mut info| {
                         // Redelegated capabilities should be attenuated by
                         // this UCAN's lifetime
-                        info.not_before = self.ucan.not_before().clone();
-                        info.expires_at = self.ucan.expires_at().clone();
+                        info.not_before = *self.ucan.not_before();
+                        info.expires_at = *self.ucan.expires_at();
                         info
                     })
             })
-            .flatten()
             .collect();
 
         let self_capabilities_iter = CapabilityIterator::new(&self.ucan, semantics);
@@ -192,12 +186,12 @@ impl ProofChain {
                 .map(|capability| CapabilityInfo {
                     originators: BTreeSet::from_iter(vec![self.ucan.issuer().clone()]),
                     capability,
-                    not_before: self.ucan.not_before().clone(),
-                    expires_at: self.ucan.expires_at().clone(),
+                    not_before: *self.ucan.not_before(),
+                    expires_at: *self.ucan.expires_at(),
                 })
                 .collect(),
             _ => self_capabilities_iter
-                .filter_map(|capability| {
+                .map(|capability| {
                     let mut originators = BTreeSet::<String>::new();
 
                     for ancestral_capability_info in ancestral_capability_infos.iter() {
@@ -212,16 +206,16 @@ impl ProofChain {
 
                     // If there are no related ancestral capability, then this
                     // link in the chain is considered the first originator
-                    if originators.len() == 0 {
+                    if originators.is_empty() {
                         originators.insert(self.ucan.issuer().clone());
                     }
 
-                    Some(CapabilityInfo {
+                    CapabilityInfo {
                         capability,
                         originators,
-                        not_before: self.ucan.not_before().clone(),
-                        expires_at: self.ucan.expires_at().clone(),
-                    })
+                        not_before: *self.ucan.not_before(),
+                        expires_at: *self.ucan.expires_at(),
+                    }
                 })
                 .collect(),
         };

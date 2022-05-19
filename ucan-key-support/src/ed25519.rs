@@ -65,7 +65,7 @@ mod tests {
         let public_key = Ed25519PublicKey::from(&private_key);
 
         let key_material = Ed25519KeyMaterial(public_key, Some(private_key));
-        let token_string = UcanBuilder::new()
+        let token_string = UcanBuilder::default()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(60)
@@ -77,9 +77,9 @@ mod tests {
             .encode()
             .unwrap();
 
-        let did_parser = DidParser::new(&[(ED25519_MAGIC_BYTES, bytes_to_ed25519_key)]);
+        let mut did_parser = DidParser::new(&[(ED25519_MAGIC_BYTES, bytes_to_ed25519_key)]);
 
         let ucan = Ucan::try_from_token_string(token_string.as_str()).unwrap();
-        ucan.check_signature(did_parser.clone()).await.unwrap();
+        ucan.check_signature(&mut did_parser).await.unwrap();
     }
 }

@@ -184,13 +184,13 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         )
         .map_err(|error| anyhow!("{:?}", error))?;
 
-        let signature = unsafe { Uint8Array::view(signature.as_ref()) };
-        let data = unsafe { Uint8Array::view(payload.as_ref()) };
+        let signature = unsafe { Uint8Array::view(signature) };
+        let data = unsafe { Uint8Array::view(payload) };
 
         let valid = JsFuture::from(
             subtle_crypto
                 .verify_with_object_and_buffer_source_and_buffer_source(
-                    &algorithm, &key, &signature, &data,
+                    &algorithm, key, &signature, &data,
                 )
                 .map_err(|error| anyhow!("{:?}", error))?,
         )
@@ -233,16 +233,16 @@ mod tests {
     async fn it_produces_a_legible_rsa_did() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
         let did = key_material.get_did().await.unwrap();
-        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
 
-        did_parser.lock().await.parse(did).unwrap();
+        did_parser.parse(&did).unwrap();
     }
 
     #[wasm_bindgen_test]
     async fn it_signs_ucans_that_can_be_verified_elsewhere() {
         let key_material = WebCryptoRsaKeyMaterial::generate(None).await.unwrap();
 
-        let token = UcanBuilder::new()
+        let token = UcanBuilder::default()
             .issued_by(&key_material)
             .for_audience(key_material.get_did().await.unwrap().as_str())
             .with_lifetime(300)
@@ -254,9 +254,9 @@ mod tests {
             .encode()
             .unwrap();
 
-        let did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+        let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
         let ucan = Ucan::try_from_token_string(token.as_str()).unwrap();
 
-        ucan.check_signature(did_parser).await.unwrap();
+        ucan.check_signature(&mut did_parser).await.unwrap();
     }
 }
