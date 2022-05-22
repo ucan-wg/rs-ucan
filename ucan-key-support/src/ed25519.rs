@@ -44,7 +44,7 @@ impl KeyMaterial for Ed25519KeyMaterial {
         let signature = Signature::try_from(signature)?;
         self.0
             .verify(&signature, payload)
-            .map_err(|error| anyhow!(error))
+            .map_err(|error| anyhow!("Could not verify signature: {:?}", error))
     }
 }
 

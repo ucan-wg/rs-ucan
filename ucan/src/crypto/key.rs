@@ -1,6 +1,3 @@
-// use anyhow::Result;
-// use async_trait::async_trait;
-
 /// This trait must be implemented by a struct that encapsulates cryptographic
 /// keypair data. The trait represent the minimum required API capability for
 /// producing a signed UCAN from a cryptographic keypair, and verifying such
