@@ -2,8 +2,9 @@ use crate::rsa::{RsaKeyMaterial, RSA_ALGORITHM};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
-use rsa::pkcs1::FromRsaPublicKey;
 use rsa::RsaPublicKey;
+use rsa::pkcs1::DecodeRsaPublicKey;
+use rsa::pkcs1::der::Encodable;
 use ucan::crypto::KeyMaterial;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -127,7 +128,7 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         let public_key_bytes = convert_spki_to_rsa_public_key(public_key_bytes.as_slice())?;
 
         let public_key = rsa::pkcs1::RsaPublicKey::try_from(public_key_bytes.as_slice())?;
-        let public_key = RsaPublicKey::from_pkcs1_public_key(public_key)?;
+        let public_key = RsaPublicKey::from_pkcs1_der(&public_key.to_vec()?)?;
 
         Ok(RsaKeyMaterial(public_key, None).get_did().await?)
     }

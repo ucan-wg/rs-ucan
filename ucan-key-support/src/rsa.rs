@@ -2,9 +2,10 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 use rsa::{
-    pkcs1::{FromRsaPublicKey, ToRsaPublicKey},
     Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
 };
+use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
+use rsa::pkcs1::der::{Document, Encodable};
 
 use sha2::{Digest, Sha256};
 use ucan::crypto::KeyMaterial;
@@ -16,7 +17,7 @@ pub fn bytes_to_rsa_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
     // NOTE: DID bytes are PKCS1, but we are using PKCS8, so do the conversion here..
     println!("Trying to parse RSA key...");
     let public_key = rsa::pkcs1::RsaPublicKey::try_from(bytes.as_slice())?;
-    let public_key = RsaPublicKey::from_pkcs1_public_key(public_key)?;
+    let public_key = RsaPublicKey::from_pkcs1_der(&public_key.to_vec()?)?;
 
     Ok(Box::new(RsaKeyMaterial(public_key, None)))
 }
@@ -86,7 +87,7 @@ mod tests {
     use super::RsaKeyMaterial;
     use super::RSA_MAGIC_BYTES;
 
-    use rsa::pkcs8::FromPrivateKey;
+    use rsa::pkcs8::DecodePrivateKey;
     use rsa::RsaPrivateKey;
     use rsa::RsaPublicKey;
     use ucan::builder::UcanBuilder;
