@@ -5,14 +5,14 @@ use serde_json::Value;
 use crate::crypto::did::DidParser;
 use crate::time::now;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UcanHeader {
     pub alg: String,
     pub typ: String,
     pub ucv: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UcanPayload {
     pub iss: String,
     pub aud: String,
@@ -26,7 +26,7 @@ pub struct UcanPayload {
     pub prf: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Ucan {
     header: UcanHeader,
     payload: UcanPayload,
@@ -141,8 +141,12 @@ impl Ucan {
     }
 
     /// Raw bytes of signed data for this UCAN
-    pub fn signed_data(&self) -> &Vec<u8> {
+    pub fn signed_data(&self) -> &[u8] {
         &self.signed_data
+    }
+
+    pub fn signature(&self) -> &[u8] {
+        &self.signature
     }
 
     /// Returns true if the not-before ("nbf") time is still in the future
@@ -175,15 +179,15 @@ impl Ucan {
         self.lifetime_begins_before(other) && self.lifetime_ends_after(other)
     }
 
-    pub fn algorithm(&self) -> &String {
+    pub fn algorithm(&self) -> &str {
         &self.header.alg
     }
 
-    pub fn issuer(&self) -> &String {
+    pub fn issuer(&self) -> &str {
         &self.payload.iss
     }
 
-    pub fn audience(&self) -> &String {
+    pub fn audience(&self) -> &str {
         &self.payload.aud
     }
 

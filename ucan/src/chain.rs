@@ -1,6 +1,6 @@
 use async_recursion::async_recursion;
-use std::fmt::Debug;
 use std::collections::BTreeSet;
+use std::fmt::Debug;
 
 use crate::{
     capability::{
@@ -184,7 +184,7 @@ impl ProofChain {
         let mut self_capability_infos: Vec<CapabilityInfo<S, A>> = match self.proofs.len() {
             0 => self_capabilities_iter
                 .map(|capability| CapabilityInfo {
-                    originators: BTreeSet::from_iter(vec![self.ucan.issuer().clone()]),
+                    originators: BTreeSet::from_iter(vec![self.ucan.issuer().to_string()]),
                     capability,
                     not_before: *self.ucan.not_before(),
                     expires_at: *self.ucan.expires_at(),
@@ -207,7 +207,7 @@ impl ProofChain {
                     // If there are no related ancestral capability, then this
                     // link in the chain is considered the first originator
                     if originators.is_empty() {
-                        originators.insert(self.ucan.issuer().clone());
+                        originators.insert(self.ucan.issuer().to_string());
                     }
 
                     CapabilityInfo {
