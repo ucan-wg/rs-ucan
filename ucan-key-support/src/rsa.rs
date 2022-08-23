@@ -1,11 +1,9 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use rsa::{
-    Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
-};
-use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
 use rsa::pkcs1::der::{Document, Encodable};
+use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
+use rsa::{Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey};
 
 use sha2::{Digest, Sha256};
 use ucan::crypto::KeyMaterial;
