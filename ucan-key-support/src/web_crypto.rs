@@ -1,13 +1,17 @@
+use crate::rsa::{bytes_to_rsa_key, RSA_MAGIC_BYTES};
 use crate::rsa::{RsaKeyMaterial, RSA_ALGORITHM};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
-use rsa::RsaPublicKey;
-use rsa::pkcs1::DecodeRsaPublicKey;
+use js_sys::{Array, ArrayBuffer, Boolean, Date, Object, Promise, Reflect, Uint8Array};
 use rsa::pkcs1::der::Encodable;
-use ucan::crypto::KeyMaterial;
-use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_futures::JsFuture;
+use rsa::pkcs1::DecodeRsaPublicKey;
+use rsa::RsaPublicKey;
+use ucan::builder::{Signable, UcanBuilder};
+use ucan::crypto::{did::DidParser, KeyMaterial};
+use ucan::ucan::Ucan;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsError, JsValue};
+use wasm_bindgen_futures::{future_to_promise, JsFuture};
 use web_sys::{Crypto, CryptoKey, CryptoKeyPair, SubtleCrypto};
 
 pub fn convert_spki_to_rsa_public_key(spki_bytes: &[u8]) -> Result<Vec<u8>> {
@@ -18,8 +22,30 @@ pub fn convert_spki_to_rsa_public_key(spki_bytes: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[derive(Debug)]
-pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
+pub struct WasmError(anyhow::Error);
 
+impl From<WasmError> for JsValue {
+    fn from(err: WasmError) -> JsValue {
+        JsError::new(&format!("{:?}", err)).into()
+    }
+}
+
+impl From<anyhow::Error> for WasmError {
+    fn from(err: anyhow::Error) -> Self {
+        Self(err)
+    }
+}
+
+type WasmResult<T> = std::result::Result<T, WasmError>;
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct WebCryptoRsaKeyMaterial {
+    public_key: CryptoKey,
+    private_key: Option<CryptoKey>,
+}
+
+#[wasm_bindgen]
 impl WebCryptoRsaKeyMaterial {
     fn get_subtle_crypto() -> Result<SubtleCrypto> {
         // NOTE: Accessing either `Window` or `DedicatedWorkerGlobalScope` in
@@ -33,13 +59,14 @@ impl WebCryptoRsaKeyMaterial {
     }
 
     fn private_key(&self) -> Result<&CryptoKey> {
-        match &self.1 {
+        match &self.private_key {
             Some(key) => Ok(key),
             None => Err(anyhow!("No private key configured")),
         }
     }
 
-    pub async fn generate(key_size: Option<u32>) -> Result<WebCryptoRsaKeyMaterial> {
+    #[wasm_bindgen]
+    pub async fn generate(key_size: Option<u32>) -> WasmResult<WebCryptoRsaKeyMaterial> {
         let subtle_crypto = Self::get_subtle_crypto()?;
         let algorithm = Object::new();
 
@@ -98,7 +125,53 @@ impl WebCryptoRsaKeyMaterial {
                 .map_err(|error| anyhow!("{:?}", error))?,
         );
 
-        Ok(WebCryptoRsaKeyMaterial(public_key, Some(private_key)))
+        Ok(WebCryptoRsaKeyMaterial {
+            public_key,
+            private_key: Some(private_key),
+        })
+    }
+
+    #[wasm_bindgen(js_name = "getDid")]
+    pub fn wasm_get_did(&self) -> WasmResult<Promise> {
+        let me = self.clone();
+
+        Ok(future_to_promise(async move {
+            let did = me.get_did().await.map_err(|err| WasmError::from(err))?;
+            Ok(JsValue::from_str(&did))
+        }))
+    }
+
+    #[wasm_bindgen(js_name = "sign")]
+    pub fn wasm_sign(&self, payload: &[u8]) -> WasmResult<Promise> {
+        let me = self.clone();
+        let payload = payload.to_vec();
+
+        Ok(future_to_promise(async move {
+            let res = me
+                .sign(&payload)
+                .await
+                .map_err(|err| WasmError::from(err))?;
+            Ok(JsValue::from(Uint8Array::from(res.as_slice())))
+        }))
+    }
+
+    #[wasm_bindgen(js_name = "verify")]
+    pub fn wasm_verify(&self, payload: &[u8], signature: &[u8]) -> WasmResult<Promise> {
+        let me = self.clone();
+        let payload = payload.to_vec();
+        let signature = signature.to_vec();
+
+        Ok(future_to_promise(async move {
+            me.verify(&payload, &signature)
+                .await
+                .map_err(|err| WasmError::from(err))?;
+            Ok(JsValue::UNDEFINED)
+        }))
+    }
+
+    #[wasm_bindgen(js_name = "jwtAlgorithm")]
+    pub fn wasm_jwt_algorithm(&self) -> String {
+        self.get_jwt_algorithm_name()
     }
 }
 
@@ -109,7 +182,7 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
     }
 
     async fn get_did(&self) -> Result<String> {
-        let public_key = &self.0;
+        let public_key = &self.public_key;
         let subtle_crypto = Self::get_subtle_crypto()?;
 
         let public_key_bytes = Uint8Array::new(
@@ -168,7 +241,7 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
     }
 
     async fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<()> {
-        let key = &self.0;
+        let key = &self.public_key;
         let subtle_crypto = Self::get_subtle_crypto()?;
         let algorithm = Object::new();
 
@@ -204,6 +277,245 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
             true => Ok(()),
             false => Err(anyhow!("Could not verify signature")),
         }
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmUcan {
+    inner: Ucan,
+}
+
+#[wasm_bindgen]
+impl WasmUcan {
+    #[wasm_bindgen(js_name = "fromToken")]
+    pub fn from_token(token: &str) -> WasmResult<WasmUcan> {
+        let ucan = Ucan::try_from_token_string(token).map_err(|err| WasmError::from(err))?;
+        Ok(WasmUcan { inner: ucan })
+    }
+
+    #[wasm_bindgen]
+    pub fn validate(&self) -> WasmResult<Promise> {
+        let ucan = self.inner.clone();
+
+        Ok(future_to_promise(async move {
+            let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+            ucan.validate(&mut did_parser)
+                .await
+                .map_err(|err| WasmError::from(err))?;
+            Ok(JsValue::TRUE)
+        }))
+    }
+
+    #[wasm_bindgen(js_name = "checkSignature")]
+    pub fn check_signature(&self) -> WasmResult<Promise> {
+        let ucan = self.inner.clone();
+
+        Ok(future_to_promise(async move {
+            let mut did_parser = DidParser::new(&[(RSA_MAGIC_BYTES, bytes_to_rsa_key)]);
+            ucan.check_signature(&mut did_parser)
+                .await
+                .map_err(|err| WasmError::from(err))?;
+            Ok(JsValue::TRUE)
+        }))
+    }
+
+    #[wasm_bindgen]
+    pub fn encode(&self) -> WasmResult<String> {
+        self.inner.encode().map_err(|err| WasmError::from(err))
+    }
+
+    #[wasm_bindgen(js_name = "isExpired")]
+    pub fn is_expired(&self) -> bool {
+        self.inner.is_expired()
+    }
+
+    #[wasm_bindgen(js_name = "isTooEarly")]
+    pub fn is_too_early(&self) -> bool {
+        self.inner.is_too_early()
+    }
+
+    #[wasm_bindgen(js_name = "signedData")]
+    pub fn signed_data(&self) -> Vec<u8> {
+        self.inner.signed_data().to_vec()
+    }
+
+    #[wasm_bindgen]
+    pub fn algorithm(&self) -> String {
+        self.inner.algorithm().to_string()
+    }
+
+    #[wasm_bindgen]
+    pub fn issuer(&self) -> String {
+        self.inner.issuer().to_string()
+    }
+
+    #[wasm_bindgen]
+    pub fn audience(&self) -> String {
+        self.inner.audience().to_string()
+    }
+
+    #[wasm_bindgen]
+    pub fn proofs(&self) -> Vec<JsValue> {
+        self.inner
+            .proofs()
+            .into_iter()
+            .map(|proof| JsValue::from_str(proof))
+            .collect()
+    }
+
+    #[wasm_bindgen]
+    pub fn expires_at(&self) -> Date {
+        // The UCAN value is the Unix Timestamp in seconds, but
+        // Date expects milliseconds since EPOCH.
+        let millis: JsValue = (1000 * self.inner.expires_at()).into();
+        Date::new(&millis)
+    }
+
+    #[wasm_bindgen(js_name = "notBefore")]
+    pub fn not_before(&self) -> Option<Date> {
+        // The UCAN value is the Unix Timestamp in seconds, but
+        // Date expects milliseconds since EPOCH.
+        self.inner.not_before().map(|time| {
+            let millis: JsValue = (1000 * time).into();
+            Date::new(&millis)
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn nonce(&self) -> Option<String> {
+        self.inner.nonce().clone()
+    }
+
+    #[wasm_bindgen(js_name = "lifetimeBeginsBefore")]
+    pub fn lifetime_begins_before(&self, other: &WasmUcan) -> bool {
+        self.inner.lifetime_begins_before(&other.inner)
+    }
+
+    #[wasm_bindgen(js_name = "lifetimeEndsAfter")]
+    pub fn lifetime_ends_after(&self, other: &WasmUcan) -> bool {
+        self.inner.lifetime_ends_after(&other.inner)
+    }
+
+    #[wasm_bindgen(js_name = "lifetimeEncompasses")]
+    pub fn lifetime_encompasses(&self, other: &WasmUcan) -> bool {
+        self.inner.lifetime_encompasses(&other.inner)
+    }
+
+    #[wasm_bindgen]
+    pub fn attenuation(&self) -> Vec<JsValue> {
+        self.inner
+            .attenuation()
+            .into_iter()
+            .filter_map(|att| JsValue::from_serde(&att).ok())
+            .collect()
+    }
+
+    #[wasm_bindgen]
+    pub fn facts(&self) -> Vec<JsValue> {
+        self.inner
+            .facts()
+            .into_iter()
+            .filter_map(|fact| JsValue::from_serde(&fact).ok())
+            .collect()
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmSignable {
+    inner: Signable<WebCryptoRsaKeyMaterial>,
+}
+
+#[wasm_bindgen]
+impl WasmSignable {
+    pub fn sign(&self) -> WasmResult<Promise> {
+        let signable = self.inner.clone();
+
+        Ok(future_to_promise(async move {
+            let inner = signable.sign().await.map_err(|err| WasmError::from(err))?;
+            let ucan = WasmUcan { inner };
+            Ok(ucan.into())
+        }))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmUcanBuilder {
+    inner: UcanBuilder<WebCryptoRsaKeyMaterial>,
+}
+
+#[wasm_bindgen]
+impl WasmUcanBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self { inner: UcanBuilder::default() }
+    }
+
+    #[wasm_bindgen(js_name = "issuedBy")]
+    pub fn issued_by(self, issuer: &WebCryptoRsaKeyMaterial) -> Self {
+        Self {
+            inner: self.inner.issued_by(issuer),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "forAudience")]
+    pub fn for_audience(self, audience: &str) -> Self {
+        Self {
+            inner: self.inner.for_audience(audience),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "withLifetime")]
+    pub fn with_lifetime(self, seconds: u64) -> Self {
+        Self {
+            inner: self.inner.with_lifetime(seconds),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "withExpiration")]
+    pub fn with_expiration(self, timestamp: Date) -> Self {
+        // We need the timestamp in seconds.
+        let seconds = timestamp.get_time() as u64 / 1000;
+        Self {
+            inner: self.inner.with_expiration(seconds),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "notBefore")]
+    pub fn not_before(self, timestamp: Date) -> Self {
+        // We need the timestamp in seconds.
+        let seconds = timestamp.get_time() as u64 / 1000;
+        Self {
+            inner: self.inner.not_before(seconds),
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn with_nonce(self) -> Self {
+        Self {
+            inner: self.inner.with_nonce(),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "witnessedBy")]
+    pub fn witnessed_by(self, authority: &WasmUcan) -> Self {
+        Self {
+            inner: self.inner.witnessed_by(&authority.inner),
+        }
+    }
+
+    #[wasm_bindgen(js_name = "delegatingFrom")]
+    pub fn delegating_from(self, authority: &WasmUcan) -> Self {
+        Self {
+            inner: self.inner.delegating_from(&authority.inner),
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn build(self) -> WasmResult<WasmSignable> {
+        self.inner
+            .build()
+            .map(|inner| WasmSignable { inner })
+            .map_err(|err| WasmError::from(err))
     }
 }
 
