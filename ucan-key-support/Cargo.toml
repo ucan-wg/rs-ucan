@@ -1,19 +1,19 @@
 [package]
-name = "ucan-key-support"
-description = "Ready to use SigningKey implementations for the ucan crate"
-edition = "2021"
-keywords = ["ucan", "authz", "jwt", "pki"]
 categories = [
   "authorization",
   "cryptography",
   "encoding",
-  "web-programming"
+  "web-programming",
 ]
+description = "Ready to use SigningKey implementations for the ucan crate"
 documentation = "https://docs.rs/ucan"
-repository = "https://github.com/cdata/rs-ucan/"
+edition = "2021"
 homepage = "https://github.com/cdata/rs-ucan"
+keywords = ["ucan", "authz", "jwt", "pki"]
 license = "Apache-2.0"
+name = "ucan-key-support"
 readme = "README.md"
+repository = "https://github.com/cdata/rs-ucan/"
 version = "0.4.0-alpha.1"
 
 [lib]
@@ -24,14 +24,14 @@ default = []
 web = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "ucan/web", "getrandom/js"]
 
 [dependencies]
-ucan = {path = "../ucan", version = "0.6.0-alpha.1" }
 anyhow = "1.0.52"
 async-trait = "0.1.52"
+bs58 = "0.4"
 ed25519-zebra = "^3"
+log = "0.4"
 rsa = "0.6"
 sha2 = "0.10"
-bs58 = "0.4"
-log = "0.4"
+ucan = {path = "../ucan", version = "0.6.0-alpha.1"}
 
 [build-dependencies]
 npm_rs = "0.2.1"
@@ -39,27 +39,27 @@ npm_rs = "0.2.1"
 [dev-dependencies]
 rand = "0.8"
 # NOTE: This is needed so that rand can be included in WASM builds
-getrandom = { version = "0.2.5", features = ["js"] }
+getrandom = {version = "0.2.5", features = ["js"]}
+tokio = {version = "^1", features = ["macros", "rt"]}
 wasm-bindgen-test = "0.3"
-tokio = { version = "^1", features = ["macros", "rt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
-js-sys = { version = "0.3", optional = true }
+js-sys = {version = "0.3", optional = true}
+wasm-bindgen = {version = "0.2", features = ["serde-serialize"], optional = true}
+wasm-bindgen-futures = {version = "0.4", optional = true}
 wee_alloc = {version = "0.4"}
 
 [target.'cfg(target_arch="wasm32")'.dependencies.web-sys]
-version = "0.3"
-optional = true
 features = [
   'Window',
   'SubtleCrypto',
   'Crypto',
   'CryptoKey',
   'CryptoKeyPair',
-  'DedicatedWorkerGlobalScope'
+  'DedicatedWorkerGlobalScope',
 ]
+optional = true
+version = "0.3"
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
 pollster = "0.2.5"

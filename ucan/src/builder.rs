@@ -20,11 +20,13 @@ use crate::ucan::Ucan;
 /// NOTE: This may be useful for bespoke signing flows down the road. It is
 /// meant to approximate the way that ts-ucan produces an unsigned intermediate
 /// artifact (e.g., <https://github.com/ucan-wg/ts-ucan/blob/e10bdeca26e663df72e4266ccd9d47f8ce100665/src/builder.ts#L257-L278>)
-pub struct Signable<'a, K>
+
+#[derive(Clone)]
+pub struct Signable<K>
 where
-    K: KeyMaterial,
+    K: KeyMaterial + Clone,
 {
-    pub issuer: &'a K,
+    pub issuer: K,
     pub audience: String,
 
     pub capabilities: Vec<Value>,
@@ -37,9 +39,9 @@ where
     pub add_nonce: bool,
 }
 
-impl<'a, K> Signable<'a, K>
+impl<K> Signable<K>
 where
-    K: KeyMaterial,
+    K: KeyMaterial + Clone,
 {
     pub const UCAN_VERSION: &'static str = "0.8.1";
 
@@ -99,11 +101,11 @@ where
 
 /// A builder API for UCAN tokens
 #[derive(Clone)]
-pub struct UcanBuilder<'a, K>
+pub struct UcanBuilder<K>
 where
     K: KeyMaterial,
 {
-    issuer: Option<&'a K>,
+    issuer: Option<K>,
     audience: Option<String>,
 
     capabilities: Vec<Value>,
@@ -117,7 +119,7 @@ where
     add_nonce: bool,
 }
 
-impl<'a, K> Default for UcanBuilder<'a, K>
+impl<K> Default for UcanBuilder<K>
 where
     K: KeyMaterial,
 {
@@ -147,13 +149,13 @@ where
     }
 }
 
-impl<'a, K> UcanBuilder<'a, K>
+impl<K> UcanBuilder<K>
 where
-    K: KeyMaterial,
+    K: KeyMaterial + Clone,
 {
     /// The UCAN must be signed with the private key of the issuer to be valid.
-    pub fn issued_by(mut self, issuer: &'a K) -> Self {
-        self.issuer = Some(issuer);
+    pub fn issued_by(mut self, issuer: &K) -> Self {
+        self.issuer = Some(issuer.clone());
         self
     }
 
@@ -269,12 +271,12 @@ where
         }
     }
 
-    pub fn build(self) -> Result<Signable<'a, K>> {
+    pub fn build(self) -> Result<Signable<K>> {
         match &self.issuer {
             Some(issuer) => match &self.audience {
                 Some(audience) => match self.implied_expiration() {
                     Some(expiration) => Ok(Signable {
-                        issuer,
+                        issuer: issuer.clone(),
                         audience: audience.clone(),
                         not_before: self.not_before,
                         expiration,

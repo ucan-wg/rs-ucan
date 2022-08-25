@@ -5,7 +5,9 @@
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
     <script type="module">
       import {
-        WebCryptoRsaKeyMaterial,
+        WebCryptoRsaKeyMaterial as KeyMaterial,
+        WasmUcanBuilder as UcanBuilder,
+        WasmUcan as Ucan,
         default as ucanInit,
       } from "../static/ucan_key_support.js";
 
@@ -27,25 +29,38 @@
 
       async function runTest() {
         document.getElementById("log").innerHTML = "";
-        let keyMaterial = await WebCryptoRsaKeyMaterial.generate(2048);
-        let did = await keyMaterial.getDid();
-        log(`DID url: ${did}`);
-        log(`JWT algorithm: ${keyMaterial.jwtAlgorithm()}`);
+        let aliceKey = await KeyMaterial.generate(2048);
+        let did = await aliceKey.getDid();
+        log(`Alice's DID url: ${did}`);
+        log(`JWT algorithm: ${aliceKey.jwtAlgorithm()}`);
 
         let data = new TextEncoder().encode("Hello World!");
-        let signature = await keyMaterial.sign(data);
+        let signature = await aliceKey.sign(data);
         try {
-          await keyMaterial.verify(data, signature);
+          await aliceKey.verify(data, signature);
           log(`Signature successfully verified`);
         } catch (e) {
           error(`Signature verification failed: ${e}`);
         }
+
+        let bobKey = await KeyMaterial.generate(2048);
+
+        let builder = new UcanBuilder()
+          .issuedBy(aliceKey)
+          .forAudience(bobKey)
+          .withLifetime(60n);
+        let signable = builder.build();
+        let ucan = await signable.sign();
+        let encoded = ucan.encode();
+
+        log(`Encoded ucan: ${encoded}`);
+
+        let decodedUcan = Ucan.fromToken(encoded);
+        log(`Decoded ucan validity: ${await decodedUcan.validate()}`);
       }
 
       document.addEventListener("DOMContentLoaded", async () => {
-        document
-          .getElementById("run-test")
-          .addEventListener("click", runTest);
+        document.getElementById("run-test").addEventListener("click", runTest);
 
         await ucanInit();
       });
