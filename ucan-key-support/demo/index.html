@@ -57,6 +57,7 @@
 
         let decodedUcan = Ucan.fromToken(encoded);
         log(`Decoded ucan validity: ${await decodedUcan.validate()}`);
+        log(`Too early? ${decodedUcan.isTooEarly()}`);
       }
 
       document.addEventListener("DOMContentLoaded", async () => {
