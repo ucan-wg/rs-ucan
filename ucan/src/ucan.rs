@@ -1,9 +1,19 @@
+use std::convert::TryFrom;
+
 use anyhow::{anyhow, Context, Result};
+use cid::multihash::{Code, MultihashDigest};
+use cid::Cid;
+use libipld_core::codec::Codec;
+use libipld_core::raw::RawCodec;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::capability::CapabilityIpld;
 use crate::crypto::did::DidParser;
+use crate::serde::{Base64Encode, DagJson};
 use crate::time::now;
+
+pub const UCAN_VERSION: &'static str = "0.9.0-canary";
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UcanHeader {
@@ -21,7 +31,7 @@ pub struct UcanPayload {
     pub nbf: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nnc: Option<String>,
-    pub att: Vec<Value>,
+    pub att: Vec<CapabilityIpld>,
     pub fct: Vec<Value>,
     pub prf: Vec<String>,
 }
@@ -64,7 +74,7 @@ impl Ucan {
 
         let header: UcanHeader = match parts.next() {
             Some(part) => match part {
-                Ok(decoded) => match serde_json::from_slice(decoded.as_slice()) {
+                Ok(decoded) => match UcanHeader::from_dag_json(&decoded) {
                     Ok(header) => header,
                     Err(error) => return Err(error).context("Could not parse UCAN header JSON"),
                 },
@@ -75,7 +85,7 @@ impl Ucan {
 
         let payload: UcanPayload = match parts.next() {
             Some(part) => match part {
-                Ok(decoded) => match serde_json::from_slice(decoded.as_slice()) {
+                Ok(decoded) => match UcanPayload::from_dag_json(&decoded) {
                     Ok(payload) => payload,
                     Err(error) => return Err(error).context("Could not parse UCAN payload JSON"),
                 },
@@ -122,17 +132,11 @@ impl Ucan {
     /// Produce a base64-encoded serialization of the UCAN suitable for
     /// transferring in a header field
     pub fn encode(&self) -> Result<String> {
-        let header = base64::encode_config(
-            serde_json::to_string(&self.header)?.as_bytes(),
-            base64::URL_SAFE_NO_PAD,
-        );
-        let payload = base64::encode_config(
-            serde_json::to_string(&self.payload)?.as_bytes(),
-            base64::URL_SAFE_NO_PAD,
-        );
+        let header = self.header.jwt_base64_encode()?;
+        let payload = self.payload.jwt_base64_encode()?;
         let signature = base64::encode_config(self.signature.as_slice(), base64::URL_SAFE_NO_PAD);
 
-        Ok(format!("{}.{}.{}", header, payload, signature.as_str()))
+        Ok(format!("{}.{}.{}", header, payload, signature))
     }
 
     /// Returns true if the UCAN has past its expiration date
@@ -207,11 +211,35 @@ impl Ucan {
         &self.payload.nnc
     }
 
-    pub fn attenuation(&self) -> &Vec<Value> {
+    pub fn attenuation(&self) -> &Vec<CapabilityIpld> {
         &self.payload.att
     }
 
     pub fn facts(&self) -> &Vec<Value> {
         &self.payload.fct
+    }
+
+    pub fn version(&self) -> &str {
+        &self.header.ucv
+    }
+}
+
+impl TryFrom<&Ucan> for Cid {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Ucan) -> Result<Self, Self::Error> {
+        let codec = RawCodec::default();
+        let token = value.encode()?;
+        let encoded = codec.encode(token.as_bytes())?;
+
+        Ok(Cid::new_v1(codec.into(), Code::Sha2_256.digest(&encoded)))
+    }
+}
+
+impl TryFrom<Ucan> for Cid {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Ucan) -> Result<Self, Self::Error> {
+        Cid::try_from(&value)
     }
 }

@@ -19,11 +19,11 @@ impl TryFrom<String> for WNFSCapLevel {
 
     fn try_from(value: String) -> Result<Self> {
         Ok(match value.as_str() {
-            "wnfs/CREATE" => WNFSCapLevel::Create,
-            "wnfs/REVISE" => WNFSCapLevel::Revise,
-            "wnfs/SOFT_DELETE" => WNFSCapLevel::SoftDelete,
-            "wnfs/OVERWRITE" => WNFSCapLevel::Overwrite,
-            "wnfs/SUPER_USER" => WNFSCapLevel::SuperUser,
+            "wnfs/create" => WNFSCapLevel::Create,
+            "wnfs/revise" => WNFSCapLevel::Revise,
+            "wnfs/soft_delete" => WNFSCapLevel::SoftDelete,
+            "wnfs/overwrite" => WNFSCapLevel::Overwrite,
+            "wnfs/super_user" => WNFSCapLevel::SuperUser,
             _ => return Err(anyhow!("No such WNFS capability level: {}", value)),
         })
     }
@@ -32,11 +32,11 @@ impl TryFrom<String> for WNFSCapLevel {
 impl ToString for WNFSCapLevel {
     fn to_string(&self) -> String {
         match self {
-            WNFSCapLevel::Create => "wnfs/CREATE",
-            WNFSCapLevel::Revise => "wnfs/REVISE",
-            WNFSCapLevel::SoftDelete => "wnfs/SOFT_DELETE",
-            WNFSCapLevel::Overwrite => "wnfs/OVERWRITE",
-            WNFSCapLevel::SuperUser => "wnfs/SUPER_USER",
+            WNFSCapLevel::Create => "wnfs/create",
+            WNFSCapLevel::Revise => "wnfs/revise",
+            WNFSCapLevel::SoftDelete => "wnfs/soft_delete",
+            WNFSCapLevel::Overwrite => "wnfs/overwrite",
+            WNFSCapLevel::SuperUser => "wnfs/super_user",
         }
         .into()
     }

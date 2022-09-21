@@ -41,7 +41,7 @@ impl Action for EmailAction {}
 impl ToString for EmailAction {
     fn to_string(&self) -> String {
         match self {
-            EmailAction::Send => "email/SEND",
+            EmailAction::Send => "email/send",
         }
         .into()
     }
@@ -52,7 +52,7 @@ impl TryFrom<String> for EmailAction {
 
     fn try_from(value: String) -> Result<Self> {
         match value.as_str() {
-            "email/SEND" => Ok(EmailAction::Send),
+            "email/send" => Ok(EmailAction::Send),
             _ => Err(anyhow!("Unrecognized action: {}", value)),
         }
     }

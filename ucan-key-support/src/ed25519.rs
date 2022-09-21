@@ -7,7 +7,8 @@ use ed25519_zebra::{
 
 use ucan::crypto::KeyMaterial;
 
-pub const ED25519_MAGIC_BYTES: [u8; 2] = [0xed, 0x01];
+pub use ucan::crypto::did::ED25519_MAGIC_BYTES;
+pub use ucan::crypto::JwtSignatureAlgorithm;
 
 pub fn bytes_to_ed25519_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
     let public_key = Ed25519PublicKey::try_from(bytes.as_slice())?;
@@ -17,15 +18,15 @@ pub fn bytes_to_ed25519_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
 #[derive(Clone)]
 pub struct Ed25519KeyMaterial(pub Ed25519PublicKey, pub Option<Ed25519PrivateKey>);
 
-#[cfg_attr(all(target_arch="wasm32", feature = "web"), async_trait(?Send))]
-#[cfg_attr(any(not(target_arch = "wasm32"), not(feature = "web")), async_trait)]
+#[cfg_attr(target_arch="wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl KeyMaterial for Ed25519KeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
-        "EdDSA".into()
+        JwtSignatureAlgorithm::EdDSA.to_string()
     }
 
     async fn get_did(&self) -> Result<String> {
-        let bytes = [ED25519_MAGIC_BYTES.as_slice(), self.0.as_ref()].concat();
+        let bytes = [ED25519_MAGIC_BYTES, self.0.as_ref()].concat();
         Ok(format!("did:key:z{}", bs58::encode(bytes).into_string()))
     }
 
@@ -58,7 +59,14 @@ mod tests {
         ucan::Ucan,
     };
 
-    #[tokio::test]
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_can_sign_and_verify_a_ucan() {
         let rng = rand::thread_rng();
         let private_key = Ed25519PrivateKey::new(rng);

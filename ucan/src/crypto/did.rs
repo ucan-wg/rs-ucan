@@ -2,13 +2,21 @@ use super::KeyMaterial;
 use anyhow::{anyhow, Result};
 use std::{collections::BTreeMap, sync::Arc};
 
-pub type DidPrefix = [u8; 2];
+pub type DidPrefix = &'static [u8];
 pub type BytesToKey = fn(Vec<u8>) -> Result<Box<dyn KeyMaterial>>;
 pub type KeyConstructors = BTreeMap<DidPrefix, BytesToKey>;
 pub type KeyConstructorSlice = [(DidPrefix, BytesToKey)];
 pub type KeyCache = BTreeMap<String, Arc<Box<dyn KeyMaterial>>>;
 
-pub const BASE58_DID_PREFIX: &str = "did:key:z";
+pub const DID_PREFIX: &str = "did:";
+pub const DID_KEY_PREFIX: &str = "did:key:z";
+
+pub const ED25519_MAGIC_BYTES: &[u8] = &[0xed, 0x01];
+pub const RSA_MAGIC_BYTES: &[u8] = &[0x85, 0x24];
+pub const BLS12381G1_MAGIC_BYTES: &[u8] = &[0xea, 0x01];
+pub const BLS12381G2_MAGIC_BYTES: &[u8] = &[0xeb, 0x01];
+pub const P256_MAGIC_BYTES: &[u8] = &[0x80, 0x24];
+pub const SECP256K1_MAGIC_BYTES: &[u8] = &[0xe7, 0x1];
 
 /// A parser that is able to convert from a DID string into a corresponding
 /// [`crypto::SigningKey`] implementation. The parser extracts the signature
@@ -32,8 +40,8 @@ impl DidParser {
     }
 
     pub fn parse(&mut self, did: &str) -> Result<Arc<Box<dyn KeyMaterial>>> {
-        if !did.starts_with(BASE58_DID_PREFIX) {
-            return Err(anyhow!("Not a DID: {}", did));
+        if !did.starts_with(DID_KEY_PREFIX) {
+            return Err(anyhow!("Expected valid did:key, got: {}", did));
         }
 
         let did = did.to_owned();
@@ -41,7 +49,7 @@ impl DidParser {
             return Ok(key.clone());
         }
 
-        let did_bytes = bs58::decode(&did[BASE58_DID_PREFIX.len()..]).into_vec()?;
+        let did_bytes = bs58::decode(&did[DID_KEY_PREFIX.len()..]).into_vec()?;
         let magic_bytes = &did_bytes[0..2];
         match self.key_constructors.get(magic_bytes) {
             Some(ctor) => {

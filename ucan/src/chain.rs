@@ -1,4 +1,5 @@
 use async_recursion::async_recursion;
+use cid::Cid;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
@@ -8,6 +9,7 @@ use crate::{
         Action, Capability, CapabilityIterator, CapabilitySemantics, Resource, Scope, With,
     },
     crypto::did::DidParser,
+    store::UcanJwtStore,
     ucan::Ucan,
 };
 use anyhow::{anyhow, Result};
@@ -38,6 +40,7 @@ where
 }
 
 /// A deserialized chain of ancestral proofs that are linked to a UCAN
+#[derive(Debug)]
 pub struct ProofChain {
     ucan: Ucan,
     proofs: Vec<ProofChain>,
@@ -45,18 +48,24 @@ pub struct ProofChain {
 }
 
 impl ProofChain {
-    #[cfg_attr(all(target_arch="wasm32", feature = "web"), async_recursion(?Send))]
-    #[cfg_attr(
-        any(not(target_arch = "wasm32"), not(feature = "web")),
-        async_recursion
-    )]
-    pub async fn from_ucan(ucan: Ucan, did_parser: &mut DidParser) -> Result<ProofChain> {
+    #[cfg_attr(target_arch = "wasm32", async_recursion(?Send))]
+    #[cfg_attr(not(target_arch = "wasm32"), async_recursion)]
+    pub async fn from_ucan<S>(
+        ucan: Ucan,
+        did_parser: &mut DidParser,
+        store: &S,
+    ) -> Result<ProofChain>
+    where
+        S: UcanJwtStore,
+    {
         ucan.validate(did_parser).await?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
-        for proof_string in ucan.proofs().iter() {
-            let proof_chain = Self::try_from_token_string(proof_string, did_parser).await?;
+        for cid_string in ucan.proofs().iter() {
+            let cid = Cid::try_from(cid_string.as_str())?;
+            let ucan_token = store.require_token(&cid).await?;
+            let proof_chain = Self::try_from_token_string(&ucan_token, did_parser, store).await?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -99,12 +108,16 @@ impl ProofChain {
         todo!("Resolving a proof from a CID not yet implemented")
     }
 
-    pub async fn try_from_token_string<'a>(
+    pub async fn try_from_token_string<'a, S>(
         ucan_token_string: &str,
         did_parser: &mut DidParser,
-    ) -> Result<ProofChain> {
+        store: &S,
+    ) -> Result<ProofChain>
+    where
+        S: UcanJwtStore,
+    {
         let ucan = Ucan::try_from_token_string(ucan_token_string)?;
-        Self::from_ucan(ucan, did_parser).await
+        Self::from_ucan(ucan, did_parser, store).await
     }
 
     fn validate_link_to(&self, ucan: &Ucan) -> Result<()> {
@@ -170,8 +183,8 @@ impl ProofChain {
                     .map(|mut info| {
                         // Redelegated capabilities should be attenuated by
                         // this UCAN's lifetime
-                        info.not_before = *self.ucan.not_before();
-                        info.expires_at = *self.ucan.expires_at();
+                        info.not_before = self.ucan.not_before().clone();
+                        info.expires_at = self.ucan.expires_at().clone();
                         info
                     })
             })

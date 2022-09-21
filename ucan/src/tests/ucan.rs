@@ -1,15 +1,20 @@
 mod validate {
-    use did_key::KeyPair;
-
     use crate::{
-        builder::{Signable, UcanBuilder},
+        builder::UcanBuilder,
         crypto::did::DidParser,
         tests::fixtures::{Identities, SUPPORTED_KEYS},
         time::now,
         ucan::Ucan,
     };
 
-    #[tokio::test]
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_round_trips_with_encode() {
         let identities = Identities::new().await;
         let mut did_parser = DidParser::new(SUPPORTED_KEYS);
@@ -30,7 +35,8 @@ mod validate {
         decoded_ucan.validate(&mut did_parser).await.unwrap();
     }
 
-    #[tokio::test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_identifies_a_ucan_that_is_not_active_yet() {
         let identities = Identities::new().await;
 
@@ -48,7 +54,8 @@ mod validate {
         assert!(ucan.is_too_early());
     }
 
-    #[tokio::test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_identifies_a_ucan_that_has_become_active() {
         let identities = Identities::new().await;
         let ucan = UcanBuilder::default()
@@ -65,7 +72,8 @@ mod validate {
         assert!(!ucan.is_too_early());
     }
 
-    #[tokio::test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_can_be_serialized_as_json() {
         let identities = Identities::new().await;
         let ucan = UcanBuilder::default()
@@ -87,7 +95,7 @@ mod validate {
                 "header": {
                     "alg": "EdDSA",
                     "typ": "JWT",
-                    "ucv": Signable::<KeyPair>::UCAN_VERSION
+                    "ucv": crate::ucan::UCAN_VERSION
                 },
                 "payload": {
                     "iss": ucan.issuer(),

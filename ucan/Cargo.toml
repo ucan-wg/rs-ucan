@@ -18,24 +18,35 @@ edition = "2021"
 
 [features]
 default = []
-web = ["instant/wasm-bindgen"]
 
 [dependencies]
+cid = "~0.8"
 anyhow = "^1"
-async-trait = "0.1"
+async-trait = "~0.1"
 async-recursion = "^1"
 async-std = "^1"
 serde_json = "^1"
 serde = { version = "^1", features = ["derive"] }
-base64 = "0.13"
-textnonce = "^1"
-log = "0.4"
+base64 = "~0.13"
+log = "~0.4"
 url = "^2"
-bs58 = "0.4"
+bs58 = "~0.4"
+unsigned-varint = "~0.7"
+libipld-core = { version = "~0.14", features = ["serde-codec", "serde"] }
+libipld-json = "~0.14"
+strum = "~0.24"
+strum_macros = "~0.24"
+instant = { version = "0.1", features = ["wasm-bindgen", "stdweb"] }
+rand = "~0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-instant = { version = "0.1" }
+# NOTE: This is needed so that rand can be included in WASM builds
+getrandom = { version = "~0.2", features = ["js"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { version = "^1", features = ["macros", "test-util"] }
 
 [dev-dependencies]
 did-key = "0.1"
-tokio = { version = "^1", features = ["macros", "rt"] }
+serde_ipld_dagcbor = "~0.2"
+wasm-bindgen-test = "~0.3"

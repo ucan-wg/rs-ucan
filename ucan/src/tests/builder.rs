@@ -1,12 +1,20 @@
 use crate::{
     builder::UcanBuilder,
-    capability::{CapabilitySemantics, RawCapability},
+    capability::{CapabilityIpld, CapabilitySemantics},
     tests::fixtures::{EmailSemantics, Identities, WNFSSemantics},
     time::now,
 };
+use cid::Cid;
 use serde_json::json;
 
-#[tokio::test]
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+#[cfg(target_arch = "wasm32")]
+wasm_bindgen_test_configure!(run_in_browser);
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 async fn it_builds_with_a_simple_example() {
     let identities = Identities::new().await;
 
@@ -23,14 +31,11 @@ async fn it_builds_with_a_simple_example() {
     let wnfs_semantics = WNFSSemantics {};
 
     let cap_1 = email_semantics
-        .parse("mailto:alice@gmail.com".into(), "email/SEND".into())
+        .parse("mailto:alice@gmail.com", "email/send")
         .unwrap();
 
     let cap_2 = wnfs_semantics
-        .parse(
-            "wnfs://alice.fission.name/public".into(),
-            "wnfs/SUPER_USER".into(),
-        )
+        .parse("wnfs://alice.fission.name/public", "wnfs/super_user")
         .unwrap();
 
     let expiration = now() + 30;
@@ -51,23 +56,22 @@ async fn it_builds_with_a_simple_example() {
 
     let ucan = token.sign().await.unwrap();
 
-    assert_eq!(*ucan.issuer(), identities.alice_did);
-    assert_eq!(*ucan.audience(), identities.bob_did);
-    assert_eq!(*ucan.expires_at(), expiration);
+    assert_eq!(ucan.issuer(), identities.alice_did);
+    assert_eq!(ucan.audience(), identities.bob_did);
+    assert_eq!(ucan.expires_at(), &expiration);
     assert!(ucan.not_before().is_some());
     assert_eq!(ucan.not_before().unwrap(), not_before);
-    assert_eq!(*ucan.facts(), Vec::from([fact_1, fact_2]));
+    assert_eq!(ucan.facts(), &vec![fact_1, fact_2]);
 
-    let expected_attenuations = Vec::from([
-        serde_json::to_value(RawCapability::from(cap_1)).unwrap(),
-        serde_json::to_value(RawCapability::from(cap_2)).unwrap(),
-    ]);
+    let expected_attenuations =
+        Vec::from([CapabilityIpld::from(&cap_1), CapabilityIpld::from(&cap_2)]);
 
-    assert_eq!(*ucan.attenuation(), expected_attenuations);
+    assert_eq!(ucan.attenuation(), &expected_attenuations);
     assert!(ucan.nonce().is_some());
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 async fn it_builds_with_lifetime_in_seconds() {
     let identities = Identities::new().await;
 
@@ -84,15 +88,13 @@ async fn it_builds_with_lifetime_in_seconds() {
     assert!(*ucan.expires_at() > (now() + 290));
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 async fn it_prevents_duplicate_proofs() {
     let wnfs_semantics = WNFSSemantics {};
 
     let parent_cap = wnfs_semantics
-        .parse(
-            "wnfs://alice.fission.name/public".into(),
-            "wnfs/SUPER_USER".into(),
-        )
+        .parse("wnfs://alice.fission.name/public", "wnfs/super_user")
         .unwrap();
 
     let identities = Identities::new().await;
@@ -108,17 +110,11 @@ async fn it_prevents_duplicate_proofs() {
         .unwrap();
 
     let attenuated_cap_1 = wnfs_semantics
-        .parse(
-            "wnfs://alice.fission.name/public/Apps".into(),
-            "wnfs/CREATE".into(),
-        )
+        .parse("wnfs://alice.fission.name/public/Apps", "wnfs/create")
         .unwrap();
 
     let attenuated_cap_2 = wnfs_semantics
-        .parse(
-            "wnfs://alice.fission.name/public/Domains".into(),
-            "wnfs/CREATE".into(),
-        )
+        .parse("wnfs://alice.fission.name/public/Domains", "wnfs/create")
         .unwrap();
 
     let next_ucan = UcanBuilder::default()
@@ -134,5 +130,8 @@ async fn it_prevents_duplicate_proofs() {
         .await
         .unwrap();
 
-    assert_eq!(*next_ucan.proofs(), Vec::from([ucan.encode().unwrap()]))
+    assert_eq!(
+        next_ucan.proofs(),
+        &vec![Cid::try_from(ucan).unwrap().to_string()]
+    )
 }

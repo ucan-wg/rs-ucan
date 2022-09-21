@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::ucan::Ucan;
 
-use super::{Action, Capability, CapabilitySemantics, RawCapability, Scope};
+use super::{Action, Capability, CapabilityIpld, CapabilitySemantics, Scope};
 pub struct CapabilityIterator<'a, Semantics, S, A>
 where
     Semantics: CapabilitySemantics<S, A>,
@@ -40,15 +40,11 @@ where
     type Item = Capability<S, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(capability_json) = self.ucan.attenuation().get(self.index) {
+        // TODO(#22): Full support for 0.9 and the nb field
+        while let Some(CapabilityIpld { with, can, .. }) = self.ucan.attenuation().get(self.index) {
             self.index += 1;
 
-            let (raw_with, raw_can) = match serde_json::from_value(capability_json.clone()) {
-                Ok(RawCapability { with, can }) => (with, can),
-                _ => continue,
-            };
-
-            match self.semantics.parse(raw_with, raw_can) {
+            match self.semantics.parse(with.as_str(), can.as_str()) {
                 Some(capability) => return Some(capability),
                 None => continue,
             };
