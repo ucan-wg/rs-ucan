@@ -42,10 +42,14 @@ impl<U> UcanStoreConditionalSendSync for U {}
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait UcanStore<C: Codec + Default = RawCodec>: UcanStoreConditionalSendSync {
+    /// Read a value from the store by CID, returning a Result<Option<...>> that unwraps
+    /// to None if no value is found, otherwise Some
     async fn read<T: Decode<C>>(&self, cid: &Cid) -> Result<Option<T>>;
 
+    /// Write a value to the store, receiving a Result that wraps the values CID if the
+    /// write was successful
     async fn write<T: Encode<C> + UcanStoreConditionalSend + core::fmt::Debug>(
-        &self,
+        &mut self,
         token: T,
     ) -> Result<Cid>;
 }
@@ -79,7 +83,7 @@ pub trait UcanJwtStore: UcanStore<RawCodec> {
         }
     }
 
-    async fn write_token(&self, token: &str) -> Result<Cid> {
+    async fn write_token(&mut self, token: &str) -> Result<Cid> {
         self.write(Ipld::Bytes(token.as_bytes().to_vec())).await
     }
 }
@@ -109,7 +113,7 @@ impl UcanStore<RawCodec> for MemoryStore {
     }
 
     async fn write<T: Encode<RawCodec> + UcanStoreConditionalSend + core::fmt::Debug>(
-        &self,
+        &mut self,
         token: T,
     ) -> Result<Cid> {
         let codec = RawCodec::default();

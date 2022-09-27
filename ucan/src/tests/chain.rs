@@ -42,7 +42,7 @@ pub async fn it_decodes_deep_ucan_chains() {
         .encode()
         .unwrap();
 
-    let store = MemoryStore::default();
+    let mut store = MemoryStore::default();
     store
         .write_token(&leaf_ucan.encode().unwrap())
         .await
@@ -89,7 +89,7 @@ pub async fn it_fails_with_incorrect_chaining() {
         .encode()
         .unwrap();
 
-    let store = MemoryStore::default();
+    let mut store = MemoryStore::default();
     store
         .write_token(&leaf_ucan.encode().unwrap())
         .await
@@ -141,7 +141,7 @@ pub async fn it_can_handle_multiple_leaves() {
         .encode()
         .unwrap();
 
-    let store = MemoryStore::default();
+    let mut store = MemoryStore::default();
     store
         .write_token(&leaf_ucan_1.encode().unwrap())
         .await
