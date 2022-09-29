@@ -232,7 +232,7 @@ impl TryFrom<&Ucan> for Cid {
         let token = value.encode()?;
         let encoded = codec.encode(token.as_bytes())?;
 
-        Ok(Cid::new_v1(codec.into(), Code::Sha2_256.digest(&encoded)))
+        Ok(Cid::new_v1(codec.into(), Code::Blake2b256.digest(&encoded)))
     }
 }
 
