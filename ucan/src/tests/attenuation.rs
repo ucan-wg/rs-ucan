@@ -1,21 +1,29 @@
 use std::collections::BTreeSet;
 
 use super::fixtures::{EmailSemantics, Identities, SUPPORTED_KEYS};
-use crate::capability::CapabilitySemantics;
 use crate::{
     builder::UcanBuilder,
+    capability::CapabilitySemantics,
     chain::{CapabilityInfo, ProofChain},
     crypto::did::DidParser,
+    store::{MemoryStore, UcanJwtStore},
 };
 
-#[tokio::test]
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+#[cfg(target_arch = "wasm32")]
+wasm_bindgen_test_configure!(run_in_browser);
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_works_with_a_simple_example() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
     let send_email_as_alice = email_semantics
-        .parse("mailto:alice@email.com".into(), "email/SEND".into())
+        .parse("mailto:alice@email.com", "email/send")
         .unwrap();
 
     let leaf_ucan = UcanBuilder::default()
@@ -43,9 +51,16 @@ pub async fn it_works_with_a_simple_example() {
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(attenuated_token.as_str(), &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
         .await
         .unwrap();
+
+    let chain =
+        ProofChain::try_from_token_string(attenuated_token.as_str(), &mut did_parser, &store)
+            .await
+            .unwrap();
 
     let capability_infos = chain.reduce_capabilities(&email_semantics);
 
@@ -57,17 +72,18 @@ pub async fn it_works_with_a_simple_example() {
         info.capability.with().to_string().as_str(),
         "mailto:alice@email.com",
     );
-    assert_eq!(info.capability.can().to_string().as_str(), "email/SEND");
+    assert_eq!(info.capability.can().to_string().as_str(), "email/send");
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
     let send_email_as_bob = email_semantics
-        .parse("mailto:bob@email.com".into(), "email/SEND".into())
+        .parse("mailto:bob@email.com".into(), "email/send".into())
         .unwrap();
 
     let leaf_ucan = UcanBuilder::default()
@@ -94,7 +110,13 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
         .encode()
         .unwrap();
 
-    let capability_infos = ProofChain::try_from_token_string(&ucan_token, &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
+        .await
+        .unwrap();
+
+    let capability_infos = ProofChain::try_from_token_string(&ucan_token, &mut did_parser, &store)
         .await
         .unwrap()
         .reduce_capabilities(&email_semantics);
@@ -110,17 +132,18 @@ pub async fn it_reports_the_first_issuer_in_the_chain_as_originator() {
     assert_eq!(info.capability, send_email_as_bob);
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_finds_the_right_proof_chain_for_the_originator() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
     let send_email_as_bob = email_semantics
-        .parse("mailto:bob@email.com".into(), "email/SEND".into())
+        .parse("mailto:bob@email.com".into(), "email/send".into())
         .unwrap();
     let send_email_as_alice = email_semantics
-        .parse("mailto:alice@email.com".into(), "email/SEND".into())
+        .parse("mailto:alice@email.com".into(), "email/send".into())
         .unwrap();
 
     let leaf_ucan_alice = UcanBuilder::default()
@@ -161,7 +184,17 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan_alice.encode().unwrap())
+        .await
+        .unwrap();
+    store
+        .write_token(&leaf_ucan_bob.encode().unwrap())
+        .await
+        .unwrap();
+
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &mut did_parser, &store)
         .await
         .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);
@@ -192,14 +225,15 @@ pub async fn it_finds_the_right_proof_chain_for_the_originator() {
     );
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_reports_all_chain_options() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let email_semantics = EmailSemantics {};
     let send_email_as_alice = email_semantics
-        .parse("mailto:alice@email.com".into(), "email/SEND".into())
+        .parse("mailto:alice@email.com".into(), "email/send".into())
         .unwrap();
 
     let leaf_ucan_alice = UcanBuilder::default()
@@ -239,7 +273,17 @@ pub async fn it_reports_all_chain_options() {
 
     let ucan_token = ucan.encode().unwrap();
 
-    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan_alice.encode().unwrap())
+        .await
+        .unwrap();
+    store
+        .write_token(&leaf_ucan_bob.encode().unwrap())
+        .await
+        .unwrap();
+
+    let proof_chain = ProofChain::try_from_token_string(&ucan_token, &mut did_parser, &store)
         .await
         .unwrap();
     let capability_infos = proof_chain.reduce_capabilities(&email_semantics);

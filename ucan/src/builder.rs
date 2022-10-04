@@ -1,17 +1,21 @@
+use std::convert::TryFrom;
+
 use crate::{
     capability::{
-        proof::ProofDelegationSemantics, Action, Capability, CapabilitySemantics, RawCapability,
+        proof::ProofDelegationSemantics, Action, Capability, CapabilityIpld, CapabilitySemantics,
         Scope,
     },
     crypto::KeyMaterial,
+    serde::Base64Encode,
     time::now,
-    ucan::{UcanHeader, UcanPayload},
+    ucan::{UcanHeader, UcanPayload, UCAN_VERSION},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
+use cid::Cid;
 use log::warn;
+use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use textnonce::TextNonce;
 
 use crate::ucan::Ucan;
 
@@ -27,7 +31,7 @@ where
     pub issuer: &'a K,
     pub audience: String,
 
-    pub capabilities: Vec<Value>,
+    pub capabilities: Vec<CapabilityIpld>,
 
     pub expiration: u64,
     pub not_before: Option<u64>,
@@ -41,21 +45,22 @@ impl<'a, K> Signable<'a, K>
 where
     K: KeyMaterial,
 {
-    pub const UCAN_VERSION: &'static str = "0.8.1";
-
     /// The header field components of the UCAN JWT
     pub fn ucan_header(&self) -> UcanHeader {
         UcanHeader {
             alg: self.issuer.get_jwt_algorithm_name(),
             typ: "JWT".into(),
-            ucv: Self::UCAN_VERSION.into(),
+            ucv: UCAN_VERSION.into(),
         }
     }
 
     /// The payload field components of the UCAN JWT
     pub async fn ucan_payload(&self) -> Result<UcanPayload> {
         let nonce = match self.add_nonce {
-            true => Some(TextNonce::new().to_string()),
+            true => Some(base64::encode_config(
+                &rand::thread_rng().gen::<[u8; 32]>(),
+                base64::URL_SAFE_NO_PAD,
+            )),
             false => None,
         };
 
@@ -80,17 +85,12 @@ where
             .await
             .expect("Unable to generate UCAN payload");
 
-        let header_base64 = match serde_json::to_string(&header) {
-            Ok(json) => base64::encode_config(json.as_bytes(), base64::URL_SAFE_NO_PAD),
-            Err(error) => return Err(error).context("Unable to serialize UCAN header as JSON"),
-        };
+        let header_base64 = header.jwt_base64_encode()?;
+        let payload_base64 = payload.jwt_base64_encode()?;
 
-        let payload_base64 = match serde_json::to_string(&payload) {
-            Ok(json) => base64::encode_config(json.as_bytes(), base64::URL_SAFE_NO_PAD),
-            Err(error) => return Err(error).context("Unable to serialize UCAN payload as JSON"),
-        };
-
-        let data_to_sign = Vec::from(format!("{}.{}", header_base64, payload_base64).as_bytes());
+        let data_to_sign = format!("{}.{}", header_base64, payload_base64)
+            .as_bytes()
+            .to_vec();
         let signature = self.issuer.sign(data_to_sign.as_slice()).await?;
 
         Ok(Ucan::new(header, payload, data_to_sign, signature))
@@ -106,7 +106,7 @@ where
     issuer: Option<&'a K>,
     audience: Option<String>,
 
-    capabilities: Vec<Value>,
+    capabilities: Vec<CapabilityIpld>,
 
     lifetime: Option<u64>,
     expiration: Option<u64>,
@@ -207,8 +207,8 @@ where
     /// Note that the proof's audience must match this UCAN's issuer
     /// or else the proof chain will be invalidated!
     pub fn witnessed_by(mut self, authority: &Ucan) -> Self {
-        match authority.encode() {
-            Ok(proof) => self.proofs.push(proof),
+        match Cid::try_from(authority) {
+            Ok(proof) => self.proofs.push(proof.to_string()),
             Err(error) => warn!("Failed to add authority to proofs: {}", error),
         }
 
@@ -222,35 +222,24 @@ where
         S: Scope,
         A: Action,
     {
-        let raw_capability: RawCapability = capability.clone().into();
-
-        match serde_json::to_value(raw_capability) {
-            Ok(value) => self.capabilities.push(value),
-            Err(error) => warn!("UCAN could not claim capability: {}", error),
-        }
+        self.capabilities.push(CapabilityIpld::from(capability));
         self
     }
 
     /// Delegate all capabilities from a given proof to the audience of the UCAN
     /// you're building
     pub fn delegating_from(mut self, authority: &Ucan) -> Self {
-        match authority.encode() {
+        match Cid::try_from(authority) {
             Ok(proof) => {
-                self.proofs.push(proof);
+                self.proofs.push(proof.to_string());
                 let proof_index = self.proofs.len() - 1;
                 let proof_delegation = ProofDelegationSemantics {};
                 let capability =
-                    proof_delegation.parse(format!("prf:{}", proof_index), "ucan/DELEGATE".into());
+                    proof_delegation.parse(&format!("prf:{}", proof_index), "ucan/DELEGATE");
 
                 match capability {
                     Some(capability) => {
-                        let raw_capability: RawCapability = capability.into();
-                        match serde_json::to_value(raw_capability) {
-                            Ok(value) => self.capabilities.push(value),
-                            Err(error) => {
-                                warn!("Unable to convert capability to JSON value: {:?}", error);
-                            }
-                        }
+                        self.capabilities.push(CapabilityIpld::from(&capability));
                     }
                     None => warn!("Could not produce delegation capability"),
                 }

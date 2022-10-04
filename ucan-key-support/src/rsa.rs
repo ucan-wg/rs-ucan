@@ -1,17 +1,14 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use rsa::{
-    Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
-};
-use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
 use rsa::pkcs1::der::{Document, Encodable};
+use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
+use rsa::{Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey};
 
 use sha2::{Digest, Sha256};
-use ucan::crypto::KeyMaterial;
+use ucan::crypto::{JwtSignatureAlgorithm, KeyMaterial};
 
-pub const RSA_MAGIC_BYTES: [u8; 2] = [0x85, 0x24];
-pub const RSA_ALGORITHM: &str = "RSASSA-PKCS1-v1_5";
+pub use ucan::crypto::did::RSA_MAGIC_BYTES;
 
 pub fn bytes_to_rsa_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
     // NOTE: DID bytes are PKCS1, but we are using PKCS8, so do the conversion here..
@@ -25,16 +22,16 @@ pub fn bytes_to_rsa_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
 #[derive(Clone)]
 pub struct RsaKeyMaterial(pub RsaPublicKey, pub Option<RsaPrivateKey>);
 
-#[cfg_attr(all(target_arch="wasm32", feature = "web"), async_trait(?Send))]
-#[cfg_attr(any(not(target_arch = "wasm32"), not(feature = "web")), async_trait)]
+#[cfg_attr(target_arch="wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl KeyMaterial for RsaKeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
-        RSA_ALGORITHM.into()
+        JwtSignatureAlgorithm::RS256.to_string()
     }
 
     async fn get_did(&self) -> Result<String> {
         let bytes = match self.0.to_pkcs1_der() {
-            Ok(document) => [RSA_MAGIC_BYTES.as_slice(), document.as_der()].concat(),
+            Ok(document) => [RSA_MAGIC_BYTES, document.as_der()].concat(),
             Err(error) => {
                 // TODO: Probably shouldn't swallow this error...
                 warn!("Could not get RSA public key bytes for DID: {:?}", error);
@@ -95,7 +92,14 @@ mod tests {
     use ucan::crypto::KeyMaterial;
     use ucan::ucan::Ucan;
 
-    #[tokio::test]
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_can_sign_and_verify_a_ucan() {
         let private_key =
             RsaPrivateKey::from_pkcs8_der(include_bytes!("./fixtures/rsa_key.pk8")).unwrap();

@@ -1,4 +1,4 @@
-use crate::rsa::{RsaKeyMaterial, RSA_ALGORITHM};
+use crate::rsa::{RsaKeyMaterial};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
@@ -6,6 +6,7 @@ use rsa::RsaPublicKey;
 use rsa::pkcs1::DecodeRsaPublicKey;
 use rsa::pkcs1::der::Encodable;
 use ucan::crypto::KeyMaterial;
+use ucan::crypto::JwtSignatureAlgorithm;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Crypto, CryptoKey, CryptoKeyPair, SubtleCrypto};
@@ -16,6 +17,8 @@ pub fn convert_spki_to_rsa_public_key(spki_bytes: &[u8]) -> Result<Vec<u8>> {
     // SEE: https://github.com/ucan-wg/ts-ucan/issues/30#issuecomment-1007333500
     Ok(Vec::from(&spki_bytes[24..]))
 }
+
+pub const WEB_CRYPTO_RSA_ALGORITHM: &str = "RSASSA-PKCS1-v1_5";
 
 #[derive(Debug)]
 pub struct WebCryptoRsaKeyMaterial(pub CryptoKey, pub Option<CryptoKey>);
@@ -46,7 +49,7 @@ impl WebCryptoRsaKeyMaterial {
         Reflect::set(
             &algorithm,
             &JsValue::from("name"),
-            &JsValue::from(RSA_ALGORITHM),
+            &JsValue::from(WEB_CRYPTO_RSA_ALGORITHM),
         )
         .map_err(|error| anyhow!("{:?}", error))?;
 
@@ -105,7 +108,7 @@ impl WebCryptoRsaKeyMaterial {
 #[async_trait(?Send)]
 impl KeyMaterial for WebCryptoRsaKeyMaterial {
     fn get_jwt_algorithm_name(&self) -> String {
-        RSA_ALGORITHM.into()
+        JwtSignatureAlgorithm::RS256.to_string()
     }
 
     async fn get_did(&self) -> Result<String> {
@@ -141,7 +144,7 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         Reflect::set(
             &algorithm,
             &JsValue::from("name"),
-            &JsValue::from(RSA_ALGORITHM),
+            &JsValue::from(WEB_CRYPTO_RSA_ALGORITHM),
         )
         .map_err(|error| anyhow!("{:?}", error))?;
 
@@ -175,7 +178,7 @@ impl KeyMaterial for WebCryptoRsaKeyMaterial {
         Reflect::set(
             &algorithm,
             &JsValue::from("name"),
-            &JsValue::from(RSA_ALGORITHM),
+            &JsValue::from(WEB_CRYPTO_RSA_ALGORITHM),
         )
         .map_err(|error| anyhow!("{:?}", error))?;
         Reflect::set(

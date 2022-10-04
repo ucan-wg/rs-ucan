@@ -44,22 +44,24 @@
 //! use ucan::{
 //!   chain::{ProofChain, CapabilityInfo},
 //!   capability::{CapabilitySemantics, Scope, Action},
-//!   crypto::did::{DidParser, KeyConstructorSlice}
+//!   crypto::did::{DidParser, KeyConstructorSlice},
+//!   store::UcanJwtStore
 //! };
 //!
 //! const SUPPORTED_KEY_TYPES: &KeyConstructorSlice = &[
 //!     // You must bring your own key support
 //! ];
 //!
-//! async fn get_capabilities<'a, Semantics, S, A>(ucan_token: &'a str, semantics: &'a Semantics) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
+//! async fn get_capabilities<'a, Semantics, S, A, Store>(ucan_token: &'a str, semantics: &'a Semantics, store: &'a Store) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
 //!     where
 //!         Semantics: CapabilitySemantics<S, A>,
 //!         S: Scope,
-//!         A: Action
+//!         A: Action,
+//!         Store: UcanJwtStore
 //! {
 //!     let mut did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
 //!
-//!     Ok(ProofChain::try_from_token_string(ucan_token, &mut did_parser).await?
+//!     Ok(ProofChain::try_from_token_string(ucan_token, &mut did_parser, store).await?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```
@@ -80,7 +82,11 @@ pub mod time;
 pub mod builder;
 pub mod capability;
 pub mod chain;
+pub mod ipld;
+pub mod serde;
+pub mod store;
 pub mod ucan;
+pub use self::ucan::Ucan;
 
 #[cfg(test)]
 mod tests;

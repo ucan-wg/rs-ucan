@@ -1,8 +1,20 @@
-use crate::{builder::UcanBuilder, chain::ProofChain, crypto::did::DidParser};
+use crate::{
+    builder::UcanBuilder,
+    chain::ProofChain,
+    crypto::did::DidParser,
+    store::{MemoryStore, UcanJwtStore},
+};
 
 use super::fixtures::{Identities, SUPPORTED_KEYS};
 
-#[tokio::test]
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+#[cfg(target_arch = "wasm32")]
+wasm_bindgen_test_configure!(run_in_browser);
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_decodes_deep_ucan_chains() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
@@ -30,9 +42,16 @@ pub async fn it_decodes_deep_ucan_chains() {
         .encode()
         .unwrap();
 
-    let chain = ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
         .await
         .unwrap();
+
+    let chain =
+        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store)
+            .await
+            .unwrap();
 
     assert_eq!(chain.ucan().audience(), &identities.mallory_did);
     assert_eq!(
@@ -41,7 +60,8 @@ pub async fn it_decodes_deep_ucan_chains() {
     );
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_fails_with_incorrect_chaining() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
@@ -69,13 +89,20 @@ pub async fn it_fails_with_incorrect_chaining() {
         .encode()
         .unwrap();
 
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
+        .await
+        .unwrap();
+
     let parse_token_result =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser).await;
+        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store).await;
 
     assert!(parse_token_result.is_err());
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_can_handle_multiple_leaves() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);
@@ -114,7 +141,17 @@ pub async fn it_can_handle_multiple_leaves() {
         .encode()
         .unwrap();
 
-    ProofChain::try_from_token_string(&delegated_token, &mut did_parser)
+    let mut store = MemoryStore::default();
+    store
+        .write_token(&leaf_ucan_1.encode().unwrap())
+        .await
+        .unwrap();
+    store
+        .write_token(&leaf_ucan_2.encode().unwrap())
+        .await
+        .unwrap();
+
+    ProofChain::try_from_token_string(&delegated_token, &mut did_parser, &store)
         .await
         .unwrap();
 }

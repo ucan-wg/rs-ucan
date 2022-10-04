@@ -18,7 +18,6 @@ version = "0.4.0-alpha.1"
 
 [features]
 default = []
-web = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "ucan/web", "getrandom/js"]
 
 [dependencies]
 ucan = {path = "../ucan", version = "0.6.0-alpha.1" }
@@ -34,20 +33,21 @@ log = "0.4"
 npm_rs = "0.2.1"
 
 [dev-dependencies]
-rand = "0.8"
+rand = "~0.8"
 # NOTE: This is needed so that rand can be included in WASM builds
-getrandom = { version = "0.2.5", features = ["js"] }
-wasm-bindgen-test = "0.3"
+getrandom = { version = "~0.2", features = ["js"] }
+wasm-bindgen-test = "~0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "^1", features = ["macros", "rt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
-js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = { version = "0.4" }
+js-sys = { version = "0.3" }
 
-[target.'cfg(target_arch="wasm32")'.dependencies.web-sys]
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3"
-optional = true
 features = [
   'Window',
   'SubtleCrypto',
@@ -57,5 +57,5 @@ features = [
   'DedicatedWorkerGlobalScope'
 ]
 
-[target.'cfg(target_arch="wasm32")'.dev-dependencies]
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 pollster = "0.2.5"

@@ -2,5 +2,6 @@ mod attenuation;
 mod builder;
 mod chain;
 mod crypto;
-mod fixtures;
+pub mod fixtures;
+pub mod helpers;
 mod ucan;
