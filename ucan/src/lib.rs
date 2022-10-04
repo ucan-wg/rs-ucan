@@ -79,7 +79,6 @@
 pub mod crypto;
 pub mod time;
 
-pub mod block;
 pub mod builder;
 pub mod capability;
 pub mod chain;
