@@ -1,17 +1,16 @@
 use std::io::Cursor;
 
 use anyhow::Result;
-use libipld_core::ipld::Ipld;
-use libipld_core::serde::from_ipld;
 use libipld_core::{
     codec::{Decode, Encode},
-    serde::to_ipld,
+    ipld::Ipld,
+    serde::{from_ipld, to_ipld},
 };
 use libipld_json::DagJsonCodec;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 
 /// Utility function to enforce lower-case string values when serializing
-pub fn ser_to_lower_case<S>(string: &String, serializer: S) -> Result<S::Ok, S::Error>
+pub fn ser_to_lower_case<S>(string: &str, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

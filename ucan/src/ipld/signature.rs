@@ -23,7 +23,7 @@ const EIP191_VARSIG_PREFIX: u64 = 0xd191;
 /// Note, not all valid JWT signature algorithms are represented by this
 /// library, nor are all valid varsig prefixes
 /// See https://github.com/ucan-wg/ucan-ipld#25-signature
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum VarsigPrefix {
     NonStandard,
     ES256K,
@@ -166,7 +166,6 @@ mod tests {
 
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
-
     #[cfg(target_arch = "wasm32")]
     wasm_bindgen_test_configure!(run_in_browser);
 
@@ -186,6 +185,7 @@ mod tests {
         assert_eq!(decoded_signature_bytes, signature_bytes);
     }
 
+    #[allow(dead_code)]
     // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[ignore = "Support non-standard signature algorithms"]

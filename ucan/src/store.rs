@@ -121,7 +121,7 @@ impl UcanStore<RawCodec> for MemoryStore {
         let cid = Cid::new_v1(codec.into(), Code::Blake2b256.digest(&block));
 
         let mut dags = self.dags.lock().await;
-        dags.insert(cid.clone(), block);
+        dags.insert(cid, block);
 
         Ok(cid)
     }

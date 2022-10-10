@@ -1,35 +1,70 @@
-on: [push, pull_request]
+name: Tests and Checks
 
-name: Run test suite
+on:
+  push:
+    branches: [ main ]
+
+  pull_request:
+    branches: [ '*' ]
 
 jobs:
-  run-test-suite:
+  run-tests-checks:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust-toolchain:
+          - stable
+          - nightly
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        if: always()
-        with:
-          path: |
-            ~/.cargo
-            ./target
-          key: ${{ runner.os }}-cargo-artifacts-${{ hashFiles('**/Cargo.toml') }}
-      - name: 'Install environment packages'
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Smarter caching action, speeds up build times compared to regular cache:
+      # https://github.com/Swatinem/rust-cache
+      - name: Cache Project
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Environment Packages
         run: |
           sudo apt-get update -qqy
           sudo apt-get install jq
-      - name: 'Run tests'
-        run: cargo test
-        shell: bash
-      - name: 'Install Rust/WASM test dependencies'
+
+      # Widely adopted suite of Rust-specific boilerplate actions, especially
+      # toolchain/cargo use: https://actions-rs.github.io/
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          override: true
+          components: rustfmt, clippy
+          toolchain: ${{ matrix.rust-toolchain }}
+
+      - name: Check Format
+        uses: actions-rs/cargo@v1
+        with:
+          args: --all -- --check
+          command: fmt
+          toolchain: ${{ matrix.rust-toolchain }}
+
+      - name: Run Linter
+        uses: actions-rs/cargo@v1
+        with:
+          args: --all -- -D warnings
+          command: clippy
+          toolchain: ${{ matrix.rust-toolchain }}
+
+      - name: Run Tests
+        run: cargo test --all
+
+      - name: Install Rust/WASM Test Dependencies
         run: |
           rustup target install wasm32-unknown-unknown
           cargo install toml-cli
           WASM_BINDGEN_VERSION=`toml get ./Cargo.lock . | jq '.package | map(select(.name == "wasm-bindgen"))[0].version' | xargs echo`
           cargo install wasm-bindgen-cli --vers "$WASM_BINDGEN_VERSION"
-        shell: bash
+
       # See: https://github.com/SeleniumHQ/selenium/blob/5d108f9a679634af0bbc387e7e3811bc1565912b/.github/actions/setup-chrome/action.yml
-      - name: 'Setup Chrome and chromedriver'
+      - name: Setup Chrome and Chromedriver
         run: |
           wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           echo "deb http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee -a /etc/apt/sources.list.d/google-chrome.list
@@ -43,23 +78,37 @@ jobs:
           curl -L -O "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
           unzip chromedriver_linux64.zip && chmod +x chromedriver && sudo mv chromedriver /usr/local/bin
           chromedriver -version
-        shell: bash
-      - name: 'Run Rust headless browser tests'
+
+      - name: Run Rust Headless Browser Tests
         run: CHROMEDRIVER=/usr/local/bin/chromedriver cargo test --target wasm32-unknown-unknown
-        shell: bash
+
+      - name: Install Cargo Audit
+        uses: "actions-rs/cargo@v1"
+        with:
+          args: "--force cargo-audit"
+          command: install
+
+      - name: Run Audit on Deps
+        run: cargo-audit audit
+
+      # Only "test" release build on push event.
+      - name: Test Release
+        if: github.event_name == 'push'
+        run: cargo build --release
+
   publish-release:
     runs-on: ubuntu-latest
-    needs: [run-test-suite]
+    needs: [run-tests-checks]
     if: ${{ github.event.ref == 'refs/heads/main' && endsWith(github.event.head_commit.message, '!release_candidate') }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo
-            ./target
-          key: ${{ runner.os }}-cargo-publish-artifacts
-      - run: |
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Cache Project
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo Publish Release
+        run: |
           cargo login ${{ secrets.CRATES_IO_TOKEN }}
-          cargo publish
-        shell: bash
+          cargo publish -p ucan
+          cargo publish -p ucan-key-support

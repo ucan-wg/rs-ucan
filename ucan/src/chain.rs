@@ -1,7 +1,6 @@
 use async_recursion::async_recursion;
 use cid::Cid;
-use std::collections::BTreeSet;
-use std::fmt::Debug;
+use std::{collections::BTreeSet, fmt::Debug};
 
 use crate::{
     capability::{
@@ -16,7 +15,7 @@ use anyhow::{anyhow, Result};
 
 const PROOF_DELEGATION_SEMANTICS: ProofDelegationSemantics = ProofDelegationSemantics {};
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub struct CapabilityInfo<S: Scope, A: Action> {
     pub originators: BTreeSet<String>,
     pub not_before: Option<u64>,
@@ -183,8 +182,8 @@ impl ProofChain {
                     .map(|mut info| {
                         // Redelegated capabilities should be attenuated by
                         // this UCAN's lifetime
-                        info.not_before = self.ucan.not_before().clone();
-                        info.expires_at = self.ucan.expires_at().clone();
+                        info.not_before = *self.ucan.not_before();
+                        info.expires_at = *self.ucan.expires_at();
                         info
                     })
             })
