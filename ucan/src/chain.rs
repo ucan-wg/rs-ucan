@@ -116,7 +116,7 @@ impl ProofChain {
     where
         S: UcanJwtStore,
     {
-        let ucan = Ucan::try_from_token_string(ucan_token_string)?;
+        let ucan = Ucan::try_from(ucan_token_string)?;
         Self::from_ucan(ucan, did_parser, store).await
     }
 

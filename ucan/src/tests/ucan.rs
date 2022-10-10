@@ -30,7 +30,7 @@ mod validate {
             .unwrap();
 
         let encoded_ucan = ucan.encode().unwrap();
-        let decoded_ucan = Ucan::try_from_token_string(encoded_ucan.as_str()).unwrap();
+        let decoded_ucan = Ucan::try_from(encoded_ucan.as_str()).unwrap();
 
         decoded_ucan.validate(&mut did_parser).await.unwrap();
     }
