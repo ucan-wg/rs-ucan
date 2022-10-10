@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use cid::multihash::{Code, MultihashDigest};
@@ -171,8 +171,51 @@ impl Ucan {
     pub fn version(&self) -> &str {
         &self.header.ucv
     }
+}
 
-    fn try_from_token_string(ucan_token: &str) -> Result<Self> {
+impl TryFrom<&Ucan> for Cid {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Ucan) -> Result<Self, Self::Error> {
+        let codec = RawCodec::default();
+        let token = value.encode()?;
+        let encoded = codec.encode(token.as_bytes())?;
+
+        Ok(Cid::new_v1(codec.into(), Code::Blake2b256.digest(&encoded)))
+    }
+}
+
+impl TryFrom<Ucan> for Cid {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Ucan) -> Result<Self, Self::Error> {
+        Cid::try_from(&value)
+    }
+}
+
+/// Deserialize an encoded UCAN token string reference into a UCAN
+impl<'a> TryFrom<&'a str> for Ucan {
+    type Error = anyhow::Error;
+
+    fn try_from(ucan_token: &str) -> Result<Self, Self::Error> {
+        Ucan::from_str(ucan_token)
+    }
+}
+
+/// Deserialize an encoded UCAN token string into a UCAN
+impl TryFrom<String> for Ucan {
+    type Error = anyhow::Error;
+
+    fn try_from(ucan_token: String) -> Result<Self, Self::Error> {
+        Ucan::from_str(ucan_token.as_str())
+    }
+}
+
+/// Deserialize an encoded UCAN token string reference into a UCAN
+impl FromStr for Ucan {
+    type Err = anyhow::Error;
+
+    fn from_str(ucan_token: &str) -> Result<Self, Self::Err> {
         // better to create multiple iterators than collect, or clone.
         let signed_data = ucan_token
             .split('.')
@@ -210,43 +253,5 @@ impl Ucan {
             signed_data.as_bytes().into(),
             signature,
         ))
-    }
-}
-
-impl TryFrom<&Ucan> for Cid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Ucan) -> Result<Self, Self::Error> {
-        let codec = RawCodec::default();
-        let token = value.encode()?;
-        let encoded = codec.encode(token.as_bytes())?;
-
-        Ok(Cid::new_v1(codec.into(), Code::Blake2b256.digest(&encoded)))
-    }
-}
-
-impl TryFrom<Ucan> for Cid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Ucan) -> Result<Self, Self::Error> {
-        Cid::try_from(&value)
-    }
-}
-
-/// Deserialize an encoded UCAN token string reference into a UCAN
-impl<'a> TryFrom<&'a str> for Ucan {
-    type Error = anyhow::Error;
-
-    fn try_from(ucan_token: &str) -> Result<Self, Self::Error> {
-        Self::try_from_token_string(ucan_token)
-    }
-}
-
-/// Deserialize an encoded UCAN token string into a UCAN
-impl TryFrom<String> for Ucan {
-    type Error = anyhow::Error;
-
-    fn try_from(ucan_token: String) -> Result<Self, Self::Error> {
-        Self::try_from_token_string(ucan_token.as_str())
     }
 }
