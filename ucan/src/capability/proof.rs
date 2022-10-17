@@ -32,7 +32,7 @@ impl ToString for ProofAction {
     }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone)]
 pub enum ProofSelection {
     Index(usize),
     All,

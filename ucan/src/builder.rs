@@ -58,7 +58,7 @@ where
     pub async fn ucan_payload(&self) -> Result<UcanPayload> {
         let nonce = match self.add_nonce {
             true => Some(base64::encode_config(
-                &rand::thread_rng().gen::<[u8; 32]>(),
+                rand::thread_rng().gen::<[u8; 32]>(),
                 base64::URL_SAFE_NO_PAD,
             )),
             false => None,

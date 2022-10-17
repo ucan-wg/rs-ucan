@@ -3,13 +3,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::crypto::JwtSignatureAlgorithm;
-use crate::serde::Base64Encode;
-use crate::{capability::CapabilityIpld, ucan::Ucan};
+use crate::{
+    capability::CapabilityIpld, crypto::JwtSignatureAlgorithm, serde::Base64Encode, ucan::Ucan,
+};
 
-use crate::ipld::{Principle, Signature};
-use crate::ucan::UcanPayload;
-use crate::ucan::{UcanHeader, UCAN_VERSION};
+use crate::{
+    ipld::{Principle, Signature},
+    ucan::{UcanHeader, UcanPayload, UCAN_VERSION},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct UcanIpld {

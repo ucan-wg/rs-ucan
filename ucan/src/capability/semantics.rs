@@ -6,7 +6,7 @@ use url::Url;
 
 use crate::serde::ser_to_lower_case;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CapabilityIpld {
     pub with: String,
     #[serde(serialize_with = "ser_to_lower_case")]
@@ -63,7 +63,7 @@ pub trait Scope: ToString + TryFrom<Url> + PartialEq + Clone {
 
 pub trait Action: Ord + TryFrom<String> + ToString + Clone {}
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum Resource<S>
 where
     S: Scope,
@@ -99,7 +99,7 @@ where
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum With<S>
 where
     S: Scope,
@@ -216,7 +216,7 @@ where
             },
         };
 
-        let action = match self.parse_action(&can) {
+        let action = match self.parse_action(can) {
             Some(action) => action,
             None => return None,
         };
@@ -225,7 +225,7 @@ where
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Capability<S, A>
 where
     S: Scope,

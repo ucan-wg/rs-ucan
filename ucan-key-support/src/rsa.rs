@@ -1,9 +1,13 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use rsa::pkcs1::der::{Document, Encodable};
-use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
-use rsa::{Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{
+    pkcs1::{
+        der::{Document, Encodable},
+        DecodeRsaPublicKey, EncodeRsaPublicKey,
+    },
+    Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
+};
 
 use sha2::{Digest, Sha256};
 use ucan::crypto::{JwtSignatureAlgorithm, KeyMaterial};
@@ -80,17 +84,14 @@ impl KeyMaterial for RsaKeyMaterial {
 
 #[cfg(test)]
 mod tests {
-    use super::bytes_to_rsa_key;
-    use super::RsaKeyMaterial;
-    use super::RSA_MAGIC_BYTES;
+    use super::{bytes_to_rsa_key, RsaKeyMaterial, RSA_MAGIC_BYTES};
 
-    use rsa::pkcs8::DecodePrivateKey;
-    use rsa::RsaPrivateKey;
-    use rsa::RsaPublicKey;
-    use ucan::builder::UcanBuilder;
-    use ucan::crypto::did::DidParser;
-    use ucan::crypto::KeyMaterial;
-    use ucan::ucan::Ucan;
+    use rsa::{pkcs8::DecodePrivateKey, RsaPrivateKey, RsaPublicKey};
+    use ucan::{
+        builder::UcanBuilder,
+        crypto::{did::DidParser, KeyMaterial},
+        ucan::Ucan,
+    };
 
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};

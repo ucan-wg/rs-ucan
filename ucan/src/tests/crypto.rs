@@ -21,6 +21,7 @@ mod did_from_keypair {
         assert_eq!(expected_did, result_did.as_str());
     }
 
+    #[allow(dead_code)]
     // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     #[ignore = "Public key is allegedly invalid size"]
     #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]

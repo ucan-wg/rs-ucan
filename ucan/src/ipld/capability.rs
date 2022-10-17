@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::serde::ser_to_lower_case;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CapabilityIpld {
     pub with: String,
     #[serde(serialize_with = "ser_to_lower_case")]
