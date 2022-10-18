@@ -1,7 +1,3 @@
-use async_recursion::async_recursion;
-use cid::Cid;
-use std::{collections::BTreeSet, fmt::Debug};
-
 use crate::{
     capability::{
         proof::{ProofDelegationSemantics, ProofSelection},
@@ -12,6 +8,9 @@ use crate::{
     ucan::Ucan,
 };
 use anyhow::{anyhow, Result};
+use async_recursion::async_recursion;
+use cid::Cid;
+use std::{collections::BTreeSet, fmt::Debug};
 
 const PROOF_DELEGATION_SEMANTICS: ProofDelegationSemantics = ProofDelegationSemantics {};
 

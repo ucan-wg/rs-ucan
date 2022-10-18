@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use super::fixtures::{EmailSemantics, Identities, SUPPORTED_KEYS};
 use crate::{
     builder::UcanBuilder,
@@ -8,6 +6,7 @@ use crate::{
     crypto::did::DidParser,
     store::{MemoryStore, UcanJwtStore},
 };
+use std::collections::BTreeSet;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};

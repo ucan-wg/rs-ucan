@@ -1,11 +1,9 @@
+use super::fixtures::{EmailSemantics, Identities};
+use crate::{builder::UcanBuilder, capability::CapabilitySemantics};
 use anyhow::Result;
 use did_key::KeyPair;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_ipld_dagcbor::{from_slice, to_vec};
-
-use crate::{builder::UcanBuilder, capability::CapabilitySemantics};
-
-use super::fixtures::{EmailSemantics, Identities};
 
 pub fn dag_cbor_roundtrip<T>(data: &T) -> Result<T>
 where

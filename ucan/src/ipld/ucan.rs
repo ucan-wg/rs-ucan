@@ -1,16 +1,14 @@
+use crate::{
+    capability::CapabilityIpld,
+    crypto::JwtSignatureAlgorithm,
+    ipld::{Principle, Signature},
+    serde::Base64Encode,
+    ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
+};
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::TryFrom, str::FromStr};
-
-use crate::{
-    capability::CapabilityIpld, crypto::JwtSignatureAlgorithm, serde::Base64Encode, ucan::Ucan,
-};
-
-use crate::{
-    ipld::{Principle, Signature},
-    ucan::{UcanHeader, UcanPayload, UCAN_VERSION},
-};
 
 #[derive(Serialize, Deserialize)]
 pub struct UcanIpld {

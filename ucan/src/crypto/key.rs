@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub trait KeyMaterialConditionalSendSync: Send + Sync {}

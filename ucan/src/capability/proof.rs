@@ -1,7 +1,6 @@
+use super::{Action, CapabilitySemantics, Scope};
 use anyhow::{anyhow, Result};
 use url::Url;
-
-use super::{Action, CapabilitySemantics, Scope};
 
 #[derive(Ord, Eq, PartialEq, PartialOrd, Clone)]
 pub enum ProofAction {

@@ -1,6 +1,5 @@
-use anyhow::{anyhow, Result};
-
 use crate::capability::{Action, CapabilitySemantics, Scope};
+use anyhow::{anyhow, Result};
 use url::Url;
 
 #[derive(Ord, Eq, PartialOrd, PartialEq, Clone)]

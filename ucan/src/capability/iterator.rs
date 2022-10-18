@@ -1,8 +1,7 @@
+use super::{Action, Capability, CapabilityIpld, CapabilitySemantics, Scope};
+use crate::ucan::Ucan;
 use std::marker::PhantomData;
 
-use crate::ucan::Ucan;
-
-use super::{Action, Capability, CapabilityIpld, CapabilitySemantics, Scope};
 pub struct CapabilityIterator<'a, Semantics, S, A>
 where
     Semantics: CapabilitySemantics<S, A>,

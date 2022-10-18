@@ -1,11 +1,10 @@
+use super::fixtures::{Identities, SUPPORTED_KEYS};
 use crate::{
     builder::UcanBuilder,
     chain::ProofChain,
     crypto::did::DidParser,
     store::{MemoryStore, UcanJwtStore},
 };
-
-use super::fixtures::{Identities, SUPPORTED_KEYS};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};

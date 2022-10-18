@@ -1,3 +1,9 @@
+use crate::{
+    capability::CapabilityIpld,
+    crypto::did::DidParser,
+    serde::{Base64Encode, DagJson},
+    time::now,
+};
 use anyhow::{anyhow, Result};
 use cid::{
     multihash::{Code, MultihashDigest},
@@ -7,13 +13,6 @@ use libipld_core::{codec::Codec, raw::RawCodec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::TryFrom, str::FromStr};
-
-use crate::{
-    capability::CapabilityIpld,
-    crypto::did::DidParser,
-    serde::{Base64Encode, DagJson},
-    time::now,
-};
 
 pub const UCAN_VERSION: &str = "0.9.0-canary";
 

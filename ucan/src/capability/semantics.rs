@@ -1,10 +1,9 @@
+use crate::serde::ser_to_lower_case;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt::Debug;
 use url::Url;
-
-use crate::serde::ser_to_lower_case;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CapabilityIpld {
