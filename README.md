@@ -1,6 +1,6 @@
 <div align="center">
-  <a href="https://raw.githubusercontent.com/ucan-wg/rs-ucan/main/assets/logo.png" target="_blank">
-    <img src="" alt="rs-ucan Logo" width="100" height="100"></img>
+  <a href="https://github.com/ucan-wg/rs-ucan" target="_blank">
+    <img src="assets/logo.png" alt="rs-ucan Logo" height="200"></img>
   </a>
 
   <h1 align="center">rs-ucan</h1>
