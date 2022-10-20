@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::{
     capability::{
         proof::ProofDelegationSemantics, Action, Capability, CapabilityIpld, CapabilitySemantics,
@@ -8,7 +6,7 @@ use crate::{
     crypto::KeyMaterial,
     serde::Base64Encode,
     time::now,
-    ucan::{UcanHeader, UcanPayload, UCAN_VERSION},
+    ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
 };
 use anyhow::{anyhow, Result};
 use cid::Cid;
@@ -16,8 +14,7 @@ use log::warn;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-
-use crate::ucan::Ucan;
+use std::convert::TryFrom;
 
 /// A signable is a UCAN that has all the state it needs in order to be signed,
 /// but has not yet been signed.

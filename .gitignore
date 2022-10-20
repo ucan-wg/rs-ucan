@@ -1,5 +1,9 @@
-/target
+Cargo.lock
+**/target/
+
+**/.DS_Store
+README.html
+
 dist
 bundle
 lib
-Cargo.lock

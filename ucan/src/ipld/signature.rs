@@ -1,9 +1,7 @@
-use anyhow::{anyhow, Result};
-use std::{convert::TryFrom, str::FromStr};
-
-use serde::{Deserialize, Serialize};
-
 use crate::crypto::JwtSignatureAlgorithm;
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use std::{convert::TryFrom, str::FromStr};
 
 // See https://github.com/ucan-wg/ts-ucan/blob/99c9fc4f89fc917cf08d7fb09685705876b960f4/packages/default-plugins/src/prefixes.ts#L1-L6
 // See https://github.com/multiformats/unsigned-varint

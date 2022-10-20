@@ -1,5 +1,3 @@
-use std::{collections::HashMap, io::Cursor, sync::Arc};
-
 use anyhow::{anyhow, Result};
 use async_std::sync::Mutex;
 use async_trait::async_trait;
@@ -12,6 +10,7 @@ use libipld_core::{
     ipld::Ipld,
     raw::RawCodec,
 };
+use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub trait UcanStoreConditionalSend: Send {}

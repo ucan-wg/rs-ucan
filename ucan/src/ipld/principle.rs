@@ -1,10 +1,7 @@
-use anyhow::anyhow;
-
-use serde::{Deserialize, Serialize};
-
-use std::{fmt::Display, str::FromStr};
-
 use crate::crypto::did::{DID_KEY_PREFIX, DID_PREFIX};
+use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
+use std::{fmt::Display, str::FromStr};
 
 // Note: varint encoding of 0x0d1d
 pub const DID_IPLD_PREFIX: &[u8] = &[0x9d, 0x1a];
