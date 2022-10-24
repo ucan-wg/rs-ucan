@@ -11,7 +11,7 @@
 //! This crate offers the [`builder::UcanBuilder`] abstraction to generate
 //! signed UCAN tokens.
 //!
-//! To generate a signed token, you need to provide a [`crypto::SigningKey`]
+//! To generate a signed token, you need to provide a [`crypto::KeyMaterial`]
 //! implementation. For more information on providing a signing key, see the
 //! [`crypto`] module documentation.
 //!
@@ -52,16 +52,21 @@
 //!     // You must bring your own key support
 //! ];
 //!
-//! async fn get_capabilities<'a, Semantics, S, A, Store>(ucan_token: &'a str, semantics: &'a Semantics, store: &'a Store) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
+//! async fn get_capabilities<'a, Semantics, S, A, Store>(ucan_token: &'a str, semantics: &'a Semantics, store: Store) -> Result<Vec<CapabilityInfo<S, A>>, anyhow::Error>
 //!     where
 //!         Semantics: CapabilitySemantics<S, A>,
 //!         S: Scope,
 //!         A: Action,
-//!         Store: UcanJwtStore
+//!         Store: UcanJwtStore + Default
 //! {
 //!     let mut did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
 //!
-//!     Ok(ProofChain::try_from_token_string(ucan_token, &mut did_parser, store).await?
+//!     Ok(ProofChain::try_from(ucan_token)?
+//!         .with_parser(did_parser)
+//!         .await?
+//!         .with_store(&store)
+//!         .build()
+//!         .await?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```

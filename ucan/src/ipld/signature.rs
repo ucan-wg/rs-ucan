@@ -20,7 +20,7 @@ const EIP191_VARSIG_PREFIX: u64 = 0xd191;
 /// counterpart representation and vice-versa
 /// Note, not all valid JWT signature algorithms are represented by this
 /// library, nor are all valid varsig prefixes
-/// See https://github.com/ucan-wg/ucan-ipld#25-signature
+/// See <https://github.com/ucan-wg/ucan-ipld#25-signature>
 #[derive(Debug, Eq, PartialEq)]
 pub enum VarsigPrefix {
     NonStandard,
@@ -116,7 +116,7 @@ impl TryFrom<u64> for VarsigPrefix {
 
 /// An envelope for the UCAN-IPLD-equivalent of a UCAN's JWT signature, which
 /// is a specified prefix in front of the raw signature bytes
-/// See: https://github.com/ucan-wg/ucan-ipld#25-signature
+/// See: <https://github.com/ucan-wg/ucan-ipld#25-signature>
 #[repr(transparent)]
 #[derive(Serialize, Deserialize)]
 pub struct Signature(pub Vec<u8>);

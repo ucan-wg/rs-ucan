@@ -194,7 +194,7 @@ impl TryFrom<Ucan> for Cid {
     }
 }
 
-/// Deserialize an encoded UCAN token string reference into a UCAN
+/// Deserialize an encoded UCAN token string reference into a UCAN.
 impl<'a> TryFrom<&'a str> for Ucan {
     type Error = anyhow::Error;
 
@@ -203,7 +203,7 @@ impl<'a> TryFrom<&'a str> for Ucan {
     }
 }
 
-/// Deserialize an encoded UCAN token string into a UCAN
+/// Deserialize an encoded UCAN token string into a UCAN.
 impl TryFrom<String> for Ucan {
     type Error = anyhow::Error;
 
@@ -212,7 +212,7 @@ impl TryFrom<String> for Ucan {
     }
 }
 
-/// Deserialize an encoded UCAN token string reference into a UCAN
+/// Deserialize an encoded UCAN token string reference into a UCAN.
 impl FromStr for Ucan {
     type Err = anyhow::Error;
 
