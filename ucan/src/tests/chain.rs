@@ -102,6 +102,55 @@ pub async fn it_fails_with_incorrect_chaining() {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
 #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+pub async fn it_can_be_instantiated_by_cid() {
+    let identities = Identities::new().await;
+    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+
+    let leaf_ucan = UcanBuilder::default()
+        .issued_by(&identities.alice_key)
+        .for_audience(identities.bob_did.as_str())
+        .with_lifetime(60)
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap();
+
+    let delegated_token = UcanBuilder::default()
+        .issued_by(&identities.bob_key)
+        .for_audience(identities.mallory_did.as_str())
+        .with_lifetime(50)
+        .witnessed_by(&leaf_ucan)
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap()
+        .encode()
+        .unwrap();
+
+    let mut store = MemoryStore::default();
+
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
+        .await
+        .unwrap();
+
+    let cid = store.write_token(&delegated_token).await.unwrap();
+
+    let chain = ProofChain::from_cid(&cid, &mut did_parser, &store)
+        .await
+        .unwrap();
+
+    assert_eq!(chain.ucan().audience(), &identities.mallory_did);
+    assert_eq!(
+        chain.proofs().get(0).unwrap().ucan().issuer(),
+        &identities.alice_did
+    );
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_can_handle_multiple_leaves() {
     let identities = Identities::new().await;
     let mut did_parser = DidParser::new(SUPPORTED_KEYS);

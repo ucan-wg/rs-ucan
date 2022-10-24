@@ -46,6 +46,7 @@ pub struct ProofChain {
 }
 
 impl ProofChain {
+    /// Instantiate a [ProofChain] from a [Ucan], given a [UcanJwtStore] and [DidParser]
     #[cfg_attr(target_arch = "wasm32", async_recursion(?Send))]
     #[cfg_attr(not(target_arch = "wasm32"), async_recursion)]
     pub async fn from_ucan<S>(
@@ -102,10 +103,16 @@ impl ProofChain {
         })
     }
 
-    pub async fn from_cid<'a>(_cid: &str, _did_parser: &mut DidParser) -> Result<ProofChain> {
-        todo!("Resolving a proof from a CID not yet implemented")
+    /// Instantiate a [ProofChain] from a [Cid], given a [UcanJwtStore] and [DidParser]
+    /// The [Cid] must resolve to a JWT token string
+    pub async fn from_cid<S>(cid: &Cid, did_parser: &mut DidParser, store: &S) -> Result<ProofChain>
+    where
+        S: UcanJwtStore,
+    {
+        Self::try_from_token_string(&store.require_token(cid).await?, did_parser, store).await
     }
 
+    /// Instantiate a [ProofChain] from a JWT token string, given a [UcanJwtStore] and [DidParser]
     pub async fn try_from_token_string<'a, S>(
         ucan_token_string: &str,
         did_parser: &mut DidParser,
