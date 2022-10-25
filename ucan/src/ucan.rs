@@ -86,7 +86,7 @@ impl Ucan {
         let payload = self.payload.jwt_base64_encode()?;
         let signature = base64::encode_config(self.signature.as_slice(), base64::URL_SAFE_NO_PAD);
 
-        Ok(format!("{}.{}.{}", header, payload, signature))
+        Ok(format!("{header}.{payload}.{signature}"))
     }
 
     /// Returns true if the UCAN has past its expiration date
@@ -222,7 +222,7 @@ impl FromStr for Ucan {
             .split('.')
             .take(2)
             .map(String::from)
-            .reduce(|l, r| format!("{}.{}", l, r))
+            .reduce(|l, r| format!("{l}.{r}"))
             .ok_or_else(|| anyhow!("Could not parse signed data from token string"))?;
 
         let mut parts = ucan_token.split('.').map(|str| {

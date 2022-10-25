@@ -68,7 +68,7 @@ impl TryFrom<String> for ProofSelection {
 impl ToString for ProofSelection {
     fn to_string(&self) -> String {
         match self {
-            ProofSelection::Index(usize) => format!("prf:{}", usize),
+            ProofSelection::Index(usize) => format!("prf:{usize}"),
             ProofSelection::All => "prf:*".to_string(),
         }
     }
