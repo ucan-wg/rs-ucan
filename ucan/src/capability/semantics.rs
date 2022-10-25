@@ -149,7 +149,7 @@ where
         match self {
             With::Resource { kind } => kind.to_string(),
             With::My { kind } => format!("my:{}", kind.to_string()),
-            With::As { did, kind } => format!("as:{}:{}", did, kind.to_string()),
+            With::As { did, kind } => format!("as:{did}:{}", kind.to_string()),
         }
     }
 }
@@ -184,7 +184,7 @@ where
             _ => return None,
         };
 
-        Some((format!("did:key:{}", value), path_parts.collect()))
+        Some((format!("did:key:{value}"), path_parts.collect()))
     }
 
     fn parse_resource(&self, with: &Url) -> Option<Resource<S>> {

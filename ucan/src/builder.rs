@@ -85,7 +85,7 @@ where
         let header_base64 = header.jwt_base64_encode()?;
         let payload_base64 = payload.jwt_base64_encode()?;
 
-        let data_to_sign = format!("{}.{}", header_base64, payload_base64)
+        let data_to_sign = format!("{header_base64}.{payload_base64}")
             .as_bytes()
             .to_vec();
         let signature = self.issuer.sign(data_to_sign.as_slice()).await?;
@@ -232,7 +232,7 @@ where
                 let proof_index = self.proofs.len() - 1;
                 let proof_delegation = ProofDelegationSemantics {};
                 let capability =
-                    proof_delegation.parse(&format!("prf:{}", proof_index), "ucan/DELEGATE");
+                    proof_delegation.parse(&format!("prf:{proof_index}"), "ucan/DELEGATE");
 
                 match capability {
                     Some(capability) => {

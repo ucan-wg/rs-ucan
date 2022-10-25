@@ -36,7 +36,7 @@ impl Display for Principle {
             _ => [DID_KEY_PREFIX, &bs58::encode(bytes).into_string()].concat(),
         };
 
-        write!(f, "{}", did_content)
+        write!(f, "{did_content}")
     }
 }
 
