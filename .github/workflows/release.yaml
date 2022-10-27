@@ -20,7 +20,7 @@ concurrency:
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.repository_owner == 'ucan-wg/rs-ucan'
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'zeeshanlakhani/rs-ucan'
 
     steps:
       - name: Run release-please
@@ -41,7 +41,7 @@ jobs:
       contents: write
       pull-requests: write
 
-    if: ${{ needs.release-please.outputs.release_created || github.event.inputs.force-publish }} && github.event.ref == 'refs/heads/main' && github.repository_owner == 'ucan-wg/rs-ucan'
+    if: ${{ needs.release-please.outputs.release_created || github.event.inputs.force-publish }} && github.event.ref == 'refs/heads/main' && github.repository_owner == 'zeeshanlakhani/rs-ucan'
     steps:
 
       - name: Checkout Repository
