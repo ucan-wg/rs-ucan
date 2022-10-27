@@ -24,7 +24,7 @@ ucan = {path = "../ucan", version = "0.7.0-alpha.1" }
 anyhow = "1.0.52"
 async-trait = "0.1.52"
 ed25519-zebra = "^3"
-rsa = "0.6"
+rsa = "0.7"
 sha2 = "0.10"
 bs58 = "0.4"
 log = "0.4"
