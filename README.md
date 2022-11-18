@@ -87,6 +87,22 @@ hooks. Please run this before every commit and/or push.
   want pre-commit hooks to fire, you can run
   `git commit -a -m "Your message here" --no-verify`.
 
+### Conventional Commits
+
+This library *lightly* follows the
+[Conventional Commits convention][commit-spec-site] to help explain
+commit history and tie in with our release process. The full specification
+can be found [here][commit-spec]. We recommend prefixing your commits with
+a type of `fix`, `feat`, `docs`, `ci`, `refactor`, etc..., structured like so:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
 ## Getting Help
 
 For usage questions, usecases, or issues reach out to us in our `rs-ucan`
@@ -99,6 +115,8 @@ Github.
 
 This project is licensed under the [Apache License 2.0](https://github.com/ucan-wg/rs-ucan/blob/main/LICENSE).
 
+[commit-spec]: https://www.conventionalcommits.org/en/v1.0.0/#specification
+[commit-spec-site]: https://www.conventionalcommits.org/
 [pre-commit]: https://pre-commit.com/
 [spec]: https://github.com/ucan-wg/spec
 [ucan website]: https://ucan.xyz

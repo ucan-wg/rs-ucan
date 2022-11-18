@@ -9,7 +9,7 @@ updates:
   - package-ecosystem: "cargo"
     directory: "/ucan"
     commit-message:
-      prefix: "rust"
+      prefix: "chore(deps)"
       include: "scope"
     target-branch: "main"
     schedule:
@@ -20,7 +20,7 @@ updates:
   - package-ecosystem: "cargo"
     directory: "/ucan-key-support"
     commit-message:
-      prefix: "rust"
+      prefix: "chore(deps)"
       include: "scope"
     target-branch: "main"
     schedule:
@@ -30,6 +30,9 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    commit-message:
+      prefix: "chore(ci-deps)"
+      include: "scope"
     target-branch: "main"
     schedule:
       interval: "weekly"
