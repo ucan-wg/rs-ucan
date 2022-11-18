@@ -30,7 +30,7 @@ sha2 = "0.10"
 ucan = { path = "../ucan", version = "0.7.0-alpha.1" }
 
 [build-dependencies]
-npm_rs = "0.2.1"
+npm_rs = "1.0.0"
 
 [dev-dependencies]
 # NOTE: This is needed so that rand can be included in WASM builds
