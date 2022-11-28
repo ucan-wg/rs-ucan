@@ -47,6 +47,6 @@ getrandom = { version = "~0.2", features = ["js"] }
 tokio = { version = "^1", features = ["macros", "test-util"] }
 
 [dev-dependencies]
-did-key = "0.1"
+did-key = "0.2"
 serde_ipld_dagcbor = "~0.2"
 wasm-bindgen-test = "~0.3"
