@@ -3,7 +3,7 @@ name = "ucan"
 description = "Implement UCAN-based authorization with conciseness and ease!"
 keywords = ["ucan", "authz", "jwt", "pki"]
 categories = [
-  "authorization",
+  "authentication",
   "cryptography",
   "encoding",
   "web-programming"
