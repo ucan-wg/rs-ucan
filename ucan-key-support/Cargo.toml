@@ -20,26 +20,26 @@ version = "0.7.0-alpha.1"
 default = []
 
 [dependencies]
-anyhow = "1.0.52"
-async-trait = "0.1.52"
+anyhow = "1.0"
+async-trait = "0.1"
 bs58 = "0.4"
-ed25519-zebra = "^3"
+ed25519-zebra = "3.1"
 log = "0.4"
 rsa = "0.6"
 sha2 = "0.10"
 ucan = { path = "../ucan", version = "0.7.0-alpha.1" }
 
 [build-dependencies]
-npm_rs = "0.2.1"
+npm_rs = "1.0"
 
 [dev-dependencies]
 # NOTE: This is needed so that rand can be included in WASM builds
-getrandom = { version = "~0.2", features = ["js"] }
-rand = "~0.8"
-wasm-bindgen-test = "~0.3"
+getrandom = { version = "0.2", features = ["js"] }
+rand = "0.8"
+wasm-bindgen-test = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "^1", features = ["macros", "rt"] }
+tokio = { version = "1.21", features = ["macros", "rt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
