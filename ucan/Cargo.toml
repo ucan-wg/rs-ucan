@@ -30,7 +30,7 @@ cid = "0.8"
 futures = "0.3"
 instant = { version = "0.1", features = ["wasm-bindgen", "stdweb"] }
 libipld-core = { version = "0.14", features = ["serde-codec", "serde"] }
-libipld-json = "0.14"
+libipld-json = "0.15"
 log = "0.4"
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
