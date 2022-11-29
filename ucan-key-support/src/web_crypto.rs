@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use js_sys::{Array, ArrayBuffer, Boolean, Object, Reflect, Uint8Array};
 use rsa::{
-    pkcs1::{der::Encodable, DecodeRsaPublicKey},
+    pkcs1::{der::Encode, DecodeRsaPublicKey},
     RsaPublicKey,
 };
 use ucan::crypto::{JwtSignatureAlgorithm, KeyMaterial};

@@ -2,11 +2,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 use rsa::{
-    pkcs1::{
-        der::{Document, Encodable},
-        DecodeRsaPublicKey, EncodeRsaPublicKey,
-    },
-    Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
+    pkcs1::{der::Encode, DecodeRsaPublicKey, EncodeRsaPublicKey},
+    PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
 };
 
 use sha2::{Digest, Sha256};
@@ -35,7 +32,7 @@ impl KeyMaterial for RsaKeyMaterial {
 
     async fn get_did(&self) -> Result<String> {
         let bytes = match self.0.to_pkcs1_der() {
-            Ok(document) => [RSA_MAGIC_BYTES, document.as_der()].concat(),
+            Ok(document) => [RSA_MAGIC_BYTES, document.as_bytes()].concat(),
             Err(error) => {
                 // TODO: Probably shouldn't swallow this error...
                 warn!("Could not get RSA public key bytes for DID: {:?}", error);
@@ -53,9 +50,7 @@ impl KeyMaterial for RsaKeyMaterial {
         match &self.1 {
             Some(private_key) => {
                 let signature = private_key.sign(
-                    PaddingScheme::PKCS1v15Sign {
-                        hash: Some(Hash::SHA2_256),
-                    },
+                    PaddingScheme::new_pkcs1v15_sign::<Sha256>(),
                     hashed.as_ref(),
                 )?;
                 info!("SIGNED!");
@@ -72,9 +67,7 @@ impl KeyMaterial for RsaKeyMaterial {
 
         self.0
             .verify(
-                PaddingScheme::PKCS1v15Sign {
-                    hash: Some(Hash::SHA2_256),
-                },
+                PaddingScheme::new_pkcs1v15_sign::<Sha256>(),
                 hashed.as_ref(),
                 signature,
             )
