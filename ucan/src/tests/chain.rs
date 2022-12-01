@@ -16,7 +16,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_decodes_deep_ucan_chains() {
     let identities = Identities::new().await;
-    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
@@ -47,10 +47,15 @@ pub async fn it_decodes_deep_ucan_chains() {
         .await
         .unwrap();
 
-    let chain =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store)
-            .await
-            .unwrap();
+    let chain = ProofChain::try_from(delegated_token)
+        .unwrap()
+        .with_parser(did_parser)
+        .await
+        .unwrap()
+        .with_store(&store)
+        .build()
+        .await
+        .unwrap();
 
     assert_eq!(chain.ucan().audience(), &identities.mallory_did);
     assert_eq!(
@@ -63,7 +68,7 @@ pub async fn it_decodes_deep_ucan_chains() {
 #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_fails_with_incorrect_chaining() {
     let identities = Identities::new().await;
-    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
@@ -94,8 +99,14 @@ pub async fn it_fails_with_incorrect_chaining() {
         .await
         .unwrap();
 
-    let parse_token_result =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store).await;
+    let parse_token_result = ProofChain::try_from(delegated_token)
+        .unwrap()
+        .with_parser(did_parser)
+        .await
+        .unwrap()
+        .with_store(&store)
+        .build()
+        .await;
 
     assert!(parse_token_result.is_err());
 }
@@ -104,7 +115,7 @@ pub async fn it_fails_with_incorrect_chaining() {
 #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_can_be_instantiated_by_cid() {
     let identities = Identities::new().await;
-    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan = UcanBuilder::default()
         .issued_by(&identities.alice_key)
@@ -138,7 +149,13 @@ pub async fn it_can_be_instantiated_by_cid() {
 
     let cid = store.write_token(&delegated_token).await.unwrap();
 
-    let chain = ProofChain::from_cid(&cid, &mut did_parser, &store)
+    let chain = ProofChain::from_cid(&cid, &store)
+        .await
+        .unwrap()
+        .with_parser(did_parser)
+        .await
+        .unwrap()
+        .build()
         .await
         .unwrap();
 
@@ -153,7 +170,7 @@ pub async fn it_can_be_instantiated_by_cid() {
 #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 pub async fn it_can_handle_multiple_leaves() {
     let identities = Identities::new().await;
-    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+    let did_parser = DidParser::new(SUPPORTED_KEYS);
 
     let leaf_ucan_1 = UcanBuilder::default()
         .issued_by(&identities.alice_key)
@@ -199,7 +216,13 @@ pub async fn it_can_handle_multiple_leaves() {
         .await
         .unwrap();
 
-    ProofChain::try_from_token_string(&delegated_token, &mut did_parser, &store)
+    ProofChain::try_from(delegated_token)
+        .unwrap()
+        .with_parser(did_parser)
+        .await
+        .unwrap()
+        .with_store(&store)
+        .build()
         .await
         .unwrap();
 }

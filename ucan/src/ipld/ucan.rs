@@ -8,7 +8,7 @@ use crate::{
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{convert::TryFrom, str::FromStr};
+use std::{borrow::Borrow, convert::TryFrom, str::FromStr};
 
 #[derive(Serialize, Deserialize)]
 pub struct UcanIpld {
@@ -25,6 +25,14 @@ pub struct UcanIpld {
 
     pub nnc: Option<String>,
     pub nbf: Option<u64>,
+}
+
+impl TryFrom<Ucan> for UcanIpld {
+    type Error = anyhow::Error;
+
+    fn try_from(ucan: Ucan) -> Result<Self, Self::Error> {
+        ucan.borrow().try_into()
+    }
 }
 
 impl TryFrom<&Ucan> for UcanIpld {
