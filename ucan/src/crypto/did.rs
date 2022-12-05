@@ -19,7 +19,7 @@ pub const P256_MAGIC_BYTES: &[u8] = &[0x80, 0x24];
 pub const SECP256K1_MAGIC_BYTES: &[u8] = &[0xe7, 0x1];
 
 /// A parser that is able to convert from a DID string into a corresponding
-/// [`crypto::SigningKey`] implementation. The parser extracts the signature
+/// [`KeyMaterial`] implementation. The parser extracts the signature
 /// magic bytes from a given DID and tries to match them to a corresponding
 /// constructor function that produces a `SigningKey`.
 pub struct DidParser {

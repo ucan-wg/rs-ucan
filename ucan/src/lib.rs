@@ -11,7 +11,7 @@
 //! This crate offers the [`builder::UcanBuilder`] abstraction to generate
 //! signed UCAN tokens.
 //!
-//! To generate a signed token, you need to provide a [`crypto::SigningKey`]
+//! To generate a signed token, you need to provide a  [`crypto::KeyMaterial`]
 //! implementation. For more information on providing a signing key, see the
 //! [`crypto`] module documentation.
 //!
