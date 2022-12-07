@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.repository_owner == 'ucan-wg'
 
+    outputs:
+      releases_created: ${{ steps.release.outputs['ucan--release_created'] || steps.release.outputs['ucan-key-support--release_created'] }}
+
     steps:
       - name: Run release-please
         id: release
@@ -41,7 +44,7 @@ jobs:
       contents: write
       pull-requests: write
 
-    if: ${{ needs.release.outputs.releases_created || github.event.inputs.force-publish }}
+    if: ${{ needs.release-please.outputs.releases_created || github.event.inputs.force-publish }}
     steps:
 
       - name: Checkout Repository
@@ -64,6 +67,11 @@ jobs:
         with:
           args: --force cargo-workspaces
           command: install
+
+      - name: Verify Publishing of crate
+        uses: katyo/publish-crates@v1
+        with:
+          dry-run: true
 
       - name: Cargo Publish to crates.io
         env:
