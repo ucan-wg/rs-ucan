@@ -5,11 +5,7 @@
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
   "packages": {
-    "ucan": {
-      "release-as": "0.1.0"
-    },
-    "ucan-key-support": {
-      "release-as": "0.1.0"
-    }
+    "ucan": {},
+    "ucan-key-support": {}
   }
 }
