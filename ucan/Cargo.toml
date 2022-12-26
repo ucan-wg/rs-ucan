@@ -26,7 +26,7 @@ async-std = "1.0"
 async-trait = "0.1"
 base64 = "0.13"
 bs58 = "0.4"
-cid = "0.9"
+cid = "0.10"
 futures = "0.3"
 instant = { version = "0.1", features = ["wasm-bindgen", "stdweb"] }
 libipld-core = { version = "0.15", features = ["serde-codec", "serde"] }
