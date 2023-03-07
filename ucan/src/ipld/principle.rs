@@ -7,7 +7,7 @@ use std::{fmt::Display, str::FromStr};
 pub const DID_IPLD_PREFIX: &[u8] = &[0x9d, 0x1a];
 
 #[repr(transparent)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Principle(Vec<u8>);
 
 impl FromStr for Principle {
