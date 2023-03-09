@@ -118,7 +118,7 @@ impl TryFrom<u64> for VarsigPrefix {
 /// is a specified prefix in front of the raw signature bytes
 /// See: <https://github.com/ucan-wg/ucan-ipld#25-signature>
 #[repr(transparent)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Signature(pub Vec<u8>);
 
 impl Signature {
