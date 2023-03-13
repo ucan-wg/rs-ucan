@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.1](https://github.com/ucan-wg/rs-ucan/compare/ucan-key-support-v0.1.0...ucan-key-support-v0.1.1) (2023-03-13)
+
+
+### Features
+
+* ucan-key-support: add P-256 key support (aka ESRSA, aka secp256r1) ([#46](https://github.com/ucan-wg/rs-ucan/issues/46)) ([36fe961](https://github.com/ucan-wg/rs-ucan/commit/36fe9617513a25c7815772204a9426e0ca75ef7e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * ucan bumped from 0.1.0 to 0.1.1
+
 ## [0.1.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-key-support-v0.1.0...ucan-key-support-v0.1.0) (2022-11-29)
 
 
