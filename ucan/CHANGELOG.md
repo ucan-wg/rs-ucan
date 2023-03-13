@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.1.0...ucan-v0.1.1) (2023-03-13)
+
+
+### Features
+
+* More derives for use in other libs ([#75](https://github.com/ucan-wg/rs-ucan/issues/75)) ([e60715f](https://github.com/ucan-wg/rs-ucan/commit/e60715f94f3b15b27ae7c1443cd4abae983d93ae))
+
 ## [0.1.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.1.0...ucan-v0.1.0) (2022-11-29)
 
 
