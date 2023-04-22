@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 use p256::ecdsa::{
+    self,
     signature::{Signer, Verifier},
     Signature, SigningKey as P256PrivateKey, VerifyingKey as P256PublicKey,
 };
@@ -34,8 +35,8 @@ impl KeyMaterial for P256KeyMaterial {
     async fn sign(&self, payload: &[u8]) -> Result<Vec<u8>> {
         match self.1 {
             Some(ref private_key) => {
-                let signature = private_key.sign(payload);
-                Ok(signature.as_ref().to_vec())
+                let signature: ecdsa::Signature = private_key.sign(payload);
+                Ok(signature.to_vec())
             }
             None => Err(anyhow!("No private key; cannot sign data")),
         }

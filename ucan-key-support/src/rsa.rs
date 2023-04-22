@@ -3,7 +3,7 @@ use async_trait::async_trait;
 
 use rsa::{
     pkcs1::{der::Encode, DecodeRsaPublicKey, EncodeRsaPublicKey},
-    PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
+    Pkcs1v15Sign, PublicKey, RsaPrivateKey, RsaPublicKey,
 };
 
 use sha2::{Digest, Sha256};
@@ -49,10 +49,8 @@ impl KeyMaterial for RsaKeyMaterial {
 
         match &self.1 {
             Some(private_key) => {
-                let signature = private_key.sign(
-                    PaddingScheme::new_pkcs1v15_sign::<Sha256>(),
-                    hashed.as_ref(),
-                )?;
+                let padding = Pkcs1v15Sign::new::<Sha256>();
+                let signature = private_key.sign(padding, hashed.as_ref())?;
                 info!("SIGNED!");
                 Ok(signature)
             }
@@ -64,13 +62,10 @@ impl KeyMaterial for RsaKeyMaterial {
         let mut hasher = Sha256::new();
         hasher.update(payload);
         let hashed = hasher.finalize();
+        let padding = Pkcs1v15Sign::new::<Sha256>();
 
         self.0
-            .verify(
-                PaddingScheme::new_pkcs1v15_sign::<Sha256>(),
-                hashed.as_ref(),
-                signature,
-            )
+            .verify(padding, hashed.as_ref(), signature)
             .map_err(|error| anyhow!(error))
     }
 }

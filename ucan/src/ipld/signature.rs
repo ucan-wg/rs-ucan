@@ -162,6 +162,7 @@ impl<T: AsRef<[u8]>> TryFrom<(JwtSignatureAlgorithm, T)> for Signature {
 mod tests {
     use crate::{crypto::JwtSignatureAlgorithm, ipld::Signature};
 
+    use base64::Engine;
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
     #[cfg(target_arch = "wasm32")]
@@ -171,8 +172,9 @@ mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn it_can_convert_between_jwt_and_bytesprefix_form() {
         let token_signature = "Ab-xfYRoqYEHuo-252MKXDSiOZkLD-h1gHt8gKBP0AVdJZ6Jruv49TLZOvgWy9QkCpiwKUeGVbHodKcVx-azCQ";
-        let signature_bytes =
-            base64::decode_config(token_signature, base64::URL_SAFE_NO_PAD).unwrap();
+        let signature_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(token_signature)
+            .unwrap();
 
         let bytesprefix_signature =
             Signature::try_from((JwtSignatureAlgorithm::EdDSA, &signature_bytes)).unwrap();
