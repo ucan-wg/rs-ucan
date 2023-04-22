@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.2](https://github.com/ucan-wg/rs-ucan/compare/ucan-key-support-v0.1.1...ucan-key-support-v0.1.2) (2023-04-22)
+
+
+### Features
+
+* Upgrade deps: `cid`, `libipld`, `base64`, `p256`, `rsa` ([#78](https://github.com/ucan-wg/rs-ucan/issues/78)) ([cfeed69](https://github.com/ucan-wg/rs-ucan/commit/cfeed6903d9a53d3728f35914d670e3b7920d88d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * ucan bumped from 0.1.1 to 0.1.2
+
 ## [0.1.1](https://github.com/ucan-wg/rs-ucan/compare/ucan-key-support-v0.1.0...ucan-key-support-v0.1.1) (2023-03-13)
 
 
