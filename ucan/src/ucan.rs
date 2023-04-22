@@ -5,6 +5,7 @@ use crate::{
     time::now,
 };
 use anyhow::{anyhow, Result};
+use base64::Engine;
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -84,7 +85,8 @@ impl Ucan {
     pub fn encode(&self) -> Result<String> {
         let header = self.header.jwt_base64_encode()?;
         let payload = self.payload.jwt_base64_encode()?;
-        let signature = base64::encode_config(self.signature.as_slice(), base64::URL_SAFE_NO_PAD);
+        let signature =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(self.signature.as_slice());
 
         Ok(format!("{header}.{payload}.{signature}"))
     }
@@ -226,7 +228,9 @@ impl FromStr for Ucan {
             .ok_or_else(|| anyhow!("Could not parse signed data from token string"))?;
 
         let mut parts = ucan_token.split('.').map(|str| {
-            base64::decode_config(str, base64::URL_SAFE_NO_PAD).map_err(|error| anyhow!(error))
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(str)
+                .map_err(|error| anyhow!(error))
         });
 
         let header = parts

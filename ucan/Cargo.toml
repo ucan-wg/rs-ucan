@@ -24,13 +24,13 @@ anyhow = "1.0"
 async-recursion = "1.0"
 async-std = "1.0"
 async-trait = "0.1"
-base64 = "0.13"
+base64 = "0.21"
 bs58 = "0.4"
-cid = "0.9"
+cid = "0.10"
 futures = "0.3"
 instant = { version = "0.1", features = ["wasm-bindgen", "stdweb"] }
-libipld-core = { version = "0.15", features = ["serde-codec", "serde"] }
-libipld-json = "0.15"
+libipld-core = { version = "0.16", features = ["serde-codec", "serde"] }
+libipld-json = "0.16"
 log = "0.4"
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
