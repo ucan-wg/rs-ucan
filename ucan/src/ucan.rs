@@ -62,8 +62,12 @@ impl Ucan {
     }
 
     /// Validate the UCAN's signature and timestamps
-    pub async fn validate<'a>(&self, did_parser: &mut DidParser) -> Result<()> {
-        if self.is_expired() {
+    pub async fn validate<'a>(
+        &self,
+        now_time: Option<u64>,
+        did_parser: &mut DidParser,
+    ) -> Result<()> {
+        if self.is_expired(now_time) {
             return Err(anyhow!("Expired"));
         }
 
@@ -92,8 +96,10 @@ impl Ucan {
     }
 
     /// Returns true if the UCAN has past its expiration date
-    pub fn is_expired(&self) -> bool {
-        self.payload.exp < now()
+    pub fn is_expired(&self, now_time: Option<u64>) -> bool {
+        let now_time = now_time.unwrap_or_else(now);
+
+        self.payload.exp < now_time
     }
 
     /// Raw bytes of signed data for this UCAN

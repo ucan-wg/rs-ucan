@@ -61,7 +61,7 @@
 //! {
 //!     let mut did_parser = DidParser::new(SUPPORTED_KEY_TYPES);
 //!
-//!     Ok(ProofChain::try_from_token_string(ucan_token, &mut did_parser, store).await?
+//!     Ok(ProofChain::try_from_token_string(ucan_token, None, &mut did_parser, store).await?
 //!         .reduce_capabilities(semantics))
 //! }
 //! ```
