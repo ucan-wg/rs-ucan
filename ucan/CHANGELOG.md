@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.1.2...ucan-v0.2.0) (2023-05-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* Custom 'now' for proof chain validation ([#83](https://github.com/ucan-wg/rs-ucan/issues/83))
+
+### Features
+
+* Custom 'now' for proof chain validation ([#83](https://github.com/ucan-wg/rs-ucan/issues/83)) ([1732a89](https://github.com/ucan-wg/rs-ucan/commit/1732a8911b67546f446126e4d469126f61769b44))
+
 ## [0.1.2](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.1.1...ucan-v0.1.2) (2023-04-22)
 
 
