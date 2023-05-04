@@ -51,20 +51,22 @@ impl ProofChain {
     #[cfg_attr(not(target_arch = "wasm32"), async_recursion)]
     pub async fn from_ucan<S>(
         ucan: Ucan,
+        now_time: Option<u64>,
         did_parser: &mut DidParser,
         store: &S,
     ) -> Result<ProofChain>
     where
         S: UcanJwtStore,
     {
-        ucan.validate(did_parser).await?;
+        ucan.validate(now_time, did_parser).await?;
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
         for cid_string in ucan.proofs().iter() {
             let cid = Cid::try_from(cid_string.as_str())?;
             let ucan_token = store.require_token(&cid).await?;
-            let proof_chain = Self::try_from_token_string(&ucan_token, did_parser, store).await?;
+            let proof_chain =
+                Self::try_from_token_string(&ucan_token, now_time, did_parser, store).await?;
             proof_chain.validate_link_to(&ucan)?;
             proofs.push(proof_chain);
         }
@@ -105,16 +107,28 @@ impl ProofChain {
 
     /// Instantiate a [ProofChain] from a [Cid], given a [UcanJwtStore] and [DidParser]
     /// The [Cid] must resolve to a JWT token string
-    pub async fn from_cid<S>(cid: &Cid, did_parser: &mut DidParser, store: &S) -> Result<ProofChain>
+    pub async fn from_cid<S>(
+        cid: &Cid,
+        now_time: Option<u64>,
+        did_parser: &mut DidParser,
+        store: &S,
+    ) -> Result<ProofChain>
     where
         S: UcanJwtStore,
     {
-        Self::try_from_token_string(&store.require_token(cid).await?, did_parser, store).await
+        Self::try_from_token_string(
+            &store.require_token(cid).await?,
+            now_time,
+            did_parser,
+            store,
+        )
+        .await
     }
 
     /// Instantiate a [ProofChain] from a JWT token string, given a [UcanJwtStore] and [DidParser]
     pub async fn try_from_token_string<'a, S>(
         ucan_token_string: &str,
+        now_time: Option<u64>,
         did_parser: &mut DidParser,
         store: &S,
     ) -> Result<ProofChain>
@@ -122,7 +136,7 @@ impl ProofChain {
         S: UcanJwtStore,
     {
         let ucan = Ucan::try_from(ucan_token_string)?;
-        Self::from_ucan(ucan, did_parser, store).await
+        Self::from_ucan(ucan, now_time, did_parser, store).await
     }
 
     fn validate_link_to(&self, ucan: &Ucan) -> Result<()> {

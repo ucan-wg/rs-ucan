@@ -4,6 +4,7 @@ use crate::{
     chain::ProofChain,
     crypto::did::DidParser,
     store::{MemoryStore, UcanJwtStore},
+    time::now,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -48,7 +49,7 @@ pub async fn it_decodes_deep_ucan_chains() {
         .unwrap();
 
     let chain =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store)
+        ProofChain::try_from_token_string(delegated_token.as_str(), None, &mut did_parser, &store)
             .await
             .unwrap();
 
@@ -95,7 +96,8 @@ pub async fn it_fails_with_incorrect_chaining() {
         .unwrap();
 
     let parse_token_result =
-        ProofChain::try_from_token_string(delegated_token.as_str(), &mut did_parser, &store).await;
+        ProofChain::try_from_token_string(delegated_token.as_str(), None, &mut did_parser, &store)
+            .await;
 
     assert!(parse_token_result.is_err());
 }
@@ -138,7 +140,7 @@ pub async fn it_can_be_instantiated_by_cid() {
 
     let cid = store.write_token(&delegated_token).await.unwrap();
 
-    let chain = ProofChain::from_cid(&cid, &mut did_parser, &store)
+    let chain = ProofChain::from_cid(&cid, None, &mut did_parser, &store)
         .await
         .unwrap();
 
@@ -199,7 +201,54 @@ pub async fn it_can_handle_multiple_leaves() {
         .await
         .unwrap();
 
-    ProofChain::try_from_token_string(&delegated_token, &mut did_parser, &store)
+    ProofChain::try_from_token_string(&delegated_token, None, &mut did_parser, &store)
         .await
         .unwrap();
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+pub async fn it_can_use_a_custom_timestamp_to_validate_a_ucan() {
+    let identities = Identities::new().await;
+    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+
+    let leaf_ucan = UcanBuilder::default()
+        .issued_by(&identities.alice_key)
+        .for_audience(identities.bob_did.as_str())
+        .with_lifetime(60)
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap();
+
+    let delegated_token = UcanBuilder::default()
+        .issued_by(&identities.bob_key)
+        .for_audience(identities.mallory_did.as_str())
+        .with_lifetime(50)
+        .witnessed_by(&leaf_ucan)
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap()
+        .encode()
+        .unwrap();
+
+    let mut store = MemoryStore::default();
+
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
+        .await
+        .unwrap();
+
+    let cid = store.write_token(&delegated_token).await.unwrap();
+
+    let valid_chain = ProofChain::from_cid(&cid, Some(now()), &mut did_parser, &store).await;
+
+    assert!(valid_chain.is_ok());
+
+    let invalid_chain = ProofChain::from_cid(&cid, Some(now() + 61), &mut did_parser, &store).await;
+
+    assert!(invalid_chain.is_err());
 }

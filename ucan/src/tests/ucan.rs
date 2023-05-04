@@ -32,7 +32,7 @@ mod validate {
         let encoded_ucan = ucan.encode().unwrap();
         let decoded_ucan = Ucan::try_from(encoded_ucan.as_str()).unwrap();
 
-        decoded_ucan.validate(&mut did_parser).await.unwrap();
+        decoded_ucan.validate(None, &mut did_parser).await.unwrap();
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
