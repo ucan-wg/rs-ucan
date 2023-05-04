@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use async_std::sync::Mutex;
 use async_trait::async_trait;
 use cid::{
     multihash::{Code, MultihashDigest},
@@ -10,7 +9,11 @@ use libipld_core::{
     ipld::Ipld,
     raw::RawCodec,
 };
-use std::{collections::HashMap, io::Cursor, sync::Arc};
+use std::{
+    collections::HashMap,
+    io::Cursor,
+    sync::{Arc, Mutex},
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub trait UcanStoreConditionalSend: Send {}
@@ -103,7 +106,7 @@ pub struct MemoryStore {
 impl UcanStore<RawCodec> for MemoryStore {
     async fn read<T: Decode<RawCodec>>(&self, cid: &Cid) -> Result<Option<T>> {
         let codec = RawCodec::default();
-        let dags = self.dags.lock().await;
+        let dags = self.dags.lock().map_err(|_| anyhow!("poisoned mutex!"))?;
 
         Ok(match dags.get(cid) {
             Some(bytes) => Some(T::decode(codec, &mut Cursor::new(bytes))?),
@@ -119,7 +122,7 @@ impl UcanStore<RawCodec> for MemoryStore {
         let block = codec.encode(&token)?;
         let cid = Cid::new_v1(codec.into(), Code::Blake2b256.digest(&block));
 
-        let mut dags = self.dags.lock().await;
+        let mut dags = self.dags.lock().map_err(|_| anyhow!("poisoned mutex!"))?;
         dags.insert(cid, block);
 
         Ok(cid)
