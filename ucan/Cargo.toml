@@ -22,7 +22,6 @@ default = []
 [dependencies]
 anyhow = "1.0"
 async-recursion = "1.0"
-async-std = "1.0"
 async-trait = "0.1"
 base64 = "0.21"
 bs58 = "0.4"
