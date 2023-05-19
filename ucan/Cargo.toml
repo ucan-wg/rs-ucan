@@ -27,7 +27,7 @@ base64 = "0.21"
 bs58 = "0.4"
 cid = "0.10"
 futures = "0.3"
-instant = { version = "0.1", features = ["wasm-bindgen", "stdweb"] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 libipld-core = { version = "0.16", features = ["serde-codec", "serde"] }
 libipld-json = "0.16"
 log = "0.4"
