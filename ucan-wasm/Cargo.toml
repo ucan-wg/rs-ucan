@@ -1,0 +1,50 @@
+[package]
+name = "ucan-wasm"
+version = "0.2.0"
+description = "A UCAN library built from rs-ucan"
+keywords = ["authorization"]
+categories = []
+include = ["/src", "README.md", "LICENSE"]
+license = "Apache-2.0"
+readme = "README.md"
+edition = "2021"
+rust-version = "1.64"
+documentation = "https://docs.rs/rust-template-test-wasm"
+repository = "https://github.com/bgins/template-test/tree/main/rust-template-test-wasm"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1", optional = true }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
+js-sys = { version = "0.3", optional = true }
+tracing = "0.1"
+ucan  = { path = "../ucan", version = "0.3" }
+wasm-bindgen = { version = "0.2", optional = true, features = ["serde-serialize"] }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[features]
+default = ["js"]
+full = ["js", "web"]
+js = [
+  "console_error_panic_hook",
+  "js-sys",
+  "wasm-bindgen",
+  "wasm-bindgen-futures"
+]
+web = ["web-sys"]
+
+[package.metadata.docs.rs]
+all-features = true
+# defines the configuration attribute `docsrs`
+rustdoc-args = ["--cfg", "docsrs"]

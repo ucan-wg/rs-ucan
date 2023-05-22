@@ -2,6 +2,7 @@
 members = [
   "ucan",
   "ucan-key-support",
+  "ucan-wasm"
 ]
 
 # Speedup build on macOS
