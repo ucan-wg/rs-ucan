@@ -120,7 +120,7 @@ impl UcanStore<RawCodec> for MemoryStore {
     ) -> Result<Cid> {
         let codec = RawCodec;
         let block = codec.encode(&token)?;
-        let cid = Cid::new_v1(codec.into(), Code::Blake2b256.digest(&block));
+        let cid = Cid::new_v1(codec.into(), Code::Blake3_256.digest(&block));
 
         let mut dags = self.dags.lock().map_err(|_| anyhow!("poisoned mutex!"))?;
         dags.insert(cid, block);
