@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.2.0...ucan-v0.3.0) (2023-05-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* Migrate default hashing from blake2b to blake3. ([#85](https://github.com/ucan-wg/rs-ucan/issues/85))
+* Remove `stdweb` feature from instant crate to circumvent downstream issues with `stdweb/wasm-bindgen` ([#86](https://github.com/ucan-wg/rs-ucan/issues/86))
+
+### Features
+
+* Migrate default hashing from blake2b to blake3. ([#85](https://github.com/ucan-wg/rs-ucan/issues/85)) ([205cb96](https://github.com/ucan-wg/rs-ucan/commit/205cb962fcc99814caac8e1b9d4f8ffd956eb184))
+
+
+### Bug Fixes
+
+* Remove `stdweb` feature from instant crate to circumvent downstream issues with `stdweb/wasm-bindgen` ([#86](https://github.com/ucan-wg/rs-ucan/issues/86)) ([67ec64d](https://github.com/ucan-wg/rs-ucan/commit/67ec64db527b8bfadc4a219a65b580bdbc459640))
+
 ## [0.2.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.1.2...ucan-v0.2.0) (2023-05-04)
 
 
