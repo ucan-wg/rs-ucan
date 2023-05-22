@@ -186,7 +186,7 @@ impl TryFrom<&Ucan> for Cid {
     type Error = anyhow::Error;
 
     fn try_from(value: &Ucan) -> Result<Self, Self::Error> {
-        let codec = RawCodec::default();
+        let codec = RawCodec;
         let token = value.encode()?;
         let encoded = codec.encode(token.as_bytes())?;
 

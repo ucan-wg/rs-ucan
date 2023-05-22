@@ -70,7 +70,7 @@ pub trait UcanJwtStore: UcanStore<RawCodec> {
     }
 
     async fn read_token(&self, cid: &Cid) -> Result<Option<String>> {
-        let codec = RawCodec::default();
+        let codec = RawCodec;
 
         if cid.codec() != u64::from(codec) {
             return Err(anyhow!(
@@ -105,7 +105,7 @@ pub struct MemoryStore {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl UcanStore<RawCodec> for MemoryStore {
     async fn read<T: Decode<RawCodec>>(&self, cid: &Cid) -> Result<Option<T>> {
-        let codec = RawCodec::default();
+        let codec = RawCodec;
         let dags = self.dags.lock().map_err(|_| anyhow!("poisoned mutex!"))?;
 
         Ok(match dags.get(cid) {
@@ -118,7 +118,7 @@ impl UcanStore<RawCodec> for MemoryStore {
         &mut self,
         token: T,
     ) -> Result<Cid> {
-        let codec = RawCodec::default();
+        let codec = RawCodec;
         let block = codec.encode(&token)?;
         let cid = Cid::new_v1(codec.into(), Code::Blake2b256.digest(&block));
 
