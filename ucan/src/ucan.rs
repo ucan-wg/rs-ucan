@@ -17,14 +17,14 @@ use std::{convert::TryFrom, str::FromStr};
 
 pub const UCAN_VERSION: &str = "0.9.0-canary";
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct UcanHeader {
     pub alg: String,
     pub typ: String,
     pub ucv: String,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct UcanPayload {
     pub iss: String,
     pub aud: String,
@@ -38,7 +38,7 @@ pub struct UcanPayload {
     pub prf: Vec<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Ucan {
     header: UcanHeader,
     payload: UcanPayload,
