@@ -1,0 +1,30 @@
+{
+  "name": "ucan-wasm",
+  "version": "0.3.0",
+  "description": "A UCAN library built from rs-ucan",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ucan-wg/rs-ucan.git"
+  },
+  "keywords": [
+    "authorization"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/ucan-wg/rs-ucan/issues"
+  },
+  "homepage": "https://github.com/ucan-wg/rs-ucan#readme",
+  "devDependencies": {
+    "@vitest/browser": "^0.31.1",
+    "vite": "^4.3.8",
+    "vitest": "^0.31.1",
+    "webdriverio": "^8.10.5"
+  }
+}
