@@ -1,12 +1,16 @@
 import { beforeAll, expect, test } from 'vitest'
 
-import init from '../pkg/ucan_wasm'
+import { getFixture } from './fixtures'
+import init, { isExpired } from '../pkg/ucan_wasm'
 
 beforeAll(async () => {
   await init()
 })
 
-test("should work as expected", () => {
-  expect(1 + 1).toEqual(2)
+test('isExpired should report active and expired UCANs', async () => {
+  const valid = getFixture('valid', 'UCAN has not expired')
+  expect(isExpired(valid.token)).toBe(false)
 
+  const invalid = getFixture('invalid', 'UCAN has expired')
+  expect(isExpired(invalid.token)).toBe(true)
 })

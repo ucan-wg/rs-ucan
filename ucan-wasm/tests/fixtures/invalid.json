@@ -1,0 +1,21 @@
+[
+  {
+    "comment": "UCAN has expired",
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOltdLCJhdWQiOiJkaWQ6a2V5Ono2TWtmZkRaQ2tDVFdyZWc4ODY4ZkcxRkdGb2djSmo1WDZQWTkzcFBjV0RuOWJvYiIsImV4cCI6MSwiZmN0IjpbXSwiaXNzIjoiZGlkOmtleTp6Nk1razg5YkMzSnJWcUtpZTcxWUVjYzVNMVNNVnh1Q2dOeDZ6TFo4U1lKc3hBTGkiLCJwcmYiOltdfQ.berK6gshRnkODI6WKghxRRQIGzDNwiicJN2oEhKSKsKPhISK0SNbSRDtUGumYJXEEdR68KibI_zbc_EyTMqRDQ",
+    "assertions": {
+      "header": {
+        "alg": "EdDSA",
+        "typ": "JWT",
+        "ucv": "0.9.0-canary"
+      },
+      "payload": {
+        "iss": "did:key:z6Mkk89bC3JrVqKie71YEcc5M1SMVxuCgNx6zLZ8SYJsxALi",
+        "aud": "did:key:z6MkffDZCkCTWreg8868fG1FGFogcJj5X6PY93pPcWDn9bob",
+        "exp": 1,
+        "fct": [],
+        "att": [],
+        "prf": []
+      }
+    }
+  }
+]
