@@ -111,4 +111,42 @@ mod validate {
             })
         );
     }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+    async fn it_implements_partial_eq() {
+        let identities = Identities::new().await;
+        let ucan_a = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .with_expiration(10000000)
+            .build()
+            .unwrap()
+            .sign()
+            .await
+            .unwrap();
+
+        let ucan_b = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .with_expiration(10000000)
+            .build()
+            .unwrap()
+            .sign()
+            .await
+            .unwrap();
+
+        let ucan_c = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .with_expiration(20000000)
+            .build()
+            .unwrap()
+            .sign()
+            .await
+            .unwrap();
+
+        assert!(ucan_a == ucan_b);
+        assert!(ucan_a != ucan_c);
+    }
 }
