@@ -8,6 +8,10 @@
   * dependencies
     * ucan bumped from 0.2.0 to 0.3.0
 
+* The following workspace dependencies were updated
+  * dependencies
+    * ucan bumped from 0.3.0 to 0.3.1
+
 ## [0.1.2](https://github.com/ucan-wg/rs-ucan/compare/ucan-key-support-v0.1.1...ucan-key-support-v0.1.2) (2023-04-22)
 
 
