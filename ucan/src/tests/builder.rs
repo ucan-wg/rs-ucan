@@ -66,7 +66,8 @@ async fn it_builds_with_a_simple_example() {
 
     assert_eq!(ucan.issuer(), identities.alice_did);
     assert_eq!(ucan.audience(), identities.bob_did);
-    assert_eq!(ucan.expires_at(), &expiration);
+    assert!(ucan.expires_at().is_some());
+    assert_eq!(ucan.expires_at().unwrap(), expiration);
     assert!(ucan.not_before().is_some());
     assert_eq!(ucan.not_before().unwrap(), not_before);
     assert_eq!(
@@ -99,7 +100,7 @@ async fn it_builds_with_lifetime_in_seconds() {
         .await
         .unwrap();
 
-    assert!(*ucan.expires_at() > (now() + 290));
+    assert!(ucan.expires_at().unwrap() > (now() + 290));
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
