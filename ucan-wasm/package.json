@@ -6,7 +6,26 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "vitest"
+    "build": "wireit",
+    "clean": "wireit",
+    "test": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "command": "wasm-pack build --target web",
+      "output": [
+        "pkg/**"
+      ]
+    },
+    "clean": {
+      "command": "rm -rf ./pkg"
+    },
+    "test": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "vitest run"
+    }
   },
   "repository": {
     "type": "git",
@@ -25,6 +44,7 @@
     "@vitest/browser": "^0.31.1",
     "vite": "^4.3.8",
     "vitest": "^0.31.1",
-    "webdriverio": "^8.10.5"
+    "webdriverio": "^8.10.5",
+    "wireit": "^0.9.5"
   }
 }
