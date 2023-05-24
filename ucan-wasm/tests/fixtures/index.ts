@@ -21,7 +21,8 @@ type Fixture = {
       fct: Record<string,unknown>[],
       att: {with: string, can: string}[],
       prf: string[]
-    }
+    },
+    validationErrors?: string[]
   }
 
 }
