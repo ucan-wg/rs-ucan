@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.3.0...ucan-v0.3.1) (2023-05-23)
+
+
+### Features
+
+* add PartialEq, Eq traits to Ucan. Fixes [#90](https://github.com/ucan-wg/rs-ucan/issues/90) ([#91](https://github.com/ucan-wg/rs-ucan/issues/91)) ([27c3628](https://github.com/ucan-wg/rs-ucan/commit/27c36288fc47bd53ab6e8f4c3e8a596714dcc6ff))
+
 ## [0.3.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.2.0...ucan-v0.3.0) (2023-05-22)
 
 
