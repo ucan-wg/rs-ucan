@@ -7,20 +7,28 @@ beforeAll(async () => {
   await init()
 })
 
-test('isExpired should report active and expired UCANs', async () => {
-  const valid = getFixture('valid', 'UCAN has not expired')
-  expect(isExpired(valid.token)).toBe(false)
+describe('isExpired', () => {
+  test('should be false when a UCAN is active', () => {
+    const valid = getFixture('valid', 'UCAN has not expired')
+    expect(isExpired(valid.token)).toBe(false)
+  })
 
-  const invalid = getFixture('invalid', 'UCAN has expired')
-  expect(isExpired(invalid.token)).toBe(true)
+  test('should be true when a UCAN is expired', () => {
+    const invalid = getFixture('invalid', 'UCAN has expired')
+    expect(isExpired(invalid.token)).toBe(true)
+  })
 })
 
-test('isTooEarly should report active and early UCANs', async () => {
-  const valid = getFixture('valid', 'UCAN is ready to be used')
-  expect(isTooEarly(valid.token)).toBe(false)
+describe('isTooEarly', () => {
+  test('should be false when a UCAN is active', () => {
+    const valid = getFixture('valid', 'UCAN is ready to be used')
+    expect(isTooEarly(valid.token)).toBe(false)
+  })
 
-  const invalid = getFixture('invalid', 'UCAN is not ready to be used')
-  expect(isTooEarly(invalid.token)).toBe(true)
+  test('should be true when a UCAN is early', () => {
+    const invalid = getFixture('invalid', 'UCAN is not ready to be used')
+    expect(isTooEarly(invalid.token)).toBe(true)
+  })
 })
 
 describe('checkSignature', async () => {
