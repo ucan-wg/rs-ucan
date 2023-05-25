@@ -62,13 +62,15 @@ impl ProofChain {
 
         let mut proofs: Vec<ProofChain> = Vec::new();
 
-        for cid_string in ucan.proofs().iter() {
-            let cid = Cid::try_from(cid_string.as_str())?;
-            let ucan_token = store.require_token(&cid).await?;
-            let proof_chain =
-                Self::try_from_token_string(&ucan_token, now_time, did_parser, store).await?;
-            proof_chain.validate_link_to(&ucan)?;
-            proofs.push(proof_chain);
+        if let Some(ucan_proofs) = ucan.proofs() {
+            for cid_string in ucan_proofs.iter() {
+                let cid = Cid::try_from(cid_string.as_str())?;
+                let ucan_token = store.require_token(&cid).await?;
+                let proof_chain =
+                    Self::try_from_token_string(&ucan_token, now_time, did_parser, store).await?;
+                proof_chain.validate_link_to(&ucan)?;
+                proofs.push(proof_chain);
+            }
         }
 
         let mut redelegations = BTreeSet::<usize>::new();

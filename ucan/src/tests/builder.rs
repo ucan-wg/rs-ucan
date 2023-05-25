@@ -61,7 +61,7 @@ async fn it_builds_with_a_simple_example() {
     assert_eq!(ucan.expires_at(), &expiration);
     assert!(ucan.not_before().is_some());
     assert_eq!(ucan.not_before().unwrap(), not_before);
-    assert_eq!(ucan.facts(), &vec![fact_1, fact_2]);
+    assert_eq!(ucan.facts(), &Some(vec![fact_1, fact_2]));
 
     let expected_attenuations =
         Vec::from([CapabilityIpld::from(&cap_1), CapabilityIpld::from(&cap_2)]);
@@ -132,6 +132,6 @@ async fn it_prevents_duplicate_proofs() {
 
     assert_eq!(
         next_ucan.proofs(),
-        &vec![Cid::try_from(ucan).unwrap().to_string()]
+        &Some(vec![Cid::try_from(ucan).unwrap().to_string()])
     )
 }

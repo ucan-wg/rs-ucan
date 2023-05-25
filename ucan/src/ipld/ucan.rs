@@ -19,9 +19,9 @@ pub struct UcanIpld {
     pub s: Signature,
 
     pub att: Vec<CapabilityIpld>,
-    pub prf: Vec<Cid>,
+    pub prf: Option<Vec<Cid>>,
     pub exp: u64,
-    pub fct: Vec<Value>,
+    pub fct: Option<Vec<Value>>,
 
     pub nnc: Option<String>,
     pub nbf: Option<u64>,
@@ -31,10 +31,19 @@ impl TryFrom<&Ucan> for UcanIpld {
     type Error = anyhow::Error;
 
     fn try_from(ucan: &Ucan) -> Result<Self, Self::Error> {
-        let mut prf = Vec::new();
-        for cid_string in ucan.proofs() {
-            prf.push(Cid::try_from(cid_string.as_str())?);
-        }
+        let prf = if let Some(proofs) = ucan.proofs() {
+            let mut prf = Vec::new();
+            for cid_string in proofs {
+                prf.push(Cid::try_from(cid_string.as_str())?);
+            }
+            if prf.is_empty() {
+                None
+            } else {
+                Some(prf)
+            }
+        } else {
+            None
+        };
 
         Ok(UcanIpld {
             v: ucan.version().to_string(),
@@ -74,7 +83,10 @@ impl TryFrom<&UcanIpld> for Ucan {
             nnc: value.nnc.clone(),
             att: value.att.clone(),
             fct: value.fct.clone(),
-            prf: value.prf.iter().map(|cid| cid.to_string()).collect(),
+            prf: value
+                .prf
+                .clone()
+                .map(|prf| prf.iter().map(|cid| cid.to_string()).collect()),
         };
 
         let signed_data = format!(

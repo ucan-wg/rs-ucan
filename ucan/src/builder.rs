@@ -62,6 +62,18 @@ where
             false => None,
         };
 
+        let facts = if self.facts.is_empty() {
+            None
+        } else {
+            Some(self.facts.clone())
+        };
+
+        let proofs = if self.proofs.is_empty() {
+            None
+        } else {
+            Some(self.proofs.clone())
+        };
+
         Ok(UcanPayload {
             aud: self.audience.clone(),
             iss: self.issuer.get_did().await?,
@@ -69,8 +81,8 @@ where
             nbf: self.not_before,
             nnc: nonce,
             att: self.capabilities.clone(),
-            fct: self.facts.clone(),
-            prf: self.proofs.clone(),
+            fct: facts,
+            prf: proofs,
         })
     }
 
