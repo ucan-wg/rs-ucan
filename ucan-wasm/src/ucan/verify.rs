@@ -19,6 +19,20 @@ const SUPPORTED_KEYS: &KeyConstructorSlice = &[
     (P256_MAGIC_BYTES, bytes_to_p256_key),
 ];
 
+/// Validate the UCAN's signature and timestamps
+#[wasm_bindgen(js_name = "validate")]
+pub async fn validate(token: String) -> JsResult<()> {
+    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+    let ucan = Ucan::try_from(token).map_err(|e| Error::new(&format!("{e}")))?;
+    let now = now();
+
+    Ucan::validate(&ucan, Some(now), &mut did_parser)
+        .await
+        .map_err(|e| Error::new(&format!("{e}")))?;
+
+    Ok(())
+}
+
 /// Validate that the signed data was signed by the stated issuer
 #[wasm_bindgen(js_name = "checkSignature")]
 pub async fn check_signature(token: String) -> JsResult<()> {
