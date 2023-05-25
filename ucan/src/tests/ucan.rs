@@ -103,8 +103,6 @@ mod validate {
                     "exp": ucan.expires_at(),
                     "nbf": ucan.not_before(),
                     "att": [],
-                    "fct": [],
-                    "prf": []
                 },
                 "signed_data": ucan.signed_data(),
                 "signature": ucan.signature()

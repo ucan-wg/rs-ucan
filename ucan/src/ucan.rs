@@ -34,8 +34,10 @@ pub struct UcanPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nnc: Option<String>,
     pub att: Vec<CapabilityIpld>,
-    pub fct: Vec<Value>,
-    pub prf: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fct: Option<Vec<Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prf: Option<Vec<String>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -153,7 +155,7 @@ impl Ucan {
         &self.payload.aud
     }
 
-    pub fn proofs(&self) -> &Vec<String> {
+    pub fn proofs(&self) -> &Option<Vec<String>> {
         &self.payload.prf
     }
 
@@ -173,7 +175,7 @@ impl Ucan {
         &self.payload.att
     }
 
-    pub fn facts(&self) -> &Vec<Value> {
+    pub fn facts(&self) -> &Option<Vec<Value>> {
         &self.payload.fct
     }
 
