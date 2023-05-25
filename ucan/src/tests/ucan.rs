@@ -1,8 +1,9 @@
 mod validate {
     use crate::{
         builder::UcanBuilder,
+        capability::CapabilitySemantics,
         crypto::did::DidParser,
-        tests::fixtures::{Identities, SUPPORTED_KEYS},
+        tests::fixtures::{EmailSemantics, Identities, SUPPORTED_KEYS},
         time::now,
         ucan::Ucan,
     };
@@ -78,12 +79,19 @@ mod validate {
     #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
     async fn it_can_be_serialized_as_json() -> Result<()> {
         let identities = Identities::new().await;
+
+        let email_semantics = EmailSemantics {};
+        let send_email_as_alice = email_semantics
+            .parse("mailto:alice@email.com".into(), "email/send".into(), None)
+            .unwrap();
+
         let ucan = UcanBuilder::default()
             .issued_by(&identities.alice_key)
             .for_audience(identities.bob_did.as_str())
             .not_before(now() / 1000)
             .with_lifetime(30)
             .with_fact("abc/challenge", json!({ "foo": "bar" }))
+            .claiming_capability(&send_email_as_alice)
             .build()?
             .sign()
             .await?;
@@ -103,7 +111,11 @@ mod validate {
                     "aud": ucan.audience(),
                     "exp": ucan.expires_at(),
                     "nbf": ucan.not_before(),
-                    "att": [],
+                    "cap": {
+                        "mailto:alice@email.com": {
+                            "email/send": [{}]
+                        }
+                    },
                     "fct": {
                         "abc/challenge": { "foo": "bar" }
                     }
@@ -140,7 +152,7 @@ mod validate {
                     "iss": ucan.issuer(),
                     "aud": ucan.audience(),
                     "exp": serde_json::Value::Null,
-                    "att": []
+                    "cap": {}
                 },
                 "signed_data": ucan.signed_data(),
                 "signature": ucan.signature()

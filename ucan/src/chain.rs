@@ -1,7 +1,7 @@
 use crate::{
     capability::{
         proof::{ProofDelegationSemantics, ProofSelection},
-        Action, Capability, CapabilityIterator, CapabilitySemantics, Resource, Scope, With,
+        Ability, CapabilitySemantics, CapabilityView, Resource, ResourceUri, Scope,
     },
     crypto::did::DidParser,
     store::UcanJwtStore,
@@ -15,17 +15,17 @@ use std::{collections::BTreeSet, fmt::Debug};
 const PROOF_DELEGATION_SEMANTICS: ProofDelegationSemantics = ProofDelegationSemantics {};
 
 #[derive(Eq, PartialEq)]
-pub struct CapabilityInfo<S: Scope, A: Action> {
+pub struct CapabilityInfo<S: Scope, A: Ability> {
     pub originators: BTreeSet<String>,
     pub not_before: Option<u64>,
     pub expires_at: Option<u64>,
-    pub capability: Capability<S, A>,
+    pub capability: CapabilityView<S, A>,
 }
 
 impl<S, A> Debug for CapabilityInfo<S, A>
 where
     S: Scope,
-    A: Action,
+    A: Ability,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CapabilityInfo")
@@ -75,17 +75,21 @@ impl ProofChain {
 
         let mut redelegations = BTreeSet::<usize>::new();
 
-        for capability in CapabilityIterator::new(&ucan, &PROOF_DELEGATION_SEMANTICS) {
-            match capability.with() {
-                With::Resource {
-                    kind: Resource::Scoped(ProofSelection::All),
+        for capability in ucan
+            .capabilities()
+            .iter()
+            .filter_map(|cap| PROOF_DELEGATION_SEMANTICS.parse_capability(&cap))
+        {
+            match capability.resource() {
+                Resource::Resource {
+                    kind: ResourceUri::Scoped(ProofSelection::All),
                 } => {
                     for index in 0..proofs.len() {
                         redelegations.insert(index);
                     }
                 }
-                With::Resource {
-                    kind: Resource::Scoped(ProofSelection::Index(index)),
+                Resource::Resource {
+                    kind: ResourceUri::Scoped(ProofSelection::Index(index)),
                 } => {
                     if *index < proofs.len() {
                         redelegations.insert(*index);
@@ -173,7 +177,7 @@ impl ProofChain {
     where
         Semantics: CapabilitySemantics<S, A>,
         S: Scope,
-        A: Action,
+        A: Ability,
     {
         // Get the set of inherited attenuations (excluding redelegations)
         // before further attenuating by own lifetime and capabilities:
@@ -211,7 +215,11 @@ impl ProofChain {
             })
             .collect();
 
-        let self_capabilities_iter = CapabilityIterator::new(&self.ucan, semantics);
+        let self_capabilities_iter = self
+            .ucan
+            .capabilities()
+            .iter()
+            .map_while(|data| semantics.parse_capability(&data));
 
         // Get the claimed attenuations of this ucan, cross-checking ancestral
         // attenuations to discover the originating authority

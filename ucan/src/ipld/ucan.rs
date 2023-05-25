@@ -1,5 +1,5 @@
 use crate::{
-    capability::CapabilityIpld,
+    capability::Capabilities,
     crypto::JwtSignatureAlgorithm,
     ipld::{Principle, Signature},
     serde::Base64Encode,
@@ -17,7 +17,7 @@ pub struct UcanIpld {
     pub aud: Principle,
     pub s: Signature,
 
-    pub att: Vec<CapabilityIpld>,
+    pub cap: Capabilities,
     pub prf: Option<Vec<Cid>>,
     pub exp: Option<u64>,
     pub fct: Option<FactsMap>,
@@ -52,7 +52,7 @@ impl TryFrom<&Ucan> for UcanIpld {
                 JwtSignatureAlgorithm::from_str(ucan.algorithm())?,
                 ucan.signature(),
             ))?,
-            att: ucan.attenuation().clone(),
+            cap: ucan.capabilities().clone(),
             prf,
             exp: *ucan.expires_at(),
             fct: ucan.facts().clone(),
@@ -80,7 +80,7 @@ impl TryFrom<&UcanIpld> for Ucan {
             exp: value.exp,
             nbf: value.nbf,
             nnc: value.nnc.clone(),
-            att: value.att.clone(),
+            cap: value.cap.clone(),
             fct: value.fct.clone(),
             prf: value
                 .prf

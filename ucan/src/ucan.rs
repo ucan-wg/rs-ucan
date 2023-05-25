@@ -1,5 +1,5 @@
 use crate::{
-    capability::CapabilityIpld,
+    capability::Capabilities,
     crypto::did::DidParser,
     serde::{Base64Encode, DagJson},
     time::now,
@@ -35,7 +35,7 @@ pub struct UcanPayload {
     pub nbf: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nnc: Option<String>,
-    pub att: Vec<CapabilityIpld>,
+    pub cap: Capabilities,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fct: Option<FactsMap>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -179,8 +179,13 @@ impl Ucan {
         &self.payload.nnc
     }
 
-    pub fn attenuation(&self) -> &Vec<CapabilityIpld> {
-        &self.payload.att
+    #[deprecated(since = "0.4.0", note = "use `capabilities()`")]
+    pub fn attenuation(&self) -> &Capabilities {
+        self.capabilities()
+    }
+
+    pub fn capabilities(&self) -> &Capabilities {
+        &self.payload.cap
     }
 
     pub fn facts(&self) -> &Option<FactsMap> {
