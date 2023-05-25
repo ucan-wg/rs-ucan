@@ -26,6 +26,7 @@ instant = { version = "0.1", features = ["wasm-bindgen"] }
 js-sys = { version = "0.3", optional = true }
 tracing = "0.1"
 ucan  = { path = "../ucan", version = "0.3" }
+ucan-key-support = { path = "../ucan-key-support", version = "0.1.5" }
 wasm-bindgen = { version = "0.2", optional = true, features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true }

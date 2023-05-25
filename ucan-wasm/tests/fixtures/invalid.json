@@ -43,5 +43,24 @@
         "nbfNotReady"
       ]
     }
+  },
+  {
+    "comment": "UCAN has an invalid signature",
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOltdLCJhdWQiOiJkaWQ6a2V5Ono2TWtmZkRaQ2tDVFdyZWc4ODY4ZkcxRkdGb2djSmo1WDZQWTkzcFBjV0RuOWJvYiIsImV4cCI6OTI0NjIxMTIwMCwiZmN0IjpbXSwiaXNzIjoiZGlkOmtleTp6Nk1razg5YkMzSnJWcUtpZTcxWUVjYzVNMVNNVnh1Q2dOeDZ6TFo4U1lKc3hBTGkiLCJwcmYiOltdfQ.l-OlVJ8sNv6dHcROAL1wkMZ3JMCGx-o4F9-sSycMtEikj1J1DTlVNep1J5zKR6sEniyFa__8zwrWydtHZyglC",
+    "assertions": {
+      "header": {
+        "alg": "EdDSA",
+        "typ": "JWT",
+        "ucv": "0.9.0-canary"
+      },
+      "payload": {
+        "iss": "did:key:z6Mkk89bC3JrVqKie71YEcc5M1SMVxuCgNx6zLZ8SYJsxALi",
+        "aud": "did:key:z6MkffDZCkCTWreg8868fG1FGFogcJj5X6PY93pPcWDn9bob",
+        "exp": 9246211200,
+        "fct": [],
+        "att": [],
+        "prf": []
+      }
+    }
   }
 ]
