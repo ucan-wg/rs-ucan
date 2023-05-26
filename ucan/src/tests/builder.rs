@@ -1,10 +1,16 @@
 use crate::{
     builder::UcanBuilder,
     capability::{CapabilityIpld, CapabilitySemantics},
-    tests::fixtures::{EmailSemantics, Identities, WNFSSemantics},
+    chain::ProofChain,
+    crypto::did::DidParser,
+    store::UcanJwtStore,
+    tests::fixtures::{
+        Blake2bMemoryStore, EmailSemantics, Identities, WNFSSemantics, SUPPORTED_KEYS,
+    },
     time::now,
 };
-use cid::Cid;
+use cid::multihash::Code;
+use did_key::PatchedKeyPair;
 use serde_json::json;
 
 #[cfg(target_arch = "wasm32")]
@@ -121,7 +127,7 @@ async fn it_prevents_duplicate_proofs() {
         .issued_by(&identities.bob_key)
         .for_audience(identities.mallory_did.as_str())
         .with_lifetime(30)
-        .witnessed_by(&ucan)
+        .witnessed_by(&ucan, None)
         .claiming_capability(&attenuated_cap_1)
         .claiming_capability(&attenuated_cap_2)
         .build()
@@ -132,6 +138,55 @@ async fn it_prevents_duplicate_proofs() {
 
     assert_eq!(
         next_ucan.proofs(),
-        &Some(vec![Cid::try_from(ucan).unwrap().to_string()])
+        &Some(vec![ucan
+            .to_cid(UcanBuilder::<PatchedKeyPair>::default_hasher())
+            .unwrap()
+            .to_string()])
     )
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+pub async fn it_can_use_custom_hasher() {
+    let identities = Identities::new().await;
+    let mut did_parser = DidParser::new(SUPPORTED_KEYS);
+
+    let leaf_ucan = UcanBuilder::default()
+        .issued_by(&identities.alice_key)
+        .for_audience(identities.bob_did.as_str())
+        .with_lifetime(60)
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap();
+
+    let delegated_token = UcanBuilder::default()
+        .issued_by(&identities.alice_key)
+        .issued_by(&identities.bob_key)
+        .for_audience(identities.mallory_did.as_str())
+        .with_lifetime(50)
+        .witnessed_by(&leaf_ucan, Some(Code::Blake2b256))
+        .build()
+        .unwrap()
+        .sign()
+        .await
+        .unwrap();
+
+    let mut store = Blake2bMemoryStore::default();
+
+    store
+        .write_token(&leaf_ucan.encode().unwrap())
+        .await
+        .unwrap();
+
+    let _ = store
+        .write_token(&delegated_token.encode().unwrap())
+        .await
+        .unwrap();
+
+    let valid_chain =
+        ProofChain::from_ucan(delegated_token, Some(now()), &mut did_parser, &store).await;
+
+    assert!(valid_chain.is_ok());
 }
