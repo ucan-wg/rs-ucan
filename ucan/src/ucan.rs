@@ -182,25 +182,12 @@ impl Ucan {
     pub fn version(&self) -> &str {
         &self.header.ucv
     }
-}
 
-impl TryFrom<&Ucan> for Cid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Ucan) -> Result<Self, Self::Error> {
+    pub fn to_cid(&self, hasher: Code) -> Result<Cid> {
         let codec = RawCodec;
-        let token = value.encode()?;
+        let token = self.encode()?;
         let encoded = codec.encode(token.as_bytes())?;
-
-        Ok(Cid::new_v1(codec.into(), Code::Blake3_256.digest(&encoded)))
-    }
-}
-
-impl TryFrom<Ucan> for Cid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Ucan) -> Result<Self, Self::Error> {
-        Cid::try_from(&value)
+        Ok(Cid::new_v1(codec.into(), hasher.digest(&encoded)))
     }
 }
 

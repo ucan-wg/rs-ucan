@@ -10,12 +10,11 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use base64::Engine;
-use cid::Cid;
+use cid::multihash::Code;
 use log::warn;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use std::convert::TryFrom;
 
 /// A signable is a UCAN that has all the state it needs in order to be signed,
 /// but has not yet been signed.
@@ -216,8 +215,10 @@ where
     /// Includes a UCAN in the list of proofs for the UCAN to be built.
     /// Note that the proof's audience must match this UCAN's issuer
     /// or else the proof chain will be invalidated!
-    pub fn witnessed_by(mut self, authority: &Ucan) -> Self {
-        match Cid::try_from(authority) {
+    /// The proof is encoded into a [Cid], hashed via the [UcanBuilder::default_hasher()]
+    /// algorithm, unless one is provided.
+    pub fn witnessed_by(mut self, authority: &Ucan, hasher: Option<Code>) -> Self {
+        match authority.to_cid(hasher.unwrap_or_else(|| UcanBuilder::<K>::default_hasher())) {
             Ok(proof) => self.proofs.push(proof.to_string()),
             Err(error) => warn!("Failed to add authority to proofs: {}", error),
         }
@@ -237,9 +238,11 @@ where
     }
 
     /// Delegate all capabilities from a given proof to the audience of the UCAN
-    /// you're building
-    pub fn delegating_from(mut self, authority: &Ucan) -> Self {
-        match Cid::try_from(authority) {
+    /// you're building.
+    /// The proof is encoded into a [Cid], hashed via the [UcanBuilder::default_hasher()]
+    /// algorithm, unless one is provided.
+    pub fn delegating_from(mut self, authority: &Ucan, hasher: Option<Code>) -> Self {
+        match authority.to_cid(hasher.unwrap_or_else(|| UcanBuilder::<K>::default_hasher())) {
             Ok(proof) => {
                 self.proofs.push(proof.to_string());
                 let proof_index = self.proofs.len() - 1;
@@ -258,6 +261,11 @@ where
         };
 
         self
+    }
+
+    /// Returns the default hasher ([Code::Blake3_256]) used for [Cid] encodings.
+    pub fn default_hasher() -> Code {
+        Code::Blake3_256
     }
 
     fn implied_expiration(&self) -> Option<u64> {
