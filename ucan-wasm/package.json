@@ -2,31 +2,6 @@
   "name": "ucan-wasm",
   "version": "0.3.0",
   "description": "A UCAN library built from rs-ucan",
-  "directories": {
-    "test": "tests"
-  },
-  "scripts": {
-    "build": "wireit",
-    "clean": "wireit",
-    "test": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "wasm-pack build --target web",
-      "output": [
-        "pkg/**"
-      ]
-    },
-    "clean": {
-      "command": "rm -rf ./pkg"
-    },
-    "test": {
-      "dependencies": [
-        "build"
-      ],
-      "command": "vitest run"
-    }
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ucan-wg/rs-ucan.git"
@@ -40,8 +15,115 @@
     "url": "https://github.com/ucan-wg/rs-ucan/issues"
   },
   "homepage": "https://github.com/ucan-wg/rs-ucan#readme",
+  "type": "module",
+  "exports": {
+    "deno": {
+      "types": "./lib/deno/ucan_wasm.d.ts",
+      "default": "./lib/deno/ucan_wasm.js"
+    },
+    "node": {
+      "types": "./lib/node/ucan_wasm.d.ts",
+      "require": "./lib/node/ucan_wasm.js"
+    },
+    "workerd": {
+      "types": "./lib/workerd/ucan_wasm.d.ts",
+      "default": "./lib/workerd/index.js"
+    },
+    "types": "./lib/browser/ucan_wasm.d.ts",
+    "default": "./lib/browser/ucan_wasm.js"
+  },
+  "scripts": {
+    "build": "export PROFILE=dev && export TARGET_DIR=debug && npm run buildall",
+    "release": "export PROFILE=release && export TARGET_DIR=release && npm run buildall",
+    "buildall": "wireit",
+    "clean": "wireit",
+    "test": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "cargo build --target wasm32-unknown-unknown --profile $PROFILE",
+      "env": {
+        "PROFILE": {
+          "external": true
+        }
+      }
+    },
+    "opt": {
+      "command": "wasm-opt -O1 ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm -o ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "compile"
+      ]
+    },
+    "bindgen:browser": {
+      "command": "wasm-bindgen --target web --out-dir lib/browser ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ]
+    },
+    "bindgen:node": {
+      "command": "wasm-bindgen --target nodejs --out-dir lib/node ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ]
+    },
+    "bindgen:deno": {
+      "command": "wasm-bindgen --target deno --out-dir lib/deno ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ]
+    },
+    "bindgen:workerd": {
+      "command": "wasm-bindgen --target web --out-dir lib/workerd ../target/wasm32-unknown-unknown/$TARGET_DIR/ucan_wasm.wasm && shx cp src/loaders/export-workerd-wasm.js lib/workerd/index.js",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ]
+    },
+    "buildall": {
+      "dependencies": [
+        "bindgen:browser",
+        "bindgen:node",
+        "bindgen:deno",
+        "bindgen:workerd"
+      ]
+    },
+    "clean": {
+      "command": "shx rm -rf ./lib"
+    },
+    "test": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "vitest run"
+    }
+  },
   "devDependencies": {
     "@vitest/browser": "^0.31.1",
+    "shx": "^0.3.4",
     "vite": "^4.3.8",
     "vitest": "^0.31.1",
     "webdriverio": "^8.10.5",
