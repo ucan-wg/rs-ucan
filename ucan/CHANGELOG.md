@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.3.1...ucan-v0.3.2) (2023-05-25)
+
+
+### Features
+
+* `fct` and `prf` are now optional fields. Fixes [#98](https://github.com/ucan-wg/rs-ucan/issues/98) ([#99](https://github.com/ucan-wg/rs-ucan/issues/99)) ([6802b5c](https://github.com/ucan-wg/rs-ucan/commit/6802b5c85ce2b16680baa86342e6154896712041))
+
 ## [0.3.1](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.3.0...ucan-v0.3.1) (2023-05-23)
 
 
