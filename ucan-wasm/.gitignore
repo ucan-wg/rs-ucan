@@ -1,4 +1,5 @@
 package-lock.json
 node_modules/
 pkg/
+tests/report
 .wireit/

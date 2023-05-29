@@ -37,7 +37,9 @@
     "release": "export PROFILE=release && export TARGET_DIR=release && npm run buildall",
     "buildall": "wireit",
     "clean": "wireit",
-    "test": "wireit"
+    "test": "wireit",
+    "test:browser": "wireit",
+    "test:node": "wireit"
   },
   "wireit": {
     "compile": {
@@ -114,11 +116,46 @@
     "clean": {
       "command": "shx rm -rf ./lib"
     },
-    "test": {
+    "test:chrome": {
+      "command": "vitest run --browser.name=chrome --browser.headless --dir tests/browser --outputFile tests/report/chrome.json",
       "dependencies": [
         "build"
       ],
-      "command": "vitest run"
+      "output": ["tests/report/chrome.json"]
+    },
+    "test:firefox": {
+      "command": "vitest run --browser.name=firefox --browser.headless --dir tests/browser --outputFile tests/report/firefox.json",
+      "dependencies": [
+        "build"
+      ],
+      "output": ["tests/report/firefox.json"]
+    },
+    "test:edge": {
+      "command": "vitest run --browser.name=edge --browser.headless --dir tests/browser --outputFile tests/report/edge.json",
+      "dependencies": [
+        "build"
+      ],
+      "output": ["tests/report/edge.json"]
+    },
+    "test:node": {
+      "command": "vitest run --environment node --dir tests/node --outputFile tests/report/node.json",
+      "dependencies": [
+        "build"
+      ],
+      "output": ["tests/report/node.json"]
+    },
+    "test:browser": {
+      "dependencies": [
+        "test:chrome",
+        "test:firefox",
+        "test:edge"
+      ]
+    },
+    "test": {
+      "dependencies": [
+        "test:browser",
+        "test:node"
+      ]
     }
   },
   "devDependencies": {

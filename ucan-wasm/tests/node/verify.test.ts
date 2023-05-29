@@ -1,11 +1,7 @@
-import { beforeAll, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
-import { getFixture } from './fixtures'
-import init, { checkSignature, isExpired, isTooEarly, validate } from '../pkg/ucan_wasm'
-
-beforeAll(async () => {
-  await init()
-})
+import { getFixture } from '../fixtures'
+import { checkSignature, isExpired, isTooEarly, validate } from '../../lib/node/ucan_wasm.js'
 
 describe('validate', async () => {
   test('should resolve on a valid a UCAN', async () => {
