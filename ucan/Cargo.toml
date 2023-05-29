@@ -24,7 +24,7 @@ anyhow = "1.0"
 async-recursion = "1.0"
 async-trait = "0.1"
 base64 = "0.21"
-bs58 = "0.4"
+bs58 = "0.5"
 cid = "0.10"
 futures = "0.3"
 instant = { version = "0.1", features = ["wasm-bindgen"] }
