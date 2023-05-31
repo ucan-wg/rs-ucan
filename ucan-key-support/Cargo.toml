@@ -22,7 +22,7 @@ default = []
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-bs58 = "0.4"
+bs58 = "0.5"
 ed25519-zebra = "3.1"
 log = "0.4"
 rsa = "0.8"
