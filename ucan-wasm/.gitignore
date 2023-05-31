@@ -2,4 +2,5 @@ package-lock.json
 node_modules/
 pkg/
 tests/report
+.nyc_output/
 .wireit/
