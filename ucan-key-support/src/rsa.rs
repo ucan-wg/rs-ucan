@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 use rsa::{
-    pkcs1::{der::Encode, DecodeRsaPublicKey, EncodeRsaPublicKey},
-    Pkcs1v15Sign, PublicKey, RsaPrivateKey, RsaPublicKey,
+    pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey},
+    Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey,
 };
 
 use sha2::{Digest, Sha256};
@@ -12,10 +12,9 @@ use ucan::crypto::{JwtSignatureAlgorithm, KeyMaterial};
 pub use ucan::crypto::did::RSA_MAGIC_BYTES;
 
 pub fn bytes_to_rsa_key(bytes: Vec<u8>) -> Result<Box<dyn KeyMaterial>> {
-    // NOTE: DID bytes are PKCS1, but we are using PKCS8, so do the conversion here..
     println!("Trying to parse RSA key...");
-    let public_key = rsa::pkcs1::RsaPublicKey::try_from(bytes.as_slice())?;
-    let public_key = RsaPublicKey::from_pkcs1_der(&public_key.to_vec()?)?;
+    // NOTE: DID bytes are PKCS1, but we store RSA keys as PKCS8
+    let public_key = RsaPublicKey::from_pkcs1_der(&bytes)?;
 
     Ok(Box::new(RsaKeyMaterial(public_key, None)))
 }
