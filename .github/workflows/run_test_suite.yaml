@@ -29,35 +29,21 @@ jobs:
       - name: Cache Project
         uses: Swatinem/rust-cache@v2
 
-      # Widely adopted suite of Rust-specific boilerplate actions, especially
-      # toolchain/cargo use: https://actions-rs.github.io/
       - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          override: true
-          components: rustfmt, clippy
           toolchain: ${{ matrix.rust-toolchain }}
+          components: clippy, rustfmt
 
       - name: Check Format
-        uses: actions-rs/cargo@v1
-        with:
-          args: --all -- --check
-          command: fmt
-          toolchain: ${{ matrix.rust-toolchain }}
+        run: cargo +${{ matrix.rust-toolchain }} fmt --all -- --check
 
       - name: Run Linter
-        uses: actions-rs/cargo@v1
-        with:
-          args: --all -- -D warnings
-          command: clippy
-          toolchain: ${{ matrix.rust-toolchain }}
+        run: cargo +${{ matrix.rust-toolchain }} clippy --all -- -D warnings
 
       - name: Install Cargo Audit
         if: ${{ matrix.rust-toolchain == 'stable' }}
-        uses: actions-rs/cargo@v1
-        with:
-          args: --force cargo-audit
-          command: install
+        run: cargo install --force cargo-audit
 
       - name: Run Audit on Deps
         if: ${{ matrix.rust-toolchain == 'stable' }}
@@ -89,9 +75,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          override: true
           toolchain: ${{ matrix.rust-toolchain }}
 
       - name: Run Tests
