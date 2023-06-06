@@ -13,19 +13,21 @@ use cid::{
 use libipld_core::{codec::Codec, raw::RawCodec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{convert::TryFrom, str::FromStr};
+use std::{collections::BTreeMap, convert::TryFrom, str::FromStr};
 
-pub const UCAN_VERSION: &str = "0.9.0-canary";
+pub const UCAN_VERSION: &str = "0.10.0-canary";
+
+pub type FactsMap = BTreeMap<String, Value>;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct UcanHeader {
     pub alg: String,
     pub typ: String,
-    pub ucv: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct UcanPayload {
+    pub ucv: String,
     pub iss: String,
     pub aud: String,
     pub exp: u64,
@@ -35,7 +37,7 @@ pub struct UcanPayload {
     pub nnc: Option<String>,
     pub att: Vec<CapabilityIpld>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fct: Option<Vec<Value>>,
+    pub fct: Option<FactsMap>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prf: Option<Vec<String>>,
 }
@@ -175,12 +177,12 @@ impl Ucan {
         &self.payload.att
     }
 
-    pub fn facts(&self) -> &Option<Vec<Value>> {
+    pub fn facts(&self) -> &Option<FactsMap> {
         &self.payload.fct
     }
 
     pub fn version(&self) -> &str {
-        &self.header.ucv
+        &self.payload.ucv
     }
 
     pub fn to_cid(&self, hasher: Code) -> Result<Cid> {

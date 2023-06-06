@@ -3,11 +3,10 @@ use crate::{
     crypto::JwtSignatureAlgorithm,
     ipld::{Principle, Signature},
     serde::Base64Encode,
-    ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
+    ucan::{FactsMap, Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
 };
 use cid::Cid;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +20,7 @@ pub struct UcanIpld {
     pub att: Vec<CapabilityIpld>,
     pub prf: Option<Vec<Cid>>,
     pub exp: u64,
-    pub fct: Option<Vec<Value>>,
+    pub fct: Option<FactsMap>,
 
     pub nnc: Option<String>,
     pub nbf: Option<u64>,
@@ -72,10 +71,10 @@ impl TryFrom<&UcanIpld> for Ucan {
         let header = UcanHeader {
             alg: algorithm.to_string(),
             typ: "JWT".into(),
-            ucv: UCAN_VERSION.into(),
         };
 
         let payload = UcanPayload {
+            ucv: UCAN_VERSION.into(),
             iss: value.iss.to_string(),
             aud: value.aud.to_string(),
             exp: value.exp,
@@ -131,10 +130,13 @@ mod tests {
         let other_builder = scaffold_ucan_builder(&identities).await.unwrap();
 
         let canon_jwt = canon_builder
-            .with_fact(json!({
-                "baz": true,
-                "foo": "bar"
-            }))
+            .with_fact(
+                "abc/challenge",
+                json!({
+                    "baz": true,
+                    "foo": "bar"
+                }),
+            )
             .build()
             .unwrap()
             .sign()
@@ -144,10 +146,13 @@ mod tests {
             .unwrap();
 
         let other_jwt = other_builder
-            .with_fact(json!({
-                "foo": "bar",
-                "baz": true
-            }))
+            .with_fact(
+                "abc/challenge",
+                json!({
+                    "foo": "bar",
+                    "baz": true
+                }),
+            )
             .build()
             .unwrap()
             .sign()
@@ -166,10 +171,13 @@ mod tests {
         let builder = scaffold_ucan_builder(&identities).await.unwrap();
 
         let jwt = builder
-            .with_fact(json!({
-                "baz": true,
-                "foo": "bar"
-            }))
+            .with_fact(
+                "abc/challenge",
+                json!({
+                    "baz": true,
+                    "foo": "bar"
+                }),
+            )
             .with_nonce()
             .build()
             .unwrap()

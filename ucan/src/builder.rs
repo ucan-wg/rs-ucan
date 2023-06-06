@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     capability::{
         proof::ProofDelegationSemantics, Action, Capability, CapabilityIpld, CapabilitySemantics,
@@ -6,7 +8,7 @@ use crate::{
     crypto::KeyMaterial,
     serde::Base64Encode,
     time::now,
-    ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
+    ucan::{FactsMap, Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
 };
 use anyhow::{anyhow, Result};
 use base64::Engine;
@@ -14,7 +16,6 @@ use cid::multihash::Code;
 use log::warn;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value;
 
 /// A signable is a UCAN that has all the state it needs in order to be signed,
 /// but has not yet been signed.
@@ -33,7 +34,7 @@ where
     pub expiration: u64,
     pub not_before: Option<u64>,
 
-    pub facts: Vec<Value>,
+    pub facts: FactsMap,
     pub proofs: Vec<String>,
     pub add_nonce: bool,
 }
@@ -47,7 +48,6 @@ where
         UcanHeader {
             alg: self.issuer.get_jwt_algorithm_name(),
             typ: "JWT".into(),
-            ucv: UCAN_VERSION.into(),
         }
     }
 
@@ -74,6 +74,7 @@ where
         };
 
         Ok(UcanPayload {
+            ucv: UCAN_VERSION.into(),
             aud: self.audience.clone(),
             iss: self.issuer.get_did().await?,
             exp: self.expiration,
@@ -121,7 +122,7 @@ where
     expiration: Option<u64>,
     not_before: Option<u64>,
 
-    facts: Vec<Value>,
+    facts: FactsMap,
     proofs: Vec<String>,
     add_nonce: bool,
 }
@@ -149,7 +150,7 @@ where
             expiration: None,
             not_before: None,
 
-            facts: Vec::new(),
+            facts: BTreeMap::new(),
             proofs: Vec::new(),
             add_nonce: false,
         }
@@ -198,9 +199,11 @@ where
     }
 
     /// Add a fact or proof of knowledge to this UCAN.
-    pub fn with_fact<T: Serialize + DeserializeOwned>(mut self, fact: T) -> Self {
+    pub fn with_fact<T: Serialize + DeserializeOwned>(mut self, key: &str, fact: T) -> Self {
         match serde_json::to_value(fact) {
-            Ok(value) => self.facts.push(value),
+            Ok(value) => {
+                self.facts.insert(key.to_owned(), value);
+            }
             Err(error) => warn!("Could not add fact to UCAN: {}", error),
         }
         self
