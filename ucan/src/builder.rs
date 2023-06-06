@@ -31,7 +31,7 @@ where
 
     pub capabilities: Vec<CapabilityIpld>,
 
-    pub expiration: u64,
+    pub expiration: Option<u64>,
     pub not_before: Option<u64>,
 
     pub facts: FactsMap,
@@ -282,19 +282,16 @@ where
     pub fn build(self) -> Result<Signable<'a, K>> {
         match &self.issuer {
             Some(issuer) => match &self.audience {
-                Some(audience) => match self.implied_expiration() {
-                    Some(expiration) => Ok(Signable {
-                        issuer,
-                        audience: audience.clone(),
-                        not_before: self.not_before,
-                        expiration,
-                        facts: self.facts.clone(),
-                        capabilities: self.capabilities.clone(),
-                        proofs: self.proofs.clone(),
-                        add_nonce: self.add_nonce,
-                    }),
-                    None => Err(anyhow!("Ambiguous lifetime")),
-                },
+                Some(audience) => Ok(Signable {
+                    issuer,
+                    audience: audience.clone(),
+                    not_before: self.not_before,
+                    expiration: self.implied_expiration(),
+                    facts: self.facts.clone(),
+                    capabilities: self.capabilities.clone(),
+                    proofs: self.proofs.clone(),
+                    add_nonce: self.add_nonce,
+                }),
                 None => Err(anyhow!("Missing audience")),
             },
             None => Err(anyhow!("Missing issuer")),

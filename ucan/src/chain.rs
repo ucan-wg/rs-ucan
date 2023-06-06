@@ -18,7 +18,7 @@ const PROOF_DELEGATION_SEMANTICS: ProofDelegationSemantics = ProofDelegationSema
 pub struct CapabilityInfo<S: Scope, A: Action> {
     pub originators: BTreeSet<String>,
     pub not_before: Option<u64>,
-    pub expires_at: u64,
+    pub expires_at: Option<u64>,
     pub capability: Capability<S, A>,
 }
 

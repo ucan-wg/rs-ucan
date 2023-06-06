@@ -6,6 +6,7 @@ mod validate {
         time::now,
         ucan::Ucan,
     };
+    use anyhow::Result;
 
     use serde_json::json;
     #[cfg(target_arch = "wasm32")]
@@ -75,7 +76,7 @@ mod validate {
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
-    async fn it_can_be_serialized_as_json() {
+    async fn it_can_be_serialized_as_json() -> Result<()> {
         let identities = Identities::new().await;
         let ucan = UcanBuilder::default()
             .issued_by(&identities.alice_key)
@@ -83,13 +84,11 @@ mod validate {
             .not_before(now() / 1000)
             .with_lifetime(30)
             .with_fact("abc/challenge", json!({ "foo": "bar" }))
-            .build()
-            .unwrap()
+            .build()?
             .sign()
-            .await
-            .unwrap();
+            .await?;
 
-        let ucan_json = serde_json::to_value(ucan.clone()).unwrap();
+        let ucan_json = serde_json::to_value(ucan.clone())?;
 
         assert_eq!(
             ucan_json,
@@ -113,6 +112,42 @@ mod validate {
                 "signature": ucan.signature()
             })
         );
+        Ok(())
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+    async fn it_can_be_serialized_as_json_without_optionals() -> Result<()> {
+        let identities = Identities::new().await;
+        let ucan = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .build()?
+            .sign()
+            .await?;
+
+        let ucan_json = serde_json::to_value(ucan.clone())?;
+
+        assert_eq!(
+            ucan_json,
+            serde_json::json!({
+                "header": {
+                    "alg": "EdDSA",
+                    "typ": "JWT"
+                },
+                "payload": {
+                    "ucv": crate::ucan::UCAN_VERSION,
+                    "iss": ucan.issuer(),
+                    "aud": ucan.audience(),
+                    "exp": serde_json::Value::Null,
+                    "att": []
+                },
+                "signed_data": ucan.signed_data(),
+                "signature": ucan.signature()
+            })
+        );
+
+        Ok(())
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
@@ -151,5 +186,38 @@ mod validate {
 
         assert!(ucan_a == ucan_b);
         assert!(ucan_a != ucan_c);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
+    async fn test_lifetime_ends_after() -> Result<()> {
+        let identities = Identities::new().await;
+        let forever_ucan = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .build()?
+            .sign()
+            .await?;
+        let early_ucan = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .with_lifetime(2000)
+            .build()?
+            .sign()
+            .await?;
+        let later_ucan = UcanBuilder::default()
+            .issued_by(&identities.alice_key)
+            .for_audience(identities.bob_did.as_str())
+            .with_lifetime(4000)
+            .build()?
+            .sign()
+            .await?;
+
+        assert_eq!(*forever_ucan.expires_at(), None);
+        assert!(forever_ucan.lifetime_ends_after(&early_ucan));
+        assert!(!early_ucan.lifetime_ends_after(&forever_ucan));
+        assert!(later_ucan.lifetime_ends_after(&early_ucan));
+
+        Ok(())
     }
 }

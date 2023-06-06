@@ -30,7 +30,7 @@ pub struct UcanPayload {
     pub ucv: String,
     pub iss: String,
     pub aud: String,
-    pub exp: u64,
+    pub exp: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nbf: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -101,9 +101,11 @@ impl Ucan {
 
     /// Returns true if the UCAN has past its expiration date
     pub fn is_expired(&self, now_time: Option<u64>) -> bool {
-        let now_time = now_time.unwrap_or_else(now);
-
-        self.payload.exp < now_time
+        if let Some(exp) = self.payload.exp {
+            exp < now_time.unwrap_or_else(now)
+        } else {
+            false
+        }
     }
 
     /// Raw bytes of signed data for this UCAN
@@ -137,7 +139,11 @@ impl Ucan {
 
     /// Returns true if this UCAN expires no earlier than the other
     pub fn lifetime_ends_after(&self, other: &Ucan) -> bool {
-        self.payload.exp >= other.payload.exp
+        match (self.payload.exp, other.payload.exp) {
+            (Some(exp), Some(other_exp)) => exp >= other_exp,
+            (Some(_), None) => false,
+            (None, _) => true,
+        }
     }
 
     /// Returns true if this UCAN's lifetime fully encompasses the other
@@ -161,7 +167,7 @@ impl Ucan {
         &self.payload.prf
     }
 
-    pub fn expires_at(&self) -> &u64 {
+    pub fn expires_at(&self) -> &Option<u64> {
         &self.payload.exp
     }
 

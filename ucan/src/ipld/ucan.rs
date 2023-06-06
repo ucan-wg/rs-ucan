@@ -19,7 +19,7 @@ pub struct UcanIpld {
 
     pub att: Vec<CapabilityIpld>,
     pub prf: Option<Vec<Cid>>,
-    pub exp: u64,
+    pub exp: Option<u64>,
     pub fct: Option<FactsMap>,
 
     pub nnc: Option<String>,
