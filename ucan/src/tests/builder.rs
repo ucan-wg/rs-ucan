@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     builder::UcanBuilder,
     capability::{CapabilityIpld, CapabilitySemantics},
@@ -52,8 +54,8 @@ async fn it_builds_with_a_simple_example() {
         .for_audience(identities.bob_did.as_str())
         .with_expiration(expiration)
         .not_before(not_before)
-        .with_fact(fact_1.clone())
-        .with_fact(fact_2.clone())
+        .with_fact("abc/challenge", fact_1.clone())
+        .with_fact("def/challenge", fact_2.clone())
         .claiming_capability(&cap_1)
         .claiming_capability(&cap_2)
         .with_nonce()
@@ -67,7 +69,13 @@ async fn it_builds_with_a_simple_example() {
     assert_eq!(ucan.expires_at(), &expiration);
     assert!(ucan.not_before().is_some());
     assert_eq!(ucan.not_before().unwrap(), not_before);
-    assert_eq!(ucan.facts(), &Some(vec![fact_1, fact_2]));
+    assert_eq!(
+        ucan.facts(),
+        &Some(BTreeMap::from([
+            (String::from("abc/challenge"), fact_1),
+            (String::from("def/challenge"), fact_2),
+        ]))
+    );
 
     let expected_attenuations =
         Vec::from([CapabilityIpld::from(&cap_1), CapabilityIpld::from(&cap_2)]);

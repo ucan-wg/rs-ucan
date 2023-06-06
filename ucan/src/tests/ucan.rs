@@ -7,6 +7,7 @@ mod validate {
         ucan::Ucan,
     };
 
+    use serde_json::json;
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 
@@ -81,6 +82,7 @@ mod validate {
             .for_audience(identities.bob_did.as_str())
             .not_before(now() / 1000)
             .with_lifetime(30)
+            .with_fact("abc/challenge", json!({ "foo": "bar" }))
             .build()
             .unwrap()
             .sign()
@@ -94,15 +96,18 @@ mod validate {
             serde_json::json!({
                 "header": {
                     "alg": "EdDSA",
-                    "typ": "JWT",
-                    "ucv": crate::ucan::UCAN_VERSION
+                    "typ": "JWT"
                 },
                 "payload": {
+                    "ucv": crate::ucan::UCAN_VERSION,
                     "iss": ucan.issuer(),
                     "aud": ucan.audience(),
                     "exp": ucan.expires_at(),
                     "nbf": ucan.not_before(),
                     "att": [],
+                    "fct": {
+                        "abc/challenge": { "foo": "bar" }
+                    }
                 },
                 "signed_data": ucan.signed_data(),
                 "signature": ucan.signature()
