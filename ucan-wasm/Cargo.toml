@@ -21,9 +21,13 @@ path = "src/lib.rs"
 # logging them with `console.error`. This is great for development, but requires
 # all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
 # code size when deploying.
+base64 = "0.21"
 console_error_panic_hook = { version = "0.1", optional = true }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 js-sys = { version = "0.3", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.5.0"
+serde_json = "1.0"
 tracing = "0.1"
 ucan  = { path = "../ucan", version = "0.3" }
 ucan-key-support = { path = "../ucan-key-support", version = "0.1.5" }

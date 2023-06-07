@@ -18,13 +18,13 @@ type Fixture = {
       exp: number | null
       nbf?: number
       nnc?: string
-      fct: Record<string,unknown>[],
-      att: {with: string, can: string}[],
+      fct: Record<string, unknown>[],
+      att: { with: string, can: string }[],
       prf: string[]
     },
+    signature: string,
     validationErrors?: string[]
-  }
-
+  },
 }
 
 export function getFixture(expectation: Expectation, comment: string): Fixture {

@@ -11,6 +11,7 @@ export function runVerifyTests(
       validate: (token: string) => Promise<void>
     }
   }) {
+
   // Use runner or fallback to implicit mocha implementations
   const describe = impl.runner?.describe ?? globalThis.describe
   const it = impl.runner?.it ?? globalThis.it

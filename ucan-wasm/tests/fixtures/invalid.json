@@ -16,6 +16,7 @@
         "att": [],
         "prf": []
       },
+      "signature": "berK6gshRnkODI6WKghxRRQIGzDNwiicJN2oEhKSKsKPhISK0SNbSRDtUGumYJXEEdR68KibI_zbc_EyTMqRDQ",
       "validationErrors": [
         "expExpired"
       ]
@@ -39,6 +40,7 @@
         "att": [],
         "prf": []
       },
+      "signature": "W86QoxmgiE5pyDhOxqIUH5YMK7nff2_uqN4s28SBglFZ0ZJSOO2FFj_qgGwf4uNoZ9WbosCcorQX-FBfSvj0Dg",
       "validationErrors": [
         "nbfNotReady"
       ]
@@ -46,7 +48,7 @@
   },
   {
     "comment": "UCAN has an invalid signature",
-    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOltdLCJhdWQiOiJkaWQ6a2V5Ono2TWtmZkRaQ2tDVFdyZWc4ODY4ZkcxRkdGb2djSmo1WDZQWTkzcFBjV0RuOWJvYiIsImV4cCI6OTI0NjIxMTIwMCwiZmN0IjpbXSwiaXNzIjoiZGlkOmtleTp6Nk1razg5YkMzSnJWcUtpZTcxWUVjYzVNMVNNVnh1Q2dOeDZ6TFo4U1lKc3hBTGkiLCJwcmYiOltdfQ.l-OlVJ8sNv6dHcROAL1wkMZ3JMCGx-o4F9-sSycMtEikj1J1DTlVNep1J5zKR6sEniyFa__8zwrWydtHZyglC",
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOltdLCJhdWQiOiJkaWQ6a2V5Ono2TWtmZkRaQ2tDVFdyZWc4ODY4ZkcxRkdGb2djSmo1WDZQWTkzcFBjV0RuOWJvYiIsImV4cCI6OTI0NjIxMTIwMCwiZmN0IjpbXSwiaXNzIjoiZGlkOmtleTp6Nk1razg5YkMzSnJWcUtpZTcxWUVjYzVNMVNNVnh1Q2dOeDZ6TFo4U1lKc3hBTGkiLCJwcmYiOltdfQ.W86QoxmgiE5pyDhOxqIUH5YMK7nff2_uqN4s28SBglFZ0ZJSOO2FFj_qgGwf4uNoZ9WbosCcorQX-FBfSvj0Dg",
     "assertions": {
       "header": {
         "alg": "EdDSA",
@@ -60,7 +62,11 @@
         "fct": [],
         "att": [],
         "prf": []
-      }
+      },
+      "signature": "W86QoxmgiE5pyDhOxqIUH5YMK7nff2_uqN4s28SBglFZ0ZJSOO2FFj_qgGwf4uNoZ9WbosCcorQX-FBfSvj0Dg",
+      "validationErrors": [
+        "invalidSignature"
+      ]
     }
   }
 ]

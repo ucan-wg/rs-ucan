@@ -1,5 +1,37 @@
 [
   {
+    "comment": "UCAN is valid",
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOlt7ImNhbiI6ImVtYWlsL3NlbmQiLCJuYiI6bnVsbCwid2l0aCI6Im1haWx0bzphbGljZUBlbWFpbC5jb20ifV0sImF1ZCI6ImRpZDprZXk6ejZNa3RhZlpUUkVqSmt2VjVtZkp4Y0xwTkJvVlB3RExoVHVNZzluZzdkWTR6TUFMIiwiZXhwIjo5MjQ2MjExMjAwLCJmY3QiOlt7ImNoYWxsZW5nZSI6ImFiY2RlZiJ9XSwiaXNzIjoiZGlkOmtleTp6Nk1rZmZEWkNrQ1RXcmVnODg2OGZHMUZHRm9nY0pqNVg2UFk5M3BQY1dEbjlib2IiLCJwcmYiOlsiYmFma3I0aWdmM3N6N2tqNWRoeHJkanVmeHZhdmtraW5wazJpNzNpNXBzdXA2Y3h1dmR5bTJqZWN3MmUiXX0.nTJl6kKrEKYzp6D4tTc-xYgNxH4urv8tfGU7so6ZIf5s86yMnb6bLpSPMeRchbOafVIy9vil9vjjYACzY1GvBg",
+    "assertions": {
+      "header": {
+        "alg": "EdDSA",
+        "typ": "JWT",
+        "ucv": "0.9.0-canary"
+      },
+      "payload": {
+        "iss": "did:key:z6MkffDZCkCTWreg8868fG1FGFogcJj5X6PY93pPcWDn9bob",
+        "aud": "did:key:z6MktafZTREjJkvV5mfJxcLpNBoVPwDLhTuMg9ng7dY4zMAL",
+        "exp": 9246211200,
+        "fct": [
+          {
+            "challenge": "abcdef"
+          }
+        ],
+        "att": [
+          {
+            "can": "email/send",
+            "nb": null,
+            "with": "mailto:alice@email.com"
+          }
+        ],
+        "prf": [
+          "bafkr4igf3sz7kj5dhxrdjufxvavkkinpk2i73i5psup6cxuvdym2jecw2e"
+        ]
+      },
+      "signature": "nTJl6kKrEKYzp6D4tTc-xYgNxH4urv8tfGU7so6ZIf5s86yMnb6bLpSPMeRchbOafVIy9vil9vjjYACzY1GvBg"
+    }
+  },
+  {
     "comment": "UCAN has not expired",
     "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsInVjdiI6IjAuOS4wLWNhbmFyeSJ9.eyJhdHQiOltdLCJhdWQiOiJkaWQ6a2V5Ono2TWtmZkRaQ2tDVFdyZWc4ODY4ZkcxRkdGb2djSmo1WDZQWTkzcFBjV0RuOWJvYiIsImV4cCI6OTI0NjIxMTIwMCwiZmN0IjpbXSwiaXNzIjoiZGlkOmtleTp6Nk1razg5YkMzSnJWcUtpZTcxWUVjYzVNMVNNVnh1Q2dOeDZ6TFo4U1lKc3hBTGkiLCJwcmYiOltdfQ.l-OlVJ8sNv6dHcROAL1wkMZ3JMCGx-o4F9-sSycMtEikj1J1DTlVNep1J5zKR6sEniyFa__8zwrWydtHZyglCQ",
     "assertions": {
@@ -15,7 +47,8 @@
         "fct": [],
         "att": [],
         "prf": []
-      }
+      },
+      "signature": "l-OlVJ8sNv6dHcROAL1wkMZ3JMCGx-o4F9-sSycMtEikj1J1DTlVNep1J5zKR6sEniyFa__8zwrWydtHZyglCQ"
     }
   },
   {
@@ -35,7 +68,8 @@
         "fct": [],
         "att": [],
         "prf": []
-      }
+      },
+      "signature": "-8duL-fCdG-2hEbe4F6hqE-g2Tf6II-jBzb8qKAbp41snlHvPYpvoPAC4HobmtTodFDQXdmI7u_mbQhesGHTAw"
     }
   },
   {
@@ -54,7 +88,8 @@
         "fct": [],
         "att": [],
         "prf": []
-      }
+      },
+      "signature": "l-OlVJ8sNv6dHcROAL1wkMZ3JMCGx-o4F9-sSycMtEikj1J1DTlVNep1J5zKR6sEniyFa__8zwrWydtHZyglCQ"
     }
   }
 ]

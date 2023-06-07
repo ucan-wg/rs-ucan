@@ -9,7 +9,6 @@ use ::ucan::{
 use ::ucan_key_support::{
     ed25519::bytes_to_ed25519_key, p256::bytes_to_p256_key, rsa::bytes_to_rsa_key,
 };
-
 use js_sys::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
