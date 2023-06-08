@@ -1,6 +1,7 @@
-import init, { checkSignature, decode, isExpired, isTooEarly, validate } from '../lib/browser/ucan_wasm.js'
-import { runVerifyTests } from "./ucan/verify.test.js"
+import init, { checkSignature, decode, isExpired, isTooEarly, toCID, validate } from '../lib/browser/ucan_wasm.js'
+import { runCIDTests } from "./ucan/cid.test.js"
 import { runTokenTests } from "./ucan/token.test.js"
+import { runVerifyTests } from "./ucan/verify.test.js"
 
 before(async () => {
   await init()
@@ -19,5 +20,12 @@ runVerifyTests({
 runTokenTests({
   ucan: {
     decode
+  }
+})
+
+runCIDTests({
+  runner: { describe, it },
+  ucan: {
+    toCID
   }
 })

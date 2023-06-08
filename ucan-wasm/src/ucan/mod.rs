@@ -1,3 +1,4 @@
+pub mod cid;
 pub mod token;
 pub mod verify;
 

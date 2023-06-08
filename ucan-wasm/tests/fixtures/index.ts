@@ -1,5 +1,9 @@
+import cid from './cid.json'
 import invalid from './invalid.json'
 import valid from './valid.json'
+
+
+// VERIFICATION
 
 type Expectation = 'valid' | 'invalid'
 
@@ -27,6 +31,7 @@ type Fixture = {
   },
 }
 
+
 export function getFixture(expectation: Expectation, comment: string): Fixture {
   let fixture
 
@@ -37,4 +42,17 @@ export function getFixture(expectation: Expectation, comment: string): Fixture {
   }
 
   return fixture
+}
+
+
+// CID
+
+type CIDFixture = {
+  hasher: string
+  token: string
+  cid: string
+}
+
+export function getCIDFixture(hasher: string): CIDFixture {
+  return cid.find(f => f.hasher === hasher)
 }
