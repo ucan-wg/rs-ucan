@@ -43,7 +43,7 @@
 //! ```rust
 //! use ucan::{
 //!   chain::{ProofChain, CapabilityInfo},
-//!   capability::{CapabilitySemantics, Scope, Action},
+//!   capability::{CapabilitySemantics, Scope, Ability},
 //!   crypto::did::{DidParser, KeyConstructorSlice},
 //!   store::UcanJwtStore
 //! };
@@ -56,7 +56,7 @@
 //!     where
 //!         Semantics: CapabilitySemantics<S, A>,
 //!         S: Scope,
-//!         A: Action,
+//!         A: Ability,
 //!         Store: UcanJwtStore
 //! {
 //!     let mut did_parser = DidParser::new(SUPPORTED_KEY_TYPES);

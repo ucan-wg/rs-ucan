@@ -1,10 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    capability::{
-        proof::ProofDelegationSemantics, Action, Capability, CapabilityIpld, CapabilitySemantics,
-        Scope,
-    },
+    capability::{proof::ProofDelegationSemantics, Capability, CapabilitySemantics},
     crypto::KeyMaterial,
     serde::Base64Encode,
     time::now,
@@ -29,7 +26,7 @@ where
     pub issuer: &'a K,
     pub audience: String,
 
-    pub capabilities: Vec<CapabilityIpld>,
+    pub capabilities: Vec<Capability>,
 
     pub expiration: Option<u64>,
     pub not_before: Option<u64>,
@@ -80,7 +77,7 @@ where
             exp: self.expiration,
             nbf: self.not_before,
             nnc: nonce,
-            att: self.capabilities.clone(),
+            cap: self.capabilities.clone().try_into()?,
             fct: facts,
             prf: proofs,
         })
@@ -116,7 +113,7 @@ where
     issuer: Option<&'a K>,
     audience: Option<String>,
 
-    capabilities: Vec<CapabilityIpld>,
+    capabilities: Vec<Capability>,
 
     lifetime: Option<u64>,
     expiration: Option<u64>,
@@ -231,12 +228,25 @@ where
 
     /// Claim a capability by inheritance (from an authorizing proof) or
     /// implicitly by ownership of the resource by this UCAN's issuer
-    pub fn claiming_capability<S, A>(mut self, capability: &Capability<S, A>) -> Self
+    pub fn claiming_capability<C>(mut self, capability: C) -> Self
     where
-        S: Scope,
-        A: Action,
+        C: Into<Capability>,
     {
-        self.capabilities.push(CapabilityIpld::from(capability));
+        self.capabilities.push(capability.into());
+        self
+    }
+
+    /// Claim capabilities by inheritance (from an authorizing proof) or
+    /// implicitly by ownership of the resource by this UCAN's issuer
+    pub fn claiming_capabilities<C>(mut self, capabilities: &[C]) -> Self
+    where
+        C: Into<Capability> + Clone,
+    {
+        let caps: Vec<Capability> = capabilities
+            .iter()
+            .map(|c| <C as Into<Capability>>::into(c.to_owned()))
+            .collect();
+        self.capabilities.extend(caps);
         self
     }
 
@@ -251,11 +261,11 @@ where
                 let proof_index = self.proofs.len() - 1;
                 let proof_delegation = ProofDelegationSemantics {};
                 let capability =
-                    proof_delegation.parse(&format!("prf:{proof_index}"), "ucan/DELEGATE");
+                    proof_delegation.parse(&format!("prf:{proof_index}"), "ucan/DELEGATE", None);
 
                 match capability {
                     Some(capability) => {
-                        self.capabilities.push(CapabilityIpld::from(&capability));
+                        self.capabilities.push(Capability::from(&capability));
                     }
                     None => warn!("Could not produce delegation capability"),
                 }

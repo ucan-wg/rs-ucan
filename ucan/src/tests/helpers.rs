@@ -15,10 +15,10 @@ where
 pub async fn scaffold_ucan_builder(identities: &Identities) -> Result<UcanBuilder<PatchedKeyPair>> {
     let email_semantics = EmailSemantics {};
     let send_email_as_bob = email_semantics
-        .parse("mailto:bob@email.com".into(), "email/send".into())
+        .parse("mailto:bob@email.com".into(), "email/send".into(), None)
         .unwrap();
     let send_email_as_alice = email_semantics
-        .parse("mailto:alice@email.com".into(), "email/send".into())
+        .parse("mailto:alice@email.com".into(), "email/send".into(), None)
         .unwrap();
 
     let leaf_ucan_alice = UcanBuilder::default()

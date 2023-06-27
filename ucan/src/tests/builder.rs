@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     builder::UcanBuilder,
-    capability::{CapabilityIpld, CapabilitySemantics},
+    capability::{Capabilities, Capability, CapabilitySemantics},
     chain::ProofChain,
     crypto::did::DidParser,
     store::UcanJwtStore,
@@ -39,11 +39,11 @@ async fn it_builds_with_a_simple_example() {
     let wnfs_semantics = WNFSSemantics {};
 
     let cap_1 = email_semantics
-        .parse("mailto:alice@gmail.com", "email/send")
+        .parse("mailto:alice@gmail.com", "email/send", None)
         .unwrap();
 
     let cap_2 = wnfs_semantics
-        .parse("wnfs://alice.fission.name/public", "wnfs/super_user")
+        .parse("wnfs://alice.fission.name/public", "wnfs/super_user", None)
         .unwrap();
 
     let expiration = now() + 30;
@@ -79,9 +79,9 @@ async fn it_builds_with_a_simple_example() {
     );
 
     let expected_attenuations =
-        Vec::from([CapabilityIpld::from(&cap_1), CapabilityIpld::from(&cap_2)]);
+        Capabilities::try_from(vec![Capability::from(&cap_1), Capability::from(&cap_2)]).unwrap();
 
-    assert_eq!(ucan.attenuation(), &expected_attenuations);
+    assert_eq!(ucan.capabilities(), &expected_attenuations);
     assert!(ucan.nonce().is_some());
 }
 
@@ -109,7 +109,7 @@ async fn it_prevents_duplicate_proofs() {
     let wnfs_semantics = WNFSSemantics {};
 
     let parent_cap = wnfs_semantics
-        .parse("wnfs://alice.fission.name/public", "wnfs/super_user")
+        .parse("wnfs://alice.fission.name/public", "wnfs/super_user", None)
         .unwrap();
 
     let identities = Identities::new().await;
@@ -125,11 +125,15 @@ async fn it_prevents_duplicate_proofs() {
         .unwrap();
 
     let attenuated_cap_1 = wnfs_semantics
-        .parse("wnfs://alice.fission.name/public/Apps", "wnfs/create")
+        .parse("wnfs://alice.fission.name/public/Apps", "wnfs/create", None)
         .unwrap();
 
     let attenuated_cap_2 = wnfs_semantics
-        .parse("wnfs://alice.fission.name/public/Domains", "wnfs/create")
+        .parse(
+            "wnfs://alice.fission.name/public/Domains",
+            "wnfs/create",
+            None,
+        )
         .unwrap();
 
     let next_ucan = UcanBuilder::default()

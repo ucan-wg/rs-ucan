@@ -1,69 +1,16 @@
-use crate::serde::ser_to_lower_case;
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use super::{Capability, Caveat};
+use serde_json::{json, Value};
 use std::fmt::Debug;
 use url::Url;
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
-pub struct CapabilityIpld {
-    pub with: String,
-    #[serde(serialize_with = "ser_to_lower_case")]
-    pub can: String,
-    pub nb: Option<Value>,
-}
-
-impl<S: Scope, A: Action> From<&Capability<S, A>> for CapabilityIpld {
-    fn from(capability: &Capability<S, A>) -> Self {
-        CapabilityIpld {
-            with: capability.with().to_string(),
-            can: capability.can().to_string(),
-
-            // TODO(#22): Full support for 0.9 and the nb field
-            nb: None,
-        }
-    }
-}
-
-impl TryFrom<&Value> for CapabilityIpld {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Object(map) => {
-                let with = map
-                    .get("with")
-                    .ok_or_else(|| anyhow!("Missing 'with' field"))?;
-                let can = map
-                    .get("can")
-                    .ok_or_else(|| anyhow!("Missing 'can' field"))?;
-                let nb = map.get("nb").cloned();
-
-                let with = match with {
-                    Value::String(with) => with.clone(),
-                    _ => return Err(anyhow!("The 'with' field must be a string")),
-                };
-
-                let can = match can {
-                    Value::String(can) => can.to_lowercase(),
-                    _ => return Err(anyhow!("The 'can' field must be a string")),
-                };
-
-                Ok(CapabilityIpld { with, can, nb })
-            }
-            _ => Err(anyhow!("Not a valid capability: {}", value)),
-        }
-    }
-}
 
 pub trait Scope: ToString + TryFrom<Url> + PartialEq + Clone {
     fn contains(&self, other: &Self) -> bool;
 }
 
-pub trait Action: Ord + TryFrom<String> + ToString + Clone {}
+pub trait Ability: Ord + TryFrom<String> + ToString + Clone {}
 
 #[derive(Clone, Eq, PartialEq)]
-pub enum Resource<S>
+pub enum ResourceUri<S>
 where
     S: Scope,
 {
@@ -71,17 +18,72 @@ where
     Unscoped,
 }
 
-impl<S> Resource<S>
+impl<S> ResourceUri<S>
 where
     S: Scope,
 {
     pub fn contains(&self, other: &Self) -> bool {
         match self {
-            Resource::Unscoped => true,
-            Resource::Scoped(scope) => match other {
-                Resource::Scoped(other_scope) => scope.contains(other_scope),
+            ResourceUri::Unscoped => true,
+            ResourceUri::Scoped(scope) => match other {
+                ResourceUri::Scoped(other_scope) => scope.contains(other_scope),
                 _ => false,
             },
+        }
+    }
+}
+
+impl<S> ToString for ResourceUri<S>
+where
+    S: Scope,
+{
+    fn to_string(&self) -> String {
+        match self {
+            ResourceUri::Unscoped => "*".into(),
+            ResourceUri::Scoped(value) => value.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub enum Resource<S>
+where
+    S: Scope,
+{
+    Resource { kind: ResourceUri<S> },
+    My { kind: ResourceUri<S> },
+    As { did: String, kind: ResourceUri<S> },
+}
+
+impl<S> Resource<S>
+where
+    S: Scope,
+{
+    pub fn contains(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Resource::Resource { kind: resource },
+                Resource::Resource {
+                    kind: other_resource,
+                },
+            ) => resource.contains(other_resource),
+            (
+                Resource::My { kind: resource },
+                Resource::My {
+                    kind: other_resource,
+                },
+            ) => resource.contains(other_resource),
+            (
+                Resource::As {
+                    did,
+                    kind: resource,
+                },
+                Resource::As {
+                    did: other_did,
+                    kind: other_resource,
+                },
+            ) if did == other_did => resource.contains(other_resource),
+            _ => false,
         }
     }
 }
@@ -92,64 +94,9 @@ where
 {
     fn to_string(&self) -> String {
         match self {
-            Resource::Unscoped => "*".into(),
-            Resource::Scoped(value) => value.to_string(),
-        }
-    }
-}
-
-#[derive(Clone, Eq, PartialEq)]
-pub enum With<S>
-where
-    S: Scope,
-{
-    Resource { kind: Resource<S> },
-    My { kind: Resource<S> },
-    As { did: String, kind: Resource<S> },
-}
-
-impl<S> With<S>
-where
-    S: Scope,
-{
-    pub fn contains(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                With::Resource { kind: resource },
-                With::Resource {
-                    kind: other_resource,
-                },
-            ) => resource.contains(other_resource),
-            (
-                With::My { kind: resource },
-                With::My {
-                    kind: other_resource,
-                },
-            ) => resource.contains(other_resource),
-            (
-                With::As {
-                    did,
-                    kind: resource,
-                },
-                With::As {
-                    did: other_did,
-                    kind: other_resource,
-                },
-            ) if did == other_did => resource.contains(other_resource),
-            _ => false,
-        }
-    }
-}
-
-impl<S> ToString for With<S>
-where
-    S: Scope,
-{
-    fn to_string(&self) -> String {
-        match self {
-            With::Resource { kind } => kind.to_string(),
-            With::My { kind } => format!("my:{}", kind.to_string()),
-            With::As { did, kind } => format!("as:{did}:{}", kind.to_string()),
+            Resource::Resource { kind } => kind.to_string(),
+            Resource::My { kind } => format!("my:{}", kind.to_string()),
+            Resource::As { did, kind } => format!("as:{did}:{}", kind.to_string()),
         }
     }
 }
@@ -157,13 +104,13 @@ where
 pub trait CapabilitySemantics<S, A>
 where
     S: Scope,
-    A: Action,
+    A: Ability,
 {
     fn parse_scope(&self, scope: &Url) -> Option<S> {
         S::try_from(scope.clone()).ok()
     }
-    fn parse_action(&self, can: &str) -> Option<A> {
-        A::try_from(String::from(can)).ok()
+    fn parse_action(&self, ability: &str) -> Option<A> {
+        A::try_from(String::from(ability)).ok()
     }
 
     fn extract_did(&self, path: &str) -> Option<(String, String)> {
@@ -187,84 +134,168 @@ where
         Some((format!("did:key:{value}"), path_parts.collect()))
     }
 
-    fn parse_resource(&self, with: &Url) -> Option<Resource<S>> {
-        Some(match with.path() {
-            "*" => Resource::Unscoped,
-            _ => Resource::Scoped(self.parse_scope(with)?),
+    fn parse_resource(&self, resource: &Url) -> Option<ResourceUri<S>> {
+        Some(match resource.path() {
+            "*" => ResourceUri::Unscoped,
+            _ => ResourceUri::Scoped(self.parse_scope(resource)?),
         })
     }
 
-    fn parse(&self, with: &str, can: &str) -> Option<Capability<S, A>> {
-        let uri = Url::parse(with).ok()?;
+    fn parse_caveat(&self, caveat: Option<&Value>) -> Value {
+        if let Some(caveat) = caveat {
+            caveat.to_owned()
+        } else {
+            json!({})
+        }
+    }
 
-        let resource = match uri.scheme() {
-            "my" => With::My {
+    /// Parse a resource and abilities string and a caveats object.
+    /// The default "no caveats" (`[{}]`) is implied if `None` caveats given.
+    fn parse(
+        &self,
+        resource: &str,
+        ability: &str,
+        caveat: Option<&Value>,
+    ) -> Option<CapabilityView<S, A>> {
+        let uri = Url::parse(resource).ok()?;
+
+        let cap_resource = match uri.scheme() {
+            "my" => Resource::My {
                 kind: self.parse_resource(&uri)?,
             },
             "as" => {
-                let (did, with) = self.extract_did(uri.path())?;
-                let with = Url::parse(with.as_str()).ok()?;
-
-                With::As {
+                let (did, resource) = self.extract_did(uri.path())?;
+                Resource::As {
                     did,
-                    kind: self.parse_resource(&with)?,
+                    kind: self.parse_resource(&Url::parse(resource.as_str()).ok()?)?,
                 }
             }
-            _ => With::Resource {
+            _ => Resource::Resource {
                 kind: self.parse_resource(&uri)?,
             },
         };
 
-        let action = match self.parse_action(can) {
-            Some(action) => action,
+        let cap_ability = match self.parse_action(ability) {
+            Some(ability) => ability,
             None => return None,
         };
 
-        Some(Capability::new(resource, action))
+        let cap_caveat = self.parse_caveat(caveat);
+
+        Some(CapabilityView::new_with_caveat(
+            cap_resource,
+            cap_ability,
+            cap_caveat,
+        ))
+    }
+
+    fn parse_capability(&self, value: &Capability) -> Option<CapabilityView<S, A>> {
+        self.parse(&value.resource, &value.ability, Some(&value.caveat))
     }
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Capability<S, A>
+pub struct CapabilityView<S, A>
 where
     S: Scope,
-    A: Action,
+    A: Ability,
 {
-    pub with: With<S>,
-    pub can: A,
+    pub resource: Resource<S>,
+    pub ability: A,
+    pub caveat: Value,
 }
 
-impl<S, A> Debug for Capability<S, A>
+impl<S, A> Debug for CapabilityView<S, A>
 where
     S: Scope,
-    A: Action,
+    A: Ability,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Capability")
-            .field("with", &self.with.to_string())
-            .field("can", &self.can.to_string())
+            .field("resource", &self.resource.to_string())
+            .field("ability", &self.ability.to_string())
+            .field("caveats", &serde_json::to_string(&self.caveat))
             .finish()
     }
 }
 
-impl<S, A> Capability<S, A>
+impl<S, A> CapabilityView<S, A>
 where
     S: Scope,
-    A: Action,
+    A: Ability,
 {
-    pub fn new(with: With<S>, can: A) -> Self {
-        Capability { with, can }
+    /// Creates a new [CapabilityView] semantics view over a capability
+    /// without caveats.
+    pub fn new(resource: Resource<S>, ability: A) -> Self {
+        CapabilityView {
+            resource,
+            ability,
+            caveat: json!({}),
+        }
     }
 
-    pub fn enables(&self, other: &Capability<S, A>) -> bool {
-        self.with.contains(&other.with) && self.can >= other.can
+    /// Creates a new [CapabilityView] semantics view over a capability
+    /// with caveats. Note that an empty caveats array will imply NO
+    /// capabilities, rendering this capability meaningless.
+    pub fn new_with_caveat(resource: Resource<S>, ability: A, caveat: Value) -> Self {
+        CapabilityView {
+            resource,
+            ability,
+            caveat,
+        }
     }
 
-    pub fn with(&self) -> &With<S> {
-        &self.with
+    pub fn enables(&self, other: &CapabilityView<S, A>) -> bool {
+        match (
+            Caveat::try_from(self.caveat()),
+            Caveat::try_from(other.caveat()),
+        ) {
+            (Ok(self_caveat), Ok(other_caveat)) => {
+                self.resource.contains(&other.resource)
+                    && self.ability >= other.ability
+                    && self_caveat.enables(&other_caveat)
+            }
+            _ => false,
+        }
     }
 
-    pub fn can(&self) -> &A {
-        &self.can
+    pub fn resource(&self) -> &Resource<S> {
+        &self.resource
+    }
+
+    pub fn ability(&self) -> &A {
+        &self.ability
+    }
+
+    pub fn caveat(&self) -> &Value {
+        &self.caveat
+    }
+}
+
+impl<S, A> From<&CapabilityView<S, A>> for Capability
+where
+    S: Scope,
+    A: Ability,
+{
+    fn from(value: &CapabilityView<S, A>) -> Self {
+        Capability::new(
+            value.resource.to_string(),
+            value.ability.to_string(),
+            value.caveat.to_owned(),
+        )
+    }
+}
+
+impl<S, A> From<CapabilityView<S, A>> for Capability
+where
+    S: Scope,
+    A: Ability,
+{
+    fn from(value: CapabilityView<S, A>) -> Self {
+        Capability::new(
+            value.resource.to_string(),
+            value.ability.to_string(),
+            value.caveat,
+        )
     }
 }
