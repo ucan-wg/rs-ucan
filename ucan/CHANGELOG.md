@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.3.2...ucan-v0.4.0) (2023-06-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* Update capabilites in line with UCAN 0.9/0.10 specs ([#105](https://github.com/ucan-wg/rs-ucan/issues/105))
+* Update `fct`/`ucv` layout for 0.10.0 spec ([#108](https://github.com/ucan-wg/rs-ucan/issues/108))
+* Support generic hashers in `UcanBuilder` and `ProofChain`. ([#89](https://github.com/ucan-wg/rs-ucan/issues/89))
+
+### Features
+
+* Allow nullable expiry, per 0.9.0 spec. Fixes [#23](https://github.com/ucan-wg/rs-ucan/issues/23) ([#95](https://github.com/ucan-wg/rs-ucan/issues/95)) ([12d4756](https://github.com/ucan-wg/rs-ucan/commit/12d475606da940b64654f17807adf592551982d0))
+* Support generic hashers in `UcanBuilder` and `ProofChain`. ([#89](https://github.com/ucan-wg/rs-ucan/issues/89)) ([e057f87](https://github.com/ucan-wg/rs-ucan/commit/e057f87c7b278d18e77b1d3d213656d18b1a2fee))
+* Update `fct`/`ucv` layout for 0.10.0 spec ([#108](https://github.com/ucan-wg/rs-ucan/issues/108)) ([ae19741](https://github.com/ucan-wg/rs-ucan/commit/ae197415048da201f7d75bf08cdb010b4f657895))
+* Update capabilites in line with UCAN 0.9/0.10 specs ([#105](https://github.com/ucan-wg/rs-ucan/issues/105)) ([0bdf98f](https://github.com/ucan-wg/rs-ucan/commit/0bdf98f9043e753026711fb19449ab0bc6d87fc7))
+
 ## [0.3.2](https://github.com/ucan-wg/rs-ucan/compare/ucan-v0.3.1...ucan-v0.3.2) (2023-05-25)
 
 
