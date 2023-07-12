@@ -17,21 +17,27 @@
   "homepage": "https://github.com/ucan-wg/rs-ucan#readme",
   "type": "module",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
-      "deno": {
-        "types": "./lib/deno/ucan_wasm.d.ts",
-        "default": "./lib/deno/ucan_wasm.js"
+      "browser": {
+        "types": "./lib/browser/ucan_wasm.d.ts",
+        "import": "./lib/browser/ucan_wasm.js"
       },
       "node": {
         "types": "./lib/node/ucan_wasm.d.ts",
-        "require": "./lib/node/ucan_wasm.js"
+        "require": "./lib/node/ucan_wasm.js",
+        "import": "./lib/browser/ucan_wasm.js"
+      },
+      "deno": {
+        "types": "./lib/deno/ucan_wasm.d.ts",
+        "import": "./lib/deno/ucan_wasm.js"
       },
       "workerd": {
         "types": "./lib/workerd/ucan_wasm.d.ts",
-        "default": "./lib/workerd/index.js"
+        "import": "./lib/workerd/index.js"
       },
-      "types": "./lib/browser/ucan_wasm.d.ts",
-      "default": "./lib/browser/ucan_wasm.js"
+      "import": "./lib/browser/ucan_wasm.js",
+      "require": "./lib/node/ucan_wasm.js"
     }
   },
   "scripts": {
