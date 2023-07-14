@@ -131,14 +131,14 @@
       ]
     },
     "test:chromium": {
-      "command": "pw-test tests/browser.test.ts --assets lib/browser --reporter json --cov > tests/report/chromium.json",
+      "command": "pw-test tests/browser.test.ts --assets lib/browser -r mocha --reporter json --cov > tests/report/chromium.json",
       "dependencies": [
         "build",
         "test:prepare"
       ]
     },
     "test:firefox": {
-      "command": "pw-test tests/browser.test.ts --assets lib/browser --reporter json --browser firefox > tests/report/firefox.json",
+      "command": "pw-test tests/browser.test.ts --assets lib/browser -r mocha --reporter json --browser firefox > tests/report/firefox.json",
       "dependencies": [
         "build",
         "test:prepare"
@@ -148,7 +148,7 @@
       ]
     },
     "test:webkit": {
-      "command": "pw-test tests/browser.test.ts --assets lib/browser --reporter json --browser webkit > tests/report/webkit.json",
+      "command": "pw-test tests/browser.test.ts --assets lib/browser -r mocha --reporter json --browser webkit > tests/report/webkit.json",
       "dependencies": [
         "build",
         "test:prepare"
@@ -165,7 +165,7 @@
       ]
     },
     "test:node": {
-      "command": "vitest run node.test.ts --outputFile tests/report/node.json",
+      "command": "pw-test tests/node.test.ts --assets lib/node -r mocha --reporter json --mode node > tests/report/node.json",
       "dependencies": [
         "build",
         "test:prepare"
@@ -200,7 +200,7 @@
     "expect": "^29.5.0",
     "mocha": "^10.2.0",
     "nyc": "^15.1.0",
-    "playwright-test": "^9.1.0",
+    "playwright-test": "^11.0.3",
     "shx": "^0.3.4",
     "ts-node": "^10.9.1",
     "vitest": "^0.31.4",

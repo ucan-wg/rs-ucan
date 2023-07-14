@@ -1,12 +1,12 @@
-import { describe, it } from 'vitest'
-
-import { checkSignature, decode, isExpired, isTooEarly, toCID, validate } from '../lib/node/ucan_wasm.js'
+import * as ucan from '../lib/node/ucan_wasm.js'
 import { runCIDTests } from "./ucan/cid.test.js"
 import { runTokenTests } from "./ucan/token.test.js"
 import { runVerifyTests } from "./ucan/verify.test.js"
 
+
+const { checkSignature, decode, isExpired, isTooEarly, toCID, validate } = ucan
+
 runVerifyTests({
-  runner: { describe, it },
   ucan: {
     isExpired,
     isTooEarly,
@@ -16,14 +16,12 @@ runVerifyTests({
 })
 
 runTokenTests({
-  runner: { describe, it },
   ucan: {
     decode
   }
 })
 
 runCIDTests({
-  runner: { describe, it },
   ucan: {
     toCID
   }
