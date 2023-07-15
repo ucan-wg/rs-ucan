@@ -35,6 +35,7 @@ jobs:
           toolchain: ${{ matrix.rust-toolchain }}
           components: clippy, rustfmt
 
+
       - name: Check Format
         run: cargo +${{ matrix.rust-toolchain }} fmt --all -- --check
 
