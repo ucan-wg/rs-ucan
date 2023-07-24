@@ -6,6 +6,7 @@
   <h1 align="center">rs-ucan</h1>
 
   <p>
+    <img src="https://img.shields.io/badge/UCAN-v0.10.0--canary-blue" alt="UCAN">
     <a href="https://crates.io/crates/ucan">
       <img src="https://img.shields.io/crates/v/ucan.svg?label=crates" alt="Crate Information">
     </a>
