@@ -82,29 +82,15 @@ jobs:
       - name: Run Tests
         run: cargo test --all
 
-  run-headless-tests:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        crate: [ ucan, ucan-key-support ]
+      - name: Install Rust/WASM Test Dependencies
+        run: |
+          rustup target install wasm32-unknown-unknown
+          cargo install toml-cli
+          WASM_BINDGEN_VERSION=`toml get ./Cargo.lock . | jq '.package | map(select(.name == "wasm-bindgen"))[0].version' | xargs echo`
+          cargo install wasm-bindgen-cli --vers "$WASM_BINDGEN_VERSION"
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Cache Project
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
-          toolchain: stable
+      - name: Setup Chrome and Chromedriver
+        uses: nanasess/setup-chromedriver@v2
 
       - name: Run Rust Headless Browser Tests
-        working-directory: ${{ matrix.crate }}
-        run: wasm-pack test --headless --chrome
+        run: CHROMEDRIVER=/usr/local/bin/chromedriver cargo test --target wasm32-unknown-unknown
