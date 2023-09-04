@@ -22,7 +22,7 @@ jobs:
           - nightly
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Smarter caching action, speeds up build times compared to regular cache:
       # https://github.com/Swatinem/rust-cache
@@ -64,7 +64,7 @@ jobs:
           - nightly
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Environment Packages
         run: |
