@@ -17,6 +17,7 @@ use crate::{
 };
 
 pub mod ucan;
+pub mod wnfs;
 
 #[distributed_slice]
 static STATIC_PLUGINS: [&dyn Plugin<
