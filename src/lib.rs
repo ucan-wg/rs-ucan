@@ -5,6 +5,7 @@
 //! rs-ucan
 
 pub mod capability;
+pub mod did_verifier;
 pub mod error;
 pub mod plugins;
 pub mod semantics;
