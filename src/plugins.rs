@@ -16,6 +16,8 @@ use crate::{
     },
 };
 
+pub mod ucan;
+
 #[distributed_slice]
 static STATIC_PLUGINS: [&dyn Plugin<
     Resource = Box<dyn Resource>,

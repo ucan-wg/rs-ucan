@@ -9,6 +9,9 @@ pub mod error;
 pub mod plugins;
 pub mod semantics;
 
+/// A decentralized identifier.
+pub type Did = String;
+
 /// Test utilities.
 #[cfg(any(test, feature = "test_utils"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "test_utils")))]
