@@ -4,7 +4,10 @@
 
 //! rs-ucan
 
+pub mod capability;
 pub mod error;
+pub mod plugins;
+pub mod semantics;
 
 /// Test utilities.
 #[cfg(any(test, feature = "test_utils"))]
