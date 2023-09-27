@@ -1,16 +1,17 @@
 # See https://pre-commit.com for more information
+# pre-commit install
+# pre-commit install --hook-type commit-msg
+exclude: ^(LICENSE|LICENSE*)
 repos:
   - repo: local
     hooks:
-      # allow for crate import granularity:
-      # https://github.com/rust-lang/rustfmt/issues/4991
       - id: fmt
         name: fmt
         description: Format rust files.
-        entry: cargo +nightly fmt
+        entry: cargo fmt
         language: system
         types: [rust]
-        args: ["--all", "--", "--check"]
+        args: ["--", "--check"]
       - id: cargo-check
         name: cargo check
         description: Check the package for errors.
@@ -23,15 +24,21 @@ repos:
         description: Lint via clippy
         entry: cargo clippy
         language: system
-        args: ["--workspace", "--", "-D", "warnings"]
+        args: ["--", "-D", "warnings"]
         types: [rust]
         pass_filenames: false
+      - id: alejandra
+        name: alejandra
+        description: Format nix files.
+        entry: alejandra
+        files: \.nix$
+        language: system
 
   - repo: https://github.com/DevinR528/cargo-sort
     rev: v1.0.9
     hooks:
       - id: cargo-sort
-        args: ["--workspace"]
+        args: []
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v2.1.1
@@ -49,11 +56,8 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-        exclude: ^catalog-info.yaml
       - id: check-json
-        exclude: ^tests/data/
       - id: check-added-large-files
       - id: detect-private-key
-        exclude: ^tests/data/
       - id: check-executables-have-shebangs
       - id: check-toml

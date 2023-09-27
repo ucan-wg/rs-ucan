@@ -7,26 +7,13 @@ version: 2
 
 updates:
   - package-ecosystem: "cargo"
-    directory: "/ucan"
+    directory: "/"
     commit-message:
       prefix: "chore"
       include: "scope"
     target-branch: "main"
     schedule:
       interval: "weekly"
-    labels:
-      - "chore"
-
-  - package-ecosystem: "cargo"
-    directory: "/ucan-key-support"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    target-branch: "main"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "chore"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -36,5 +23,3 @@ updates:
     target-branch: "main"
     schedule:
       interval: "weekly"
-    labels:
-      - "chore"

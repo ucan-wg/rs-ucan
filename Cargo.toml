@@ -1,10 +1,64 @@
-[workspace]
-members = [
-  "ucan",
-  "ucan-key-support",
-]
+[package]
+name = "rs-ucan"
+version = "0.1.0"
+description = "Rust implementation of UCAN"
+keywords = []
+categories = []
+include = ["/src", "/examples", "/benches", "README.md", "LICENSE"]
+license = "Apache-2.0"
+readme = "README.md"
+edition = "2021"
+rust-version = "1.67"
+documentation = "https://docs.rs/rs-ucan"
+repository = "https://github.com/ucan-wg/rs-ucan"
+authors = ["Quinn Wilton <quinn@quinnwilton.com>"]
 
-resolver = "2"
+[lib]
+path = "src/lib.rs"
+bench = false
+
+[[bench]]
+name = "a_benchmark"
+harness = false
+required-features = ["test_utils"]
+
+[[example]]
+name = "counterparts"
+path = "examples/counterparts.rs"
+
+[dependencies]
+proptest = { version = "1.1", optional = true }
+thiserror = "1.0"
+tracing = "0.1"
+
+[dev-dependencies]
+criterion = "0.4"
+proptest = "1.1"
+
+[features]
+default = []
+test_utils = ["proptest"]
+
+[metadata.docs.rs]
+all-features = true
+# defines the configuration attribute `docsrs`
+rustdoc-args = ["--cfg", "docsrs"]
+#
+# See https://doc.rust-lang.org/cargo/reference/profiles.html for more info.
+# [profile.release]
+# Do not perform backtrace for panic on release builds.
+## panic = 'abort'
+# Perform optimizations on all codegen units.
+## codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+## opt-level = "s" # or 'z' to optimize "aggressively" for size
+# Enable link time optimization.
+## lto = true
+# Amount of debug information.
+# 0/false: no debug info at all; 1: line tables only; 2/true: full debug info
+## debug = false
+# Strip debug symbols
+## strip = "symbols"
 
 # Speedup build on macOS
 # See https://blog.rust-lang.org/2021/03/25/Rust-1.51.0.html#splitting-debug-information
