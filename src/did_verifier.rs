@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use crate::error::Error;
 
+pub mod did_key;
+
 /// A map from did method to verifier
 #[derive(Debug, Default)]
 pub struct DidVerifierMap {
