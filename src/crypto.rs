@@ -2,6 +2,8 @@
 
 use signature::SignatureEncoding;
 
+pub mod eddsa;
+
 /// A trait for mapping a SignatureEncoding to its algorithm name under JWS
 pub trait JWSSignature: SignatureEncoding {
     /// The algorithm name under JWS
