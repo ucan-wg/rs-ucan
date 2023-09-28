@@ -28,6 +28,7 @@ path = "examples/counterparts.rs"
 
 [dependencies]
 anyhow = "1.0.75"
+blst = "0.3.11"
 cid = "0.10.1"
 downcast-rs = "1.2.0"
 dyn-clone = "1.0.14"

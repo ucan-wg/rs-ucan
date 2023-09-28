@@ -2,6 +2,7 @@
 
 use signature::SignatureEncoding;
 
+pub mod bls;
 pub mod eddsa;
 pub mod es256;
 pub mod es256k;
