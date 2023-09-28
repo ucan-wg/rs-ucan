@@ -4,6 +4,7 @@
 
 //! rs-ucan
 
+pub mod builder;
 pub mod capability;
 pub mod crypto;
 pub mod did_verifier;
