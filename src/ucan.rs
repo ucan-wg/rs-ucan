@@ -13,7 +13,8 @@ use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
-use serde::{Deserialize, Serialize};
+use semver::Version;
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// The current UCAN version
 pub const UCAN_VERSION: &str = "0.10.0";
@@ -31,6 +32,7 @@ pub struct UcanPayload<F = DefaultFact, C = DefaultCapabilityParser> {
     pub(crate) ucv: String,
     pub(crate) iss: String,
     pub(crate) aud: String,
+    #[serde(deserialize_with = "deserialize_required_nullable")]
     pub(crate) exp: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) nbf: Option<u64>,
@@ -64,6 +66,21 @@ where
         now_time: Option<u64>,
         did_verifier_map: &DidVerifierMap,
     ) -> Result<(), Error> {
+        if self.typ() != "JWT" {
+            return Err(Error::VerifyingError {
+                msg: format!("expected header typ field to be 'JWT', got {}", self.typ()),
+            });
+        }
+
+        if Version::parse(self.version()).is_err() {
+            return Err(Error::VerifyingError {
+                msg: format!(
+                    "expected header ucv field to be a semver, got {}",
+                    self.version()
+                ),
+            });
+        }
+
         if self.is_expired(now_time) {
             return Err(Error::VerifyingError {
                 msg: "token is expired".to_string(),
@@ -75,6 +92,18 @@ where
                 msg: "current time is before token validity period begins".to_string(),
             });
         }
+
+        // TODO: parse and validate iss and aud DIDs during deserialization
+        self.payload
+            .aud
+            .strip_prefix("did:")
+            .and_then(|did| did.split_once(':'))
+            .ok_or(Error::VerifyingError {
+                msg: format!(
+                    "expected did:<method>:<identifier>, got {}",
+                    self.payload.aud
+                ),
+            })?;
 
         let (method, identifier) = self
             .payload
@@ -158,7 +187,7 @@ where
     /// Note that if a UCAN specifies an NBF but the other does not, the
     /// other has an unbounded start time and this function will return
     /// false.
-    pub fn lifetime_begins_before<S2>(&self, other: &Ucan<S2>) -> bool {
+    pub fn lifetime_begins_before(&self, other: &Ucan<C, F>) -> bool {
         match (self.payload.nbf, other.payload.nbf) {
             (Some(nbf), Some(other_nbf)) => nbf <= other_nbf,
             (Some(_), None) => false,
@@ -167,7 +196,7 @@ where
     }
 
     /// Returns true if this UCAN expires no earlier than the other
-    pub fn lifetime_ends_after<S2>(&self, other: &Ucan<S2>) -> bool {
+    pub fn lifetime_ends_after(&self, other: &Ucan<C, F>) -> bool {
         match (self.payload.exp, other.payload.exp) {
             (Some(exp), Some(other_exp)) => exp >= other_exp,
             (Some(_), None) => false,
@@ -176,7 +205,7 @@ where
     }
 
     /// Returns true if this UCAN's lifetime fully encompasses the other
-    pub fn lifetime_encompasses<S2>(&self, other: &Ucan<S2>) -> bool {
+    pub fn lifetime_encompasses(&self, other: &Ucan<C, F>) -> bool {
         self.lifetime_begins_before(other) && self.lifetime_ends_after(other)
     }
 
@@ -321,4 +350,13 @@ impl FromStr for Ucan {
             signature,
         })
     }
+}
+
+fn deserialize_required_nullable<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer)
+        .map_err(|_| serde::de::Error::custom("required field is missing or has invalid type"))
 }
