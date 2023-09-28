@@ -167,7 +167,7 @@ impl TestTask for VerifyTest {
         did_verifier_map.register(did_key_verifier);
 
         let Ok(ucan) = Ucan::from_str(&self.inputs.token) else {
-            report.register_failure(name, "Failed to parse token".to_string());
+            report.register_failure(name, "failed to parse token".to_string());
 
             return;
         };
@@ -177,7 +177,7 @@ impl TestTask for VerifyTest {
                 report.register_failure(
                     name,
                     format!(
-                        "Expected algorithm to be {}, but was {}",
+                        "expected algorithm to be {}, but was {}",
                         alg,
                         ucan.algorithm()
                     ),
@@ -191,7 +191,7 @@ impl TestTask for VerifyTest {
             if ucan.typ() != typ {
                 report.register_failure(
                     name,
-                    format!("Expected type to be {}, but was {}", typ, ucan.typ()),
+                    format!("expected type to be {}, but was {}", typ, ucan.typ()),
                 );
 
                 return;
@@ -202,7 +202,7 @@ impl TestTask for VerifyTest {
             if ucan.version() != ucv {
                 report.register_failure(
                     name,
-                    format!("Expected version to be {}, but was {}", ucv, ucan.version()),
+                    format!("expected version to be {}, but was {}", ucv, ucan.version()),
                 );
 
                 return;
@@ -213,7 +213,7 @@ impl TestTask for VerifyTest {
             if ucan.issuer() != iss {
                 report.register_failure(
                     name,
-                    format!("Expected issuer to be {}, but was {}", iss, ucan.issuer()),
+                    format!("expected issuer to be {}, but was {}", iss, ucan.issuer()),
                 );
 
                 return;
@@ -225,7 +225,7 @@ impl TestTask for VerifyTest {
                 report.register_failure(
                     name,
                     format!(
-                        "Expected audience to be {}, but was {}",
+                        "expected audience to be {}, but was {}",
                         aud,
                         ucan.audience()
                     ),
@@ -239,7 +239,7 @@ impl TestTask for VerifyTest {
             report.register_failure(
                 name,
                 format!(
-                    "Expected expiration to be {:?}, but was {:?}",
+                    "expected expiration to be {:?}, but was {:?}",
                     self.assertions.payload.exp,
                     ucan.expires_at()
                 ),
@@ -252,7 +252,7 @@ impl TestTask for VerifyTest {
             report.register_failure(
                 name,
                 format!(
-                    "Expected proofs to be {:?}, but was {:?}",
+                    "expected proofs to be {:?}, but was {:?}",
                     self.assertions.payload.prf,
                     ucan.proofs().cloned()
                 ),
@@ -262,13 +262,13 @@ impl TestTask for VerifyTest {
         }
 
         let Ok(signature) = serde_json::to_value(ucan.signature()) else {
-            report.register_failure(name, "Failed to serialize signature".to_string());
+            report.register_failure(name, "failed to serialize signature".to_string());
 
             return;
         };
 
         let Some(signature) = signature.as_str() else {
-            report.register_failure(name, "Expected signature to be a string".to_string());
+            report.register_failure(name, "expected signature to be a string".to_string());
 
             return;
         };
@@ -277,7 +277,7 @@ impl TestTask for VerifyTest {
             report.register_failure(
                 name,
                 format!(
-                    "Expected signature to be {}, but was {}",
+                    "expected signature to be {}, but was {}",
                     self.assertions.signature, signature
                 ),
             );
@@ -308,7 +308,7 @@ impl TestTask for RefuteTest {
             {
                 report.register_failure(
                     &name,
-                    "Expected token to fail validation, but it passed".to_string(),
+                    "expected token to fail validation, but it passed".to_string(),
                 );
 
                 return;
@@ -333,7 +333,7 @@ impl TestTask for ToCidTest {
         };
 
         let Ok(cid) = ucan.to_cid(hasher) else {
-            report.register_failure(&name, "Failed to convert to CID".to_string());
+            report.register_failure(&name, "failed to convert to CID".to_string());
 
             return;
         };
@@ -342,7 +342,7 @@ impl TestTask for ToCidTest {
             report.register_failure(
                 &name,
                 format!(
-                    "Expected CID to be {}, but was {}",
+                    "expected CID to be {}, but was {}",
                     self.outputs.cid,
                     cid.to_string()
                 ),
