@@ -8,6 +8,7 @@ pub mod es256k;
 pub mod es384;
 pub mod es512;
 pub mod ps256;
+pub mod rs256;
 
 /// A trait for mapping a SignatureEncoding to its algorithm name under JWS
 pub trait JWSSignature: SignatureEncoding {
