@@ -9,6 +9,8 @@ pub mod did_verifier;
 pub mod error;
 pub mod plugins;
 pub mod semantics;
+pub mod time;
+pub mod ucan;
 
 /// A decentralized identifier.
 pub type Did = String;
