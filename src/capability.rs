@@ -101,7 +101,7 @@ impl<C> Capabilities<C> {
 }
 
 /// Handles deserializing capabilities
-pub trait CapabilityParser {
+pub trait CapabilityParser: Clone {
     /// Tries to deserialize a capability from a resource_uri, ability, and a deserilizer for the caveat
     fn try_handle(
         resource_uri: &Url,

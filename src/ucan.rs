@@ -6,15 +6,15 @@ use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
     did_verifier::DidVerifierMap,
     error::Error,
-    semantics::{ability::Ability, fact::DefaultFact, resource::Resource},
-    time,
+    semantics::{ability::Ability, resource::Resource},
+    time, CidString, DefaultFact,
 };
 use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
 use semver::Version;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 
 /// The current UCAN version
 pub const UCAN_VERSION: &str = "0.10.0";
@@ -44,7 +44,7 @@ pub struct UcanPayload<F = DefaultFact, C = DefaultCapabilityParser> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) fct: Option<F>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) prf: Option<Vec<String>>,
+    pub(crate) prf: Option<Vec<CidString>>,
 }
 
 /// A UCAN
@@ -57,7 +57,7 @@ pub struct Ucan<F = DefaultFact, C = DefaultCapabilityParser> {
 
 impl<F, C> Ucan<F, C>
 where
-    F: Serialize,
+    F: Clone + DeserializeOwned,
     C: CapabilityParser,
 {
     /// Validate the UCAN's signature and timestamps
@@ -187,7 +187,11 @@ where
     /// Note that if a UCAN specifies an NBF but the other does not, the
     /// other has an unbounded start time and this function will return
     /// false.
-    pub fn lifetime_begins_before(&self, other: &Ucan<C, F>) -> bool {
+    pub fn lifetime_begins_before<F2, C2>(&self, other: &Ucan<F2, C2>) -> bool
+    where
+        F2: DeserializeOwned,
+        C2: CapabilityParser,
+    {
         match (self.payload.nbf, other.payload.nbf) {
             (Some(nbf), Some(other_nbf)) => nbf <= other_nbf,
             (Some(_), None) => false,
@@ -196,7 +200,11 @@ where
     }
 
     /// Returns true if this UCAN expires no earlier than the other
-    pub fn lifetime_ends_after(&self, other: &Ucan<C, F>) -> bool {
+    pub fn lifetime_ends_after<F2, C2>(&self, other: &Ucan<F2, C2>) -> bool
+    where
+        F2: DeserializeOwned,
+        C2: CapabilityParser,
+    {
         match (self.payload.exp, other.payload.exp) {
             (Some(exp), Some(other_exp)) => exp >= other_exp,
             (Some(_), None) => false,
@@ -205,7 +213,11 @@ where
     }
 
     /// Returns true if this UCAN's lifetime fully encompasses the other
-    pub fn lifetime_encompasses(&self, other: &Ucan<C, F>) -> bool {
+    pub fn lifetime_encompasses<F2, C2>(&self, other: &Ucan<F2, C2>) -> bool
+    where
+        F2: DeserializeOwned,
+        C2: CapabilityParser,
+    {
         self.lifetime_begins_before(other) && self.lifetime_ends_after(other)
     }
 
@@ -230,8 +242,11 @@ where
     }
 
     /// Return the `prf` field of the UCAN payload
-    pub fn proofs(&self) -> Option<&Vec<String>> {
-        self.payload.prf.as_ref()
+    pub fn proofs(&self) -> Option<Vec<&Cid>> {
+        self.payload
+            .prf
+            .as_ref()
+            .map(|f| f.iter().map(|c| &c.0).collect())
     }
 
     /// Return the `exp` field of the UCAN payload
@@ -301,7 +316,11 @@ where
     }
 }
 
-impl<'a> TryFrom<&'a str> for Ucan {
+impl<'a, F, C> TryFrom<&'a str> for Ucan<F, C>
+where
+    F: DeserializeOwned,
+    C: CapabilityParser,
+{
     type Error = Error;
 
     fn try_from(ucan_token: &str) -> Result<Self, Self::Error> {
@@ -309,7 +328,11 @@ impl<'a> TryFrom<&'a str> for Ucan {
     }
 }
 
-impl TryFrom<String> for Ucan {
+impl<F, C> TryFrom<String> for Ucan<F, C>
+where
+    F: DeserializeOwned,
+    C: CapabilityParser,
+{
     type Error = Error;
 
     fn try_from(ucan_token: String) -> Result<Self, Self::Error> {
@@ -317,7 +340,11 @@ impl TryFrom<String> for Ucan {
     }
 }
 
-impl FromStr for Ucan {
+impl<F, C> FromStr for Ucan<F, C>
+where
+    F: DeserializeOwned,
+    C: CapabilityParser,
+{
     type Err = Error;
 
     fn from_str(ucan_token: &str) -> Result<Self, Self::Err> {

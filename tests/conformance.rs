@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
 use rs_ucan::{
+    capability::DefaultCapabilityParser,
     crypto::eddsa::ed25519_dalek_verifier,
     did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
     ucan::Ucan,
+    DefaultFact,
 };
 
 trait TestTask {
@@ -166,7 +168,8 @@ impl TestTask for VerifyTest {
         did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
         did_verifier_map.register(did_key_verifier);
 
-        let Ok(ucan) = Ucan::from_str(&self.inputs.token) else {
+        let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
+        else {
             report.register_failure(name, "failed to parse token".to_string());
 
             return;
@@ -248,13 +251,17 @@ impl TestTask for VerifyTest {
             return;
         }
 
-        if ucan.proofs().cloned() != self.assertions.payload.prf {
+        if ucan
+            .proofs()
+            .map(|f| f.iter().map(|c| c.to_string()).collect())
+            != self.assertions.payload.prf
+        {
             report.register_failure(
                 name,
                 format!(
                     "expected proofs to be {:?}, but was {:?}",
                     self.assertions.payload.prf,
-                    ucan.proofs().cloned()
+                    ucan.proofs()
                 ),
             );
 
@@ -301,7 +308,8 @@ impl TestTask for RefuteTest {
         let mut did_verifier_map = DidVerifierMap::default();
         did_verifier_map.register(did_key_verifier);
 
-        if let Ok(ucan) = Ucan::from_str(&self.inputs.token) {
+        if let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
+        {
             if ucan
                 .validate(Some(rs_ucan::time::now()), &did_verifier_map)
                 .is_ok()
@@ -325,7 +333,8 @@ impl TestTask for BuildTest {
 
 impl TestTask for ToCidTest {
     fn run(&self, name: &str, report: &mut TestReport) {
-        let ucan = Ucan::from_str(&self.inputs.token).unwrap();
+        let ucan =
+            Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token).unwrap();
         let hasher = match self.inputs.hasher.as_str() {
             "SHA2-256" => multihash::Code::Sha2_256,
             "BLAKE3-256" => multihash::Code::Blake3_256,

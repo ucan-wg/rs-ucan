@@ -1,15 +1,15 @@
 //! A builder for creating UCANs
 
 use cid::multihash;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use signature::Signer;
 
 use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
     crypto::JWSSignature,
     error::Error,
-    semantics::fact::DefaultFact,
     ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
+    CidString, DefaultFact,
 };
 
 /// The default multihash algorithm used for UCANs
@@ -27,7 +27,7 @@ pub struct UcanBuilder<F = DefaultFact, C = DefaultCapabilityParser> {
     expiration: Option<u64>,
     not_before: Option<u64>,
     facts: Option<F>,
-    proofs: Option<Vec<String>>,
+    proofs: Option<Vec<CidString>>,
 }
 
 impl<F, C> Default for UcanBuilder<F, C> {
@@ -49,7 +49,7 @@ impl<F, C> Default for UcanBuilder<F, C> {
 
 impl<F, C> UcanBuilder<F, C>
 where
-    F: Serialize,
+    F: Clone + Serialize,
     C: CapabilityParser,
 {
     /// Set the UCAN version
@@ -107,7 +107,7 @@ where
         hasher: Option<multihash::Code>,
     ) -> Self
     where
-        F2: Serialize,
+        F2: Clone + DeserializeOwned,
         C2: CapabilityParser,
     {
         let hasher = hasher.unwrap_or(DEFAULT_MULTIHASH);
@@ -116,7 +116,7 @@ where
             Ok(cid) => {
                 self.proofs
                     .get_or_insert(Default::default())
-                    .push(cid.to_string());
+                    .push(CidString(cid));
             }
             Err(e) => panic!("Failed to add authority: {}", e),
         }

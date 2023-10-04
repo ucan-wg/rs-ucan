@@ -4,6 +4,11 @@
 
 //! rs-ucan
 
+use std::str::FromStr;
+
+use cid::Cid;
+use serde::{de, Deserialize, Deserializer, Serialize};
+
 pub mod builder;
 pub mod capability;
 pub mod crypto;
@@ -16,6 +21,39 @@ pub mod ucan;
 
 /// A decentralized identifier.
 pub type Did = String;
+
+/// The empty fact
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EmptyFact {}
+
+/// The default fact
+pub type DefaultFact = EmptyFact;
+
+/// A newtype around Cid that (de)serializes as a string
+#[derive(Debug, Clone)]
+pub struct CidString(pub(crate) Cid);
+
+impl Serialize for CidString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.0.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CidString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        Cid::from_str(&s)
+            .map(CidString)
+            .map_err(|e| de::Error::custom(format!("invalid CID: {}", e)))
+    }
+}
 
 /// Test utilities.
 #[cfg(any(test, feature = "test_utils"))]
