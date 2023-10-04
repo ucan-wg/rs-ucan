@@ -166,3 +166,227 @@ impl Display for WnfsAbility {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_plugin_scheme() {
+        assert_eq!(WnfsPlugin.scheme(), "wnfs");
+    }
+
+    #[test]
+    fn test_plugin_try_handle_resource_public() -> anyhow::Result<()> {
+        let resource =
+            WnfsPlugin.try_handle_resource(&Url::parse("wnfs://user/public/path/to/file")?)?;
+
+        assert_eq!(
+            resource,
+            Some(WnfsResource::PublicPath {
+                user: "user".to_string(),
+                path: vec!["path".to_string(), "to".to_string(), "file".to_string()],
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_plugin_try_handle_resource_invalid() -> anyhow::Result<()> {
+        let resource =
+            WnfsPlugin.try_handle_resource(&Url::parse("wnfs://user/invalid/path/to/file")?)?;
+
+        assert_eq!(resource, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_plugin_try_handle_ability_public() -> anyhow::Result<()> {
+        let resource = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["path".to_string(), "to".to_string(), "file".to_string()],
+        };
+
+        let ability_create = WnfsPlugin.try_handle_ability(&resource, "wnfs/create")?;
+        let ability_revise = WnfsPlugin.try_handle_ability(&resource, "wnfs/revise")?;
+        let ability_soft_delete = WnfsPlugin.try_handle_ability(&resource, "wnfs/soft_delete")?;
+        let ability_overwrite = WnfsPlugin.try_handle_ability(&resource, "wnfs/overwrite")?;
+        let ability_super_user = WnfsPlugin.try_handle_ability(&resource, "wnfs/super_user")?;
+        let ability_invalid = WnfsPlugin.try_handle_ability(&resource, "wnfs/not-an-ability")?;
+
+        assert_eq!(ability_create, Some(WnfsAbility::Create));
+        assert_eq!(ability_revise, Some(WnfsAbility::Revise));
+        assert_eq!(ability_soft_delete, Some(WnfsAbility::SoftDelete));
+        assert_eq!(ability_overwrite, Some(WnfsAbility::Overwrite));
+        assert_eq!(ability_super_user, Some(WnfsAbility::SuperUser));
+        assert_eq!(ability_invalid, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_resource_public_display() {
+        let resource = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        assert_eq!(resource.to_string(), "wnfs://user/public/foo/bar");
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_identity() {
+        let resource = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        assert!(resource.is_valid_attenuation(&resource));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_child() {
+        let parent = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let child = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string(), "baz".to_string()],
+        };
+
+        assert!(child.is_valid_attenuation(&parent));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_descendent() {
+        let ancestor = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let descendent = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec![
+                "foo".to_string(),
+                "bar".to_string(),
+                "baz".to_string(),
+                "qux".to_string(),
+            ],
+        };
+
+        assert!(descendent.is_valid_attenuation(&ancestor));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_parent() {
+        let parent = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let child = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string(), "baz".to_string()],
+        };
+
+        assert!(!parent.is_valid_attenuation(&child));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_ancestor() {
+        let ancestor = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let descendent = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec![
+                "foo".to_string(),
+                "bar".to_string(),
+                "baz".to_string(),
+                "qux".to_string(),
+            ],
+        };
+
+        assert!(!ancestor.is_valid_attenuation(&descendent));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_sibling() {
+        let sibling_1 = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let sibling_2 = WnfsResource::PublicPath {
+            user: "user".to_string(),
+            path: vec!["foo".to_string(), "baz".to_string()],
+        };
+
+        assert!(!sibling_1.is_valid_attenuation(&sibling_2));
+        assert!(!sibling_2.is_valid_attenuation(&sibling_1));
+    }
+
+    #[test]
+    fn test_resource_public_attenuation_distinct_users() {
+        let path_1 = WnfsResource::PublicPath {
+            user: "user1".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        let path_2 = WnfsResource::PublicPath {
+            user: "user2".to_string(),
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        assert!(!path_1.is_valid_attenuation(&path_2));
+        assert!(!path_2.is_valid_attenuation(&path_1));
+    }
+
+    #[test]
+    fn test_ability_attenuation() {
+        assert!(WnfsAbility::Create.is_valid_attenuation(&WnfsAbility::Create));
+        assert!(WnfsAbility::Create.is_valid_attenuation(&WnfsAbility::Revise));
+        assert!(WnfsAbility::Create.is_valid_attenuation(&WnfsAbility::SoftDelete));
+        assert!(WnfsAbility::Create.is_valid_attenuation(&WnfsAbility::Overwrite));
+        assert!(WnfsAbility::Create.is_valid_attenuation(&WnfsAbility::SuperUser));
+
+        assert!(!WnfsAbility::Revise.is_valid_attenuation(&WnfsAbility::Create));
+        assert!(WnfsAbility::Revise.is_valid_attenuation(&WnfsAbility::Revise));
+        assert!(WnfsAbility::Revise.is_valid_attenuation(&WnfsAbility::SoftDelete));
+        assert!(WnfsAbility::Revise.is_valid_attenuation(&WnfsAbility::Overwrite));
+        assert!(WnfsAbility::Revise.is_valid_attenuation(&WnfsAbility::SuperUser));
+
+        assert!(!WnfsAbility::SoftDelete.is_valid_attenuation(&WnfsAbility::Create));
+        assert!(!WnfsAbility::SoftDelete.is_valid_attenuation(&WnfsAbility::Revise));
+        assert!(WnfsAbility::SoftDelete.is_valid_attenuation(&WnfsAbility::SoftDelete));
+        assert!(WnfsAbility::SoftDelete.is_valid_attenuation(&WnfsAbility::Overwrite));
+        assert!(WnfsAbility::SoftDelete.is_valid_attenuation(&WnfsAbility::SuperUser));
+
+        assert!(!WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::Create));
+        assert!(!WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::Revise));
+        assert!(!WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::SoftDelete));
+        assert!(WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::Overwrite));
+        assert!(WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::SuperUser));
+
+        assert!(!WnfsAbility::SuperUser.is_valid_attenuation(&WnfsAbility::Create));
+        assert!(!WnfsAbility::SuperUser.is_valid_attenuation(&WnfsAbility::Revise));
+        assert!(!WnfsAbility::SuperUser.is_valid_attenuation(&WnfsAbility::SoftDelete));
+        assert!(!WnfsAbility::SuperUser.is_valid_attenuation(&WnfsAbility::Overwrite));
+        assert!(WnfsAbility::Overwrite.is_valid_attenuation(&WnfsAbility::SuperUser));
+    }
+
+    #[test]
+    fn test_ability_display() {
+        assert_eq!(WnfsAbility::Create.to_string(), "wnfs/create");
+        assert_eq!(WnfsAbility::Revise.to_string(), "wnfs/revise");
+        assert_eq!(WnfsAbility::SoftDelete.to_string(), "wnfs/soft_delete");
+        assert_eq!(WnfsAbility::Overwrite.to_string(), "wnfs/overwrite");
+        assert_eq!(WnfsAbility::SuperUser.to_string(), "wnfs/super_user");
+    }
+}
