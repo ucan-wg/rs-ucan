@@ -16,6 +16,7 @@ pub mod did_verifier;
 pub mod error;
 pub mod plugins;
 pub mod semantics;
+pub mod store;
 pub mod time;
 pub mod ucan;
 

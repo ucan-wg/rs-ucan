@@ -1,3 +1,4 @@
+use libipld_core::{ipld::Ipld, raw::RawCodec};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
@@ -5,6 +6,7 @@ use rs_ucan::{
     capability::DefaultCapabilityParser,
     crypto::eddsa::ed25519_dalek_verifier,
     did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
+    store::{self, Store},
     ucan::Ucan,
     DefaultFact,
 };
@@ -163,10 +165,21 @@ struct ToCidTestOutputs {
 
 impl TestTask for VerifyTest {
     fn run(&self, name: &str, report: &mut TestReport) {
+        let mut store = store::InMemoryStore::<RawCodec>::default();
+
         let mut did_key_verifier = DidKeyVerifier::default();
         let mut did_verifier_map = DidVerifierMap::default();
         did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
         did_verifier_map.register(did_key_verifier);
+
+        for (_cid, token) in self.inputs.proofs.iter() {
+            store
+                .write(
+                    Ipld::Bytes(token.as_bytes().to_vec()),
+                    multihash::Code::Sha2_256,
+                )
+                .unwrap();
+        }
 
         let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
         else {
@@ -302,11 +315,21 @@ impl TestTask for VerifyTest {
 
 impl TestTask for RefuteTest {
     fn run(&self, name: &str, report: &mut TestReport) {
+        let mut store = store::InMemoryStore::<RawCodec>::default();
         let mut did_key_verifier = DidKeyVerifier::default();
         did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
 
         let mut did_verifier_map = DidVerifierMap::default();
         did_verifier_map.register(did_key_verifier);
+
+        for (_cid, token) in self.inputs.proofs.iter() {
+            store
+                .write(
+                    Ipld::Bytes(token.as_bytes().to_vec()),
+                    multihash::Code::Sha2_256,
+                )
+                .unwrap();
+        }
 
         if let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
         {

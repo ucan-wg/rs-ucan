@@ -28,6 +28,7 @@ path = "examples/counterparts.rs"
 
 [dependencies]
 anyhow = "1.0.75"
+async-trait = "0.1.73"
 blst = "0.3.11"
 cid = "0.10.1"
 downcast-rs = "1.2.0"
@@ -40,6 +41,7 @@ instant = "0.1.12"
 jose-b64 = { version = "0.1.2", features = ["serde", "json"] }
 k256 = "0.13.1"
 lazy_static = "1.4.0"
+libipld-core = "0.16.0"
 linkme = "0.3.15"
 multibase = "0.9.1"
 p256 = "0.13.2"
