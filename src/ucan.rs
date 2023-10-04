@@ -6,7 +6,6 @@ use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
     did_verifier::DidVerifierMap,
     error::Error,
-    semantics::{ability::Ability, resource::Resource},
     CidString, DefaultFact,
 };
 use cid::{
@@ -284,31 +283,6 @@ where
         let cid = Cid::new_v1(RAW_CODEC, digest);
 
         Ok(cid)
-    }
-
-    /// Returns true if the UCAN authorizes the given resource and ability
-    // TODO: This is an old placeholder implementation that needs to take
-    // into account the issuer of the capabilities
-    pub fn is_authorized<R, A>(&self, resource: &R, ability: &A) -> bool
-    where
-        R: Resource,
-        A: Ability,
-    {
-        for capability in self.capabilities() {
-            if !resource.is_valid_attenuation(capability.resource()) {
-                continue;
-            }
-
-            if !ability.is_valid_attenuation(capability.ability()) {
-                continue;
-            }
-
-            if capability.caveat().is_valid() {
-                return true;
-            }
-        }
-
-        false
     }
 }
 
