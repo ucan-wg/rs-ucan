@@ -7,7 +7,7 @@ use crate::{
     did_verifier::DidVerifierMap,
     error::Error,
     semantics::{ability::Ability, resource::Resource},
-    time, CidString, DefaultFact,
+    CidString, DefaultFact,
 };
 use cid::{
     multihash::{self, MultihashDigest},
@@ -61,11 +61,7 @@ where
     C: CapabilityParser,
 {
     /// Validate the UCAN's signature and timestamps
-    pub fn validate(
-        &self,
-        now_time: Option<u64>,
-        did_verifier_map: &DidVerifierMap,
-    ) -> Result<(), Error> {
+    pub fn validate(&self, at_time: u64, did_verifier_map: &DidVerifierMap) -> Result<(), Error> {
         if self.typ() != "JWT" {
             return Err(Error::VerifyingError {
                 msg: format!("expected header typ field to be 'JWT', got {}", self.typ()),
@@ -81,13 +77,13 @@ where
             });
         }
 
-        if self.is_expired(now_time) {
+        if self.is_expired(at_time) {
             return Err(Error::VerifyingError {
                 msg: "token is expired".to_string(),
             });
         }
 
-        if self.is_too_early() {
+        if self.is_too_early(at_time) {
             return Err(Error::VerifyingError {
                 msg: "current time is before token validity period begins".to_string(),
             });
@@ -162,9 +158,9 @@ where
     }
 
     /// Returns true if the UCAN has past its expiration date
-    pub fn is_expired(&self, now_time: Option<u64>) -> bool {
+    pub fn is_expired(&self, at_time: u64) -> bool {
         if let Some(exp) = self.payload.exp {
-            exp < now_time.unwrap_or_else(time::now)
+            exp < at_time
         } else {
             false
         }
@@ -176,9 +172,9 @@ where
     }
 
     /// Returns true if the not-before ("nbf") time is still in the future
-    pub fn is_too_early(&self) -> bool {
+    pub fn is_too_early(&self, at_time: u64) -> bool {
         match self.payload.nbf {
-            Some(nbf) => nbf > time::now(),
+            Some(nbf) => nbf > at_time,
             None => false,
         }
     }

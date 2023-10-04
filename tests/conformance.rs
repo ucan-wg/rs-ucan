@@ -292,7 +292,7 @@ impl TestTask for VerifyTest {
             return;
         }
 
-        if let Err(err) = ucan.validate(Some(rs_ucan::time::now()), &did_verifier_map) {
+        if let Err(err) = ucan.validate(rs_ucan::time::now(), &did_verifier_map) {
             report.register_failure(name, err.to_string());
 
             return;
@@ -311,7 +311,7 @@ impl TestTask for RefuteTest {
         if let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
         {
             if ucan
-                .validate(Some(rs_ucan::time::now()), &did_verifier_map)
+                .validate(rs_ucan::time::now(), &did_verifier_map)
                 .is_ok()
             {
                 report.register_failure(
