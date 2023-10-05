@@ -1,17 +1,20 @@
 //! JWT embedding of a UCAN
 
-use std::str::FromStr;
+use std::{collections::vec_deque::VecDeque, str::FromStr};
 
 use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
     did_verifier::DidVerifierMap,
     error::Error,
-    CidString, DefaultFact,
+    semantics::{ability::Ability, resource::Resource},
+    store::Store,
+    CidString, DefaultFact, Did,
 };
 use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
+use libipld_core::{ipld::Ipld, raw::RawCodec};
 use semver::Version;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 
@@ -129,6 +132,131 @@ where
         );
 
         did_verifier_map.verify(method, identifier, signed_data.as_bytes(), &self.signature)
+    }
+
+    /// Returns true if the UCAN is authorized by the given issuer to
+    /// perform the ability against the resource
+    pub fn capabilities_for<R, A, S>(
+        &self,
+        issuer: Did,
+        resource: R,
+        ability: A,
+        at_time: u64,
+        did_verifier_map: &DidVerifierMap,
+        store: &S,
+    ) -> Result<Vec<Capability>, Error>
+    where
+        R: Resource,
+        A: Ability,
+        S: Store<RawCodec, Error = anyhow::Error>,
+    {
+        let mut capabilities = vec![];
+        let mut proof_queue: VecDeque<(Ucan<F, C>, Capability, Capability)> = VecDeque::default();
+
+        self.validate(at_time, did_verifier_map)?;
+
+        for capability in self.capabilities() {
+            if !resource.is_valid_attenuation(capability.resource()) {
+                continue;
+            }
+
+            if !ability.is_valid_attenuation(capability.ability()) {
+                continue;
+            }
+
+            proof_queue.push_back((self.clone(), capability.clone(), capability.clone()));
+        }
+
+        while let Some((ucan, attenuated_cap, leaf_cap)) = proof_queue.pop_front() {
+            for proof_cid in ucan.proofs().unwrap_or(vec![]) {
+                match store
+                    .read::<Ipld>(proof_cid)
+                    .map_err(|e| Error::InternalUcanError {
+                        msg: format!(
+                            "error while retrieving proof ({}) from store, {}",
+                            proof_cid, e
+                        ),
+                    })? {
+                    Some(Ipld::Bytes(bytes)) => {
+                        let token =
+                            String::from_utf8(bytes).map_err(|e| Error::InternalUcanError {
+                                msg: format!(
+                                    "error converting token for proof ({}) into UTF-8 string, {}",
+                                    proof_cid, e
+                                ),
+                            })?;
+
+                        let proof_ucan =
+                            Ucan::from_str(&token).map_err(|e| Error::InternalUcanError {
+                                msg: format!(
+                                    "error decoding token for proof ({}) into UCAN, {}",
+                                    proof_cid, e
+                                ),
+                            })?;
+
+                        if ucan.expires_at() > proof_ucan.expires_at() {
+                            continue;
+                        }
+
+                        if ucan.not_before() < proof_ucan.not_before() {
+                            continue;
+                        }
+
+                        if ucan.issuer() != proof_ucan.audience() {
+                            continue;
+                        }
+
+                        if ucan.validate(at_time, did_verifier_map).is_err() {
+                            continue;
+                        }
+
+                        for capability in self.capabilities() {
+                            if !attenuated_cap
+                                .resource()
+                                .is_valid_attenuation(capability.resource())
+                            {
+                                continue;
+                            }
+
+                            if !attenuated_cap
+                                .ability()
+                                .is_valid_attenuation(capability.ability())
+                            {
+                                continue;
+                            }
+
+                            if !attenuated_cap
+                                .caveat()
+                                .is_valid_attenuation(capability.caveat())
+                            {
+                                continue;
+                            }
+
+                            if ucan.issuer() == issuer {
+                                capabilities.push(leaf_cap.clone());
+                            }
+
+                            proof_queue.push_back((
+                                proof_ucan.clone(),
+                                capability.clone(),
+                                leaf_cap.clone(),
+                            ));
+                        }
+                    }
+                    Some(ipld) => {
+                        return Err(Error::InternalUcanError {
+                            msg: format!(
+                                "expected proof ({}) to map to bytes, got {:?}",
+                                proof_cid, ipld
+                            ),
+                        })
+                    }
+                    None => continue,
+                }
+            }
+        }
+
+        Ok(capabilities)
     }
 
     /// Encode the UCAN as a JWT token
