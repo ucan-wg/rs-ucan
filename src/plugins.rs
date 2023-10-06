@@ -11,7 +11,7 @@ use crate::{
     error::Error,
     semantics::{
         ability::{Ability, TopAbility},
-        caveat::Caveat,
+        caveat::{Caveat, EmptyCaveat},
         resource::Resource,
     },
 };
@@ -150,6 +150,13 @@ where
         let Some(resource) = resource.downcast_ref::<R>() else {
             return Ok(None);
         };
+
+        if ability.is::<TopAbility>() {
+            return Ok(Some(Box::new(
+                erased_serde::deserialize::<EmptyCaveat>(deserializer)
+                    .map_err(|e| anyhow::anyhow!(e))?,
+            )));
+        }
 
         let Some(ability) = ability.downcast_ref::<A>() else {
             return Ok(None);
