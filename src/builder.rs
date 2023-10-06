@@ -193,7 +193,7 @@ where
 
         let signature = signer.sign(signed_data.as_bytes()).to_vec().into();
 
-        Ok(Ucan {
+        Ok(Ucan::<F, C> {
             header,
             payload,
             signature,

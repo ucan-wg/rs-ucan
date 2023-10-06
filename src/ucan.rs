@@ -422,7 +422,7 @@ where
     type Error = Error;
 
     fn try_from(ucan_token: &str) -> Result<Self, Self::Error> {
-        Ucan::from_str(ucan_token)
+        Ucan::<F, C>::from_str(ucan_token)
     }
 }
 
@@ -469,7 +469,7 @@ where
                 msg: "malformed signature".to_string(),
             })?;
 
-        Ok(Ucan {
+        Ok(Ucan::<F, C> {
             header,
             payload,
             signature,
