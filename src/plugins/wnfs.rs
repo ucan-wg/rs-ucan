@@ -2,10 +2,7 @@
 
 use std::fmt::Display;
 
-use crate::{
-    error::Error,
-    semantics::{ability::Ability, caveat::EmptyCaveat, resource::Resource},
-};
+use crate::semantics::{ability::Ability, caveat::EmptyCaveat, resource::Resource};
 use url::Url;
 
 use super::Plugin;

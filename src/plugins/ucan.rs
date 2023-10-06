@@ -6,7 +6,6 @@ use cid::Cid;
 use url::Url;
 
 use crate::{
-    error::Error,
     semantics::{ability::Ability, caveat::EmptyCaveat},
     Did,
 };

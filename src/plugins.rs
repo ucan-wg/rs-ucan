@@ -20,7 +20,8 @@ pub mod ucan;
 pub mod wnfs;
 
 #[distributed_slice]
-static STATIC_PLUGINS: [&dyn Plugin<
+#[doc(hidden)]
+pub static STATIC_PLUGINS: [&dyn Plugin<
     Resource = Box<dyn Resource>,
     Ability = Box<dyn Ability>,
     Caveat = Box<dyn Caveat>,
@@ -88,7 +89,8 @@ where
     C: 'static,
     E: 'static,
 {
-    inner: &'static dyn Plugin<Resource = R, Ability = A, Caveat = C, Error = E>,
+    #[doc(hidden)]
+    pub inner: &'static dyn Plugin<Resource = R, Ability = A, Caveat = C, Error = E>,
 }
 
 impl<R, A, C, E> Plugin for WrappedPlugin<R, A, C, E>
@@ -216,7 +218,7 @@ macro_rules! register_plugin {
             Resource = Box<dyn $crate::semantics::resource::Resource>,
             Ability = Box<dyn $crate::semantics::ability::Ability>,
             Caveat = Box<dyn $crate::semantics::caveat::Caveat>,
-            Error = Error,
+            Error = $crate::error::Error,
         > = &$crate::plugins::WrappedPlugin { inner: $plugin };
     };
 }
