@@ -28,7 +28,7 @@ impl fmt::Debug for dyn Caveat {
 
 /// A caveat that is always valid
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct EmptyCaveat {}
+pub struct EmptyCaveat;
 
 impl Caveat for EmptyCaveat {
     fn is_valid(&self) -> bool {

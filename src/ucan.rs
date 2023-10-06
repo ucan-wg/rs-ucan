@@ -543,7 +543,7 @@ mod tests {
                     path: vec!["photos".to_string()],
                 },
                 WnfsAbility::Create,
-                EmptyCaveat {},
+                EmptyCaveat,
             ))
             .sign(&iss_key)?;
 
@@ -576,7 +576,7 @@ mod tests {
 
         assert_eq!(
             capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
-            Some(&EmptyCaveat {})
+            Some(&EmptyCaveat)
         );
 
         Ok(())
@@ -603,7 +603,7 @@ mod tests {
                     path: vec!["photos".to_string()],
                 },
                 WnfsAbility::Overwrite,
-                EmptyCaveat {},
+                EmptyCaveat,
             ))
             .sign(&iss_key)?;
 
@@ -636,7 +636,7 @@ mod tests {
 
         assert_eq!(
             capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
-            Some(&EmptyCaveat {})
+            Some(&EmptyCaveat)
         );
 
         Ok(())
@@ -663,7 +663,7 @@ mod tests {
                     path: vec!["photos".to_string()],
                 },
                 TopAbility,
-                EmptyCaveat {},
+                EmptyCaveat,
             ))
             .sign(&iss_key)?;
 
@@ -696,7 +696,7 @@ mod tests {
 
         assert_eq!(
             capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
-            Some(&EmptyCaveat {})
+            Some(&EmptyCaveat)
         );
 
         Ok(())
