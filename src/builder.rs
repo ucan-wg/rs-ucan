@@ -175,15 +175,77 @@ where
         })
         .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
 
-        let signature = signer
-            .sign(&[header.as_ref(), ".".as_bytes(), payload.as_ref()].concat())
-            .to_vec()
-            .into();
+        let header_b64 = serde_json::to_value(&header)
+            .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let payload_b64 = serde_json::to_value(&payload)
+            .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let signed_data = format!(
+            "{}.{}",
+            header_b64.as_str().ok_or(Error::InternalUcanError {
+                msg: "Expected base64 encoding of header".to_string(),
+            })?,
+            payload_b64.as_str().ok_or(Error::InternalUcanError {
+                msg: "Expected base64 encoding of payload".to_string(),
+            })?,
+        );
+
+        let signature = signer.sign(signed_data.as_bytes()).to_vec().into();
 
         Ok(Ucan {
             header,
             payload,
             signature,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use multibase::Base;
+    use signature::rand_core;
+
+    use crate::{
+        crypto::eddsa::ed25519_dalek_verifier,
+        did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_round_trip_validate() -> Result<(), anyhow::Error> {
+        let mut did_key_verifier = DidKeyVerifier::default();
+        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
+
+        let mut did_verifier_map = DidVerifierMap::default();
+        did_verifier_map.register(did_key_verifier);
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let ucan: Ucan = UcanBuilder::default()
+            .issued_by(ed25519_to_did(iss_key.verifying_key()))
+            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .sign(&iss_key)?;
+
+        let token = ucan.encode()?;
+        let decoded: Ucan = Ucan::from_str(&token)?;
+
+        assert!(decoded.validate(0, &did_verifier_map).is_ok());
+
+        Ok(())
+    }
+
+    fn ed25519_to_did(key: ed25519_dalek::VerifyingKey) -> String {
+        format!(
+            "did:key:{}",
+            multibase::encode(
+                Base::Base58Btc,
+                &[&[0xed, 0x01], key.to_bytes().as_ref()].concat()
+            )
+        )
     }
 }
