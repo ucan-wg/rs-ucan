@@ -220,7 +220,7 @@ pub fn register_plugin<R, A, C, E>(
 #[macro_export]
 macro_rules! register_plugin {
     ($name:ident, $plugin:expr) => {
-        #[linkme::distributed_slice($crate::plugins::STATIC_PLUGINS)]
+        #[$crate::linkme::distributed_slice($crate::plugins::STATIC_PLUGINS)]
         static $name: &'static dyn Plugin<
             Resource = Box<dyn $crate::semantics::resource::Resource>,
             Ability = Box<dyn $crate::semantics::ability::Ability>,

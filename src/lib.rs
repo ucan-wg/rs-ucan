@@ -20,6 +20,9 @@ pub mod store;
 pub mod time;
 pub mod ucan;
 
+#[doc(hidden)]
+pub use linkme;
+
 /// A decentralized identifier.
 pub type Did = String;
 
