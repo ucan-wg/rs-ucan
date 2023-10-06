@@ -65,8 +65,15 @@ multihash = "0.18.0"
 proptest = "1.1"
 
 [features]
-default = []
+default = ["did-key", "eddsa-verifier", "es256-verifier", "es256k-verifier", "es384-verifier", "ps256-verifier", "rs256-verifier"]
 test_utils = ["proptest"]
+did-key = []
+eddsa-verifier = []
+es256-verifier = []
+es256k-verifier = []
+es384-verifier = []
+ps256-verifier = []
+rs256-verifier = []
 
 [metadata.docs.rs]
 all-features = true

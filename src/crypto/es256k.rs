@@ -10,7 +10,7 @@ impl JWSSignature for ecdsa::Signature<k256::Secp256k1> {
 }
 
 /// A verifier for ES256k signatures
-pub fn k256_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
+pub fn es256k_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
     let key =
         k256::ecdsa::VerifyingKey::try_from(key).map_err(|_| anyhow!("invalid secp256k1 key"))?;
 

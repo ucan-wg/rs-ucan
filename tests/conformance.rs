@@ -4,8 +4,7 @@ use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
 use rs_ucan::{
     capability::DefaultCapabilityParser,
-    crypto::eddsa::ed25519_dalek_verifier,
-    did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
+    did_verifier::DidVerifierMap,
     store::{self, Store},
     ucan::Ucan,
     DefaultFact,
@@ -166,11 +165,7 @@ struct ToCidTestOutputs {
 impl TestTask for VerifyTest {
     fn run(&self, name: &str, report: &mut TestReport) {
         let mut store = store::InMemoryStore::<RawCodec>::default();
-
-        let mut did_key_verifier = DidKeyVerifier::default();
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         for (_cid, token) in self.inputs.proofs.iter() {
             store
@@ -316,11 +311,7 @@ impl TestTask for VerifyTest {
 impl TestTask for RefuteTest {
     fn run(&self, name: &str, report: &mut TestReport) {
         let mut store = store::InMemoryStore::<RawCodec>::default();
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         for (_cid, token) in self.inputs.proofs.iter() {
             store

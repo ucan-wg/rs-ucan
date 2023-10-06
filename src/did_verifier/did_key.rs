@@ -6,16 +6,48 @@ use std::{any::TypeId, collections::HashMap};
 use anyhow::anyhow;
 use multibase::Base;
 
+use crate::crypto::{
+    eddsa::eddsa_verifier, es256::es256_verifier, es256k::es256k_verifier, es384::es384_verifier,
+    ps256::ps256_verifier, rs256::rs256_verifier,
+};
+
 use super::DidVerifier;
 
 /// A closure for verifying a signature
 pub type SignatureVerifier = dyn Fn(&[u8], &[u8], &[u8]) -> Result<(), anyhow::Error>;
 
 /// did:key method verifier
-#[derive(Default)]
 pub struct DidKeyVerifier {
     /// map from type id of signature to verifier function
     verifier_map: HashMap<TypeId, Box<SignatureVerifier>>,
+}
+
+impl Default for DidKeyVerifier {
+    fn default() -> Self {
+        let mut did_key_verifier = Self {
+            verifier_map: HashMap::new(),
+        };
+
+        #[cfg(feature = "eddsa-verifier")]
+        did_key_verifier.set::<ed25519::Signature, _>(eddsa_verifier);
+
+        #[cfg(feature = "es256-verifier")]
+        did_key_verifier.set::<ecdsa::Signature<p256::NistP256>, _>(es256_verifier);
+
+        #[cfg(feature = "es256k-verifier")]
+        did_key_verifier.set::<ecdsa::Signature<k256::Secp256k1>, _>(es256k_verifier);
+
+        #[cfg(feature = "es384-verifier")]
+        did_key_verifier.set::<ecdsa::Signature<p384::NistP384>, _>(es384_verifier);
+
+        #[cfg(feature = "ps256-verifier")]
+        did_key_verifier.set::<rsa::pss::Signature, _>(ps256_verifier);
+
+        #[cfg(feature = "rs256-verifier")]
+        did_key_verifier.set::<rsa::pkcs1v15::Signature, _>(rs256_verifier);
+
+        did_key_verifier
+    }
 }
 
 impl DidKeyVerifier {

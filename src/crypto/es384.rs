@@ -10,7 +10,7 @@ impl JWSSignature for ecdsa::Signature<p384::NistP384> {
 }
 
 /// A verifier for ES384 signatures
-pub fn p384_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
+pub fn es384_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
     let key = p384::ecdsa::VerifyingKey::try_from(key).map_err(|_| anyhow!("invalid P-384 key"))?;
 
     let signature =

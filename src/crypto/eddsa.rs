@@ -10,11 +10,7 @@ impl JWSSignature for ed25519::Signature {
 }
 
 /// A verifier for Ed25519 signatures using the `ed25519-dalek` crate
-pub fn ed25519_dalek_verifier(
-    key: &[u8],
-    payload: &[u8],
-    signature: &[u8],
-) -> Result<(), anyhow::Error> {
+pub fn eddsa_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
     let key = ed25519_dalek::VerifyingKey::try_from(key)
         .map_err(|e| anyhow!("invalid Ed25519 key, {}", e))?;
 

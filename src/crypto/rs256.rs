@@ -10,11 +10,7 @@ impl JWSSignature for rsa::pkcs1v15::Signature {
 }
 
 /// A verifier for RS256 signatures
-pub fn rsassa_pkcs1_v1_5_sha256_verifier(
-    key: &[u8],
-    payload: &[u8],
-    signature: &[u8],
-) -> Result<(), anyhow::Error> {
+pub fn rs256_verifier(key: &[u8], payload: &[u8], signature: &[u8]) -> Result<(), anyhow::Error> {
     let key = rsa::pkcs1::DecodeRsaPublicKey::from_pkcs1_der(key)
         .map_err(|e| anyhow!("invalid PKCS#1 key, {}", e))?;
 

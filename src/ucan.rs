@@ -479,8 +479,7 @@ mod tests {
 
     use crate::{
         builder::UcanBuilder,
-        crypto::eddsa::ed25519_dalek_verifier,
-        did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
+        did_verifier::DidVerifierMap,
         plugins::wnfs::{WnfsAbility, WnfsResource},
         semantics::{ability::TopAbility, caveat::EmptyCaveat},
         store::InMemoryStore,
@@ -491,11 +490,7 @@ mod tests {
     #[test]
     fn test_capabilities_for_empty() -> Result<(), anyhow::Error> {
         let store = InMemoryStore::<RawCodec>::default();
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
@@ -525,11 +520,7 @@ mod tests {
     #[test]
     fn test_capabilities_for_root_capability_exact() -> Result<(), anyhow::Error> {
         let store = InMemoryStore::<RawCodec>::default();
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
@@ -585,11 +576,7 @@ mod tests {
     #[test]
     fn test_capabilities_for_root_capability_subsumed_by_semantics() -> Result<(), anyhow::Error> {
         let store = InMemoryStore::<RawCodec>::default();
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
@@ -645,11 +632,7 @@ mod tests {
     #[test]
     fn test_capabilities_for_root_capability_subsumed_by_top() -> Result<(), anyhow::Error> {
         let store = InMemoryStore::<RawCodec>::default();
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);

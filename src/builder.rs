@@ -208,20 +208,13 @@ mod tests {
     use multibase::Base;
     use signature::rand_core;
 
-    use crate::{
-        crypto::eddsa::ed25519_dalek_verifier,
-        did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
-    };
+    use crate::did_verifier::DidVerifierMap;
 
     use super::*;
 
     #[test]
     fn test_round_trip_validate() -> Result<(), anyhow::Error> {
-        let mut did_key_verifier = DidKeyVerifier::default();
-        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
-
-        let mut did_verifier_map = DidVerifierMap::default();
-        did_verifier_map.register(did_key_verifier);
+        let did_verifier_map = DidVerifierMap::default();
 
         let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);

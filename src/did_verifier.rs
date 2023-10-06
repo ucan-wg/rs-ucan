@@ -5,12 +5,27 @@ use std::collections::HashMap;
 
 use crate::error::Error;
 
+use self::did_key::DidKeyVerifier;
+
 pub mod did_key;
 
 /// A map from did method to verifier
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DidVerifierMap {
     map: HashMap<String, Box<dyn DidVerifier>>,
+}
+
+impl Default for DidVerifierMap {
+    fn default() -> Self {
+        let mut did_verifier_map = Self {
+            map: HashMap::new(),
+        };
+
+        #[cfg(feature = "did-key")]
+        did_verifier_map.register(DidKeyVerifier::default());
+
+        did_verifier_map
+    }
 }
 
 impl DidVerifierMap {
