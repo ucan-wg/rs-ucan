@@ -6,7 +6,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use dyn_clone::{clone_trait_object, DynClone};
 
 /// A resource defined as part of a semantics
-pub trait Resource: Display + DynClone + Downcast + 'static {
+pub trait Resource: Send + Sync + Display + DynClone + Downcast + 'static {
     /// Returns true if self is a valid attenuation of other
     fn is_valid_attenuation(&self, other: &dyn Resource) -> bool;
 }

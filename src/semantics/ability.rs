@@ -8,7 +8,7 @@ use dyn_clone::{clone_trait_object, DynClone};
 use super::caveat::Caveat;
 
 /// An ability defined as part of a semantics
-pub trait Ability: Display + DynClone + Downcast + 'static {
+pub trait Ability: Send + Sync + Display + DynClone + Downcast + 'static {
     /// Returns true if self is a valid attenuation of other
     fn is_valid_attenuation(&self, other: &dyn Ability) -> bool;
 

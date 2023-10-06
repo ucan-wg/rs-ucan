@@ -8,7 +8,7 @@ use erased_serde::serialize_trait_object;
 use serde::{Deserialize, Serialize};
 
 /// A caveat defined as part of a semantics
-pub trait Caveat: DynClone + Downcast + erased_serde::Serialize + 'static {
+pub trait Caveat: Send + Sync + DynClone + Downcast + erased_serde::Serialize + 'static {
     /// Returns true if the caveat is valid
     fn is_valid(&self) -> bool;
 
