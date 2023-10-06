@@ -21,14 +21,37 @@ pub type DefaultCapabilityParser = PluginCapability;
 #[derive(Debug, Clone)]
 pub struct Capability {
     /// The resource
-    pub resource: Box<dyn Resource>,
+    resource: Box<dyn Resource>,
     /// The ability
-    pub ability: Box<dyn Ability>,
+    ability: Box<dyn Ability>,
     /// The caveat
-    pub caveat: Box<dyn Caveat>,
+    caveat: Box<dyn Caveat>,
 }
 
 impl Capability {
+    /// Creates a new capability
+    pub fn new<R, A, C>(resource: R, ability: A, caveat: C) -> Self
+    where
+        R: Resource,
+        A: Ability,
+        C: Caveat,
+    {
+        Self {
+            resource: Box::new(resource),
+            ability: Box::new(ability),
+            caveat: Box::new(caveat),
+        }
+    }
+
+    /// Creates a new capability by cloning the resource, ability, and caveat as trait objects
+    pub fn clone_box(resource: &dyn Resource, ability: &dyn Ability, caveat: &dyn Caveat) -> Self {
+        Self {
+            resource: dyn_clone::clone_box(resource),
+            ability: dyn_clone::clone_box(ability),
+            caveat: dyn_clone::clone_box(caveat),
+        }
+    }
+
     /// Returns the resource
     pub fn resource(&self) -> &dyn Resource {
         &*self.resource

@@ -156,15 +156,17 @@ where
         self.validate(at_time, did_verifier_map)?;
 
         for capability in self.capabilities() {
-            if !resource.is_valid_attenuation(capability.resource()) {
+            let attenuated = Capability::clone_box(&resource, &ability, capability.caveat());
+
+            if !attenuated.is_subsumed_by(capability) {
                 continue;
             }
 
-            if !ability.is_valid_attenuation(capability.ability()) {
-                continue;
+            if self.issuer() == issuer {
+                capabilities.push(attenuated.clone())
             }
 
-            proof_queue.push_back((self.clone(), capability.clone(), capability.clone()));
+            proof_queue.push_back((self.clone(), capability.clone(), attenuated));
         }
 
         while let Some((ucan, attenuated_cap, leaf_cap)) = proof_queue.pop_front() {
@@ -206,33 +208,16 @@ where
                             continue;
                         }
 
-                        if ucan.validate(at_time, did_verifier_map).is_err() {
+                        if proof_ucan.validate(at_time, did_verifier_map).is_err() {
                             continue;
                         }
 
-                        for capability in self.capabilities() {
-                            if !attenuated_cap
-                                .resource()
-                                .is_valid_attenuation(capability.resource())
-                            {
+                        for capability in proof_ucan.capabilities() {
+                            if !attenuated_cap.is_subsumed_by(capability) {
                                 continue;
                             }
 
-                            if !attenuated_cap
-                                .ability()
-                                .is_valid_attenuation(capability.ability())
-                            {
-                                continue;
-                            }
-
-                            if !attenuated_cap
-                                .caveat()
-                                .is_valid_attenuation(capability.caveat())
-                            {
-                                continue;
-                            }
-
-                            if ucan.issuer() == issuer {
+                            if proof_ucan.issuer() == issuer {
                                 capabilities.push(leaf_cap.clone());
                             }
 
@@ -484,4 +469,246 @@ where
 {
     Deserialize::deserialize(deserializer)
         .map_err(|_| serde::de::Error::custom("required field is missing or has invalid type"))
+}
+
+#[cfg(test)]
+mod tests {
+
+    use multibase::Base;
+    use signature::rand_core;
+
+    use crate::{
+        builder::UcanBuilder,
+        crypto::eddsa::ed25519_dalek_verifier,
+        did_verifier::{did_key::DidKeyVerifier, DidVerifierMap},
+        plugins::wnfs::{WnfsAbility, WnfsResource},
+        semantics::{ability::TopAbility, caveat::EmptyCaveat},
+        store::InMemoryStore,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_capabilities_for_empty() -> Result<(), anyhow::Error> {
+        let store = InMemoryStore::<RawCodec>::default();
+        let mut did_key_verifier = DidKeyVerifier::default();
+        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
+
+        let mut did_verifier_map = DidVerifierMap::default();
+        did_verifier_map.register(did_key_verifier);
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let ucan: Ucan = UcanBuilder::default()
+            .issued_by(ed25519_to_did(iss_key.verifying_key()))
+            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .sign(&iss_key)?;
+
+        let capabilities = ucan.capabilities_for(
+            ed25519_to_did(iss_key.verifying_key()),
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Create,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert!(capabilities.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_root_capability_exact() -> Result<(), anyhow::Error> {
+        let store = InMemoryStore::<RawCodec>::default();
+        let mut did_key_verifier = DidKeyVerifier::default();
+        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
+
+        let mut did_verifier_map = DidVerifierMap::default();
+        did_verifier_map.register(did_key_verifier);
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let ucan: Ucan = UcanBuilder::default()
+            .issued_by(ed25519_to_did(iss_key.verifying_key()))
+            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Create,
+                EmptyCaveat {},
+            ))
+            .sign(&iss_key)?;
+
+        let capabilities = ucan.capabilities_for(
+            ed25519_to_did(iss_key.verifying_key()),
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Create,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 1);
+
+        assert_eq!(
+            capabilities[0].resource().downcast_ref::<WnfsResource>(),
+            Some(&WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            })
+        );
+
+        assert_eq!(
+            capabilities[0].ability().downcast_ref::<WnfsAbility>(),
+            Some(&WnfsAbility::Create)
+        );
+
+        assert_eq!(
+            capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
+            Some(&EmptyCaveat {})
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_root_capability_subsumed_by_semantics() -> Result<(), anyhow::Error> {
+        let store = InMemoryStore::<RawCodec>::default();
+        let mut did_key_verifier = DidKeyVerifier::default();
+        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
+
+        let mut did_verifier_map = DidVerifierMap::default();
+        did_verifier_map.register(did_key_verifier);
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let ucan: Ucan = UcanBuilder::default()
+            .issued_by(ed25519_to_did(iss_key.verifying_key()))
+            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Overwrite,
+                EmptyCaveat {},
+            ))
+            .sign(&iss_key)?;
+
+        let capabilities = ucan.capabilities_for(
+            ed25519_to_did(iss_key.verifying_key()),
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string(), "vacation".to_string()],
+            },
+            WnfsAbility::Create,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 1);
+
+        assert_eq!(
+            capabilities[0].resource().downcast_ref::<WnfsResource>(),
+            Some(&WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string(), "vacation".to_string()],
+            })
+        );
+
+        assert_eq!(
+            capabilities[0].ability().downcast_ref::<WnfsAbility>(),
+            Some(&WnfsAbility::Create)
+        );
+
+        assert_eq!(
+            capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
+            Some(&EmptyCaveat {})
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_root_capability_subsumed_by_top() -> Result<(), anyhow::Error> {
+        let store = InMemoryStore::<RawCodec>::default();
+        let mut did_key_verifier = DidKeyVerifier::default();
+        did_key_verifier.set::<ed25519::Signature, _>(ed25519_dalek_verifier);
+
+        let mut did_verifier_map = DidVerifierMap::default();
+        did_verifier_map.register(did_key_verifier);
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let ucan: Ucan = UcanBuilder::default()
+            .issued_by(ed25519_to_did(iss_key.verifying_key()))
+            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat {},
+            ))
+            .sign(&iss_key)?;
+
+        let capabilities = ucan.capabilities_for(
+            ed25519_to_did(iss_key.verifying_key()),
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string(), "vacation".to_string()],
+            },
+            WnfsAbility::Overwrite,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 1);
+
+        assert_eq!(
+            capabilities[0].resource().downcast_ref::<WnfsResource>(),
+            Some(&WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string(), "vacation".to_string()],
+            })
+        );
+
+        assert_eq!(
+            capabilities[0].ability().downcast_ref::<WnfsAbility>(),
+            Some(&WnfsAbility::Overwrite)
+        );
+
+        assert_eq!(
+            capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
+            Some(&EmptyCaveat {})
+        );
+
+        Ok(())
+    }
+
+    fn ed25519_to_did(key: ed25519_dalek::VerifyingKey) -> String {
+        format!(
+            "did:key:{}",
+            multibase::encode(
+                Base::Base58Btc,
+                &[&[0xed, 0x01], key.to_bytes().as_ref()].concat()
+            )
+        )
+    }
 }
