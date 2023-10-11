@@ -221,7 +221,7 @@ pub fn register_plugin<R, A, C, E>(
 macro_rules! register_plugin {
     ($name:ident, $plugin:expr) => {
         #[$crate::linkme::distributed_slice($crate::plugins::STATIC_PLUGINS)]
-        static $name: &'static dyn Plugin<
+        static $name: &'static dyn $crate::plugins::Plugin<
             Resource = Box<dyn $crate::semantics::resource::Resource>,
             Ability = Box<dyn $crate::semantics::ability::Ability>,
             Caveat = Box<dyn $crate::semantics::caveat::Caveat>,
