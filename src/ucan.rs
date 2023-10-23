@@ -8,7 +8,7 @@ use crate::{
     error::Error,
     semantics::{ability::Ability, resource::Resource},
     store::Store,
-    CidString, DefaultFact, Did,
+    CidString, DefaultFact,
 };
 use cid::{
     multihash::{self, MultihashDigest},
@@ -138,7 +138,7 @@ where
     /// perform the ability against the resource
     pub fn capabilities_for<R, A, S>(
         &self,
-        issuer: Did,
+        issuer: impl AsRef<str>,
         resource: R,
         ability: A,
         at_time: u64,
@@ -150,6 +150,8 @@ where
         A: Ability,
         S: Store<RawCodec, Error = anyhow::Error>,
     {
+        let issuer = issuer.as_ref();
+
         let mut capabilities = vec![];
         let mut proof_queue: VecDeque<(Ucan<F, C>, Capability, Capability)> = VecDeque::default();
 
@@ -459,6 +461,35 @@ where
             payload,
             signature,
         })
+    }
+}
+
+impl<'de, F, C> Deserialize<'de> for Ucan<F, C>
+where
+    C: CapabilityParser,
+    F: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ucan::<F, C>::from_str(&String::deserialize(deserializer)?)
+            .map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
+impl<F, C> Serialize for Ucan<F, C>
+where
+    C: CapabilityParser,
+    F: Clone + DeserializeOwned,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.encode()
+            .map_err(|e| serde::ser::Error::custom(e.to_string()))?
+            .serialize(serializer)
     }
 }
 

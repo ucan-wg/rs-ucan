@@ -59,19 +59,19 @@ where
     }
 
     /// Set the issuer of the UCAN
-    pub fn issued_by<S: AsRef<str>>(mut self, issuer: S) -> Self {
+    pub fn issued_by(mut self, issuer: impl AsRef<str>) -> Self {
         self.issuer = Some(issuer.as_ref().to_string());
         self
     }
 
     /// Set the audience of the UCAN
-    pub fn for_audience<S: AsRef<str>>(mut self, audience: S) -> Self {
+    pub fn for_audience(mut self, audience: impl AsRef<str>) -> Self {
         self.audience = Some(audience.as_ref().to_string());
         self
     }
 
     /// Set the nonce of the UCAN
-    pub fn with_nonce<S: AsRef<str>>(mut self, nonce: S) -> Self {
+    pub fn with_nonce(mut self, nonce: impl AsRef<str>) -> Self {
         self.nonce = Some(nonce.as_ref().to_string());
         self
     }

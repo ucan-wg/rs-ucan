@@ -5,7 +5,7 @@ use std::fmt;
 use downcast_rs::{impl_downcast, Downcast};
 use dyn_clone::{clone_trait_object, DynClone};
 use erased_serde::serialize_trait_object;
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
 /// A caveat defined as part of a semantics
 pub trait Caveat: Send + Sync + DynClone + Downcast + erased_serde::Serialize + 'static {
@@ -27,7 +27,7 @@ impl fmt::Debug for dyn Caveat {
 }
 
 /// A caveat that is always valid
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EmptyCaveat;
 
 impl Caveat for EmptyCaveat {
@@ -51,5 +51,44 @@ impl Caveat for Box<dyn Caveat> {
 
     fn is_valid_attenuation(&self, other: &dyn Caveat) -> bool {
         (**self).is_valid_attenuation(other)
+    }
+}
+
+impl<'de> Deserialize<'de> for EmptyCaveat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct NoFieldsVisitor;
+
+        impl<'de> Visitor<'de> for NoFieldsVisitor {
+            type Value = EmptyCaveat;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an empty object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                if let Some(field) = map.next_key()? {
+                    return Err(serde::de::Error::unknown_field(field, &[]));
+                }
+
+                Ok(EmptyCaveat)
+            }
+        }
+
+        deserializer.deserialize_map(NoFieldsVisitor)
+    }
+}
+
+impl Serialize for EmptyCaveat {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_map(Some(0))?.end()
     }
 }

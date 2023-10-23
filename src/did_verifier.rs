@@ -56,7 +56,7 @@ impl DidVerifierMap {
         self.map
             .get(method)
             .ok_or_else(|| Error::VerifyingError {
-                msg: format!("Unrecognized DID method, {}", method).to_string(),
+                msg: format!("Unrecognized DID method, {}", method),
             })?
             .verify(identifier, payload, signature)
             .map_err(|e| Error::VerifyingError { msg: e.to_string() })
