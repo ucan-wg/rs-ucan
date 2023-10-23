@@ -92,3 +92,34 @@ impl Serialize for EmptyCaveat {
         serializer.serialize_map(Some(0))?.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn test_serialize_empty_caveat() {
+        let caveat = EmptyCaveat;
+        let serialized = serde_json::to_string(&caveat).unwrap();
+
+        assert_eq!(serialized, "{}");
+    }
+
+    #[test]
+    fn test_deserialize_empty_caveat() {
+        let deserialized: EmptyCaveat = serde_json::from_value(json!({})).unwrap();
+
+        assert_eq!(deserialized, EmptyCaveat);
+    }
+
+    #[test]
+    fn test_deserialize_empty_caveat_unexpected_fields() {
+        let deserialized: Result<EmptyCaveat, _> = serde_json::from_value(json!({
+            "foo": true
+        }));
+
+        assert!(deserialized.is_err());
+    }
+}
