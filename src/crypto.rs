@@ -1,6 +1,6 @@
 //! Cryptography utilities
 
-use signature::SignatureEncoding;
+use signature::{SignatureEncoding, Signer};
 
 pub mod bls;
 pub mod eddsa;
@@ -17,4 +17,12 @@ pub trait JWSSignature: SignatureEncoding {
     // I'd originally referenced JWA types directly here, but supporting
     // unspecified algorithms, like BLS, means leaving things more open-ended.
     const ALGORITHM: &'static str;
+}
+
+/// A trait for mapping a Signer<K> to its DID. In most cases, this will
+/// be a DID with method did-key, however other methods can be supported
+/// by implementing this trait for a custom signer.
+pub trait SignerDid<K>: Signer<K> {
+    /// The DID of the signer
+    fn did(&self) -> Result<String, anyhow::Error>;
 }

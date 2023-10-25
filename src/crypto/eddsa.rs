@@ -1,12 +1,28 @@
 //! EdDSA signature support
 
 use anyhow::anyhow;
+use multibase::Base;
 use signature::Verifier;
 
-use super::JWSSignature;
+use super::{JWSSignature, SignerDid};
 
 impl JWSSignature for ed25519::Signature {
     const ALGORITHM: &'static str = "EdDSA";
+}
+
+impl SignerDid<ed25519::Signature> for ed25519_dalek::SigningKey {
+    fn did(&self) -> Result<String, anyhow::Error> {
+        let mut buf = unsigned_varint::encode::u128_buffer();
+        let multicodec = unsigned_varint::encode::u128(0xed, &mut buf);
+
+        Ok(format!(
+            "did:key:{}",
+            multibase::encode(
+                Base::Base58Btc,
+                [multicodec, self.verifying_key().to_bytes().as_ref()].concat()
+            )
+        ))
+    }
 }
 
 /// A verifier for Ed25519 signatures using the `ed25519-dalek` crate

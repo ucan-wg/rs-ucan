@@ -504,12 +504,11 @@ where
 
 #[cfg(test)]
 mod tests {
-
-    use multibase::Base;
     use signature::rand_core;
 
     use crate::{
         builder::UcanBuilder,
+        crypto::SignerDid,
         did_verifier::DidVerifierMap,
         plugins::wnfs::{WnfsAbility, WnfsResource},
         semantics::{ability::TopAbility, caveat::EmptyCaveat},
@@ -527,12 +526,11 @@ mod tests {
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
 
         let ucan: Ucan = UcanBuilder::default()
-            .issued_by(ed25519_to_did(iss_key.verifying_key()))
-            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .for_audience(aud_key.did()?)
             .sign(&iss_key)?;
 
         let capabilities = ucan.capabilities_for(
-            ed25519_to_did(iss_key.verifying_key()),
+            iss_key.did()?,
             WnfsResource::PublicPath {
                 user: "alice".to_string(),
                 path: vec!["photos".to_string()],
@@ -557,8 +555,7 @@ mod tests {
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
 
         let ucan: Ucan = UcanBuilder::default()
-            .issued_by(ed25519_to_did(iss_key.verifying_key()))
-            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .for_audience(aud_key.did()?)
             .claiming_capability(Capability::new(
                 WnfsResource::PublicPath {
                     user: "alice".to_string(),
@@ -570,7 +567,7 @@ mod tests {
             .sign(&iss_key)?;
 
         let capabilities = ucan.capabilities_for(
-            ed25519_to_did(iss_key.verifying_key()),
+            iss_key.did()?,
             WnfsResource::PublicPath {
                 user: "alice".to_string(),
                 path: vec!["photos".to_string()],
@@ -613,8 +610,7 @@ mod tests {
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
 
         let ucan: Ucan = UcanBuilder::default()
-            .issued_by(ed25519_to_did(iss_key.verifying_key()))
-            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .for_audience(aud_key.did()?)
             .claiming_capability(Capability::new(
                 WnfsResource::PublicPath {
                     user: "alice".to_string(),
@@ -626,7 +622,7 @@ mod tests {
             .sign(&iss_key)?;
 
         let capabilities = ucan.capabilities_for(
-            ed25519_to_did(iss_key.verifying_key()),
+            iss_key.did()?,
             WnfsResource::PublicPath {
                 user: "alice".to_string(),
                 path: vec!["photos".to_string(), "vacation".to_string()],
@@ -669,8 +665,7 @@ mod tests {
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
 
         let ucan: Ucan = UcanBuilder::default()
-            .issued_by(ed25519_to_did(iss_key.verifying_key()))
-            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .for_audience(aud_key.did()?)
             .claiming_capability(Capability::new(
                 WnfsResource::PublicPath {
                     user: "alice".to_string(),
@@ -682,7 +677,7 @@ mod tests {
             .sign(&iss_key)?;
 
         let capabilities = ucan.capabilities_for(
-            ed25519_to_did(iss_key.verifying_key()),
+            iss_key.did()?,
             WnfsResource::PublicPath {
                 user: "alice".to_string(),
                 path: vec!["photos".to_string(), "vacation".to_string()],
@@ -714,15 +709,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    fn ed25519_to_did(key: ed25519_dalek::VerifyingKey) -> String {
-        format!(
-            "did:key:{}",
-            multibase::encode(
-                Base::Base58Btc,
-                &[&[0xed, 0x01], key.to_bytes().as_ref()].concat()
-            )
-        )
     }
 }

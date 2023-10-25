@@ -6,7 +6,7 @@ use signature::Signer;
 
 use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
-    crypto::JWSSignature,
+    crypto::{JWSSignature, SignerDid},
     error::Error,
     ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
     CidString, DefaultFact,
@@ -19,7 +19,6 @@ pub const DEFAULT_MULTIHASH: multihash::Code = multihash::Code::Sha2_256;
 #[derive(Debug, Clone)]
 pub struct UcanBuilder<F = DefaultFact, C = DefaultCapabilityParser> {
     version: Option<String>,
-    issuer: Option<String>,
     audience: Option<String>,
     nonce: Option<String>,
     capabilities: Capabilities<C>,
@@ -34,7 +33,6 @@ impl<F, C> Default for UcanBuilder<F, C> {
     fn default() -> Self {
         Self {
             version: Default::default(),
-            issuer: Default::default(),
             audience: Default::default(),
             nonce: Default::default(),
             capabilities: Default::default(),
@@ -55,12 +53,6 @@ where
     /// Set the UCAN version
     pub fn version(mut self, version: &str) -> Self {
         self.version = Some(version.to_string());
-        self
-    }
-
-    /// Set the issuer of the UCAN
-    pub fn issued_by(mut self, issuer: impl AsRef<str>) -> Self {
-        self.issuer = Some(issuer.as_ref().to_string());
         self
     }
 
@@ -139,16 +131,14 @@ where
     /// Sign the UCAN with the given signer
     pub fn sign<S, K>(self, signer: &S) -> Result<Ucan<F, C>, Error>
     where
-        S: Signer<K>,
+        S: Signer<K> + SignerDid<K>,
         K: JWSSignature,
     {
         let version = self.version.unwrap_or_else(|| UCAN_VERSION.to_string());
 
-        let Some(issuer) = self.issuer else {
-            return Err(Error::SigningError {
-                msg: "an issuer is required".to_string(),
-            });
-        };
+        let issuer = signer.did().map_err(|e| Error::SigningError {
+            msg: format!("failed to construct DID, {}", e),
+        })?;
 
         let Some(audience) = self.audience else {
             return Err(Error::SigningError {
@@ -203,10 +193,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use multibase::Base;
     use signature::rand_core;
+    use std::str::FromStr;
 
     use crate::did_verifier::DidVerifierMap;
 
@@ -220,8 +208,7 @@ mod tests {
         let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
 
         let ucan: Ucan = UcanBuilder::default()
-            .issued_by(ed25519_to_did(iss_key.verifying_key()))
-            .for_audience(ed25519_to_did(aud_key.verifying_key()))
+            .for_audience(aud_key.did()?)
             .sign(&iss_key)?;
 
         let token = ucan.encode()?;
@@ -230,15 +217,5 @@ mod tests {
         assert!(decoded.validate(0, &did_verifier_map).is_ok());
 
         Ok(())
-    }
-
-    fn ed25519_to_did(key: ed25519_dalek::VerifyingKey) -> String {
-        format!(
-            "did:key:{}",
-            multibase::encode(
-                Base::Base58Btc,
-                &[&[0xed, 0x01], key.to_bytes().as_ref()].concat()
-            )
-        )
     }
 }
