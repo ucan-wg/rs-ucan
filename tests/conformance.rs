@@ -169,10 +169,7 @@ impl TestTask for VerifyTest {
 
         for (_cid, token) in self.inputs.proofs.iter() {
             store
-                .write(
-                    Ipld::Bytes(token.as_bytes().to_vec()),
-                    multihash::Code::Sha2_256,
-                )
+                .write(Ipld::Bytes(token.as_bytes().to_vec()), None)
                 .unwrap();
         }
 
@@ -315,10 +312,7 @@ impl TestTask for RefuteTest {
 
         for (_cid, token) in self.inputs.proofs.iter() {
             store
-                .write(
-                    Ipld::Bytes(token.as_bytes().to_vec()),
-                    multihash::Code::Sha2_256,
-                )
+                .write(Ipld::Bytes(token.as_bytes().to_vec()), None)
                 .unwrap();
         }
 

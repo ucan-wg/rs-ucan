@@ -513,6 +513,7 @@ mod tests {
         plugins::wnfs::{WnfsAbility, WnfsResource},
         semantics::{ability::TopAbility, caveat::EmptyCaveat},
         store::InMemoryStore,
+        time,
     };
 
     use super::*;
@@ -707,6 +708,92 @@ mod tests {
             capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
             Some(&EmptyCaveat)
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_invocation() -> Result<(), anyhow::Error> {
+        let mut store = InMemoryStore::<RawCodec>::default();
+        let did_verifier_map = DidVerifierMap::default();
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let root_ucan: Ucan<DefaultFact, DefaultCapabilityParser> = UcanBuilder::default()
+            .for_audience(aud_key.did()?)
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat,
+            ))
+            .with_lifetime(60)
+            .sign(&iss_key)?;
+
+        store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
+
+        let invocation: Ucan = UcanBuilder::default()
+            .for_audience("did:web:fission.codes")
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Revise,
+                EmptyCaveat,
+            ))
+            .witnessed_by(&root_ucan, None)
+            .sign(&aud_key)?;
+
+        let capabilities = invocation.capabilities_for(
+            iss_key.did()?,
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Revise,
+            time::now(),
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 1);
+
+        assert_eq!(
+            capabilities[0].resource().downcast_ref::<WnfsResource>(),
+            Some(&WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            })
+        );
+
+        assert_eq!(
+            capabilities[0].ability().downcast_ref::<WnfsAbility>(),
+            Some(&WnfsAbility::Revise)
+        );
+
+        assert_eq!(
+            capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
+            Some(&EmptyCaveat)
+        );
+
+        let capabilities = invocation.capabilities_for(
+            iss_key.did()?,
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Revise,
+            // Past the lifetime of the root UCAN
+            time::now() + 61,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 0);
 
         Ok(())
     }

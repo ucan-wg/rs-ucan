@@ -10,6 +10,8 @@ use libipld_core::{
 };
 use multihash::MultihashDigest;
 
+use crate::builder::DEFAULT_MULTIHASH;
+
 /// A store for persisting UCAN tokens, to be referencable as proofs by other UCANs
 pub trait Store<C>
 where
@@ -24,7 +26,7 @@ where
         T: Decode<C>;
 
     /// Write a token to the store, using the specified hasher
-    fn write<T>(&mut self, token: T, hasher: multihash::Code) -> Result<Cid, Self::Error>
+    fn write<T>(&mut self, token: T, hasher: Option<multihash::Code>) -> Result<Cid, Self::Error>
     where
         T: Encode<C>;
 }
@@ -45,7 +47,11 @@ where
         T: Decode<C>;
 
     /// Write a token to the store, using the specified hasher
-    async fn write<T>(&mut self, token: T, hasher: multihash::Code) -> Result<Cid, Self::Error>
+    async fn write<T>(
+        &mut self,
+        token: T,
+        hasher: Option<multihash::Code>,
+    ) -> Result<Cid, Self::Error>
     where
         T: Encode<C> + Send;
 }
@@ -70,10 +76,11 @@ impl Store<RawCodec> for InMemoryStore<RawCodec> {
         }
     }
 
-    fn write<T>(&mut self, token: T, hasher: multihash::Code) -> Result<Cid, Self::Error>
+    fn write<T>(&mut self, token: T, hasher: Option<multihash::Code>) -> Result<Cid, Self::Error>
     where
         T: Encode<RawCodec>,
     {
+        let hasher = hasher.unwrap_or(DEFAULT_MULTIHASH);
         let block = RawCodec.encode(&token)?;
         let digest = hasher.digest(&block);
         let cid = Cid::new_v1(RawCodec.into(), digest);
