@@ -45,7 +45,6 @@
           cargo-expand
           cargo-nextest
           cargo-outdated
-          cargo-spellcheck
           cargo-sort
           cargo-udeps
           cargo-watch
