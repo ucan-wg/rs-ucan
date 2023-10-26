@@ -8,6 +8,7 @@ use crate::{
     capability::{Capabilities, Capability, CapabilityParser, DefaultCapabilityParser},
     crypto::{JWSSignature, SignerDid},
     error::Error,
+    time,
     ucan::{Ucan, UcanHeader, UcanPayload, UCAN_VERSION},
     CidString, DefaultFact,
 };
@@ -152,11 +153,22 @@ where
         })
         .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
 
+        let expiration = match (self.expiration, self.lifetime) {
+            (None, None) => None,
+            (None, Some(lifetime)) => Some(time::now() + lifetime),
+            (Some(expiration), None) => Some(expiration),
+            (Some(_), Some(_)) => {
+                return Err(Error::SigningError {
+                    msg: "only one of expiration or lifetime may be set".to_string(),
+                })
+            }
+        };
+
         let payload = jose_b64::serde::Json::new(UcanPayload {
             ucv: version,
             iss: issuer,
             aud: audience,
-            exp: self.expiration,
+            exp: expiration,
             nbf: self.not_before,
             nnc: self.nonce,
             cap: self.capabilities,
