@@ -147,28 +147,28 @@ impl CapabilityParser for PluginCapability {
     ) -> Result<Option<Capability>, anyhow::Error> {
         let resource_scheme = resource_uri.scheme();
 
-        let Some(plugin) = crate::plugins::plugins().find(|p| p.scheme() == resource_scheme) else {
-            return Ok(None);
-        };
+        for plugin in crate::plugins::plugins().filter(|p| p.scheme() == resource_scheme) {
+            let Some(resource) = plugin.try_handle_resource(resource_uri)? else {
+                continue;
+            };
 
-        let Some(resource) = plugin.try_handle_resource(resource_uri)? else {
-            return Ok(None);
-        };
+            let Some(ability) = plugin.try_handle_ability(&resource, ability)? else {
+                continue;
+            };
 
-        let Some(ability) = plugin.try_handle_ability(&resource, ability)? else {
-            return Ok(None);
-        };
+            let Some(caveat) = plugin.try_handle_caveat(&resource, &ability, caveat_deserializer)?
+            else {
+                continue;
+            };
 
-        let Some(caveat) = plugin.try_handle_caveat(&resource, &ability, caveat_deserializer)?
-        else {
-            return Ok(None);
-        };
+            return Ok(Some(Capability {
+                resource,
+                ability,
+                caveat,
+            }));
+        }
 
-        Ok(Some(Capability {
-            resource,
-            ability,
-            caveat,
-        }))
+        Ok(None)
     }
 }
 
