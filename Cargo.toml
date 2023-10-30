@@ -14,6 +14,7 @@ repository = "https://github.com/ucan-wg/rs-ucan"
 authors = ["Quinn Wilton <quinn@quinnwilton.com>"]
 
 [lib]
+crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 bench = false
 
