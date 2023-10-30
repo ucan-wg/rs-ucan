@@ -53,6 +53,10 @@
       {
         devShells.default = pkgs.mkShell {
           name = "rs-ucan";
+
+          # blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
+          stdenv = pkgs.clangStdenv;
+
           nativeBuildInputs = with pkgs;
             [
               # The ordering of these two items is important. For nightly rustfmt to be used instead of
