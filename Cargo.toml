@@ -62,10 +62,20 @@ url = "2.4.1"
 # `linkme` relies on linker features that aren't available in wasm32
 linkme = "0.3.15"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "*", features = ["js"] }
+
 [dev-dependencies]
-criterion = "0.4"
 multihash = "0.18.0"
-proptest = "1.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = "0.4"
+proptest = { version = "*" }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+criterion = { version = "0.4", default-features = false }
+proptest = { version = "*", default-features = false, features = ["std"] }
+wasm-bindgen-test = "0.2"
 
 [features]
 default = ["did-key", "eddsa-verifier", "es256-verifier", "es256k-verifier", "es384-verifier", "ps256-verifier", "rs256-verifier"]
