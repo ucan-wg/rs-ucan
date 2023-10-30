@@ -59,6 +59,7 @@ impl JWSSignature for Bls12381G2Sha256SswuRoNulSignature {
 }
 
 /// A verifier for BLS12-381 G1 signatures
+#[cfg(feature = "bls-verifier")]
 pub fn bls_12_381_g1_sha256_sswu_ro_nul_verifier(
     key: &[u8],
     payload: &[u8],
@@ -86,6 +87,7 @@ pub fn bls_12_381_g1_sha256_sswu_ro_nul_verifier(
 }
 
 /// A verifier for BLS12-381 G2 signatures
+#[cfg(feature = "bls-verifier")]
 pub fn bls_12_381_g2_sha256_sswu_ro_nul_verifier(
     key: &[u8],
     payload: &[u8],

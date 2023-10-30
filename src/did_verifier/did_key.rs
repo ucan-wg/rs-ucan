@@ -1,15 +1,23 @@
 //! did:key method verifier
 
+#[cfg(feature = "eddsa-verifier")]
+use crate::crypto::eddsa::eddsa_verifier;
+#[cfg(feature = "es256-verifier")]
+use crate::crypto::es256::es256_verifier;
+#[cfg(feature = "es256k-verifier")]
+use crate::crypto::es256k::es256k_verifier;
+#[cfg(feature = "es384-verifier")]
+use crate::crypto::es384::es384_verifier;
+#[cfg(feature = "ps256-verifier")]
+use crate::crypto::ps256::ps256_verifier;
+#[cfg(feature = "rs256-verifier")]
+use crate::crypto::rs256::rs256_verifier;
+
 use core::fmt;
 use std::{any::TypeId, collections::HashMap};
 
 use anyhow::anyhow;
 use multibase::Base;
-
-use crate::crypto::{
-    eddsa::eddsa_verifier, es256::es256_verifier, es256k::es256k_verifier, es384::es384_verifier,
-    ps256::ps256_verifier, rs256::rs256_verifier,
-};
 
 use super::DidVerifier;
 
@@ -24,6 +32,7 @@ pub struct DidKeyVerifier {
 
 impl Default for DidKeyVerifier {
     fn default() -> Self {
+        #[allow(unused_mut)]
         let mut did_key_verifier = Self {
             verifier_map: HashMap::new(),
         };
@@ -32,13 +41,13 @@ impl Default for DidKeyVerifier {
         did_key_verifier.set::<ed25519::Signature, _>(eddsa_verifier);
 
         #[cfg(feature = "es256-verifier")]
-        did_key_verifier.set::<ecdsa::Signature<p256::NistP256>, _>(es256_verifier);
+        did_key_verifier.set::<p256::ecdsa::Signature, _>(es256_verifier);
 
         #[cfg(feature = "es256k-verifier")]
-        did_key_verifier.set::<ecdsa::Signature<k256::Secp256k1>, _>(es256k_verifier);
+        did_key_verifier.set::<k256::ecdsa::Signature, _>(es256k_verifier);
 
         #[cfg(feature = "es384-verifier")]
-        did_key_verifier.set::<ecdsa::Signature<p384::NistP384>, _>(es384_verifier);
+        did_key_verifier.set::<p384::ecdsa::Signature, _>(es384_verifier);
 
         #[cfg(feature = "ps256-verifier")]
         did_key_verifier.set::<rsa::pss::Signature, _>(ps256_verifier);
@@ -94,24 +103,33 @@ impl DidVerifier for DidKeyVerifier {
 
         multicodec_pub_key.validate_pub_key_len(public_key)?;
 
+        #[allow(unreachable_patterns)]
         let verifier = match multicodec_pub_key {
+            #[cfg(feature = "es256k")]
             MulticodecPubKey::Secp256k1Compressed => self
                 .verifier_map
-                .get(&TypeId::of::<ecdsa::Signature<k256::Secp256k1>>()),
+                .get(&TypeId::of::<k256::ecdsa::Signature>()),
+            #[cfg(feature = "eddsa")]
             MulticodecPubKey::X25519 => return Err(anyhow!("x25519 not supported for signing")),
+            #[cfg(feature = "eddsa")]
             MulticodecPubKey::Ed25519 => self.verifier_map.get(&TypeId::of::<ed25519::Signature>()),
+            #[cfg(feature = "es256")]
             MulticodecPubKey::P256Compressed => self
                 .verifier_map
-                .get(&TypeId::of::<ecdsa::Signature<p256::NistP256>>()),
+                .get(&TypeId::of::<p256::ecdsa::Signature>()),
+            #[cfg(feature = "es384")]
             MulticodecPubKey::P384Compressed => self
                 .verifier_map
-                .get(&TypeId::of::<ecdsa::Signature<p384::NistP384>>()),
+                .get(&TypeId::of::<p384::ecdsa::Signature>()),
+            #[cfg(feature = "es521")]
             MulticodecPubKey::P521Compressed => self
                 .verifier_map
                 .get(&TypeId::of::<ecdsa::Signature<p521::NistP521>>()),
+            #[cfg(feature = "rs256")]
             MulticodecPubKey::RSAPKCS1 => self
                 .verifier_map
                 .get(&TypeId::of::<rsa::pkcs1v15::Signature>()),
+            _ => Option::<&Box<SignatureVerifier>>::None,
         }
         .ok_or_else(|| anyhow!("no registered verifier for signature type"))?;
 
@@ -129,24 +147,34 @@ impl fmt::Debug for DidKeyVerifier {
 #[derive(Debug)]
 pub enum MulticodecPubKey {
     /// secp256k1 compressed public key
+    #[cfg(feature = "es256k")]
     Secp256k1Compressed,
     /// x25519 public key
+    #[cfg(feature = "eddsa")]
     X25519,
     /// ed25519 public key
+    #[cfg(feature = "eddsa")]
     Ed25519,
     /// p256 compressed public key
+    #[cfg(feature = "es256")]
     P256Compressed,
     /// p384 compressed public key
+    #[cfg(feature = "es384")]
     P384Compressed,
     /// p521 compressed public key
+    #[cfg(feature = "es521")]
     P521Compressed,
     /// rsa pkcs1 public key
+    #[cfg(feature = "rs256")]
     RSAPKCS1,
 }
 
 impl MulticodecPubKey {
+    #[allow(unused_variables)]
     fn validate_pub_key_len(&self, pub_key: &[u8]) -> Result<(), anyhow::Error> {
+        #[allow(unreachable_patterns)]
         match self {
+            #[cfg(feature = "es256k")]
             MulticodecPubKey::Secp256k1Compressed => {
                 if pub_key.len() != 33 {
                     return Err(anyhow!(
@@ -155,6 +183,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "eddsa")]
             MulticodecPubKey::X25519 => {
                 if pub_key.len() != 32 {
                     return Err(anyhow!(
@@ -163,6 +192,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "eddsa")]
             MulticodecPubKey::Ed25519 => {
                 if pub_key.len() != 32 {
                     return Err(anyhow!(
@@ -171,6 +201,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "es256")]
             MulticodecPubKey::P256Compressed => {
                 if pub_key.len() != 33 {
                     return Err(anyhow!(
@@ -179,6 +210,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "es384")]
             MulticodecPubKey::P384Compressed => {
                 if pub_key.len() != 49 {
                     return Err(anyhow!(
@@ -187,6 +219,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "es521")]
             MulticodecPubKey::P521Compressed => {
                 if pub_key.len() > 67 {
                     return Err(anyhow!(
@@ -195,6 +228,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
+            #[cfg(feature = "rs256")]
             MulticodecPubKey::RSAPKCS1 => match pub_key.len() {
                 94 | 126 | 162 | 226 | 294 | 422 | 546 => {}
                 n => {
@@ -204,8 +238,10 @@ impl MulticodecPubKey {
                         ));
                 }
             },
+            _ => return Err(anyhow!("unsupported public key type")),
         };
 
+        #[allow(unreachable_code)]
         Ok(())
     }
 }
@@ -215,12 +251,19 @@ impl TryFrom<u128> for MulticodecPubKey {
 
     fn try_from(value: u128) -> Result<Self, Self::Error> {
         match value {
+            #[cfg(feature = "es256k")]
             0xe7 => Ok(MulticodecPubKey::Secp256k1Compressed),
+            #[cfg(feature = "eddsa")]
             0xec => Ok(MulticodecPubKey::X25519),
+            #[cfg(feature = "eddsa")]
             0xed => Ok(MulticodecPubKey::Ed25519),
+            #[cfg(feature = "es256")]
             0x1200 => Ok(MulticodecPubKey::P256Compressed),
+            #[cfg(feature = "es384")]
             0x1201 => Ok(MulticodecPubKey::P384Compressed),
+            #[cfg(feature = "es521")]
             0x1202 => Ok(MulticodecPubKey::P521Compressed),
+            #[cfg(feature = "rs256")]
             0x1205 => Ok(MulticodecPubKey::RSAPKCS1),
             _ => Err(anyhow!("unsupported multicodec")),
         }
