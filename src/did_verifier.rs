@@ -5,8 +5,7 @@ use std::collections::HashMap;
 
 use crate::error::Error;
 
-use self::did_key::DidKeyVerifier;
-
+#[cfg(feature = "did-key")]
 pub mod did_key;
 
 /// A map from did method to verifier
@@ -17,12 +16,13 @@ pub struct DidVerifierMap {
 
 impl Default for DidVerifierMap {
     fn default() -> Self {
+        #[allow(unused_mut)]
         let mut did_verifier_map = Self {
             map: HashMap::new(),
         };
 
         #[cfg(feature = "did-key")]
-        did_verifier_map.register(DidKeyVerifier::default());
+        did_verifier_map.register(did_key::DidKeyVerifier::default());
 
         did_verifier_map
     }
