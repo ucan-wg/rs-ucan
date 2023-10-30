@@ -31,6 +31,7 @@
 
         rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
           extensions = ["cargo" "clippy" "rustfmt" "rust-src" "rust-std"];
+          targets = ["wasm32-unknown-unknown" "wasm32-wasi"];
         };
 
         nightly-rustfmt = pkgs.rust-bin.nightly.latest.rustfmt;
@@ -48,6 +49,7 @@
           cargo-sort
           cargo-udeps
           cargo-watch
+          wasm-tools
         ];
       in rec
       {
