@@ -31,6 +31,7 @@ path = "examples/counterparts.rs"
 anyhow = "1.0.75"
 async-trait = "0.1.73"
 blst = "0.3.11"
+cfg-if = "0.1"
 cid = "0.10.1"
 downcast-rs = "1.2.0"
 dyn-clone = "1.0.14"
@@ -43,7 +44,6 @@ jose-b64 = { version = "0.1.2", features = ["serde", "json"] }
 k256 = "0.13.1"
 lazy_static = "1.4.0"
 libipld-core = "0.16.0"
-linkme = "0.3.15"
 multibase = "0.9.1"
 p256 = "0.13.2"
 p384 = "0.13.0"
@@ -59,6 +59,10 @@ thiserror = "1.0"
 tracing = "0.1"
 unsigned-varint = "0.7.2"
 url = "2.4.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# `linkme` relies on linker features that aren't available in wasm32
+linkme = "0.3.15"
 
 [dev-dependencies]
 criterion = "0.4"

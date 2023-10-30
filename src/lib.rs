@@ -21,6 +21,7 @@ pub mod time;
 pub mod ucan;
 
 #[doc(hidden)]
+#[cfg(not(target_arch = "wasm32"))]
 pub use linkme;
 
 /// A decentralized identifier.

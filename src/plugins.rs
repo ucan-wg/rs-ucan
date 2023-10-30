@@ -1,10 +1,11 @@
 //! Plugins for definining custom semantics
 
-use core::fmt;
-use std::sync::RwLock;
-
-use downcast_rs::{impl_downcast, Downcast};
+#[cfg(not(target_arch = "wasm32"))]
 use linkme::distributed_slice;
+
+use core::fmt;
+use downcast_rs::{impl_downcast, Downcast};
+use std::sync::RwLock;
 use url::Url;
 
 use crate::{
@@ -19,6 +20,7 @@ use crate::{
 pub mod ucan;
 pub mod wnfs;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[distributed_slice]
 #[doc(hidden)]
 pub static STATIC_PLUGINS: [&dyn Plugin<
@@ -188,14 +190,24 @@ pub fn plugins() -> impl Iterator<
         Error = Error,
     >,
 > {
-    let static_plugins = STATIC_PLUGINS.iter().copied();
-    let runtime_plugins = RUNTIME_PLUGINS
-        .read()
-        .expect("plugin lock poisoned")
-        .clone()
-        .into_iter();
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            RUNTIME_PLUGINS
+                .read()
+                .expect("plugin lock poisoned")
+                .clone()
+                .into_iter()
+        } else {
+            let static_plugins = STATIC_PLUGINS.iter().copied();
+            let runtime_plugins = RUNTIME_PLUGINS
+                .read()
+                .expect("plugin lock poisoned")
+                .clone()
+                .into_iter();
 
-    static_plugins.chain(runtime_plugins)
+            static_plugins.chain(runtime_plugins)
+        }
+    }
 }
 
 /// Register a plugin
@@ -217,6 +229,7 @@ pub fn register_plugin<R, A, C, E>(
 }
 
 /// Register a plugin at compile time
+#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! register_plugin {
     ($name:ident, $plugin:expr) => {
@@ -228,4 +241,11 @@ macro_rules! register_plugin {
             Error = $crate::error::Error,
         > = &$crate::plugins::WrappedPlugin { inner: $plugin };
     };
+}
+
+/// Register a plugin at compile time
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! register_plugin {
+    ($name:ident, $plugin:expr) => {};
 }
