@@ -56,7 +56,6 @@ serde_json = "1.0.107"
 sha2 = "0.10.8"
 signature = "2.1.0"
 thiserror = "1.0"
-tracing = "0.1"
 unsigned-varint = "0.7.2"
 url = "2.4.1"
 
