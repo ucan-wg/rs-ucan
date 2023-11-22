@@ -1,6 +1,6 @@
 //! Cryptography utilities
 
-use signature::{SignatureEncoding, Signer};
+use signature::SignatureEncoding;
 
 #[cfg(feature = "bls")]
 pub mod bls;
@@ -30,7 +30,7 @@ pub trait JWSSignature: SignatureEncoding {
 /// A trait for mapping a Signer<K> to its DID. In most cases, this will
 /// be a DID with method did-key, however other methods can be supported
 /// by implementing this trait for a custom signer.
-pub trait SignerDid<K>: Signer<K> {
+pub trait SignerDid {
     /// The DID of the signer
     fn did(&self) -> Result<String, anyhow::Error>;
 }

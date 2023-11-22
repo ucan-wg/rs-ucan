@@ -132,7 +132,7 @@ where
     /// Sign the UCAN with the given signer
     pub fn sign<S, K>(self, signer: &S) -> Result<Ucan<F, C>, Error>
     where
-        S: Signer<K> + SignerDid<K>,
+        S: Signer<K> + SignerDid,
         K: JWSSignature,
     {
         let version = self.version.unwrap_or_else(|| UCAN_VERSION.to_string());
