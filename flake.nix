@@ -49,7 +49,8 @@
           cargo-sort
           cargo-udeps
           cargo-watch
-          wasm-tools
+          binaryen
+          wasm-bindgen-cli
         ];
       in rec
       {
@@ -70,6 +71,8 @@
               protobuf
               direnv
               self.packages.${system}.irust
+              nodejs
+              nodePackages.pnpm
             ]
             ++ format-pkgs
             ++ cargo-installs

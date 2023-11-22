@@ -1,0 +1,223 @@
+{
+  "name": "ucan",
+  "version": "0.1.0",
+  "description": "A UCAN library built from rs-ucan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fission-codes/rs-ucan.git"
+  },
+  "keywords": [
+    "authorization"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/fission-codes/rs-ucan/issues"
+  },
+  "homepage": "https://github.com/fission-codes/rs-ucan#readme",
+  "module": "dist/bundler/rs_ucan.js",
+  "types": "dist/nodejs/rs_ucan.d.ts",
+  "exports": {
+    ".": {
+      "workerd": "./dist/web/workerd.js",
+      "browser": "./dist/bundler/rs_ucan.js",
+      "node": "./dist/nodejs/rs_ucan.cjs",
+      "default": "./dist/bundler/rs_ucan.js",
+      "types": "./dist/nodejs/rs_ucan.d.ts"
+    },
+    "./nodejs": {
+      "default": "./dist/nodejs/rs_ucan.cjs",
+      "types": "./dist/nodejs/rs_ucan.d.ts"
+    },
+    "./web": {
+      "default": "./dist/web/rs_ucan.js",
+      "types": "./dist/web/rs_ucan.d.ts"
+    },
+    "./workerd": {
+      "default": "./dist/web/workerd.js",
+      "types": "./dist/web/rs_ucan.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "export PROFILE=dev && export TARGET_DIR=debug && pnpm run build:all",
+    "release": "export PROFILE=release && export TARGET_DIR=release && pnpm run build:all",
+    "build:all": "wireit",
+    "clean": "wireit",
+    "test": "wireit",
+    "test:node": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "cargo build --target wasm32-unknown-unknown --profile $PROFILE",
+      "env": {
+        "PROFILE": {
+          "external": true
+        }
+      }
+    },
+    "opt": {
+      "command": "wasm-opt -O1 target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm -o target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "compile"
+      ]
+    },
+    "bindgen:bundler": {
+      "command": "wasm-bindgen --weak-refs --target bundler --out-dir dist/bundler target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ],
+      "output": [
+        "dist/bundler"
+      ]
+    },
+    "bindgen:nodejs": {
+      "command": "wasm-bindgen --weak-refs --target nodejs --out-dir dist/nodejs target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm && move-file dist/nodejs/rs_ucan.js dist/nodejs/rs_ucan.cjs",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ],
+      "output": [
+        "dist/nodejs"
+      ]
+    },
+    "bindgen:web": {
+      "command": "wasm-bindgen --weak-refs --target web --out-dir dist/web target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm && cpy --flat src/workerd.js dist/web",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ],
+      "output": [
+        "dist/web"
+      ]
+    },
+    "bindgen:deno": {
+      "command": "wasm-bindgen --weak-refs --target deno --out-dir dist/deno target/wasm32-unknown-unknown/$TARGET_DIR/rs_ucan.wasm",
+      "env": {
+        "TARGET_DIR": {
+          "external": true
+        }
+      },
+      "dependencies": [
+        "opt"
+      ],
+      "output": [
+        "dist/deno"
+      ]
+    },
+    "build:all": {
+      "dependencies": [
+        "bindgen:bundler",
+        "bindgen:nodejs",
+        "bindgen:web",
+        "bindgen:deno"
+      ]
+    },
+    "clean": {
+      "command": "rimraf dist"
+    },
+    "test:prepare": {
+      "command": "cross-env mkdir tests/report",
+      "output": [
+        "tests/report"
+      ]
+    },
+    "test:chromium": {
+      "command": "pw-test tests/rs_ucan.test.js -r mocha --reporter json --cov > tests/report/chromium.json",
+      "dependencies": [
+        "build",
+        "test:prepare"
+      ],
+      "output": [
+        "tests/report/chromium.json"
+      ]
+    },
+    "test:firefox": {
+      "command": "pw-test tests/rs_ucan.test.js -r mocha --reporter json --browser firefox > tests/report/firefox.json",
+      "dependencies": [
+        "build",
+        "test:prepare"
+      ],
+      "output": [
+        "tests/report/firefox.json"
+      ]
+    },
+    "test:webkit": {
+      "command": "pw-test tests/rs_ucan.test.js -r mocha --reporter json --browser webkit > tests/report/webkit.json",
+      "dependencies": [
+        "build",
+        "test:prepare"
+      ],
+      "output": [
+        "tests/report/webkit.json"
+      ]
+    },
+    "test:browser": {
+      "dependencies": [
+        "test:chromium",
+        "test:firefox",
+        "test:webkit"
+      ]
+    },
+    "test:node": {
+      "command": "pw-test tests/rs_ucan.test.js -r mocha --reporter json --mode node > tests/report/node.json",
+      "dependencies": [
+        "build",
+        "test:prepare"
+      ],
+      "output": [
+        "tests/report/node.json"
+      ]
+    },
+    "test:report": {
+      "command": "nyc report --reporter=json-summary --report-dir tests/report",
+      "dependencies": [
+        "test:chromium"
+      ],
+      "output": [
+        "tests/report/coverage-summary.json"
+      ]
+    },
+    "test": {
+      "dependencies": [
+        "test:browser",
+        "test:node",
+        "test:report"
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/assert": "^1.5.6",
+    "@types/mocha": "^10.0.1",
+    "assert": "^2.0.0",
+    "cpy-cli": "^5.0.0",
+    "cross-env": "^7.0.3",
+    "mocha": "^10.2.0",
+    "move-file-cli": "^3.0.0",
+    "nyc": "^15.1.0",
+    "playwright-test": "^12.1.2",
+    "rimraf": "^5.0.1",
+    "typescript": "^5.1.6",
+    "wireit": "^0.10.0"
+  }
+}

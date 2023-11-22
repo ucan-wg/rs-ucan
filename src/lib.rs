@@ -20,6 +20,12 @@ pub mod store;
 pub mod time;
 pub mod ucan;
 
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+
+#[cfg(target_arch = "wasm32")]
+pub use wasm::*;
+
 #[doc(hidden)]
 #[cfg(not(target_arch = "wasm32"))]
 pub use linkme;
