@@ -29,6 +29,7 @@ path = "examples/counterparts.rs"
 
 [dependencies]
 anyhow = "1.0.75"
+async-signature = "0.4.0"
 async-trait = "0.1.73"
 blst = { version = "0.3.11", optional = true, default-features = false }
 cfg-if = "0.1"

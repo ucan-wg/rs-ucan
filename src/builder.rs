@@ -1,5 +1,6 @@
 //! A builder for creating UCANs
 
+use async_signature::AsyncSigner;
 use cid::multihash;
 use serde::{de::DeserializeOwned, Serialize};
 use signature::Signer;
@@ -189,6 +190,84 @@ where
         );
 
         let signature = signer.sign(signed_data.as_bytes()).to_vec().into();
+
+        Ok(Ucan::<F, C> {
+            header,
+            payload,
+            signature,
+        })
+    }
+
+    /// Sign the UCAN with the given async signer
+    pub async fn sign_async<S, K>(self, signer: &S) -> Result<Ucan<F, C>, Error>
+    where
+        S: AsyncSigner<K> + SignerDid,
+        K: JWSSignature + 'static,
+    {
+        let version = self.version.unwrap_or_else(|| UCAN_VERSION.to_string());
+
+        let issuer = signer.did().map_err(|e| Error::SigningError {
+            msg: format!("failed to construct DID, {}", e),
+        })?;
+
+        let Some(audience) = self.audience else {
+            return Err(Error::SigningError {
+                msg: "an audience is required".to_string(),
+            });
+        };
+
+        let header = jose_b64::serde::Json::new(UcanHeader {
+            alg: K::ALGORITHM.to_string(),
+            typ: "JWT".to_string(),
+        })
+        .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let expiration = match (self.expiration, self.lifetime) {
+            (None, None) => None,
+            (None, Some(lifetime)) => Some(time::now() + lifetime),
+            (Some(expiration), None) => Some(expiration),
+            (Some(_), Some(_)) => {
+                return Err(Error::SigningError {
+                    msg: "only one of expiration or lifetime may be set".to_string(),
+                })
+            }
+        };
+
+        let payload = jose_b64::serde::Json::new(UcanPayload {
+            ucv: version,
+            iss: issuer,
+            aud: audience,
+            exp: expiration,
+            nbf: self.not_before,
+            nnc: self.nonce,
+            cap: self.capabilities,
+            fct: self.facts,
+            prf: self.proofs,
+        })
+        .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let header_b64 = serde_json::to_value(&header)
+            .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let payload_b64 = serde_json::to_value(&payload)
+            .map_err(|e| Error::InternalUcanError { msg: e.to_string() })?;
+
+        let signed_data = format!(
+            "{}.{}",
+            header_b64.as_str().ok_or(Error::InternalUcanError {
+                msg: "Expected base64 encoding of header".to_string(),
+            })?,
+            payload_b64.as_str().ok_or(Error::InternalUcanError {
+                msg: "Expected base64 encoding of payload".to_string(),
+            })?,
+        );
+
+        let signature = signer
+            .sign_async(signed_data.as_bytes())
+            .await
+            .map_err(|e| Error::SigningError { msg: e.to_string() })?
+            .to_vec()
+            .into();
 
         Ok(Ucan::<F, C> {
             header,
