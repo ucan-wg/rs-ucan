@@ -15,3 +15,8 @@ private
 *.tmp
 .history
 .DS_Store
+.wireit
+.nyc_output
+tests/report
+node_modules
+dist
