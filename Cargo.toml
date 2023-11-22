@@ -39,7 +39,6 @@ ecdsa = { version = "0.16.8", optional = true, default-features = false }
 ed25519 = { version = "2.2.2", optional = true, default-features = false }
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"], optional = true }
 erased-serde = "0.3.31"
-instant = "0.1.12"
 jose-b64 = { version = "0.1.2", features = ["serde", "json"] }
 k256 = { version = "0.13.1", features = ["ecdsa"], optional = true, default-features = false }
 lazy_static = "1.4.0"
@@ -57,6 +56,7 @@ signature = { version = "2.1.0", features = ["alloc"] }
 thiserror = "1.0"
 unsigned-varint = "0.7.2"
 url = "2.4.1"
+web-time = "0.2.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # `linkme` relies on linker features that aren't available in wasm32

@@ -1,6 +1,6 @@
 //! Time utilities
 
-use instant::SystemTime;
+use web_time::SystemTime;
 
 /// Get the current time in seconds since UNIX_EPOCH
 pub fn now() -> u64 {
