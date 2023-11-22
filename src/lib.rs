@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use cid::Cid;
+use cid::{multihash, Cid};
 use serde::{de, Deserialize, Deserializer, Serialize};
 
 pub mod builder;
@@ -23,6 +23,9 @@ pub mod ucan;
 #[doc(hidden)]
 #[cfg(not(target_arch = "wasm32"))]
 pub use linkme;
+
+/// The default multihash algorithm used for UCANs
+pub const DEFAULT_MULTIHASH: multihash::Code = multihash::Code::Sha2_256;
 
 /// A decentralized identifier.
 pub type Did = String;

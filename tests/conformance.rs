@@ -349,7 +349,7 @@ impl TestTask for ToCidTest {
             _ => panic!(),
         };
 
-        let Ok(cid) = ucan.to_cid(hasher) else {
+        let Ok(cid) = ucan.to_cid(Some(hasher)) else {
             report.register_failure(&name, "failed to convert to CID".to_string());
 
             return;

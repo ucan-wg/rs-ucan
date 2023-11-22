@@ -10,7 +10,7 @@ use libipld_core::{
 };
 use multihash::MultihashDigest;
 
-use crate::builder::DEFAULT_MULTIHASH;
+use crate::DEFAULT_MULTIHASH;
 
 /// A store for persisting UCAN tokens, to be referencable as proofs by other UCANs
 pub trait Store<C>

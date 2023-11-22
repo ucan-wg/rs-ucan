@@ -13,9 +13,6 @@ use crate::{
     CidString, DefaultFact,
 };
 
-/// The default multihash algorithm used for UCANs
-pub const DEFAULT_MULTIHASH: multihash::Code = multihash::Code::Sha2_256;
-
 /// A builder for creating UCANs
 #[derive(Debug, Clone)]
 pub struct UcanBuilder<F = DefaultFact, C = DefaultCapabilityParser> {
@@ -103,8 +100,6 @@ where
         F2: Clone + DeserializeOwned,
         C2: CapabilityParser,
     {
-        let hasher = hasher.unwrap_or(DEFAULT_MULTIHASH);
-
         match authority.to_cid(hasher) {
             Ok(cid) => {
                 self.proofs

@@ -8,7 +8,7 @@ use crate::{
     error::Error,
     semantics::{ability::Ability, resource::Resource},
     store::Store,
-    CidString, DefaultFact,
+    CidString, DefaultFact, DEFAULT_MULTIHASH,
 };
 use cid::{
     multihash::{self, MultihashDigest},
@@ -390,11 +390,11 @@ where
     }
 
     /// Return the CID v1 of the UCAN encoded as a JWT token
-    pub fn to_cid(&self, hasher: multihash::Code) -> Result<Cid, Error> {
+    pub fn to_cid(&self, hasher: Option<multihash::Code>) -> Result<Cid, Error> {
         static RAW_CODEC: u64 = 0x55;
 
         let token = self.encode()?;
-        let digest = hasher.digest(token.as_bytes());
+        let digest = hasher.unwrap_or(DEFAULT_MULTIHASH).digest(token.as_bytes());
         let cid = Cid::new_v1(RAW_CODEC, digest);
 
         Ok(cid)
