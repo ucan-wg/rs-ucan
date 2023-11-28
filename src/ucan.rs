@@ -198,11 +198,7 @@ where
                                 ),
                             })?;
 
-                        if ucan.expires_at() > proof_ucan.expires_at() {
-                            continue;
-                        }
-
-                        if ucan.not_before() < proof_ucan.not_before() {
+                        if !proof_ucan.lifetime_encompasses(&ucan) {
                             continue;
                         }
 
@@ -294,9 +290,6 @@ where
     }
 
     /// Returns true if this UCAN's lifetime begins no later than the other
-    /// Note that if a UCAN specifies an NBF but the other does not, the
-    /// other has an unbounded start time and this function will return
-    /// false.
     pub fn lifetime_begins_before<F2, C2>(&self, other: &Ucan<F2, C2>) -> bool
     where
         F2: DeserializeOwned,
@@ -713,7 +706,7 @@ mod tests {
     }
 
     #[test]
-    fn test_capabilities_for_invocation() -> Result<(), anyhow::Error> {
+    fn test_capabilities_for_invocation_no_lifetime() -> Result<(), anyhow::Error> {
         let mut store = InMemoryStore::<RawCodec>::default();
         let did_verifier_map = DidVerifierMap::default();
 
@@ -730,7 +723,6 @@ mod tests {
                 TopAbility,
                 EmptyCaveat,
             ))
-            .with_lifetime(60)
             .sign(&iss_key)?;
 
         store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
@@ -780,6 +772,46 @@ mod tests {
             Some(&EmptyCaveat)
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_invocation_lifetime_encompassed() -> Result<(), anyhow::Error> {
+        let mut store = InMemoryStore::<RawCodec>::default();
+        let did_verifier_map = DidVerifierMap::default();
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let root_ucan: Ucan<DefaultFact, DefaultCapabilityParser> = UcanBuilder::default()
+            .for_audience(aud_key.did()?)
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat,
+            ))
+            .with_lifetime(60)
+            .sign(&iss_key)?;
+
+        store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
+
+        let invocation: Ucan = UcanBuilder::default()
+            .for_audience("did:web:fission.codes")
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Revise,
+                EmptyCaveat,
+            ))
+            .with_lifetime(30)
+            .witnessed_by(&root_ucan, None)
+            .sign(&aud_key)?;
+
         let capabilities = invocation.capabilities_for(
             iss_key.did()?,
             WnfsResource::PublicPath {
@@ -787,8 +819,189 @@ mod tests {
                 path: vec!["photos".to_string()],
             },
             WnfsAbility::Revise,
-            // Past the lifetime of the root UCAN
-            time::now() + 61,
+            time::now(),
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 1);
+
+        assert_eq!(
+            capabilities[0].resource().downcast_ref::<WnfsResource>(),
+            Some(&WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            })
+        );
+
+        assert_eq!(
+            capabilities[0].ability().downcast_ref::<WnfsAbility>(),
+            Some(&WnfsAbility::Revise)
+        );
+
+        assert_eq!(
+            capabilities[0].caveat().downcast_ref::<EmptyCaveat>(),
+            Some(&EmptyCaveat)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_invocation_nbf_exposed() -> Result<(), anyhow::Error> {
+        let mut store = InMemoryStore::<RawCodec>::default();
+        let did_verifier_map = DidVerifierMap::default();
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let root_ucan: Ucan<DefaultFact, DefaultCapabilityParser> = UcanBuilder::default()
+            .for_audience(aud_key.did()?)
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat,
+            ))
+            .not_before(1)
+            .sign(&iss_key)?;
+
+        store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
+
+        let invocation: Ucan = UcanBuilder::default()
+            .for_audience("did:web:fission.codes")
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Revise,
+                EmptyCaveat,
+            ))
+            .not_before(0)
+            .witnessed_by(&root_ucan, None)
+            .sign(&aud_key)?;
+
+        let capabilities = invocation.capabilities_for(
+            iss_key.did()?,
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Revise,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_invocation_exp_exposed() -> Result<(), anyhow::Error> {
+        let mut store = InMemoryStore::<RawCodec>::default();
+        let did_verifier_map = DidVerifierMap::default();
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let root_ucan: Ucan<DefaultFact, DefaultCapabilityParser> = UcanBuilder::default()
+            .for_audience(aud_key.did()?)
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat,
+            ))
+            .with_expiration(0)
+            .sign(&iss_key)?;
+
+        store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
+
+        let invocation: Ucan = UcanBuilder::default()
+            .for_audience("did:web:fission.codes")
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Revise,
+                EmptyCaveat,
+            ))
+            .with_expiration(1)
+            .witnessed_by(&root_ucan, None)
+            .sign(&aud_key)?;
+
+        let capabilities = invocation.capabilities_for(
+            iss_key.did()?,
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Revise,
+            0,
+            &did_verifier_map,
+            &store,
+        )?;
+
+        assert_eq!(capabilities.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_capabilities_for_invocation_lifetime_disjoint() -> Result<(), anyhow::Error> {
+        let mut store = InMemoryStore::<RawCodec>::default();
+        let did_verifier_map = DidVerifierMap::default();
+
+        let iss_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let aud_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+
+        let root_ucan: Ucan<DefaultFact, DefaultCapabilityParser> = UcanBuilder::default()
+            .for_audience(aud_key.did()?)
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                TopAbility,
+                EmptyCaveat,
+            ))
+            .not_before(0)
+            .with_expiration(1)
+            .sign(&iss_key)?;
+
+        store.write(Ipld::Bytes(root_ucan.encode()?.as_bytes().to_vec()), None)?;
+
+        let invocation: Ucan = UcanBuilder::default()
+            .for_audience("did:web:fission.codes")
+            .claiming_capability(Capability::new(
+                WnfsResource::PublicPath {
+                    user: "alice".to_string(),
+                    path: vec!["photos".to_string()],
+                },
+                WnfsAbility::Revise,
+                EmptyCaveat,
+            ))
+            .not_before(2)
+            .with_expiration(3)
+            .witnessed_by(&root_ucan, None)
+            .sign(&aud_key)?;
+
+        let capabilities = invocation.capabilities_for(
+            iss_key.did()?,
+            WnfsResource::PublicPath {
+                user: "alice".to_string(),
+                path: vec!["photos".to_string()],
+            },
+            WnfsAbility::Revise,
+            2,
             &did_verifier_map,
             &store,
         )?;
