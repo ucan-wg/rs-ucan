@@ -17,6 +17,7 @@ use cid::{
 use libipld_core::{ipld::Ipld, raw::RawCodec};
 use semver::Version;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
+use tracing::{span, Level};
 
 /// The current UCAN version
 pub const UCAN_VERSION: &str = "0.10.0";
@@ -136,6 +137,7 @@ where
 
     /// Returns true if the UCAN is authorized by the given issuer to
     /// perform the ability against the resource
+    #[tracing::instrument(level = "trace", skip_all, fields(issuer = issuer.as_ref(), %resource, %ability, %at_time, self = %self.to_cid(None)?))]
     pub fn capabilities_for<R, A, S>(
         &self,
         issuer: impl AsRef<str>,
@@ -158,21 +160,38 @@ where
         self.validate(at_time, did_verifier_map)?;
 
         for capability in self.capabilities() {
+            let span = span!(Level::TRACE, "capability", ?capability);
+            let _enter = span.enter();
+
             let attenuated = Capability::clone_box(&resource, &ability, capability.caveat());
 
             if !attenuated.is_subsumed_by(capability) {
+                tracing::trace!("skipping (not subsumed by)");
+
                 continue;
             }
 
             if self.issuer() == issuer {
+                tracing::trace!("matched (by parenthood)");
+
                 capabilities.push(attenuated.clone())
             }
 
             proof_queue.push_back((self.clone(), capability.clone(), attenuated));
+
+            tracing::trace!("enqueued");
         }
 
         while let Some((ucan, attenuated_cap, leaf_cap)) = proof_queue.pop_front() {
+            let span =
+                span!(Level::TRACE, "ucan", ucan = %ucan.to_cid(None)?, ?attenuated_cap, ?leaf_cap);
+
+            let _enter = span.enter();
+
             for proof_cid in ucan.proofs().unwrap_or(vec![]) {
+                let span = span!(Level::TRACE, "proof", cid = %proof_cid);
+                let _enter = span.enter();
+
                 match store
                     .read::<Ipld>(proof_cid)
                     .map_err(|e| Error::InternalUcanError {
@@ -199,23 +218,33 @@ where
                             })?;
 
                         if !proof_ucan.lifetime_encompasses(&ucan) {
+                            tracing::trace!("skipping (lifetime not encompassed)");
+
                             continue;
                         }
 
                         if ucan.issuer() != proof_ucan.audience() {
+                            tracing::trace!("skipping (issuer != audience)");
+
                             continue;
                         }
 
                         if proof_ucan.validate(at_time, did_verifier_map).is_err() {
+                            tracing::trace!("skipping (validation failed)");
+
                             continue;
                         }
 
                         for capability in proof_ucan.capabilities() {
                             if !attenuated_cap.is_subsumed_by(capability) {
+                                tracing::trace!("skipping (not subsumed by)");
+
                                 continue;
                             }
 
                             if proof_ucan.issuer() == issuer {
+                                tracing::trace!("matched (by parenthood)");
+
                                 capabilities.push(leaf_cap.clone());
                             }
 
@@ -224,6 +253,8 @@ where
                                 capability.clone(),
                                 leaf_cap.clone(),
                             ));
+
+                            tracing::trace!("enqueued");
                         }
                     }
                     Some(ipld) => {
