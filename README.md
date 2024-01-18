@@ -29,8 +29,6 @@
 
 <div align="center"><sub>:warning: Work in progress :warning:</sub></div>
 
-##
-
 ## Outline
 
 - [Usage](#usage)
