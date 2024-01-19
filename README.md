@@ -29,16 +29,6 @@
 
 <div align="center"><sub>:warning: Work in progress :warning:</sub></div>
 
-## Outline
-
-- [Usage](#usage)
-- [Testing the Project](#testing-the-project)
-- [Benchmarking the Project](#benchmarking-the-project)
-- [Contributing](#contributing)
-- [Getting Help](#getting-help)
-- [External Resources](#external-resources)
-- [License](#license)
-
 ## Usage
 
 Add the following to the `[dependencies]` section of your `Cargo.toml` file:
@@ -49,11 +39,11 @@ rs-ucan = "1.0.0-rc.1"
 
 ## Testing the Project
 
-- Run tests
+Run tests
 
-  ```console
-  cargo test
-  ```
+| Cargo        | Nix        |
+|--------------|------------|
+| `cargo test` | `test:all` |
 
 ## Benchmarking the Project
 
@@ -71,18 +61,22 @@ for integrating [proptest][proptest] within the the suite for working with
 ## Contributing
 
 :balloon: We're thankful for any feedback and help in improving our project!
-We have a [contributing guide](./CONTRIBUTING.md) to help you get involved. We
-also adhere to our [Code of Conduct](./CODE_OF_CONDUCT.md).
+We have a [contributing guide][CONTRIBUTING] to help you get involved. We
+also adhere to our [Code of Conduct].
 
 ### Nix
 
-This repository contains a [Nix flake][nix-flake] that initiates both the Rust
-toolchain set in [rust-toolchain.toml](./rust-toolchain.toml) and a
-[pre-commit hook](#pre-commit-hook). It also installs helpful cargo binaries for
-development. Please install [nix][nix] and [direnv][direnv] to get started.
+This repository contains a [Nix flake] that initiates both the Rust
+toolchain set in [`rust-toolchain.toml`] and a [pre-commit hook]. It also 
+installs helpful cargo binaries for development.
+
+Please install [nix] to get started. We also recommend installing [direnv].
 
 Run `nix develop` or `direnv allow` to load the `devShell` flake output,
 according to your preference.
+
+The Nix shell also includes several helpful shortcut commands.
+You can see a complete list of commands via the `menu` command.
 
 ### Formatting
 
@@ -123,9 +117,9 @@ a type of `fix`, `feat`, `docs`, `ci`, `refactor`, etc..., structured like so:
 
 ## Getting Help
 
-For usage questions, usecases, or issues reach out to us in our [Discord channel](https://discord.gg/4UdeQhw7fv).
+For usage questions, usecases, or issues reach out to us in the [UCAN Discord].
 
-We would be happy to try to answer your question or try opening a new issue on Github.
+We would be happy to try to answer your question or try opening a new issue on GitHub.
 
 ## External Resources
 
@@ -133,11 +127,30 @@ These are references to specifications, talks and presentations, etc.
 
 ## License
 
-This project is licensed under the [Apache License 2.0](./LICENSE), or
-[http://www.apache.org/licenses/LICENSE-2.0][apache].
+This project is licensed under the [Apache License 2.0][LICENSE], or
+[http://www.apache.org/licenses/LICENSE-2.0][Apache].
 
+<!-- Internal Links -->
 
-[apache]: https://www.apache.org/licenses/LICENSE-2.0
+[Benchmarking the Project]: #benchmarking-the-project
+[Contributing]: #contributing
+[External Resources]: #external-resources
+[Getting Help]: #getting-help
+[License]: #license
+[Testing the Project]: #testing-the-project
+[Usage]: #usage
+[pre-commit hook]: #pre-commit-hook
+
+<!-- Local Links -->
+
+[CONTRIBUTING]: ./CONTRIBUTING.md
+[LICENSE]: ./LICENSE
+[Code of Conduct]: ./CODE_OF_CONDUCT.md
+[`rust-toolchain.toml`]: ./rust-toolchain.toml
+
+<!-- External Links -->
+
+[Apache]: https://www.apache.org/licenses/LICENSE-2.0
 [cargo-expand]: https://github.com/dtolnay/cargo-expand
 [cargo-udeps]: https://github.com/est31/cargo-udeps
 [cargo-watch]: https://github.com/watchexec/cargo-watch
@@ -147,7 +160,8 @@ This project is licensed under the [Apache License 2.0](./LICENSE), or
 [direnv]:https://direnv.net/
 [irust]: https://github.com/sigmaSd/IRust
 [nix]:https://nixos.org/download.html
-[nix-flake]: https://nixos.wiki/wiki/Flakes
+[Nix flake]: https://nixos.wiki/wiki/Flakes
 [pre-commit]: https://pre-commit.com/
 [proptest]: https://github.com/proptest-rs/proptest
 [strategies]: https://docs.rs/proptest/latest/proptest/strategy/trait.Strategy.html
+[UCAN Discord]: https://discord.gg/4UdeQhw7fv

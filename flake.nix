@@ -17,10 +17,10 @@
 
   outputs = {
     self,
-    nixpkgs,
-    nixos-unstable,
-    flake-utils,
     devshell,
+    flake-utils,
+    nixos-unstable,
+    nixpkgs,
     rust-overlay,
   } @ inputs:
     flake-utils.lib.eachDefaultSystem (
@@ -39,8 +39,6 @@
         unstable = import nixos-unstable {
           inherit system;
         };
-
-        # nightly-rustfmt = pkgs.rust-bin.nightly.latest.rustfmt;
 
         rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [
@@ -99,9 +97,10 @@
 
           packages = with pkgs;
             [
-              # The ordering of these two items is important. For nightly rustfmt to be used instead of
-              # the rustfmt provided by `rust-toolchain`, it must appear first in the list. This is
-              # because native build inputs are added to $PATH in the order they're listed here.
+              # NOTE: The ordering of these two items is important. For nightly rustfmt to be used
+              # instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list.
+              # This is because native build inputs are added to $PATH in the order they're listed here.
+              #
               # nightly-rustfmt
               rust-toolchain
 
@@ -314,7 +313,7 @@
 
         formatter = pkgs.alejandra;
 
-        # blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
+        # NOTE: blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
         stdenv = pkgs.clangStdenv;
       }
     );
