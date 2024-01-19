@@ -41,9 +41,9 @@ rs-ucan = "1.0.0-rc.1"
 
 Run tests
 
-| Nix       | Cargo        |
-|-----------|--------------|
-| `test:all | `cargo test` |
+| Nix        | Cargo        |
+|------------|--------------|
+| `test:all` | `cargo test` |
 
 ## Benchmarking the Project
 
