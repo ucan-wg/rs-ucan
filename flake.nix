@@ -89,6 +89,9 @@
           wasm-bindgen-cli
           wasm-tools
         ];
+
+        cargo = "${pkgs.cargo}/bin/cargo";
+        wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
       in rec {
         devShells.default = pkgs.devshell.mkShell {
           name = "rs-ucan";
@@ -136,13 +139,13 @@
               name = "release:host";
               help = "Release for current host target";
               category = "release";
-              command = "${pkgs.cargo}/bin/cargo build --release";
+              command = "${cargo} build --release";
             }
             {
               name = "release:wasm";
               help = "Release for current host target";
               category = "release";
-              command = "${pkgs.cargo}/bin/cargo build --release --target=wasm32-unknown-unknown";
+              command = "${cargo} build --release --target=wasm32-unknown-unknown";
             }
             # Build
             {
@@ -155,26 +158,33 @@
               name = "build:host";
               help = "Build for current host target";
               category = "build";
-              command = "${pkgs.cargo}/bin/cargo build";
+              command = "${cargo} build";
             }
             {
               name = "build:wasm";
               help = "Build for wasm32-unknown-unknown";
               category = "build";
-              command = "${pkgs.cargo}/bin/cargo build --target=wasm32-unknown-unknown";
+              command = "${cargo} build --target=wasm32-unknown-unknown";
             }
             {
               name = "build:wasi";
               help = "Build for WASI";
               category = "build";
-              command = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
+              command = "${cargo} build --target wasm32-wasi";
             }
             # Bench
+            {
+              name = "bench";
+              help = "Run benchmarks, including test utils";
+              category = "dev";
+              command = "${cargo} bench --features test_utils";
+            }
+            # FIXME align with `bench`?
             {
               name = "bench:host";
               help = "Run host Criterion benchmarks";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo criterion";
+              command = "${cargo} criterion";
             }
             {
               name = "bench:host:open";
@@ -187,56 +197,56 @@
               name = "lint";
               help = "Run Clippy";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo clippy";
+              command = "${cargo} clippy";
             }
             {
               name = "lint:pedantic";
               help = "Run Clippy pedantically";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo clippy -- -W clippy::pedantic";
+              command = "${cargo} clippy -- -W clippy::pedantic";
             }
             {
               name = "lint:fix";
               help = "Apply non-pendantic Clippy suggestions";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo clippy --fix";
+              command = "${cargo} clippy --fix";
             }
             # Watch
             {
               name = "watch:build:host";
               help = "Rebuild host target on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear";
+              command = "${cargo} watch --clear";
             }
             {
               name = "watch:build:wasm";
               help = "Rebuild host target on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear --features=serde -- cargo build --target=wasm32-unknown-unknown";
+              command = "${cargo} watch --clear --features=serde -- cargo build --target=wasm32-unknown-unknown";
             }
             {
               name = "watch:lint";
               help = "Lint on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear --exec clippy";
+              command = "${cargo} watch --clear --exec clippy";
             }
             {
               name = "watch:lint:pedantic";
               help = "Pedantic lint on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear --exec 'clippy -- -W clippy::pedantic'";
+              command = "${cargo} watch --clear --exec 'clippy -- -W clippy::pedantic'";
             }
             {
               name = "watch:test:host";
               help = "Run all tests on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear --exec test";
+              command = "${cargo} watch --clear --exec test";
             }
             {
               name = "watch:test:docs:host";
               help = "Run all tests on save";
               category = "watch";
-              command = "${pkgs.cargo}/bin/cargo watch --clear --exec test";
+              command = "${cargo} watch --clear --exec test";
             }
             # Test
             {
@@ -249,7 +259,7 @@
               name = "test:host";
               help = "Run Cargo tests for host target";
               category = "test";
-              command = "${pkgs.cargo}/bin/cargo test";
+              command = "${cargo} test";
             }
             {
               name = "test:wasm";
@@ -261,19 +271,19 @@
               name = "test:wasm:nodejs";
               help = "Run wasm-pack tests in Node.js";
               category = "test";
-              command = "${pkgs.wasm-pack}/bin/wasm-pack test --node";
+              command = "${wasm-pack} test --node";
             }
             {
               name = "test:wasm:chrome";
               help = "Run wasm-pack tests in headless Chrome";
               category = "test";
-              command = "${pkgs.wasm-pack}/bin/wasm-pack test --headless --chrome";
+              command = "${wasm-pack} test --headless --chrome";
             }
             {
               name = "test:docs";
               help = "Run Cargo doctests";
               category = "test";
-              command = "${pkgs.cargo}/bin/cargo test --doc";
+              command = "${cargo} test --doc";
             }
             # Docs
             {
@@ -286,13 +296,13 @@
               name = "docs:build";
               help = "Refresh the docs";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo doc";
+              command = "${cargo} doc";
             }
             {
               name = "docs:open";
               help = "Open refreshed docs";
               category = "dev";
-              command = "${pkgs.cargo}/bin/cargo doc --open";
+              command = "${cargo} doc --open";
             }
           ];
         };

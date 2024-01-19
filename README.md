@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://github.com/ucan-wg/rs-ucan" target="_blank">
-    <img src="https://raw.githubusercontent.com/ucan-wg/rs-ucan/main/assets/a_logo.png" alt="rs-ucan Logo" width="100"></img>
+    <img src="https://raw.githubusercontent.com/ucan-wg/rs-ucan/main/assets/logo.png" alt="rs-ucan Logo" width="100"></img>
   </a>
 
   <h1 align="center">rs-ucan</h1>
@@ -41,9 +41,9 @@ rs-ucan = "1.0.0-rc.1"
 
 Run tests
 
-| Cargo        | Nix        |
-|--------------|------------|
-| `cargo test` | `test:all` |
+| Nix       | Cargo        |
+|-----------|--------------|
+| `test:all | `cargo test` |
 
 ## Benchmarking the Project
 
@@ -52,11 +52,11 @@ For benchmarking and measuring performance, this project leverages
 for integrating [proptest][proptest] within the the suite for working with
 [strategies][strategies] and sampling from randomly generated values.
 
-- Run benchmarks
+## Benchmarks
 
-  ```console
-  cargo bench --features test_utils
-  ```
+| Nix     | Cargo                               |
+|---------|-------------------------------------|
+| `bench` | `cargo bench --features test_utils` |
 
 ## Contributing
 
