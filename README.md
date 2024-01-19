@@ -44,7 +44,7 @@
 Add the following to the `[dependencies]` section of your `Cargo.toml` file:
 
 ```toml
-rs-ucan = "0.1.0"
+rs-ucan = "1.0.0-rc.1"
 ```
 
 ## Testing the Project
