@@ -67,7 +67,7 @@ also adhere to our [Code of Conduct].
 ### Nix
 
 This repository contains a [Nix flake] that initiates both the Rust
-toolchain set in [`rust-toolchain.toml`] and a [pre-commit hook]. It also 
+toolchain set in [`rust-toolchain.toml`] and a [pre-commit hook]. It also
 installs helpful cargo binaries for development.
 
 Please install [nix] to get started. We also recommend installing [direnv].
