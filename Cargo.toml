@@ -2,16 +2,16 @@
 name = "rs-ucan"
 version = "0.1.0"
 description = "Rust implementation of UCAN"
-keywords = []
+keywords = ["capabilities", "authorization", "ucan"]
 categories = []
 include = ["/src", "/examples", "/benches", "README.md", "LICENSE"]
 license = "Apache-2.0"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.67"
+rust-version = "1.75"
 documentation = "https://docs.rs/rs-ucan"
 repository = "https://github.com/ucan-wg/rs-ucan"
-authors = ["Quinn Wilton <quinn@quinnwilton.com>"]
+authors = ["Quinn Wilton <quinn@quinnwilton.com>", "Brooklyn Zelenka <hello@brooklynzelenka.com"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -19,7 +19,7 @@ path = "src/lib.rs"
 bench = false
 
 [[bench]]
-name = "a_benchmark"
+name = "a_benchmark" # TODO rename
 harness = false
 required-features = ["test_utils"]
 
@@ -106,11 +106,11 @@ ps256-verifier = ["ps256"]
 rs256-verifier = ["rs256"]
 bls-verifier = ["bls"]
 
-[metadata.docs.rs]
+[metadata.docs.rs] # FIXME cargo complains that it doesn't understand this?
 all-features = true
 # defines the configuration attribute `docsrs`
 rustdoc-args = ["--cfg", "docsrs"]
-#
+
 # See https://doc.rust-lang.org/cargo/reference/profiles.html for more info.
 # [profile.release]
 # Do not perform backtrace for panic on release builds.
