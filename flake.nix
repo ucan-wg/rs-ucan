@@ -23,38 +23,37 @@
     nixpkgs,
     rust-overlay,
   } @ inputs:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+    flake-utils.lib.eachDefaultSystem (
+      system: let
         overlays = [
           devshell.overlays.default
           (import rust-overlay)
         ];
 
-        pkgs = import nixpkgs { inherit system overlays; };
-        unstable = import nixos-unstable { inherit system overlays; };
+        pkgs = import nixpkgs {inherit system overlays;};
+        unstable = import nixos-unstable {inherit system overlays;};
 
-        rust-toolchain =
-          (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
-            extensions = [
-              "cargo"
-              "clippy"
-              "llvm-tools-preview"
-              "rust-src"
-              "rust-std"
-              "rustfmt"
-            ];
+        rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
+          extensions = [
+            "cargo"
+            "clippy"
+            "llvm-tools-preview"
+            "rust-src"
+            "rust-std"
+            "rustfmt"
+          ];
 
-            targets = [
-              "aarch64-apple-darwin"
-              "x86_64-apple-darwin"
+          targets = [
+            "aarch64-apple-darwin"
+            "x86_64-apple-darwin"
 
-              "x86_64-unknown-linux-musl"
-              "aarch64-unknown-linux-musl"
+            "x86_64-unknown-linux-musl"
+            "aarch64-unknown-linux-musl"
 
-              "wasm32-unknown-unknown"
-              "wasm32-wasi"
-            ];
-          };
+            "wasm32-unknown-unknown"
+            "wasm32-wasi"
+          ];
+        };
 
         format-pkgs = with pkgs; [
           nixpkgs-fmt
@@ -87,7 +86,6 @@
         cargo = "${pkgs.cargo}/bin/cargo";
         node = "${unstable.nodejs_20}/bin/node";
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
-
       in rec {
         devShells.default = pkgs.devshell.mkShell {
           name = "rs-ucan";
