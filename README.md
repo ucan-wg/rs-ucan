@@ -1,24 +1,24 @@
 <div align="center">
-  <a href="https://github.com/ucan-wg/rs-ucan" target="_blank">
-    <img src="https://raw.githubusercontent.com/ucan-wg/rs-ucan/main/assets/logo.png" alt="rs-ucan Logo" width="100"></img>
+  <a href="https://github.com/ucan-wg/rs_ucan" target="_blank">
+    <img src="https://raw.githubusercontent.com/ucan-wg/rs_ucan/main/assets/logo.png" alt="rs_ucan Logo" width="100"></img>
   </a>
 
-  <h1 align="center">rs-ucan</h1>
+  <h1 align="center">rs_ucan</h1>
 
   <p>
-    <a href="https://crates.io/crates/rs-ucan">
-      <img src="https://img.shields.io/crates/v/rs-ucan?label=crates" alt="Crate">
+    <a href="https://crates.io/crates/rs_ucan">
+      <img src="https://img.shields.io/crates/v/rs_ucan?label=crates" alt="Crate">
     </a>
-    <a href="https://codecov.io/gh/ucan-wg/rs-ucan">
-      <img src="https://codecov.io/gh/ucan-wg/rs-ucan/branch/main/graph/badge.svg?token=SOMETOKEN" alt="Code Coverage"/>
+    <a href="https://codecov.io/gh/ucan-wg/rs_ucan">
+      <img src="https://codecov.io/gh/ucan-wg/rs_ucan/branch/main/graph/badge.svg?token=SOMETOKEN" alt="Code Coverage"/>
     </a>
-    <a href="https://github.com/ucan-wg/rs-ucan/actions?query=">
-      <img src="https://github.com/ucan-wg/rs-ucan/actions/workflows/tests_and_checks.yml/badge.svg" alt="Build Status">
+    <a href="https://github.com/ucan-wg/rs_ucan/actions?query=">
+      <img src="https://github.com/ucan-wg/rs_ucan/actions/workflows/tests_and_checks.yml/badge.svg" alt="Build Status">
     </a>
-    <a href="https://github.com/ucan-wg/rs-ucan/blob/main/LICENSE">
+    <a href="https://github.com/ucan-wg/rs_ucan/blob/main/LICENSE">
       <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
     </a>
-    <a href="https://docs.rs/rs-ucan">
+    <a href="https://docs.rs/rs_ucan">
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.rs&color=blue" alt="Docs">
     </a>
     <a href="https://discord.gg/4UdeQhw7fv">
@@ -34,7 +34,7 @@
 Add the following to the `[dependencies]` section of your `Cargo.toml` file:
 
 ```toml
-rs-ucan = "1.0.0-rc.1"
+rs_ucan = "1.0.0-rc.1"
 ```
 
 ## Testing the Project

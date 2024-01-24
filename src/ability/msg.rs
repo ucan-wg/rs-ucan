@@ -1,4 +1,7 @@
-use crate::{ability::traits::Ability, prove::TryProve};
+use crate::{
+    ability::traits::{Ability, Builder},
+    prove::TryProve,
+};
 use libipld_core::ipld::Ipld;
 use std::{collections::BTreeMap, str::FromStr};
 use url::Url;
@@ -16,6 +19,7 @@ pub struct MsgSend {
     message: String,
 }
 
+// TODO is the to or from often also the subject? Shoudl that be accounted for?
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MsgReceive {
     to: Url,
@@ -89,9 +93,16 @@ impl TryFrom<&Ipld> for MsgReceiveBuilder {
     }
 }
 
-impl Ability for MsgReceive {
-    type Builder = MsgReceiveBuilder;
-    const COMMAND: &'static str = "msg/receive";
+impl Builder for MsgReceiveBuilder {
+    type Concrete = MsgReceive;
+
+    fn command(&self) -> &'static str {
+        "msg/receive"
+    }
+
+    fn try_build(&self) -> Result<MsgReceive, ()> {
+        self.try_build().map_err(|_| ()) // FIXME
+    }
 }
 
 impl TryFrom<&Ipld> for MsgReceive {
@@ -127,11 +138,11 @@ impl TryFrom<&Ipld> for MsgReceive {
     }
 }
 
-impl TryProve<Msg> for Msg {
+impl<'a> TryProve<'a, Msg> for Msg {
     type Error = (); // FIXME
     type Proven = Msg;
 
-    fn try_prove<'a>(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
         if self == candidate {
             Ok(self)
         } else {
@@ -140,11 +151,11 @@ impl TryProve<Msg> for Msg {
     }
 }
 
-impl TryProve<Msg> for MsgSend {
+impl<'a> TryProve<'a, Msg> for MsgSend {
     type Error = (); // FIXME
     type Proven = MsgSend;
 
-    fn try_prove<'a>(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
         if self.to == candidate.to && self.from == candidate.from {
             Ok(self)
         } else {
@@ -153,11 +164,11 @@ impl TryProve<Msg> for MsgSend {
     }
 }
 
-impl TryProve<Msg> for MsgReceive {
+impl<'a> TryProve<'a, Msg> for MsgReceive {
     type Error = (); // FIXME
     type Proven = MsgReceive;
 
-    fn try_prove<'a>(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
         if self.to == candidate.to && self.from == candidate.from {
             Ok(self)
         } else {
@@ -167,11 +178,11 @@ impl TryProve<Msg> for MsgReceive {
 }
 
 // FIXME this needs to work on builders!
-impl TryProve<MsgReceive> for MsgReceive {
+impl<'a> TryProve<'a, MsgReceive> for MsgReceive {
     type Error = (); // FIXME
     type Proven = MsgReceive;
 
-    fn try_prove<'a>(&'a self, candidate: &'a MsgReceive) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(&'a self, candidate: &'a MsgReceive) -> Result<&'a Self::Proven, ()> {
         if self == candidate {
             Ok(self)
         } else {

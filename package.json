@@ -1,10 +1,10 @@
 {
   "name": "ucan",
   "version": "0.1.0",
-  "description": "A UCAN library built from rs-ucan",
+  "description": "A UCAN library built from rs_ucan",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fission-codes/rs-ucan.git"
+    "url": "git+https://github.com/fission-codes/rs_ucan.git"
   },
   "keywords": [
     "authorization"
@@ -12,9 +12,9 @@
   "author": "",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/fission-codes/rs-ucan/issues"
+    "url": "https://github.com/fission-codes/rs_ucan/issues"
   },
-  "homepage": "https://github.com/fission-codes/rs-ucan#readme",
+  "homepage": "https://github.com/fission-codes/rs_ucan#readme",
   "module": "dist/bundler/rs_ucan.js",
   "types": "dist/nodejs/rs_ucan.d.ts",
   "exports": {

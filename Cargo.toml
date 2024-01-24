@@ -1,5 +1,5 @@
 [package]
-name = "rs-ucan"
+name = "rs_ucan"
 version = "0.1.0"
 description = "Rust implementation of UCAN"
 keywords = ["capabilities", "authorization", "ucan"]
@@ -9,8 +9,8 @@ license = "Apache-2.0"
 readme = "README.md"
 edition = "2021"
 rust-version = "1.75"
-documentation = "https://docs.rs/rs-ucan"
-repository = "https://github.com/ucan-wg/rs-ucan"
+documentation = "https://docs.rs/rs_ucan"
+repository = "https://github.com/ucan-wg/rs_ucan"
 authors = ["Quinn Wilton <quinn@quinnwilton.com>", "Brooklyn Zelenka <hello@brooklynzelenka.com"]
 
 [lib]

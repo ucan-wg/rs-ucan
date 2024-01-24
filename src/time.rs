@@ -1,6 +1,7 @@
 //! Time utilities
 
-use web_time::SystemTime;
+use libipld_core::ipld::Ipld;
+use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Get the current time in seconds since UNIX_EPOCH
 pub fn now() -> u64 {
@@ -23,6 +24,19 @@ pub enum Timestamp {
     /// Following [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle),
     /// received timestamps may be parsed as regular [SystemTime]
     Receiving(SystemTime),
+}
+
+impl From<Timestamp> for Ipld {
+    fn from(timestamp: Timestamp) -> Self {
+        match timestamp {
+            Timestamp::Sending(js_time) => js_time.into(),
+            Timestamp::Receiving(sys_time) => sys_time
+                .duration_since(UNIX_EPOCH)
+                .expect("FIXME")
+                .as_secs()
+                .into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,5 +66,16 @@ impl JsTime {
         } else {
             Ok(JsTime { time })
         }
+    }
+}
+
+impl From<JsTime> for Ipld {
+    fn from(js_time: JsTime) -> Self {
+        js_time
+            .time
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("FIXME")
+            .as_secs()
+            .into()
     }
 }

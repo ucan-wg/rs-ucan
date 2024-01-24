@@ -1,15 +1,11 @@
 use libipld_core::ipld::Ipld;
 
-pub struct FieldName {
-    name: Box<str>,
-}
-
 pub enum Condition {
-    Contains { field: FieldName, value: Vec<Ipld> },
-    MinLength { field: FieldName, value: u64 },
-    MaxLength { field: FieldName, value: u64 },
-    Equals { field: FieldName, value: Ipld },
-    Regex { field: FieldName }, // FIXME
+    Contains { field: String, value: Vec<Ipld> },
+    MinLength { field: String, value: u64 },
+    MaxLength { field: String, value: u64 },
+    Equals { field: String, value: Ipld },
+    Regex { field: String }, // FIXME
 
     // Silly example
     OnDayOfWeek { day: Day },
