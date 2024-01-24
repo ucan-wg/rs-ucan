@@ -23,44 +23,38 @@
     nixpkgs,
     rust-overlay,
   } @ inputs:
-    flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [
-            devshell.overlays.default
-            (import rust-overlay)
-            (final: prev: {
-              rustfmt = prev.rust-bin.nightly.latest.rustfmt;
-            })
-          ];
-        };
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        overlays = [
+          devshell.overlays.default
+          (import rust-overlay)
+        ];
 
-        unstable = import nixos-unstable {
-          inherit system;
-        };
+        pkgs = import nixpkgs { inherit system overlays; };
+        unstable = import nixos-unstable { inherit system overlays; };
 
-        rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [
-            "cargo"
-            "clippy"
-            "llvm-tools-preview"
-            "rust-src"
-            "rust-std"
-            "rustfmt"
-          ];
+        rust-toolchain =
+          (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
+            extensions = [
+              "cargo"
+              "clippy"
+              "llvm-tools-preview"
+              "rust-src"
+              "rust-std"
+              "rustfmt"
+            ];
 
-          targets = [
-            "aarch64-apple-darwin"
-            "x86_64-apple-darwin"
+            targets = [
+              "aarch64-apple-darwin"
+              "x86_64-apple-darwin"
 
-            "x86_64-unknown-linux-musl"
-            "aarch64-unknown-linux-musl"
+              "x86_64-unknown-linux-musl"
+              "aarch64-unknown-linux-musl"
 
-            "wasm32-unknown-unknown"
-            "wasm32-wasi"
-          ];
-        };
+              "wasm32-unknown-unknown"
+              "wasm32-wasi"
+            ];
+          };
 
         format-pkgs = with pkgs; [
           nixpkgs-fmt
@@ -91,7 +85,9 @@
         ];
 
         cargo = "${pkgs.cargo}/bin/cargo";
+        node = "${unstable.nodejs_20}/bin/node";
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
+
       in rec {
         devShells.default = pkgs.devshell.mkShell {
           name = "rs-ucan";
@@ -100,20 +96,15 @@
 
           packages = with pkgs;
             [
-              # NOTE: The ordering of these two items is important. For nightly rustfmt to be used
-              # instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list.
-              # This is because native build inputs are added to $PATH in the order they're listed here.
-              #
-              # nightly-rustfmt
-              rust-toolchain
-
               direnv
+              rust-toolchain
               self.packages.${system}.irust
+              (pkgs.hiPrio pkgs.rust-bin.nightly.latest.rustfmt)
 
               chromedriver
-              nodePackages.pnpm
               protobuf
               unstable.nodejs_20
+              unstable.nodePackages.pnpm
               unstable.wasmtime
             ]
             ++ format-pkgs
@@ -165,6 +156,12 @@
               help = "Build for wasm32-unknown-unknown";
               category = "build";
               command = "${cargo} build --target=wasm32-unknown-unknown";
+            }
+            {
+              name = "build:node";
+              help = "Build JS-wrapped Wasm library";
+              category = "build";
+              command = "${pkgs.nodePackages.pnpm}/bin/pnpm install && ${node} run build";
             }
             {
               name = "build:wasi";
@@ -296,13 +293,13 @@
               name = "docs:build";
               help = "Refresh the docs";
               category = "dev";
-              command = "${cargo} doc";
+              command = "${cargo} doc --features=mermaid_docs";
             }
             {
               name = "docs:open";
               help = "Open refreshed docs";
               category = "dev";
-              command = "${cargo} doc --open";
+              command = "${cargo} doc --features=mermaid_docs --open";
             }
           ];
         };

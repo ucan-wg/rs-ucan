@@ -48,9 +48,9 @@ Run tests
 ## Benchmarking the Project
 
 For benchmarking and measuring performance, this project leverages
-[criterion][criterion] and a `test_utils` feature flag
-for integrating [proptest][proptest] within the the suite for working with
-[strategies][strategies] and sampling from randomly generated values.
+[Criterion] and a `test_utils` feature flag
+for integrating [proptest] within the the suite for working with
+[strategies] and sampling from randomly generated values.
 
 ## Benchmarks
 
@@ -70,7 +70,7 @@ This repository contains a [Nix flake] that initiates both the Rust
 toolchain set in [`rust-toolchain.toml`] and a [pre-commit hook]. It also
 installs helpful cargo binaries for development.
 
-Please install [nix] to get started. We also recommend installing [direnv].
+Please install [Nix] to get started. We also recommend installing [direnv].
 
 Run `nix develop` or `direnv allow` to load the `devShell` flake output,
 according to your preference.
@@ -85,7 +85,7 @@ uses specific nightly features we recommend by default.
 
 ### Pre-commit Hook
 
-This project recommends using [pre-commit][pre-commit] for running pre-commit
+This project recommends using [pre-commit] for running pre-commit
 hooks. Please run this before every commit and/or push.
 
 - If you are doing interim commits locally, and for some reason if you _don't_
@@ -95,7 +95,7 @@ hooks. Please run this before every commit and/or push.
 ### Recommended Development Flow
 
 - We recommend leveraging [cargo-watch][cargo-watch],
-  [cargo-expand][cargo-expand] and [irust][irust] for Rust development.
+  [`cargo-expand`] and [IRust] for Rust development.
 - We recommend using [cargo-udeps][cargo-udeps] for removing unused dependencies
   before commits and pull-requests.
 
@@ -127,7 +127,7 @@ These are references to specifications, talks and presentations, etc.
 
 ## License
 
-This project is licensed under the [Apache License 2.0][LICENSE], or
+This project is [licensed under the Apache License 2.0][LICENSE], or
 [http://www.apache.org/licenses/LICENSE-2.0][Apache].
 
 <!-- Internal Links -->
@@ -151,15 +151,15 @@ This project is licensed under the [Apache License 2.0][LICENSE], or
 <!-- External Links -->
 
 [Apache]: https://www.apache.org/licenses/LICENSE-2.0
-[cargo-expand]: https://github.com/dtolnay/cargo-expand
-[cargo-udeps]: https://github.com/est31/cargo-udeps
-[cargo-watch]: https://github.com/watchexec/cargo-watch
+[`cargo-expand`]: https://github.com/dtolnay/cargo-expand
+[`cargo-udeps`]: https://github.com/est31/cargo-udeps
+[`cargo-watch`]: https://github.com/watchexec/cargo-watch
 [commit-spec]: https://www.conventionalcommits.org/en/v1.0.0/#specification
 [commit-spec-site]: https://www.conventionalcommits.org/
-[criterion]: https://github.com/bheisler/criterion.rs
+[Criterion]: https://github.com/bheisler/criterion.rs
 [direnv]:https://direnv.net/
-[irust]: https://github.com/sigmaSd/IRust
-[nix]:https://nixos.org/download.html
+[IRust]: https://github.com/sigmaSd/IRust
+[Nix]:https://nixos.org/download.html
 [Nix flake]: https://nixos.wiki/wiki/Flakes
 [pre-commit]: https://pre-commit.com/
 [proptest]: https://github.com/proptest-rs/proptest
