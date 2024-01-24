@@ -1,7 +1,9 @@
-use crate::{ability::traits::Ability, delegation, time::Timestamp};
+use crate::{ability::traits::Ability, delegation, signature, time::Timestamp};
 use did_url::DID;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
+
+pub type Invocation<Ability> = signature::Envelope<Payload<Ability>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<Ability> {
@@ -38,4 +40,8 @@ impl<A: Ability + Clone, Cond> From<Payload<A>> for delegation::Payload<A, Cond>
             not_before: invocation.not_before.clone(),
         }
     }
+}
+
+impl<T> signature::Capsule for Payload<T> {
+    const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }

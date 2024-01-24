@@ -1,7 +1,9 @@
-use crate::{ability::traits::Ability, time::Timestamp};
+use crate::{ability::traits::Ability, signature, time::Timestamp};
 use did_url::DID;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
+
+pub type Delegation<Ability, Cond> = signature::Envelope<Payload<Ability, Cond>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<A: Ability, Cond> {
@@ -17,4 +19,8 @@ pub struct Payload<A: Ability, Cond> {
 
     pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
+}
+
+impl<T: Ability, C> signature::Capsule for Payload<T, C> {
+    const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }

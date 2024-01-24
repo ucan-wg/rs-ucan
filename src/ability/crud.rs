@@ -8,7 +8,7 @@ where
     T: Debug + Clone + PartialEq,
 {
     Value(T),
-    Await(Promise<T>),
+    Await(Promise), // FIXME
 }
 
 // FIXME macro to derive promise versions & delagted builder versions

@@ -116,6 +116,7 @@ pub mod invocation;
 pub mod promise;
 pub mod prove;
 pub mod receipt;
+pub mod signature;
 
 //////////////////////////////////////
 //////////////////////////////////////
