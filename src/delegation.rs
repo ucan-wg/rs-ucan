@@ -18,11 +18,11 @@ pub struct Payload<B: Builder, C> {
     pub subject: DID,
     pub audience: DID,
 
-    pub capability_builder: Delegate<B>, // FIXME
-    pub conditions: Vec<C>,              // Worth it over a Vec?
+    pub ability_builder: Delegate<B>, // FIXME
+    pub conditions: Vec<C>,
 
-    pub metadata: BTreeMap<String, Ipld>, // FIXME serde value instead?
-    pub nonce: Vec<u8>,                   // Better type?
+    pub metadata: BTreeMap<String, Ipld>,
+    pub nonce: Vec<u8>, //  FIXME Better type?
 
     pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
@@ -48,7 +48,7 @@ where
         map.insert("sub".into(), payload.subject.to_string().into());
         map.insert("aud".into(), payload.audience.to_string().into());
 
-        let can = match &payload.capability_builder {
+        let can = match &payload.ability_builder {
             Delegate::Any => "ucan/*".into(),
             Delegate::Specific(builder) => builder.command().clone().into(),
         };
@@ -57,7 +57,7 @@ where
 
         map.insert(
             "args".into(),
-            match &payload.capability_builder {
+            match &payload.ability_builder {
                 Delegate::Any => Ipld::Map(BTreeMap::new()),
                 Delegate::Specific(builder) => builder.clone().into(),
             },

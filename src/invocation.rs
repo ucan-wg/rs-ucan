@@ -45,13 +45,12 @@ impl<T: Clone, B: Builder<Concrete = T> + From<T>, C> From<&Payload<T, B, C>>
                 .audience
                 .clone()
                 .unwrap_or(invocation.issuer.clone()),
-            capability_builder: Delegate::Specific(invocation.ability.clone().into()),
+            ability_builder: Delegate::Specific(invocation.ability.clone().into()),
             conditions: vec![],
             metadata: invocation.metadata.clone(),
             nonce: invocation.nonce.clone(),
             expiration: invocation.expiration.clone(),
             not_before: invocation.not_before.clone(),
-            // FIXME cause
         }
     }
 }

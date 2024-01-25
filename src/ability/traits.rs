@@ -1,10 +1,11 @@
 use std::fmt::Debug;
 
 // FIXME this is always a builder, right?
-pub trait Ability: Sized {
+pub trait Ability {
+    // FIXME no Sizd
     // FIXME remove sized?
     // pub trait Capability: TryFrom<Ipld> + Into<Ipld> {
-    type Builder: From<Self> + TryInto<Self> + PartialEq + Debug; // FIXME
+    type Builder; // FIXME
 
     // fn command(builder: &Self::Builder) -> &'static str;
 }
