@@ -1,7 +1,4 @@
-use crate::{
-    ability::traits::{Ability, Builder},
-    prove::TryProve,
-};
+use crate::{ability::traits::Command, prove::TryProve};
 use libipld_core::ipld::Ipld;
 use std::{collections::BTreeMap, str::FromStr};
 use url::Url;
@@ -93,15 +90,9 @@ impl TryFrom<&Ipld> for MsgReceiveBuilder {
     }
 }
 
-impl Builder for MsgReceiveBuilder {
-    type Concrete = MsgReceive;
-
+impl Command for MsgReceiveBuilder {
     fn command(&self) -> &'static str {
         "msg/receive"
-    }
-
-    fn try_build(&self) -> Result<MsgReceive, ()> {
-        self.try_build().map_err(|_| ()) // FIXME
     }
 }
 

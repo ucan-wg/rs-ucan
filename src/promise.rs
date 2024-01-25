@@ -1,4 +1,4 @@
-use crate::{ability::traits::Ability, invocation, invocation::Invocation, signature::Capsule};
+use crate::{ability::traits::Buildable, invocation, invocation::Invocation, signature::Capsule};
 use cid::Cid;
 use libipld_core::{ipld::Ipld, link::Link};
 use std::fmt::Debug;

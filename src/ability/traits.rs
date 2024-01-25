@@ -1,31 +1,34 @@
 use std::fmt::Debug;
 
-// FIXME this is always a builder, right?
-pub trait Ability {
-    // FIXME no Sizd
-    // FIXME remove sized?
-    // pub trait Capability: TryFrom<Ipld> + Into<Ipld> {
-    type Builder; // FIXME
-
-    // fn command(builder: &Self::Builder) -> &'static str;
-}
-
-pub trait Builder {
-    type Concrete;
-
+pub trait Command {
     fn command(&self) -> &'static str;
-    fn try_build(&self) -> Result<Self::Concrete, ()>; // FIXME
 }
 
-// pub trait Builds1 {
-//     type B;
-// }
-//
-// impl Builds1 for B::Concrete
-// where
-//     B: Builder,
-// {
-//     type B = B;
-// }
+// FIXME this is always a builder, right? ToBuilder? Builder? Buildable?
+// FIXME Delegable and make it proven?
+pub trait Buildable {
+    type Builder: Command + Debug; // FIXME
 
+    fn to_builder(&self) -> Self::Builder;
+    fn try_build(builder: Self::Builder) -> Result<Box<Self>, ()>; // FIXME check if this box (for objevt safety) is actually required
+}
+
+pub trait Resolvable: Buildable {
+    type Awaiting: Command + Debug; // FIXME
+
+    fn to_awaitable(&self) -> Self::Awaiting;
+    fn try_into_resolved(promise: Self::Awaiting) -> Result<Box<Self>, ()>; // FIXME check if this box (for objevt safety) is actually required
+}
+
+impl<T: Buildable> Command for T {
+    fn command(&self) -> &'static str {
+        self.to_builder().command()
+    }
+}
+
+pub trait Runnable {
+    type Output;
+}
+
+pub trait Ability: Buildable + Runnable {}
 // FIXME macro for Delegation (builder) and Promises

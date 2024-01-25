@@ -112,7 +112,6 @@ use std::fmt::Debug;
 //
 
 pub mod ability;
-pub mod condition;
 pub mod delegation;
 pub mod invocation;
 pub mod ipld;

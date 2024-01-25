@@ -68,3 +68,16 @@ impl<T: Capsule + Into<Ipld> + Clone> From<&Envelope<T>> for Ipld {
         Ipld::Map(map)
     }
 }
+
+impl<T: Capsule + Into<Ipld> + Clone> From<Envelope<T>> for Ipld {
+    fn from(Envelope { sig, payload }: Envelope<T>) -> Self {
+        let mut inner = BTreeMap::new();
+        inner.insert(T::TAG.into(), payload.clone().into()); // FIXME should be a link
+
+        let mut map = BTreeMap::new();
+        map.insert("sig".into(), sig.into());
+        map.insert("pld".into(), Ipld::Map(inner));
+
+        Ipld::Map(map)
+    }
+}

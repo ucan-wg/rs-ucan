@@ -1,33 +1,65 @@
 use crate::{
-    ability::traits::{Ability, Builder},
-    delegation::Delegation,
+    ability::traits::{Buildable, Command, Runnable},
+    delegation::{condition::Condition, Delegation},
     invocation::Invocation,
     signature,
     time::Timestamp,
 };
 use did_url::DID;
-use libipld_core::{ipld::Ipld, link::Link};
-use std::collections::BTreeMap;
+use libipld_core::{cid::Cid, ipld::Ipld, link::Link};
+use std::{collections::BTreeMap, fmt::Debug};
 
-pub type Receipt<T, B, C> = signature::Envelope<Payload<T, B, C>>;
+pub type Receipt<B> = signature::Envelope<Payload<B>>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T, B: Builder<Concrete = T>, C> {
+pub struct Payload<B: Runnable + Debug> {
     pub issuer: DID,
-    pub ran: Link<Invocation<T, B, C>>,
-    pub out: Result<T, BTreeMap<String, Ipld>>,
+    pub ran: Cid,
+    pub out: Result<B::Output, BTreeMap<String, Ipld>>,
 
-    // pub proofs: Vec<Link<Delegation<B, C>>>, // FIXME these can only be executiojn proofs, right?
+    pub proofs: Vec<Cid>,
     pub metadata: BTreeMap<String, Ipld>,
     pub issued_at: Option<Timestamp>,
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum UcanResult<T> {
-//     UcanOk(T),
-//     UcanErr(BTreeMap<String, Ipld>),
-// }
-
-impl<T, B: Builder<Concrete = T>, C> signature::Capsule for Payload<T, B, C> {
+impl<B: Runnable + Debug> signature::Capsule for Payload<B> {
     const TAG: &'static str = "ucan/r/1.0.0-rc.1"; // FIXME extract out version
+}
+
+// FIXME
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProxyExecute {
+    pub command: String,
+    pub args: BTreeMap<String, Ipld>,
+}
+
+impl Buildable for ProxyExecute {
+    type Builder = ProxyExecuteBuilder;
+
+    fn to_builder(&self) -> Self::Builder {
+        ProxyExecuteBuilder {
+            command: Some(self.command.clone()),
+            args: self.args.clone(),
+        }
+    }
+
+    fn try_build(ProxyExecuteBuilder { command, args }: Self::Builder) -> Result<Box<Self>, ()> {
+        match command {
+            None => Err(()),
+            Some(command) => Ok(Box::new(Self { command, args })),
+        }
+    }
+}
+
+// FIXME hmmm
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProxyExecuteBuilder {
+    pub command: Option<String>,
+    pub args: BTreeMap<String, Ipld>,
+}
+
+impl Command for ProxyExecuteBuilder {
+    fn command(&self) -> &'static str {
+        "ucan/proxy" // FIXME check spec
+    }
 }
