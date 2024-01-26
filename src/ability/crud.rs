@@ -16,7 +16,7 @@ where
 // ... also maybe Ipld
 
 pub struct Crud {
-    uri: Field<Url>,
+    pub uri: Field<Url>,
 }
 
 pub struct CrudRead {
@@ -24,7 +24,7 @@ pub struct CrudRead {
 }
 
 pub struct CrudMutate {
-    uri: Field<Url>,
+    pub uri: Field<Url>,
 }
 
 pub struct CrudCreate {
@@ -32,11 +32,13 @@ pub struct CrudCreate {
     pub args: BTreeMap<Box<str>, Field<String>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct CrudUpdate {
     pub uri: Field<Url>,
     pub args: BTreeMap<Box<str>, Field<String>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct CrudDestroy {
     pub uri: Field<Url>,
 }

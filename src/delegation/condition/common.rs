@@ -1,7 +1,8 @@
 use super::Condition;
-use libipld_core::ipld::Ipld;
+use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use regex::Regex;
-use std::collections::BTreeMap;
+use serde;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Common {
@@ -16,47 +17,24 @@ pub enum Common {
 
 // FIXME dynamic js version?
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContainsAll {
     field: String,
     values: Vec<Ipld>,
 }
 
-impl From<ContainsAll> for Ipld {
-    fn from(contains_all: ContainsAll) -> Self {
-        let mut map = BTreeMap::new();
-        map.insert("field".into(), contains_all.field.into());
-        map.insert("values".into(), contains_all.values.into());
-        map.into()
-    }
-}
+// impl From<ContainsAll> for Ipld {
+//     fn from(contains_all: ContainsAll) -> Self {
+//         contains_all.into()
+//     }
+// }
 
-impl TryFrom<&Ipld> for ContainsAll {
+impl TryFrom<Ipld> for ContainsAll {
     type Error = (); // FIXME
 
-    fn try_from(ipld: &Ipld) -> Result<Self, ()> {
-        if let Ipld::Map(map) = ipld {
-            if map.len() != 2 {
-                return Err(());
-            }
-
-            if let Some(Ipld::String(field)) = map.get("field") {
-                let values = match map.get("values") {
-                    None => Ok(vec![]),
-                    Some(Ipld::List(values)) => Ok(values.to_vec()),
-                    _ => Err(()),
-                }?;
-
-                Ok(Self {
-                    field: field.to_string(),
-                    values: values.to_vec(),
-                })
-            } else {
-                Err(())
-            }
-        } else {
-            Err(())
-        }
+    fn try_from(ipld: Ipld) -> Result<Self, ()> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
     }
 }
 
@@ -73,7 +51,8 @@ impl Condition for ContainsAll {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContainsAny {
     field: String,
     value: Vec<Ipld>,
@@ -92,7 +71,8 @@ impl Condition for ContainsAny {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExcludesAll {
     field: String,
     value: Vec<Ipld>,
@@ -111,16 +91,43 @@ impl Condition for ExcludesAll {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl TryFrom<Ipld> for ExcludesAll {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+// FIXME serialization?
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum Numeric {
     Float(f64),
     Integer(i128),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl TryFrom<Ipld> for Numeric {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MinNumber {
     field: String,
     value: Numeric,
+}
+
+impl TryFrom<Ipld> for MinNumber {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
 }
 
 impl Condition for MinNumber {
@@ -139,7 +146,8 @@ impl Condition for MinNumber {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MaxNumber {
     field: String,
     value: Numeric,
@@ -161,7 +169,16 @@ impl Condition for MaxNumber {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl TryFrom<Ipld> for MaxNumber {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MinLength {
     field: String,
     value: u64,
@@ -178,7 +195,8 @@ impl Condition for MinLength {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MaxLength {
     field: String,
     value: u64,
@@ -195,7 +213,8 @@ impl Condition for MaxLength {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Matches {
     field: String,
     matcher: Matcher,
@@ -207,6 +226,33 @@ pub struct Matcher(Regex);
 impl PartialEq for Matcher {
     fn eq(&self, other: &Self) -> bool {
         self.0.as_str() == other.0.as_str()
+    }
+}
+
+impl Eq for Matcher {}
+
+impl serde::Serialize for Matcher {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.as_str().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Matcher {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: &str = serde::Deserialize::deserialize(deserializer)?;
+        match Regex::new(s) {
+            Ok(regex) => Ok(Matcher(regex)),
+            Err(_) => {
+                // FIXME
+                todo!()
+            }
+        }
     }
 }
 

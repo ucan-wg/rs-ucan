@@ -1,15 +1,17 @@
 use crate::{ability::traits::Command, prove::TryProve};
-use libipld_core::ipld::Ipld;
-use std::{collections::BTreeMap, str::FromStr};
+use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use serde_derive::{Deserialize, Serialize};
 use url::Url;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Msg {
     to: Url,
     from: Url,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MsgSend {
     to: Url,
     from: Url,
@@ -17,13 +19,15 @@ pub struct MsgSend {
 }
 
 // TODO is the to or from often also the subject? Shoudl that be accounted for?
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MsgReceive {
     to: Url,
     from: Url,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MsgReceiveBuilder {
     to: Option<Url>,
     from: Option<Url>,
@@ -52,41 +56,16 @@ impl TryFrom<MsgReceiveBuilder> for MsgReceive {
 }
 
 impl From<MsgReceive> for Ipld {
-    fn from(msg: MsgReceive) -> Self {
-        let mut map = BTreeMap::new();
-        map.insert("to".into(), msg.to.to_string().into());
-        map.insert("from".into(), msg.from.to_string().into());
-        map.into()
+    fn from(msg_rcv: MsgReceive) -> Self {
+        msg_rcv.into()
     }
 }
 
-impl TryFrom<&Ipld> for MsgReceiveBuilder {
+impl TryFrom<Ipld> for MsgReceiveBuilder {
     type Error = ();
 
-    fn try_from(ipld: &Ipld) -> Result<Self, ()> {
-        match ipld {
-            Ipld::Map(map) => {
-                if map.len() > 2 {
-                    return Err(()); // FIXME
-                }
-
-                // FIXME
-                let to = if let Some(Ipld::String(to)) = map.get("to") {
-                    Url::from_str(to).ok() // FIXME
-                } else {
-                    None
-                };
-
-                let from = if let Some(Ipld::String(from)) = map.get("from") {
-                    Url::from_str(from).ok() // FIXME
-                } else {
-                    None
-                };
-
-                Ok(Self { to, from })
-            }
-            _ => Err(()),
-        }
+    fn try_from(ipld: Ipld) -> Result<Self, ()> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
     }
 }
 
@@ -94,36 +73,11 @@ impl Command for MsgReceive {
     const COMMAND: &'static str = "msg/receive";
 }
 
-impl TryFrom<&Ipld> for MsgReceive {
+impl TryFrom<Ipld> for MsgReceive {
     type Error = (); // FIXME
 
-    fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
-        match ipld {
-            Ipld::Map(map) => {
-                if map.len() > 2 {
-                    return Err(()); // FIXME
-                }
-
-                // FIXME
-                let to = if let Some(Ipld::String(to)) = map.get("to") {
-                    Url::from_str(to).ok() // FIXME
-                } else {
-                    None
-                };
-
-                let from = if let Some(Ipld::String(from)) = map.get("from") {
-                    Url::from_str(from).ok() // FIXME
-                } else {
-                    None
-                };
-
-                Ok(Self {
-                    to: to.unwrap(),
-                    from: from.unwrap(),
-                })
-            }
-            _ => Err(()),
-        }
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
     }
 }
 
