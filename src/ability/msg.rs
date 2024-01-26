@@ -90,10 +90,8 @@ impl TryFrom<&Ipld> for MsgReceiveBuilder {
     }
 }
 
-impl Command for MsgReceiveBuilder {
-    fn command(&self) -> &'static str {
-        "msg/receive"
-    }
+impl Command for MsgReceive {
+    const COMMAND: &'static str = "msg/receive";
 }
 
 impl TryFrom<&Ipld> for MsgReceive {

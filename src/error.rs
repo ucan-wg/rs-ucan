@@ -27,7 +27,7 @@ pub enum Error {
     #[error(transparent)]
     PluginError(PluginError),
     /// Internal errors
-    #[error("An unexpected error occurred in rs_ucan: {msg}\n\nThis is a bug: please consider filing an issue at https://github.com/ucan-wg/rs_ucan/issues")]
+    #[error("An unexpected error occurred in rs-ucan: {msg}\n\nThis is a bug: please consider filing an issue at https://github.com/ucan-wg/rs-ucan/issues")]
     InternalUcanError {
         /// Error message
         msg: String,

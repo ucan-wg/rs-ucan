@@ -14,14 +14,14 @@ use wasm_bindgen::prelude::*;
 pub struct Dynamic<'a> {
     pub command: String,
     pub args: BTreeMap<String, Ipld>, // FIXME consider this being just JsValue
-    pub validater: &'a js_sys::Function,
+    pub validator: &'a js_sys::Function,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DynamicBuilder<'a> {
     pub command: String,
     pub args: Option<BTreeMap<String, Ipld>>,
-    pub validater: &'a js_sys::Function,
+    pub validator: &'a js_sys::Function,
 }
 
 impl<'a> From<Dynamic<'a>> for DynamicBuilder<'a> {
@@ -29,7 +29,7 @@ impl<'a> From<Dynamic<'a>> for DynamicBuilder<'a> {
         Self {
             command: dynamic.command.clone(),
             args: Some(dynamic.args),
-            validater: dynamic.validater,
+            validator: dynamic.validator,
         }
     }
 }
@@ -73,6 +73,6 @@ impl<'a> TryProve<DynamicBuilder<'a>> for DynamicBuilder<'a> {
         let js_self: JsValue = self.into().into();
         let js_candidate: JsValue = candidate.into().into();
 
-        self.validater.apply(js_self, js_candidate);
+        self.validator.apply(js_self, js_candidate);
     }
 }

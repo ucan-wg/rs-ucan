@@ -1,5 +1,5 @@
 {
-  description = "rs_ucan";
+  description = "rs-ucan";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
@@ -88,7 +88,7 @@
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
       in rec {
         devShells.default = pkgs.devshell.mkShell {
-          name = "rs_ucan";
+          name = "rs-ucan";
 
           imports = [./pre-commit.nix];
 

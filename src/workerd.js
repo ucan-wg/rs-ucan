@@ -1,6 +1,6 @@
 // This entry point is inserted into ./lib/workerd to support Cloudflare workers
 
-import WASM from "./rs_ucan_bg.wasm";
-import { initSync } from "./rs_ucan.js";
+import WASM from "./rs-ucan_bg.wasm";
+import { initSync } from "./rs-ucan.js";
 initSync(WASM);
-export * from "./rs_ucan.js";
+export * from "./rs-ucan.js";

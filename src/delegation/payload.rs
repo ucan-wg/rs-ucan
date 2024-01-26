@@ -1,7 +1,8 @@
 use super::{condition::Condition, delegate::Delegate};
 use crate::{
-    ability::traits::{Buildable, Command},
-    signature,
+    ability::traits::{Command, Delegatable},
+    capsule::Capsule,
+    nonce::Nonce,
     time::Timestamp,
 };
 use did_url::DID;
@@ -9,7 +10,7 @@ use libipld_core::ipld::Ipld;
 use std::{collections::BTreeMap, fmt::Debug};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<B: Buildable, C: Condition> {
+pub struct Payload<B: Delegatable, C: Condition> {
     pub issuer: DID,
     pub subject: DID,
     pub audience: DID,
@@ -18,20 +19,21 @@ pub struct Payload<B: Buildable, C: Condition> {
     pub conditions: Vec<C>,
     // pub fixme: Vec<Box<dyn Condition>>,
     pub metadata: BTreeMap<String, Ipld>,
-    pub nonce: Vec<u8>,
+    pub nonce: Nonce,
 
     pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
 }
 
-impl<B: Buildable, C: Condition> signature::Capsule for Payload<B, C> {
+impl<B: Delegatable, C: Condition> Capsule for Payload<B, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<B: Buildable + Clone, C: Condition + Into<Ipld> + Clone> From<&Payload<B, C>> for Ipld
+impl<B: Delegatable + Clone + Command, C: Condition + Into<Ipld> + Clone> From<&Payload<B, C>>
+    for Ipld
 where
     Ipld: From<B::Builder>,
-    B::Builder: Clone, // FIXME
+    B::Builder: Command + Clone, // FIXME
 {
     fn from(payload: &Payload<B, C>) -> Self {
         let mut map = BTreeMap::new();
@@ -41,10 +43,10 @@ where
 
         let can = match &payload.ability_builder {
             Delegate::Any => "ucan/*".into(),
-            Delegate::Specific(builder) => builder.command().into(),
+            Delegate::Specific(builder) => B::COMMAND.into(),
         };
 
-        map.insert("can".into(), can);
+        map.insert("cmd".into(), can);
 
         map.insert(
             "args".into(),
@@ -83,7 +85,8 @@ where
     }
 }
 
-impl<B: Buildable + Clone, C: Condition + Into<Ipld> + Clone> From<Payload<B, C>> for Ipld
+impl<B: Delegatable + Command + Clone, C: Condition + Into<Ipld> + Clone> From<Payload<B, C>>
+    for Ipld
 where
     Ipld: From<B::Builder>,
 {
@@ -95,10 +98,10 @@ where
 
         let can = match &payload.ability_builder {
             Delegate::Any => "ucan/*".into(),
-            Delegate::Specific(builder) => builder.command().into(),
+            Delegate::Specific(builder) => B::COMMAND.into(),
         };
 
-        map.insert("can".into(), can);
+        map.insert("cmd".into(), can);
 
         map.insert(
             "args".into(),

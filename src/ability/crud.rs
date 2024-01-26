@@ -2,6 +2,7 @@ use crate::{promise::Promise, prove::TryProve};
 use std::{collections::BTreeMap, fmt::Debug};
 use url::Url;
 
+// FIXME move to promise.rs
 #[derive(Debug, Clone, PartialEq)]
 pub enum Field<T>
 where

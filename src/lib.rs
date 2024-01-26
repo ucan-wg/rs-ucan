@@ -2,7 +2,7 @@
 #![warn(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![deny(unreachable_pub)]
 
-//! rs_ucan
+//! rs-ucan
 
 use std::str::FromStr;
 
@@ -112,13 +112,15 @@ use std::fmt::Debug;
 //
 
 pub mod ability;
+pub mod capsule;
 pub mod delegation;
 pub mod invocation;
 pub mod ipld;
+pub mod nonce;
 pub mod promise;
 pub mod prove;
 pub mod receipt;
-pub mod signature; // FIXME
+pub mod signature;
 
 /// The empty fact
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

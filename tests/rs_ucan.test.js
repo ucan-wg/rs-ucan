@@ -1,5 +1,5 @@
 import assert from "assert";
-import { build, decode } from "../dist/bundler/rs_ucan.js";
+import { build, decode } from "../dist/bundler/rs-ucan.js";
 
 describe("decode", async function () {
   let ucan = await decode(

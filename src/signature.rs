@@ -1,11 +1,9 @@
-use libipld_core::{ipld::Ipld, link::Link};
+use crate::capsule::Capsule;
+use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Envelope<T>
-where
-    T: Capsule,
-{
+pub struct Envelope<T: Capsule> {
     pub sig: Signature,
     pub payload: T,
 }
@@ -18,11 +16,6 @@ pub enum Signature {
         sig: Vec<u8>,
         merkle_proof: Vec<Vec<u8>>,
     },
-}
-
-// TODO move to own module?
-pub trait Capsule {
-    const TAG: &'static str;
 }
 
 impl From<&Signature> for Ipld {
