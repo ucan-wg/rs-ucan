@@ -2,7 +2,7 @@ use libipld_core::{ipld::Ipld, raw::RawCodec};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
-use rs-ucan::{
+use ucan::{
     capability::DefaultCapabilityParser,
     did_verifier::DidVerifierMap,
     store::{self, Store},
@@ -297,7 +297,7 @@ impl TestTask for VerifyTest {
             return;
         }
 
-        if let Err(err) = ucan.validate(rs-ucan::time::now(), &did_verifier_map) {
+        if let Err(err) = ucan.validate(ucan::time::now(), &did_verifier_map) {
             report.register_failure(name, err.to_string());
 
             return;
@@ -319,7 +319,7 @@ impl TestTask for RefuteTest {
         if let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
         {
             if ucan
-                .validate(rs-ucan::time::now(), &did_verifier_map)
+                .validate(ucan::time::now(), &did_verifier_map)
                 .is_ok()
             {
                 report.register_failure(
