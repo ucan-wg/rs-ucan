@@ -8,8 +8,8 @@
 ///   more2[...]
 /// ```
 pub trait TryProve<T> {
-    type Error;
     type Proven;
+    type Error;
 
     fn try_prove(self, candidate: T) -> Result<Self::Proven, Self::Error>;
 }

@@ -6,9 +6,9 @@ pub struct DelegateAny;
 
 impl<'a, T> TryProve<&'a DelegateAny> for &'a T {
     type Error = Infallible;
-    type Proven = T;
+    type Proven = &'a T;
 
-    fn try_prove(&'a self, _proof: &'a DelegateAny) -> Result<&'a Self::Proven, Infallible> {
+    fn try_prove(self, _proof: &'a DelegateAny) -> Result<Self::Proven, Infallible> {
         Ok(self)
     }
 }

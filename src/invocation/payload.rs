@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Resolvable + Debug> {
+pub struct Payload<T: Resolvable> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Option<Did>,
@@ -26,26 +26,25 @@ pub struct Payload<T: Resolvable + Debug> {
     pub expiration: Timestamp,
 }
 
-impl<T: Resolvable + Command + Debug + serde::Serialize + serde::de::DeserializeOwned> Capsule
-    for Payload<T>
-{
+impl<T: Resolvable + Command> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T: Resolvable + Debug> Serialize for Payload<T>
+impl<T: Resolvable> Serialize for Payload<T>
 where
+    Payload<T>: Clone,
     InternalSerializer: From<Payload<T>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let s = InternalSerializer::from(*self);
+        let s = InternalSerializer::from(self.clone());
         Serialize::serialize(&s, serializer)
     }
 }
 
-impl<'de, T: Resolvable + Debug> Deserialize<'de> for Payload<T>
+impl<'de, T: Resolvable> Deserialize<'de> for Payload<T>
 where
     Payload<T>: TryFrom<InternalSerializer>,
     <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
@@ -63,7 +62,7 @@ where
     }
 }
 
-impl<T: Resolvable + Debug> TryFrom<Ipld> for Payload<T>
+impl<T: Resolvable> TryFrom<Ipld> for Payload<T>
 where
     Payload<T>: TryFrom<InternalSerializer>,
 {
@@ -75,13 +74,14 @@ where
     }
 }
 
-impl<T: Resolvable + Command + Debug + Clone> From<Payload<T>> for Ipld {
+impl<T: Resolvable> From<Payload<T>> for Ipld {
     fn from(payload: Payload<T>) -> Self {
         payload.into()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct InternalSerializer {
     #[serde(rename = "iss")]
     pub issuer: Did,
@@ -90,7 +90,7 @@ struct InternalSerializer {
     #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
     pub audience: Option<Did>,
 
-    #[serde(rename = "cmd")]
+    #[serde(rename = "do")]
     pub command: String,
     #[serde(rename = "args")]
     pub arguments: BTreeMap<String, Ipld>,
@@ -111,11 +111,11 @@ struct InternalSerializer {
     pub expiration: Timestamp,
 }
 
-impl<T: Resolvable + Command + Debug> From<&Payload<T>> for InternalSerializer
+impl<T: Resolvable + Command + Debug> From<Payload<T>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Awaiting>,
 {
-    fn from(payload: &Payload<T>) -> Self {
+    fn from(payload: Payload<T>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,

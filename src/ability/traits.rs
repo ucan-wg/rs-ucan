@@ -1,4 +1,4 @@
-use crate::prove::TryProve;
+use crate::{did::Did, nonce::Nonce, prove::TryProve};
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -10,16 +10,15 @@ pub trait Command {
 // FIXME Delegable and make it proven?
 pub trait Delegatable: Sized {
     type Builder: Debug + TryInto<Self> + From<Self>;
-    // type Builder: Debug + /*TryProve<Self> FIXME */ + TryInto<Self> + From<Self>;
 }
 
 pub trait Resolvable: Sized {
     type Awaiting: Debug + TryInto<Self> + From<Self>;
 }
 
-// FIXME Delegatable?
 pub trait Runnable {
-    type Output;
+    type Output: Debug;
+    fn task_id(self, subject: &Did, nonce: &Nonce) -> String;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

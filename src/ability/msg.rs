@@ -188,9 +188,9 @@ impl TryFrom<Ipld> for MsgReceive {
 
 impl<'a> TryProve<&'a Msg> for &'a Msg {
     type Error = (); // FIXME
-    type Proven = Msg;
+    type Proven = &'a Msg;
 
-    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
         if self == candidate {
             Ok(self)
         } else {
@@ -201,9 +201,9 @@ impl<'a> TryProve<&'a Msg> for &'a Msg {
 
 impl<'a> TryProve<&'a Msg> for &'a MsgSend {
     type Error = (); // FIXME
-    type Proven = MsgSend;
+    type Proven = &'a MsgSend;
 
-    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
         if self.to == candidate.to && self.from == candidate.from {
             Ok(self)
         } else {
@@ -214,9 +214,9 @@ impl<'a> TryProve<&'a Msg> for &'a MsgSend {
 
 impl<'a> TryProve<&'a Msg> for &'a MsgReceive {
     type Error = (); // FIXME
-    type Proven = MsgReceive;
+    type Proven = &'a MsgReceive;
 
-    fn try_prove(&'a self, candidate: &'a Msg) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
         if self.to == candidate.to && self.from == candidate.from {
             Ok(self)
         } else {
@@ -228,9 +228,9 @@ impl<'a> TryProve<&'a Msg> for &'a MsgReceive {
 // FIXME this needs to work on builders!
 impl<'a> TryProve<&'a MsgReceive> for &'a MsgReceive {
     type Error = (); // FIXME
-    type Proven = MsgReceive;
+    type Proven = &'a MsgReceive;
 
-    fn try_prove(&'a self, candidate: &'a MsgReceive) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(self, candidate: &'a MsgReceive) -> Result<Self::Proven, ()> {
         if self == candidate {
             Ok(self)
         } else {

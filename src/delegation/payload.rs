@@ -1,19 +1,16 @@
-use super::{condition::Condition, delegate::Delegate};
+use super::condition::Condition;
 use crate::{
     ability::traits::{Command, Delegatable, DynJs},
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
-    prove::TryProve,
     time::Timestamp,
 };
-use did_url::DID;
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
-use serde_derive::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
-use web_time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Payload<T: Delegatable, C: Condition> {
     pub issuer: Did,
     pub subject: Did,
@@ -29,88 +26,190 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition> Capsule for Payload<T, C>
+impl<T: Delegatable, C: Condition + Debug> Debug for Payload<T, C>
 where
-    T::Builder: serde::Serialize + serde::de::DeserializeOwned,
+    T::Builder: Debug,
 {
-    const TAG: &'static str = "ucan/d/1.0.0-rc.1";
-}
-
-// FIXME
-impl<T: Delegatable, C: Condition + serde::Serialize + serde::de::DeserializeOwned> TryFrom<Ipld>
-    for Payload<T, C>
-where
-    T::Builder: serde::Serialize + serde::de::DeserializeOwned,
-{
-    type Error = ();
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).unwrap() // FIXME
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Payload")
+            .field("issuer", &self.issuer)
+            .field("subject", &self.subject)
+            .field("audience", &self.audience)
+            .field("ability_builder", &self.ability_builder)
+            .field("conditions", &self.conditions)
+            .field("metadata", &self.metadata)
+            .field("nonce", &self.nonce)
+            .field("expiration", &self.expiration)
+            .field("not_before", &self.not_before)
+            .finish()
     }
 }
 
-// impl<C: Condition + Into<Ipld> + Clone> From<Payload<DynJs, C>> for Ipld {
-//     fn from(payload: Payload<DynJs, C>) -> Self {
-//         // FIXME I bet this clone can be removed by switcing to &DynJs
-//         if let Ipld::Map(mut map) = payload.clone().into() {
-//             map.insert("cmd".into(), payload.ability_builder.cmd.into());
-//             map.insert("args".into(), payload.ability_builder.args.into());
-//             map.into()
-//         } else {
-//             panic!("FIXME")
-//         }
-//     }
-// }
+impl<T: Delegatable, C: Condition> Capsule for Payload<T, C> {
+    const TAG: &'static str = "ucan/d/1.0.0-rc.1";
+}
 
-impl<T: Delegatable + Command, C: Condition + Into<Ipld> + Clone> From<Payload<T, C>> for Ipld
+impl<T: Delegatable + Debug, C: Condition + Serialize> Serialize for Payload<T, C>
 where
-    Ipld: From<T::Builder>,
+    InternalSerializer: From<Payload<T, C>>,
+    Payload<T, C>: Clone,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = InternalSerializer::from(self.clone());
+        Serialize::serialize(&s, serializer)
+    }
+}
+
+impl<'de, T: Delegatable + Debug, C: Condition + DeserializeOwned> Deserialize<'de>
+    for Payload<T, C>
+where
+    Payload<T, C>: TryFrom<InternalSerializer>,
+    <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
+{
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match InternalSerializer::deserialize(d) {
+            Err(e) => Err(e),
+            Ok(s) => s
+                .try_into()
+                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))), // FIXME better error
+        }
+    }
+}
+
+impl<T: Delegatable + Debug, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld>
+    for Payload<T, C>
+where
+    Payload<T, C>: TryFrom<InternalSerializer>,
+{
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        let s: InternalSerializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?;
+        s.try_into().map_err(|_| ()) // FIXME
+    }
+}
+
+impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
+    fn from(payload: Payload<T, C>) -> Self {
+        payload.into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InternalSerializer {
+    #[serde(rename = "iss")]
+    pub issuer: Did,
+    #[serde(rename = "sub")]
+    pub subject: Did,
+    #[serde(rename = "aud")]
+    pub audience: Did,
+
+    #[serde(rename = "can")]
+    pub command: String,
+    #[serde(rename = "args")]
+    pub arguments: BTreeMap<String, Ipld>,
+    #[serde(rename = "cond")]
+    pub conditions: Vec<Ipld>,
+
+    #[serde(rename = "nonce")]
+    pub nonce: Nonce,
+    #[serde(rename = "meta")]
+    pub metadata: BTreeMap<String, Ipld>,
+
+    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<Timestamp>,
+    #[serde(rename = "exp")]
+    pub expiration: Timestamp,
+}
+
+impl<T: Delegatable + Command + Debug, C: Condition + Into<Ipld>> From<Payload<T, C>>
+    for InternalSerializer
+where
+    BTreeMap<String, Ipld>: From<T::Builder>,
 {
     fn from(payload: Payload<T, C>) -> Self {
-        let can = match &payload.ability_builder {
-            Delegate::Any => "ucan/*".into(),
-            Delegate::Specific(builder) => T::COMMAND.into(),
-        };
+        InternalSerializer {
+            issuer: payload.issuer,
+            subject: payload.subject,
+            audience: payload.audience,
 
-        let mut map = BTreeMap::from_iter([
-            ("iss".into(), payload.issuer.to_string().into()),
-            ("sub".into(), payload.subject.to_string().into()),
-            ("aud".into(), payload.audience.to_string().into()),
-            (
-                "args".into(),
-                match &payload.ability_builder {
-                    Delegate::Any => Ipld::Map(BTreeMap::new()),
-                    Delegate::Specific(builder) => (*builder).clone().into(), // FIXME
-                },
-            ),
-            ("cmd".into(), can),
-            (
-                "cond".into(),
-                payload
-                    .conditions
-                    .iter()
-                    .map(|condition| (*condition).clone().into())
-                    .collect::<Vec<Ipld>>()
-                    .into(),
-            ),
-            (
-                "meta".into(),
-                payload
-                    .metadata
-                    .clone()
-                    .into_iter()
-                    .map(|(key, value)| (key, value.into()))
-                    .collect::<BTreeMap<String, Ipld>>()
-                    .into(),
-            ),
-            ("nonce".into(), payload.nonce.clone().into()),
-            ("exp".into(), payload.expiration.clone().into()),
-        ]);
+            command: T::COMMAND.into(),
+            arguments: payload.ability_builder.into(),
+            conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
 
-        if let Some(not_before) = &payload.not_before {
-            map.insert("nbf".into(), not_before.clone().into());
+            metadata: payload.metadata,
+            nonce: payload.nonce,
+
+            not_before: payload.not_before,
+            expiration: payload.expiration,
         }
+    }
+}
 
-        map.into()
+impl TryFrom<Ipld> for InternalSerializer {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, ()> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<DynJs, C> {
+    type Error = (); // FIXME
+
+    fn try_from(s: InternalSerializer) -> Result<Payload<DynJs, C>, ()> {
+        Ok(Payload {
+            issuer: s.issuer,
+            subject: s.subject,
+            audience: s.audience,
+
+            ability_builder: DynJs {
+                cmd: s.command,
+                args: s.arguments,
+            },
+            conditions: s
+                .conditions
+                .iter()
+                .try_fold(Vec::new(), |mut acc, c| {
+                    C::try_from(c.clone()).map(|x| {
+                        acc.push(x);
+                        acc
+                    })
+                })
+                .map_err(|_| ())?, // FIXME better error (collect all errors
+
+            metadata: s.metadata,
+            nonce: s.nonce,
+
+            not_before: s.not_before,
+            expiration: s.expiration,
+        })
+    }
+}
+
+impl<C: Condition + Into<Ipld>> From<Payload<DynJs, C>> for InternalSerializer {
+    fn from(p: Payload<DynJs, C>) -> Self {
+        InternalSerializer {
+            issuer: p.issuer,
+            subject: p.subject,
+            audience: p.audience,
+
+            command: p.ability_builder.cmd,
+            arguments: p.ability_builder.args,
+            conditions: p.conditions.into_iter().map(|c| c.into()).collect(),
+
+            metadata: p.metadata,
+            nonce: p.nonce,
+
+            not_before: p.not_before,
+            expiration: p.expiration,
+        }
     }
 }
