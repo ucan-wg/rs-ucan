@@ -4,7 +4,7 @@ use std::convert::Infallible;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DelegateAny;
 
-impl<'a, T> TryProve<'a, DelegateAny> for T {
+impl<'a, T> TryProve<&'a DelegateAny> for &'a T {
     type Error = Infallible;
     type Proven = T;
 

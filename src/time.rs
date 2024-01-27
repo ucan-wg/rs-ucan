@@ -1,6 +1,7 @@
 //! Time utilities
 
-use libipld_core::ipld::Ipld;
+use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use serde_derive::{Deserialize, Serialize};
 use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Get the current time in seconds since UNIX_EPOCH
@@ -11,7 +12,8 @@ pub fn now() -> u64 {
         .as_secs()
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Timestamp {
     // FIXME probably overkill, but overflows are bad. Need to check on ingestion, too
     /// Per the spec, timestamps MUST respect [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754)
@@ -28,18 +30,19 @@ pub enum Timestamp {
 
 impl From<Timestamp> for Ipld {
     fn from(timestamp: Timestamp) -> Self {
-        match timestamp {
-            Timestamp::Sending(js_time) => js_time.into(),
-            Timestamp::Receiving(sys_time) => sys_time
-                .duration_since(UNIX_EPOCH)
-                .expect("FIXME")
-                .as_secs()
-                .into(),
-        }
+        timestamp.into()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl TryFrom<Ipld> for Timestamp {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JsTime {
     time: SystemTime,
 }

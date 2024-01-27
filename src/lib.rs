@@ -12,6 +12,7 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 pub mod builder;
 pub mod capability;
 pub mod crypto;
+pub mod did;
 pub mod did_verifier;
 pub mod error;
 pub mod plugins;

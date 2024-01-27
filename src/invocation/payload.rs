@@ -1,137 +1,193 @@
 use crate::{
-    ability::traits::{Command, Delegatable, DynJs, JsHack},
+    ability::traits::{Command, DynJs, Resolvable},
     capsule::Capsule,
-    delegation,
-    delegation::{condition::Condition, Delegate},
+    did::Did,
     nonce::Nonce,
     time::Timestamp,
 };
-use did_url::DID;
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
+use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<B: Delegatable + Debug> {
-    pub issuer: DID,
-    pub subject: DID,
-    pub audience: Option<DID>,
+pub struct Payload<T: Resolvable + Debug> {
+    pub issuer: Did,
+    pub subject: Did,
+    pub audience: Option<Did>,
 
-    pub ability: B,
+    pub ability: T::Awaiting,
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
     pub metadata: BTreeMap<String, Ipld>, // FIXME parameterize?
     pub nonce: Nonce,
 
-    pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
+    pub expiration: Timestamp,
 }
 
-// FIXME move that clone?
-impl<B: Delegatable + Debug + Clone, C: Condition> From<&Payload<B>> for delegation::Payload<B, C> {
-    fn from(invocation: &Payload<B>) -> Self {
-        Self {
-            issuer: invocation.issuer.clone(),
-            subject: invocation.subject.clone(),
-            audience: invocation
-                .audience
-                .clone()
-                .unwrap_or(invocation.issuer.clone()),
-            ability_builder: Delegate::Specific(invocation.ability.clone().into()),
-            conditions: vec![],
-            metadata: invocation.metadata.clone(),
-            nonce: invocation.nonce.clone(),
-            expiration: invocation.expiration.clone(),
-            not_before: invocation.not_before.clone(),
-        }
-    }
-}
-
-impl<B: Delegatable + Debug> Capsule for Payload<B> {
+impl<T: Resolvable + Command + Debug + serde::Serialize + serde::de::DeserializeOwned> Capsule
+    for Payload<T>
+{
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<B: Delegatable + Command + Debug + Into<Ipld>> From<Payload<B>> for Ipld {
-    fn from(payload: Payload<B>) -> Self {
-        let mut map = BTreeMap::new();
-        map.insert("iss".into(), payload.issuer.to_string().into());
-        map.insert("sub".into(), payload.subject.to_string().into());
-        map.insert(
-            "aud".into(),
-            payload
-                .audience
-                .map(|audience| audience.to_string())
-                .unwrap_or(payload.issuer.to_string())
-                .into(),
-        );
-
-        map.insert("cmd".into(), B::COMMAND.into());
-        map.insert("args".into(), payload.ability.into());
-
-        map.insert(
-            "proofs".into(),
-            Ipld::List(
-                payload
-                    .proofs
-                    .into_iter()
-                    .map(|cid| cid.into())
-                    .collect::<Vec<_>>(),
-            ),
-        );
-
-        map.insert(
-            "cause".into(),
-            payload
-                .cause
-                .map(|cid| cid.into())
-                .unwrap_or(Ipld::Null),
-        );
-
-        map.insert(
-            "metadata".into(),
-            Ipld::Map(
-                payload
-                    .metadata
-                    .into_iter()
-                    .map(|(k, v)| (k, v.into()))
-                    .collect::<BTreeMap<String, Ipld>>(),
-            ),
-        );
-
-        map.insert("nonce".into(), payload.nonce.into());
-
-        map.insert("exp".into(), payload.expiration.into());
-
-        if let Some(not_before) = payload.not_before {
-            map.insert("nbf".into(), not_before.into());
-        }
-
-        map.into()
+impl<T: Resolvable + Debug> Serialize for Payload<T>
+where
+    InternalSerializer: From<Payload<T>>,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = InternalSerializer::from(*self);
+        Serialize::serialize(&s, serializer)
     }
 }
 
-// FIXME TEMPORARY HACK to prove out proof of concept
-impl From<Payload<DynJs>> for Ipld {
-    fn from(payload: Payload<DynJs>) -> Self {
-        let hack_payload = Payload {
+impl<'de, T: Resolvable + Debug> Deserialize<'de> for Payload<T>
+where
+    Payload<T>: TryFrom<InternalSerializer>,
+    <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
+{
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match InternalSerializer::deserialize(d) {
+            Err(e) => Err(e),
+            Ok(s) => s
+                .try_into()
+                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))), // FIXME better error
+        }
+    }
+}
+
+impl<T: Resolvable + Debug> TryFrom<Ipld> for Payload<T>
+where
+    Payload<T>: TryFrom<InternalSerializer>,
+{
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        let s: InternalSerializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?;
+        s.try_into().map_err(|_| ()) // FIXME
+    }
+}
+
+impl<T: Resolvable + Command + Debug + Clone> From<Payload<T>> for Ipld {
+    fn from(payload: Payload<T>) -> Self {
+        payload.into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct InternalSerializer {
+    #[serde(rename = "iss")]
+    pub issuer: Did,
+    #[serde(rename = "sub")]
+    pub subject: Did,
+    #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
+    pub audience: Option<Did>,
+
+    #[serde(rename = "cmd")]
+    pub command: String,
+    #[serde(rename = "args")]
+    pub arguments: BTreeMap<String, Ipld>,
+
+    #[serde(rename = "prf")]
+    pub proofs: Vec<Cid>,
+    #[serde(rename = "nonce")]
+    pub nonce: Nonce,
+
+    #[serde(rename = "cause")]
+    pub cause: Option<Cid>,
+    #[serde(rename = "meta")]
+    pub metadata: BTreeMap<String, Ipld>,
+
+    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<Timestamp>,
+    #[serde(rename = "exp")]
+    pub expiration: Timestamp,
+}
+
+impl<T: Resolvable + Command + Debug> From<&Payload<T>> for InternalSerializer
+where
+    BTreeMap<String, Ipld>: From<T::Awaiting>,
+{
+    fn from(payload: &Payload<T>) -> Self {
+        InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
             audience: payload.audience,
-            ability: JsHack(payload.ability.clone()),
+
+            command: T::COMMAND.into(),
+            arguments: payload.ability.into(),
+
             proofs: payload.proofs,
             cause: payload.cause,
             metadata: payload.metadata,
-            nonce: payload.nonce,
-            expiration: payload.expiration,
-            not_before: payload.not_before,
-        };
 
-        if let Ipld::Map(mut map) = hack_payload.into() {
-            map.insert("cmd".into(), payload.ability.cmd.into());
-            Ipld::Map(map)
-        } else {
-            // FIXME bleh this code
-            unreachable!()
+            nonce: payload.nonce,
+
+            not_before: payload.not_before,
+            expiration: payload.expiration,
         }
+    }
+}
+
+impl TryFrom<Ipld> for InternalSerializer {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, ()> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+impl From<InternalSerializer> for Payload<DynJs> {
+    fn from(s: InternalSerializer) -> Self {
+        Payload {
+            issuer: s.issuer,
+            subject: s.subject,
+            audience: s.audience,
+
+            ability: DynJs {
+                cmd: s.command,
+                args: s.arguments,
+            },
+
+            proofs: s.proofs,
+            cause: s.cause,
+            metadata: s.metadata,
+
+            nonce: s.nonce,
+
+            not_before: s.not_before,
+            expiration: s.expiration,
+        }
+    }
+}
+
+impl TryFrom<Payload<DynJs>> for InternalSerializer {
+    type Error = (); // FIXME
+
+    fn try_from(p: Payload<DynJs>) -> Result<Self, ()> {
+        Ok(InternalSerializer {
+            issuer: p.issuer,
+            subject: p.subject,
+            audience: p.audience,
+
+            command: p.ability.cmd,
+            arguments: p.ability.args,
+
+            proofs: p.proofs,
+            cause: p.cause,
+            metadata: p.metadata,
+
+            nonce: p.nonce,
+
+            not_before: p.not_before,
+            expiration: p.expiration,
+        })
     }
 }

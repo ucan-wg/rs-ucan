@@ -2,45 +2,35 @@ use crate::{promise::Promise, prove::TryProve};
 use std::{collections::BTreeMap, fmt::Debug};
 use url::Url;
 
-// FIXME move to promise.rs
-#[derive(Debug, Clone, PartialEq)]
-pub enum Field<T>
-where
-    T: Debug + Clone + PartialEq,
-{
-    Value(T),
-    Await(Promise), // FIXME
-}
-
 // FIXME macro to derive promise versions & delagted builder versions
 // ... also maybe Ipld
 
 pub struct Crud {
-    pub uri: Field<Url>,
+    pub uri: Url,
 }
 
 pub struct CrudRead {
-    pub uri: Field<Url>,
+    pub uri: Url,
 }
 
 pub struct CrudMutate {
-    pub uri: Field<Url>,
+    pub uri: Url,
 }
 
 pub struct CrudCreate {
-    pub uri: Field<Url>,
-    pub args: BTreeMap<Box<str>, Field<String>>,
+    pub uri: Url,
+    pub args: BTreeMap<Box<str>, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CrudUpdate {
-    pub uri: Field<Url>,
-    pub args: BTreeMap<Box<str>, Field<String>>,
+    pub uri: Url,
+    pub args: BTreeMap<Box<str>, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CrudDestroy {
-    pub uri: Field<Url>,
+    pub uri: Url,
 }
 
 // FIXME these should probably be behind a feature flag

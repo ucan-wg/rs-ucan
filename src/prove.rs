@@ -7,9 +7,9 @@
 ///   more[...]
 ///   more2[...]
 /// ```
-pub trait TryProve<'a, T> {
+pub trait TryProve<T> {
     type Error;
     type Proven;
 
-    fn try_prove(&'a self, candidate: &'a T) -> Result<&'a Self::Proven, Self::Error>;
+    fn try_prove(self, candidate: T) -> Result<Self::Proven, Self::Error>;
 }
