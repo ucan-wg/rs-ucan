@@ -19,8 +19,8 @@ pub trait Delegatable: Sized {
     type Builder: Debug + TryInto<Self> + From<Self>;
 }
 
-pub trait Resolvable: Sized {
-    type Awaiting: Debug + TryInto<Self> + From<Self>;
+pub trait Resolvable: Delegatable {
+    type Awaiting: Debug + TryInto<Self> + From<Self> + Into<Self::Builder>;
 }
 
 pub trait Runnable {

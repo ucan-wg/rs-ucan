@@ -1,15 +1,33 @@
+use std::convert::Infallible;
+
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// FIXME
 ///
 /// ```mermaid
 /// flowchart LR
-///   Invocation --> more --> Self --> Candidate --> more2
+///   Invocation --> more --> Self --> Proof --> more2
 ///   more[...]
 ///   more2[...]
 /// ```
-pub trait TryProve<T> {
+pub trait TryProve<T: ?Sized> {
     type Proven;
     type Error;
 
-    fn try_prove(self, candidate: T) -> Result<Self::Proven, Self::Error>;
+    // FIXME rename to proof?
+    fn try_prove(&self, proof: T) -> Result<Self::Proven, Self::Error>;
 }
+
+// pub trait Prove<T> {
+//     type Proven;
+//
+//     fn prove(self, proof: T) -> Self::Proven;
+// }
+//
+// impl<T: Prove<U> + ?Sized, U> TryProve<U> for T {
+//     type Proven = T::Proven;
+//     type Error = Infallible;
+//
+//     fn try_prove(&self, proof: U) -> Result<Self::Proven, Infallible> {
+//         Ok(self.prove(proof))
+//     }
+// }

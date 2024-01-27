@@ -1,14 +1,13 @@
-use crate::prove::TryProve;
+// use crate::prove::Prove;
 use std::convert::Infallible;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DelegateAny;
 
-impl<'a, T> TryProve<&'a DelegateAny> for &'a T {
-    type Error = Infallible;
-    type Proven = &'a T;
-
-    fn try_prove(self, _proof: &'a DelegateAny) -> Result<Self::Proven, Infallible> {
-        Ok(self)
-    }
-}
+// impl Prove<DelegateAny> for DelegateAny {
+//     type Proven = Self;
+//
+//     fn prove(self, _proof: Self) -> Self::Proven {
+//         self
+//     }
+// }

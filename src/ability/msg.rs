@@ -190,8 +190,8 @@ impl<'a> TryProve<&'a Msg> for &'a Msg {
     type Error = (); // FIXME
     type Proven = &'a Msg;
 
-    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
-        if self == candidate {
+    fn try_prove(self, proof: &'a Msg) -> Result<Self::Proven, ()> {
+        if self == proof {
             Ok(self)
         } else {
             Err(())
@@ -203,8 +203,8 @@ impl<'a> TryProve<&'a Msg> for &'a MsgSend {
     type Error = (); // FIXME
     type Proven = &'a MsgSend;
 
-    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
-        if self.to == candidate.to && self.from == candidate.from {
+    fn try_prove(self, proof: &'a Msg) -> Result<Self::Proven, ()> {
+        if self.to == proof.to && self.from == proof.from {
             Ok(self)
         } else {
             Err(())
@@ -216,8 +216,8 @@ impl<'a> TryProve<&'a Msg> for &'a MsgReceive {
     type Error = (); // FIXME
     type Proven = &'a MsgReceive;
 
-    fn try_prove(self, candidate: &'a Msg) -> Result<Self::Proven, ()> {
-        if self.to == candidate.to && self.from == candidate.from {
+    fn try_prove(self, proof: &'a Msg) -> Result<Self::Proven, ()> {
+        if self.to == proof.to && self.from == proof.from {
             Ok(self)
         } else {
             Err(())
@@ -230,8 +230,8 @@ impl<'a> TryProve<&'a MsgReceive> for &'a MsgReceive {
     type Error = (); // FIXME
     type Proven = &'a MsgReceive;
 
-    fn try_prove(self, candidate: &'a MsgReceive) -> Result<Self::Proven, ()> {
-        if self == candidate {
+    fn try_prove(self, proof: &'a MsgReceive) -> Result<Self::Proven, ()> {
+        if self == proof {
             Ok(self)
         } else {
             Err(())

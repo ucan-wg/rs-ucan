@@ -69,10 +69,10 @@ impl<'a> TryProve<DynamicBuilder<'a>> for DynamicBuilder<'a> {
     type Error = JsError;
     type Proven = DynamicBuilder<'a>; // TODO docs: even if you parse a well-structred type, you MUST return a dynamic builder and continue checking that
 
-    fn try_prove(&'a self, candidate: &'a DynamicBuilder) -> Result<&'a Self::Proven, ()> {
+    fn try_prove(&'a self, proof: &'a DynamicBuilder) -> Result<&'a Self::Proven, ()> {
         let js_self: JsValue = self.into().into();
-        let js_candidate: JsValue = candidate.into().into();
+        let js_proof: JsValue = proof.into().into();
 
-        self.validator.apply(js_self, js_candidate);
+        self.validator.apply(js_self, js_proof);
     }
 }

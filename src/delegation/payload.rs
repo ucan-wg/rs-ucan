@@ -82,78 +82,200 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
     }
 }
 
-impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
-    fn check<U: Delegatable>(
-        &'a self,
-        proof: &'a Payload<U, C>,
+use crate::{ability::traits::Resolvable, invocation::payload as invocation};
+
+impl<'a, T: ?Sized + Delegatable + Resolvable + Clone, C: Condition> Payload<T, C> {
+    pub fn check<U: Delegatable + Clone>(
+        invoked: invocation::Payload<T>, // FIXME promiroy version
+        proofs: Vec<Payload<U, C>>,
         now: SystemTime,
-    ) -> Result<
-        // FIXME should return the entrue payload, unless we want to extract the fields
-        <T::Builder as TryProve<U::Builder>>::Proven,
-        <T::Builder as TryProve<U::Builder>>::Error,
-    >
+    ) -> Result<(), ()>
     where
-        T::Builder: TryProve<<U as Delegatable>::Builder>,
+        Ipld: From<T> + From<U::Builder>,
+        U: TryProve<U>,
+        U::Builder: Clone + Delegatable,
+        <U as Delegatable>::Builder: TryProve<U> + TryProve<<U as Delegatable>::Builder>,
+        <<U as Delegatable>::Builder as TryProve<<U as Delegatable>::Builder>>::Error: Clone,
+        Prev<U>: From<<U as Delegatable>::Builder>,
+        Prev<<U as Delegatable>::Builder>: From<<U as Delegatable>::Builder>,
+        T: TryProve<U> + TryProve<<U as Delegatable>::Builder> + Clone,
+        <T as Delegatable>::Builder: From<invocation::Payload<T>>,
+        <U as Delegatable>::Builder: From<<T as Delegatable>::Builder>,
+        <<T as Delegatable>::Builder as TryProve<U>>::Error: Clone,
+        <T as Delegatable>::Builder: Clone + TryProve<U> + TryProve<U::Builder>,
+        <T as TryProve<U::Builder>>::Error: Clone,
+        <U as Delegatable>::Builder: TryProve<
+            <<U as Delegatable>::Builder as TryProve<<U as Delegatable>::Builder>>::Proven,
+        >,
+        T::Builder: TryProve<T::Builder>,
     {
-        if self.issuer != proof.audience {
-            todo!()
-            // return Err(());
-        }
+        let builder: T::Builder = invoked.into();
+        let start: Prev<T::Builder> = Prev {
+            issuer: invoked.issuer,
+            subject: invoked.subject,
+            ability_builder: Box::new(builder),
+        };
 
-        if self.subject != proof.subject {
-            todo!()
-            //   return Err(());
-        }
+        let ipld: Ipld = invoked.into();
 
-        // FIXME that into needs to work on both sides
-        if let Some(nbf) = self.not_before.clone() {
-            if SystemTime::from(nbf) > now {
-                todo!()
-                // return Err(());
-            }
-        }
-
-        // FIXME that into needs to work on both sides
-        if SystemTime::from(self.expiration.clone()) > now {
-            todo!()
-            // return Err(());
-        }
-
-        // FIXME
-        //  if self.conditions != proof.conditions {
-        //      return Err(());
-        //  }
-
-        self.ability_builder.try_prove(proof.ability_builder)
+        //         let result: Result<Prev<T::Builder>, ()> = proofs.iter().fold(Ok(start), |prev, proof| {
+        //             if let Ok(to_check) = prev {
+        //                 // FIXME check conditions against ipldified invoked
+        //                 match step(&to_check, &proof, &ipld, now) {
+        //                     Err(_) => Err(()),
+        //                     Ok(next) => Ok(Prev {
+        //                         issuer: proof.issuer,
+        //                         subject: proof.subject,
+        //                         ability_builder: Box::new(next),
+        //                     }),
+        //                 }
+        //             } else {
+        //                 prev
+        //             }
+        //         });
+        //
+        //         match result {
+        //             Ok(_) => Ok(()),
+        //             Err(_) => Err(()),
+        //         }
+        todo!()
     }
+}
+
+enum Either<A: ?Sized, B: ?Sized> {
+    Left(Box<A>),
+    Right(Box<B>),
+}
+
+// FIXME "CanProve"
+trait ProofHack<U: ?Sized> {
+    fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()>;
+}
+
+impl<T: ?Sized, U> ProofHack<U> for T
+where
+    T: TryProve<U>,
+{
+    fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()> {
+        match self.try_prove(proof) {
+            Ok(_) => Ok(Either::Left(Box::new(()))),
+            Err(_) => Ok(Either::Right(Box::new(proof))),
+        }
+    }
+}
+
+struct Prev<T: ?Sized> {
+    issuer: Did,
+    subject: Did,
+    ability_builder: Box<dyn ProofHack<T>>,
+}
+
+impl<T: Resolvable> From<invocation::Payload<T>> for Prev<T::Builder>
+where
+    T::Builder: ProofHack<T::Builder>,
+{
+    fn from(invoked: invocation::Payload<T>) -> Self {
+        Prev {
+            issuer: invoked.issuer,
+            subject: invoked.subject,
+            ability_builder: Box::new(invoked.ability.into()),
+        }
+    }
+}
+
+impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Prev<T::Builder>
+where
+    T::Builder: ProofHack<T::Builder>,
+{
+    fn from(delegation: Payload<T, C>) -> Self {
+        Prev {
+            issuer: delegation.issuer,
+            subject: delegation.subject,
+            ability_builder: Box::new(delegation.ability_builder),
+        }
+    }
+}
+
+// FIXME this needs to move to Delegatable
+fn step<'a, T, U: Delegatable, C: Condition>(
+    prev: &'a Prev<T>,
+    proof: &'a Payload<U, C>,
+    invoked_ipld: &'a Ipld,
+    now: SystemTime,
+) -> ()
+// FIXME
+where
+    T: TryProve<<U as Delegatable>::Builder> + Clone,
+    U::Builder: Clone,
+    Ipld: From<U::Builder>,
+    <T as TryProve<U::Builder>>::Error: Clone,
+{
+    if prev.issuer != proof.audience {
+        todo!()
+    }
+
+    if prev.subject != proof.subject {
+        todo!()
+    }
+
+    if let Some(nbf) = proof.not_before.clone() {
+        if SystemTime::from(nbf) > now {
+            todo!()
+        }
+    }
+
+    if SystemTime::from(proof.expiration.clone()) > now {
+        todo!()
+    }
+
+    // FIXME check the spec
+    // if self.conditions != proof.conditions {
+    //      return Err(());
+    //  }
+
+    proof
+        .conditions
+        .iter()
+        .try_fold((), |_acc, c| {
+            if c.validate(&invoked_ipld) {
+                Ok(())
+            } else {
+                Err(())
+            }
+        })
+        .expect("FIXME");
+
+    Box::leak(prev.ability_builder).try_prove1(proof.ability_builder.clone()); // So many clones that this may as well be owned
+
+    ()
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct InternalSerializer {
     #[serde(rename = "iss")]
-    pub issuer: Did,
+    issuer: Did,
     #[serde(rename = "sub")]
-    pub subject: Did,
+    subject: Did,
     #[serde(rename = "aud")]
-    pub audience: Did,
+    audience: Did,
 
     #[serde(rename = "can")]
-    pub command: String,
+    command: String,
     #[serde(rename = "args")]
-    pub arguments: BTreeMap<String, Ipld>,
+    arguments: BTreeMap<String, Ipld>,
     #[serde(rename = "cond")]
-    pub conditions: Vec<Ipld>,
+    conditions: Vec<Ipld>,
 
     #[serde(rename = "nonce")]
-    pub nonce: Nonce,
+    nonce: Nonce,
     #[serde(rename = "meta")]
-    pub metadata: BTreeMap<String, Ipld>,
+    metadata: BTreeMap<String, Ipld>,
 
     #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
-    pub not_before: Option<Timestamp>,
+    not_before: Option<Timestamp>,
     #[serde(rename = "exp")]
-    pub expiration: Timestamp,
+    expiration: Timestamp,
 }
 
 impl<T: Delegatable + Command + Debug, C: Condition + Into<Ipld>> From<Payload<T, C>>

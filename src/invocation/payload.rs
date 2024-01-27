@@ -84,45 +84,53 @@ impl<T: Resolvable> From<Payload<T>> for Ipld {
 #[serde(deny_unknown_fields)]
 struct InternalSerializer {
     #[serde(rename = "iss")]
-    pub issuer: Did,
+    issuer: Did,
     #[serde(rename = "sub")]
-    pub subject: Did,
+    subject: Did,
     #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Did>,
+    audience: Option<Did>,
 
     #[serde(rename = "do")]
-    pub command: String,
+    command: String,
     #[serde(rename = "args")]
-    pub arguments: BTreeMap<String, Ipld>,
+    arguments: BTreeMap<String, Ipld>,
 
     #[serde(rename = "prf")]
-    pub proofs: Vec<Cid>,
+    proofs: Vec<Cid>,
     #[serde(rename = "nonce")]
-    pub nonce: Nonce,
+    nonce: Nonce,
 
     #[serde(rename = "cause")]
-    pub cause: Option<Cid>,
+    cause: Option<Cid>,
     #[serde(rename = "meta")]
-    pub metadata: BTreeMap<String, Ipld>,
+    metadata: BTreeMap<String, Ipld>,
 
     #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
-    pub not_before: Option<Timestamp>,
+    not_before: Option<Timestamp>,
     #[serde(rename = "exp")]
-    pub expiration: Timestamp,
+    expiration: Timestamp,
 }
 
 impl<T: Resolvable + Command + Debug> From<Payload<T>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Awaiting>,
+    Ipld: From<T::Awaiting>,
 {
     fn from(payload: Payload<T>) -> Self {
+        let bar: T::Awaiting = payload.ability;
+        let foo: Ipld = Ipld::from(payload.ability);
+        let arguments: BTreeMap<String, Ipld> = match foo {
+            Ipld::Map(btree) => btree,
+            _ => panic!("FIXME"),
+        };
+
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
             audience: payload.audience,
 
             command: T::COMMAND.into(),
-            arguments: payload.ability.into(),
+            arguments,
 
             proofs: payload.proofs,
             cause: payload.cause,

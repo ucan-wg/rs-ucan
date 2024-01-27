@@ -98,7 +98,7 @@ use std::fmt::Debug;
 //     type Error = ();
 //     type Proven = DynamicJs;
 //
-//     fn try_prove<'a>(&'a self, candidate: &'a DynamicJs) -> Result<&'a DynamicJs, ()> {
+//     fn try_prove<'a>(&'a self, proof: &'a DynamicJs) -> Result<&'a DynamicJs, ()> {
 //
 //     }
 // }

@@ -46,8 +46,8 @@ pub struct CrudDestroy {
 // impl TryProve<CrudDestroy> for CrudDestroy {
 //     type Error = (); // FIXME
 //     type Proven = CrudDestroy;
-//     fn try_prove<'a>(&'a self, candidate: &'a CrudDestroy) -> Result<&'a Self::Proven, ()> {
-//         if self.uri == candidate.uri {
+//     fn try_prove<'a>(&'a self, proof: &'a CrudDestroy) -> Result<&'a Self::Proven, ()> {
+//         if self.uri == proof.uri {
 //             Ok(self)
 //         } else {
 //             Err(())
@@ -60,8 +60,8 @@ pub struct CrudDestroy {
 //     type Error = (); // FIXME
 //     type Proven = CrudDestroy;
 //
-//     fn try_prove<'a>(&'a self, candidate: &'a CrudMutate) -> Result<&'a Self::Proven, ()> {
-//         if self.uri == candidate.uri {
+//     fn try_prove<'a>(&'a self, proof: &'a CrudMutate) -> Result<&'a Self::Proven, ()> {
+//         if self.uri == proof.uri {
 //             Ok(self)
 //         } else {
 //             Err(())
@@ -73,8 +73,8 @@ pub struct CrudDestroy {
 //     type Error = ();
 //     type Proven = CrudRead;
 //
-//     fn try_prove<'a>(&'a self, candidate: &'a CrudRead) -> Result<&'a Self::Proven, ()> {
-//         if self.uri == candidate.uri {
+//     fn try_prove<'a>(&'a self, proof: &'a CrudRead) -> Result<&'a Self::Proven, ()> {
+//         if self.uri == proof.uri {
 //             // FIXME contains & args
 //             Ok(self)
 //         } else {
@@ -87,8 +87,8 @@ pub struct CrudDestroy {
 //     type Error = (); // FIXME
 //     type Proven = CrudRead;
 //
-//     fn try_prove<'a>(&'a self, candidate: &'a Crud) -> Result<&'a Self::Proven, ()> {
-//         if self.uri == candidate.uri {
+//     fn try_prove<'a>(&'a self, proof: &'a Crud) -> Result<&'a Self::Proven, ()> {
+//         if self.uri == proof.uri {
 //             Ok(self)
 //         } else {
 //             Err(())
@@ -100,8 +100,8 @@ pub struct CrudDestroy {
 //     type Error = (); // FIXME
 //     type Proven = CrudMutate;
 //
-//     fn try_prove<'a>(&'a self, candidate: &'a Crud) -> Result<&'a Self::Proven, ()> {
-//         if self.uri == candidate.uri {
+//     fn try_prove<'a>(&'a self, proof: &'a Crud) -> Result<&'a Self::Proven, ()> {
+//         if self.uri == proof.uri {
 //             Ok(self)
 //         } else {
 //             Err(())
@@ -115,9 +115,9 @@ pub struct CrudDestroy {
 //     type Proven = C;
 //
 //     // FIXME
-//     fn try_prove<'a>(&'a self, candidate: &'a Crud) -> Result<&'a C, ()> {
+//     fn try_prove<'a>(&'a self, proof: &'a Crud) -> Result<&'a C, ()> {
 //         match self.try_prove(&CrudMutate {
-//             uri: candidate.uri.clone(),
+//             uri: proof.uri.clone(),
 //         }) {
 //             Ok(_) => Ok(self),
 //             Err(_) => Err(()),
