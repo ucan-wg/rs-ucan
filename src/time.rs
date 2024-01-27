@@ -28,6 +28,15 @@ pub enum Timestamp {
     Receiving(SystemTime),
 }
 
+impl From<Timestamp> for SystemTime {
+    fn from(timestamp: Timestamp) -> Self {
+        match timestamp {
+            Timestamp::Sending(js_time) => js_time.time,
+            Timestamp::Receiving(sys_time) => sys_time,
+        }
+    }
+}
+
 impl From<Timestamp> for Ipld {
     fn from(timestamp: Timestamp) -> Self {
         timestamp.into()

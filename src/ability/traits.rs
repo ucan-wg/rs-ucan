@@ -1,5 +1,12 @@
 use crate::{did::Did, nonce::Nonce, prove::TryProve};
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use libipld_cbor::DagCborCodec;
+use libipld_core::{
+    cid::{Cid, CidGeneric},
+    codec::Encode,
+    ipld::Ipld,
+    multihash::{Code::Sha2_256, MultihashDigest},
+    serde as ipld_serde,
+};
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -18,7 +25,7 @@ pub trait Resolvable: Sized {
 
 pub trait Runnable {
     type Output: Debug;
-    fn task_id(self, subject: &Did, nonce: &Nonce) -> String;
+    fn task_id(self, subject: Did, nonce: Nonce) -> Cid;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,6 +41,27 @@ impl Delegatable for DynJs {
 
 impl Resolvable for DynJs {
     type Awaiting = Self;
+}
+
+impl Runnable for DynJs {
+    type Output = Ipld;
+
+    fn task_id(self, subject: Did, nonce: Nonce) -> Cid {
+        let ipld: Ipld = BTreeMap::from_iter([
+            ("sub".into(), subject.into()),
+            ("do".into(), self.cmd.clone().into()),
+            ("args".into(), self.cmd.clone().into()),
+            ("nonce".into(), nonce.into()),
+        ])
+        .into();
+
+        let mut encoded = vec![];
+        ipld.encode(DagCborCodec, &mut encoded)
+            .expect("should never fail if `encodable_as` is implemented correctly");
+
+        let multihash = Sha2_256.digest(encoded.as_slice());
+        CidGeneric::new_v1(DagCborCodec.into(), multihash)
+    }
 }
 
 impl From<DynJs> for Ipld {

@@ -4,13 +4,15 @@ use crate::{
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
+    prove::TryProve,
     time::Timestamp,
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
+use web_time::SystemTime;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Payload<T: Delegatable, C: Condition> {
     pub issuer: Did,
     pub subject: Did,
@@ -26,30 +28,11 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition + Debug> Debug for Payload<T, C>
-where
-    T::Builder: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Payload")
-            .field("issuer", &self.issuer)
-            .field("subject", &self.subject)
-            .field("audience", &self.audience)
-            .field("ability_builder", &self.ability_builder)
-            .field("conditions", &self.conditions)
-            .field("metadata", &self.metadata)
-            .field("nonce", &self.nonce)
-            .field("expiration", &self.expiration)
-            .field("not_before", &self.not_before)
-            .finish()
-    }
-}
-
 impl<T: Delegatable, C: Condition> Capsule for Payload<T, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: Delegatable + Debug, C: Condition + Serialize> Serialize for Payload<T, C>
+impl<T: Delegatable, C: Condition + Serialize> Serialize for Payload<T, C>
 where
     InternalSerializer: From<Payload<T, C>>,
     Payload<T, C>: Clone,
@@ -63,8 +46,7 @@ where
     }
 }
 
-impl<'de, T: Delegatable + Debug, C: Condition + DeserializeOwned> Deserialize<'de>
-    for Payload<T, C>
+impl<'de, T: Delegatable, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
 where
     Payload<T, C>: TryFrom<InternalSerializer>,
     <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
@@ -82,8 +64,7 @@ where
     }
 }
 
-impl<T: Delegatable + Debug, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld>
-    for Payload<T, C>
+impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
 where
     Payload<T, C>: TryFrom<InternalSerializer>,
 {
@@ -98,6 +79,52 @@ where
 impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
     fn from(payload: Payload<T, C>) -> Self {
         payload.into()
+    }
+}
+
+impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
+    fn check<U: Delegatable>(
+        &'a self,
+        proof: &'a Payload<U, C>,
+        now: SystemTime,
+    ) -> Result<
+        // FIXME should return the entrue payload, unless we want to extract the fields
+        <T::Builder as TryProve<U::Builder>>::Proven,
+        <T::Builder as TryProve<U::Builder>>::Error,
+    >
+    where
+        T::Builder: TryProve<<U as Delegatable>::Builder>,
+    {
+        if self.issuer != proof.audience {
+            todo!()
+            // return Err(());
+        }
+
+        if self.subject != proof.subject {
+            todo!()
+            //   return Err(());
+        }
+
+        // FIXME that into needs to work on both sides
+        if let Some(nbf) = self.not_before.clone() {
+            if SystemTime::from(nbf) > now {
+                todo!()
+                // return Err(());
+            }
+        }
+
+        // FIXME that into needs to work on both sides
+        if SystemTime::from(self.expiration.clone()) > now {
+            todo!()
+            // return Err(());
+        }
+
+        // FIXME
+        //  if self.conditions != proof.conditions {
+        //      return Err(());
+        //  }
+
+        self.ability_builder.try_prove(proof.ability_builder)
     }
 }
 
