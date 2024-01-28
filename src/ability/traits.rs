@@ -184,9 +184,58 @@ pub enum Parentful<T: CheckParents> {
     Me(T),
 }
 
+impl<T: CheckSelf + CheckParents> CheckSelf for Parentful<T>
+where
+    T::Parents: CheckSelf,
+{
+    fn check_against_self(&self, other: &Self) -> bool {
+        match self {
+            Parentful::Any => true,
+            Parentful::Parents(parents) => match other {
+                Parentful::Any => true,
+                Parentful::Parents(other_parents) => parents.check_against_self(other_parents),
+                Parentful::Me(_other_me) => false,
+            },
+            Parentful::Me(me) => match other {
+                Parentful::Any => true,
+                Parentful::Parents(_other_parents) => false,
+                Parentful::Me(other_me) => me.check_against_self(other_me),
+            },
+        }
+    }
+}
+
+impl<T: CheckSelf + CheckParents> CheckParents for Parentful<T>
+where
+    Parentful<T>: CheckSelf,
+    T::Parents: CheckSelf,
+{
+    type Parents = T::Parents;
+
+    fn check_against_parents(&self, other: &T::Parents) -> bool {
+        match self {
+            Parentful::Any => true,
+            Parentful::Parents(parents) => parents.check_against_self(other),
+            Parentful::Me(me) => me.check_against_parents(other),
+        }
+    }
+}
+
 pub enum Parentless<T> {
     Any,
     Me(T),
+}
+
+impl<T: CheckSelf> CheckSelf for Parentless<T> {
+    fn check_against_self(&self, other: &Self) -> bool {
+        match self {
+            Parentless::Any => true,
+            Parentless::Me(me) => me.check_against_self(match other {
+                Parentless::Any => return true,
+                Parentless::Me(other) => other,
+            }),
+        }
+    }
 }
 
 pub trait CheckParents: CheckSelf {

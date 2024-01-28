@@ -84,119 +84,59 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
 
 use crate::{ability::traits::Resolvable, invocation::payload as invocation};
 
-impl<'a, T: Delegatable + Resolvable + Clone, C: Condition> Payload<T, C> {
+impl<'a, T: Delegatable + Resolvable + HasChecker + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
         invoked: invocation::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
+        // FIXME so so so broken
         invocation::Payload<T>: Clone,
-        <T as Delegatable>::Builder: From<invocation::Payload<T>>,
+        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + JustCheck<T::CheckAs>,
+        U::Builder: Clone,
     {
-        let builder: T::Builder = invoked.clone().into();
-        let start: Acc<T::Builder> = Acc {
+        let check_chain: T::CheckAs = invoked.clone().into();
+        let start: Acc<T> = Acc {
             issuer: invoked.issuer.clone(),
             subject: invoked.subject.clone(),
-            check_chain: builder,
+            check_chain,
         };
 
         let ipld: Ipld = invoked.into();
 
-        //         let result: Result<Prev<T::Builder>, ()> = proofs.iter().fold(Ok(start), |prev, proof| {
-        //             if let Ok(to_check) = prev {
-        //                 // FIXME check conditions against ipldified invoked
-        //                 match step(&to_check, &proof, &ipld, now) {
-        //                     Err(_) => Err(()),
-        //                     Ok(next) => Ok(Prev {
-        //                         issuer: proof.issuer,
-        //                         subject: proof.subject,
-        //                         ability_builder: Box::new(next),
-        //                     }),
-        //                 }
-        //             } else {
-        //                 prev
-        //             }
-        //         });
-        //
-        //         match result {
-        //             Ok(_) => Ok(()),
-        //             Err(_) => Err(()),
-        //         }
+        let result = proofs.iter().fold(Ok(&start), |prev, proof| {
+            if let Ok(to_check) = prev {
+                match step1(&to_check, proof, &ipld, now) {
+                    Err(_) => Err(()),
+                    Ok(next) => Ok(next),
+                }
+            } else {
+                prev
+            }
+        });
+
         todo!()
     }
 }
 
-enum Either<A: ?Sized, B: ?Sized> {
-    Left(Box<A>),
-    Right(Box<B>),
-}
-
-// FIXME "CanProve"
-trait ProofHack<U: ?Sized> {
-    fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()>;
-}
-
-// impl<T: ?Sized, U> ProofHack<U> for T
-// where
-//     T: TryProve<U>,
-// {
-//     fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()> {
-//         match self.try_prove(proof) {
-//             Ok(_) => Ok(Either::Left(Box::new(()))),
-//             Err(_) => Ok(Either::Right(Box::new(proof))),
-//         }
-//     }
-// }
-
-// struct Prev<T: ?Sized> {
-//     issuer: Did,
-//     subject: Did,
-//     ability_builder: Box<dyn ProofHack<T>>,
-// }
-
-// impl<T: Resolvable> From<invocation::Payload<T>> for Prev<T::Builder>
-// where
-//     T::Builder: ProofHack<T::Builder>,
-// {
-//     fn from(invoked: invocation::Payload<T>) -> Self {
-//         Prev {
-//             issuer: invoked.issuer,
-//             subject: invoked.subject,
-//             ability_builder: Box::new(invoked.ability.into()),
-//         }
-//     }
-// }
-
-// impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Prev<T::Builder>
-// where
-//     T::Builder: ProofHack<T::Builder>,
-// {
-//     fn from(delegation: Payload<T, C>) -> Self {
-//         Prev {
-//             issuer: delegation.issuer,
-//             subject: delegation.subject,
-//             ability_builder: Box::new(delegation.ability_builder),
-//         }
-//     }
-// }
-
-struct Acc<T> {
+#[derive(Clone)]
+struct Acc<T: HasChecker> {
     issuer: Did,
     subject: Did,
-    check_chain: T,
+    check_chain: T::CheckAs,
 }
 
 // FIXME this needs to move to Delegatable
-fn step<'a, T: JustCheck<U::Builder>, U: Delegatable, C: Condition>(
+fn step1<'a, T: HasChecker, U: Delegatable, C: Condition>(
     prev: &'a Acc<T>,
     proof: &'a Payload<U, C>,
     invoked_ipld: &'a Ipld,
     now: SystemTime,
-) -> ()
-// FIXME
+) -> Result<&'a Acc<T>, ()>
 where
-    U::Builder: HasChecker,
+    T::CheckAs: From<U::Builder> + JustCheck<T::CheckAs>,
+    U::Builder: Clone,
 {
     if prev.issuer != proof.audience {
         todo!()
@@ -233,10 +173,9 @@ where
         })
         .expect("FIXME");
 
-    // Box::leak(prev.ability_builder).try_prove1(proof.ability_builder.clone()); // So many clones that this may as well be owned
-    JustCheck::check(&prev.check_chain, &proof.ability_builder);
+    JustCheck::check(&prev.check_chain, &proof.ability_builder.clone().into());
 
-    ()
+    todo!()
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
