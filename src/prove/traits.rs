@@ -13,7 +13,7 @@ pub trait CheckParents: CheckSelf {
     fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError>;
 }
 
-pub trait HasChecker {
+pub trait HasChecker: CheckSelf {
     type CheckAs: IsChecker;
 }
 
