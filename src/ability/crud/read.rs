@@ -23,8 +23,8 @@ impl HasChecker for ReadBuilder {
 }
 
 impl CheckSelf for ReadBuilder {
-    type SelfError = ();
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+    type Error = ();
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

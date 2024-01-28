@@ -7,8 +7,8 @@ pub enum Mutable {
 }
 
 impl CheckSelf for Mutable {
-    type SelfError = ();
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+    type Error = ();
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
         match self {
             Mutable::Mutate(mutate) => match other {
                 Mutable::Mutate(other_mutate) => mutate.check_against_self(other_mutate),

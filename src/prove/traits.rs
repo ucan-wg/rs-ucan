@@ -1,9 +1,9 @@
 use super::internal::IsChecker;
 
 pub trait CheckSelf {
-    type SelfError;
+    type Error;
 
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError>;
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error>;
 }
 
 pub trait CheckParents: CheckSelf {

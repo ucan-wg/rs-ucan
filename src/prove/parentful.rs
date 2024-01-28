@@ -15,8 +15,9 @@ where
     T::Parents: CheckSelf,
 {
     ParentError(T::ParentError),
-    ParentSelfError(<<T as CheckParents>::Parents as CheckSelf>::SelfError),
-    SelfError(<T as CheckSelf>::SelfError),
+    // FIXME needs a WAAAAAY better name
+    ParentSelfError(<<T as CheckParents>::Parents as CheckSelf>::Error),
+    Error(<T as CheckSelf>::Error),
 
     // Compared self to parents
     EscelationError,
@@ -28,9 +29,9 @@ impl<T: CheckParents> CheckSelf for Parentful<T>
 where
     T::Parents: CheckSelf,
 {
-    type SelfError = ParentfulError<T>;
+    type Error = ParentfulError<T>;
 
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
         match self {
             Parentful::Any => Ok(()),
             Parentful::Parents(parents) => match other {
@@ -47,7 +48,7 @@ where
                     .map_err(ParentfulError::ParentError),
                 Parentful::Me(other_me) => me
                     .check_against_self(other_me)
-                    .map_err(ParentfulError::SelfError),
+                    .map_err(ParentfulError::Error),
             },
         }
     }
@@ -84,9 +85,7 @@ where
             Parentful::Parents(parents) => self
                 .check_against_parents(parents)
                 .map_err(ParentfulError::ParentError),
-            Parentful::Me(me) => self
-                .check_against_self(&me)
-                .map_err(ParentfulError::SelfError),
+            Parentful::Me(me) => self.check_against_self(&me).map_err(ParentfulError::Error),
         }
     }
 }

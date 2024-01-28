@@ -15,8 +15,8 @@ impl HasChecker for MutateBuilder {
 }
 
 impl CheckSelf for MutateBuilder {
-    type SelfError = ();
-    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+    type Error = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

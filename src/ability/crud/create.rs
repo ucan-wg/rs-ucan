@@ -23,8 +23,8 @@ impl HasChecker for CreateBuilder {
 }
 
 impl CheckSelf for CreateBuilder {
-    type SelfError = (); // FIXME better error
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+    type Error = (); // FIXME better error
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
         if self.uri == other.uri {
             Ok(())
         } else {
