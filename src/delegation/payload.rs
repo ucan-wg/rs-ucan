@@ -1,10 +1,10 @@
 use super::condition::Condition;
 use crate::{
-    ability::traits::{Command, Delegatable, DynJs, HasChecker, JustCheck},
+    ability::traits::{Command, Delegatable, DynJs},
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
-    prove::TryProve,
+    prove::traits::{HasChecker, Prove},
     time::Timestamp,
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
@@ -93,7 +93,7 @@ impl<'a, T: Delegatable + Resolvable + HasChecker + Clone, C: Condition> Payload
     where
         // FIXME so so so broken
         invocation::Payload<T>: Clone,
-        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + JustCheck<T::CheckAs>,
+        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + Prove<T::CheckAs>,
         U::Builder: Clone,
     {
         let check_chain: T::CheckAs = invoked.clone().into();
@@ -135,7 +135,7 @@ fn step1<'a, T: HasChecker, U: Delegatable, C: Condition>(
     now: SystemTime,
 ) -> Result<&'a Acc<T>, ()>
 where
-    T::CheckAs: From<U::Builder> + JustCheck<T::CheckAs>,
+    T::CheckAs: From<U::Builder> + Prove<T::CheckAs>,
     U::Builder: Clone,
 {
     if prev.issuer != proof.audience {
@@ -173,7 +173,7 @@ where
         })
         .expect("FIXME");
 
-    JustCheck::check(&prev.check_chain, &proof.ability_builder.clone().into());
+    Prove::check(&prev.check_chain, &proof.ability_builder.clone().into());
 
     todo!()
 }

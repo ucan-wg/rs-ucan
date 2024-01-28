@@ -1,4 +1,8 @@
-use crate::{promise::Promise, prove::TryProve};
+use crate::{
+    ability::traits::{CheckParents, CheckSelf, HasChecker},
+    promise::Promise,
+    prove::TryProve,
+};
 use std::{collections::BTreeMap, fmt::Debug};
 use url::Url;
 
@@ -31,6 +35,147 @@ pub struct CrudUpdate {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CrudDestroy {
     pub uri: Url,
+}
+
+pub struct CrudAny;
+pub struct CrudMutate;
+pub struct CrudCreate;
+pub struct CrudUpdate;
+pub struct CrudDestroy;
+pub struct CrudRead;
+
+pub enum CrudParents {
+    MutableParent(CrudMutate),
+    AnyParent(CrudAny),
+}
+
+impl HasChecker for CrudCreate {
+    type CheckAs = Parentful<CrudCreate>;
+}
+
+impl CheckSelf for CrudCreate {
+    type SelfError = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl CheckSelf for CrudUpdate {
+    type SelfError = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl HasChecker for CrudUpdate {
+    type CheckAs = Parentful<CrudCreate>;
+}
+
+impl CheckSelf for CrudDestroy {
+    type SelfError = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl HasChecker for CrudDestroy {
+    type CheckAs = Parentful<CrudDestroy>;
+}
+
+impl CheckSelf for CrudMutate {
+    type SelfError = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl HasChecker for CrudMutate {
+    type CheckAs = Parentful<CrudMutate>;
+}
+
+impl CheckSelf for CrudAny {
+    type SelfError = ();
+    fn check_against_self(&self, _other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl HasChecker for CrudAny {
+    type CheckAs = Parentless<CrudAny>;
+}
+
+// TODO note to self, this is effectively a partial order
+impl CheckParents for CrudMutate {
+    type Parents = CrudAny;
+    type ParentError = ();
+
+    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        Ok(())
+    }
+}
+
+impl CheckSelf for CrudParents {
+    type SelfError = ();
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+        match self {
+            CrudParents::MutableParent(mutate) => match other {
+                CrudParents::MutableParent(other_mutate) => mutate.check_against_self(other_mutate),
+                CrudParents::AnyParent(any) => mutate.check_against_parents(any),
+            },
+            _ => Err(()),
+        }
+    }
+}
+
+impl CheckParents for CrudCreate {
+    type Parents = CrudParents;
+    type ParentError = ();
+
+    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        match other {
+            CrudParents::MutableParent(mutate) => Ok(()),
+            CrudParents::AnyParent(any) => Ok(()),
+        }
+    }
+}
+
+impl CheckParents for CrudUpdate {
+    type Parents = CrudParents;
+    type ParentError = ();
+
+    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        match other {
+            CrudParents::MutableParent(mutate) => Ok(()),
+            CrudParents::AnyParent(any) => Ok(()),
+        }
+    }
+}
+
+impl CheckParents for CrudDestroy {
+    type Parents = CrudParents;
+    type ParentError = ();
+
+    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        match other {
+            CrudParents::MutableParent(mutate) => Ok(()),
+            CrudParents::AnyParent(any) => Ok(()),
+        }
+    }
+}
+
+impl CheckSelf for CrudRead {
+    type SelfError = ();
+    fn check_against_self(&self, other: &Self) -> Result<(), Self::SelfError> {
+        Ok(())
+    }
+}
+
+impl CheckParents for CrudRead {
+    type Parents = CrudAny;
+    type ParentError = ();
+    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        Ok(())
+    }
 }
 
 // FIXME these should probably be behind a feature flag
