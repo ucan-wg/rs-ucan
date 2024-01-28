@@ -117,9 +117,7 @@ where
     Ipld: From<T::Awaiting>,
 {
     fn from(payload: Payload<T>) -> Self {
-        let bar: T::Awaiting = payload.ability;
-        let foo: Ipld = Ipld::from(payload.ability);
-        let arguments: BTreeMap<String, Ipld> = match foo {
+        let arguments: BTreeMap<String, Ipld> = match Ipld::from(payload.ability) {
             Ipld::Map(btree) => btree,
             _ => panic!("FIXME"),
         };

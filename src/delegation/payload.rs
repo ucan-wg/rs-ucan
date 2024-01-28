@@ -1,6 +1,6 @@
 use super::condition::Condition;
 use crate::{
-    ability::traits::{Command, Delegatable, DynJs},
+    ability::traits::{Command, Delegatable, DynJs, HasChecker, JustCheck},
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
@@ -84,36 +84,21 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
 
 use crate::{ability::traits::Resolvable, invocation::payload as invocation};
 
-impl<'a, T: ?Sized + Delegatable + Resolvable + Clone, C: Condition> Payload<T, C> {
+impl<'a, T: Delegatable + Resolvable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
-        invoked: invocation::Payload<T>, // FIXME promiroy version
+        invoked: invocation::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
-        Ipld: From<T> + From<U::Builder>,
-        U: TryProve<U>,
-        U::Builder: Clone + Delegatable,
-        <U as Delegatable>::Builder: TryProve<U> + TryProve<<U as Delegatable>::Builder>,
-        <<U as Delegatable>::Builder as TryProve<<U as Delegatable>::Builder>>::Error: Clone,
-        Prev<U>: From<<U as Delegatable>::Builder>,
-        Prev<<U as Delegatable>::Builder>: From<<U as Delegatable>::Builder>,
-        T: TryProve<U> + TryProve<<U as Delegatable>::Builder> + Clone,
+        invocation::Payload<T>: Clone,
         <T as Delegatable>::Builder: From<invocation::Payload<T>>,
-        <U as Delegatable>::Builder: From<<T as Delegatable>::Builder>,
-        <<T as Delegatable>::Builder as TryProve<U>>::Error: Clone,
-        <T as Delegatable>::Builder: Clone + TryProve<U> + TryProve<U::Builder>,
-        <T as TryProve<U::Builder>>::Error: Clone,
-        <U as Delegatable>::Builder: TryProve<
-            <<U as Delegatable>::Builder as TryProve<<U as Delegatable>::Builder>>::Proven,
-        >,
-        T::Builder: TryProve<T::Builder>,
     {
-        let builder: T::Builder = invoked.into();
-        let start: Prev<T::Builder> = Prev {
-            issuer: invoked.issuer,
-            subject: invoked.subject,
-            ability_builder: Box::new(builder),
+        let builder: T::Builder = invoked.clone().into();
+        let start: Acc<T::Builder> = Acc {
+            issuer: invoked.issuer.clone(),
+            subject: invoked.subject.clone(),
+            check_chain: builder,
         };
 
         let ipld: Ipld = invoked.into();
@@ -152,63 +137,66 @@ trait ProofHack<U: ?Sized> {
     fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()>;
 }
 
-impl<T: ?Sized, U> ProofHack<U> for T
-where
-    T: TryProve<U>,
-{
-    fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()> {
-        match self.try_prove(proof) {
-            Ok(_) => Ok(Either::Left(Box::new(()))),
-            Err(_) => Ok(Either::Right(Box::new(proof))),
-        }
-    }
-}
+// impl<T: ?Sized, U> ProofHack<U> for T
+// where
+//     T: TryProve<U>,
+// {
+//     fn try_prove1(&self, proof: U) -> Result<Either<(), U>, ()> {
+//         match self.try_prove(proof) {
+//             Ok(_) => Ok(Either::Left(Box::new(()))),
+//             Err(_) => Ok(Either::Right(Box::new(proof))),
+//         }
+//     }
+// }
 
-struct Prev<T: ?Sized> {
+// struct Prev<T: ?Sized> {
+//     issuer: Did,
+//     subject: Did,
+//     ability_builder: Box<dyn ProofHack<T>>,
+// }
+
+// impl<T: Resolvable> From<invocation::Payload<T>> for Prev<T::Builder>
+// where
+//     T::Builder: ProofHack<T::Builder>,
+// {
+//     fn from(invoked: invocation::Payload<T>) -> Self {
+//         Prev {
+//             issuer: invoked.issuer,
+//             subject: invoked.subject,
+//             ability_builder: Box::new(invoked.ability.into()),
+//         }
+//     }
+// }
+
+// impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Prev<T::Builder>
+// where
+//     T::Builder: ProofHack<T::Builder>,
+// {
+//     fn from(delegation: Payload<T, C>) -> Self {
+//         Prev {
+//             issuer: delegation.issuer,
+//             subject: delegation.subject,
+//             ability_builder: Box::new(delegation.ability_builder),
+//         }
+//     }
+// }
+
+struct Acc<T> {
     issuer: Did,
     subject: Did,
-    ability_builder: Box<dyn ProofHack<T>>,
-}
-
-impl<T: Resolvable> From<invocation::Payload<T>> for Prev<T::Builder>
-where
-    T::Builder: ProofHack<T::Builder>,
-{
-    fn from(invoked: invocation::Payload<T>) -> Self {
-        Prev {
-            issuer: invoked.issuer,
-            subject: invoked.subject,
-            ability_builder: Box::new(invoked.ability.into()),
-        }
-    }
-}
-
-impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Prev<T::Builder>
-where
-    T::Builder: ProofHack<T::Builder>,
-{
-    fn from(delegation: Payload<T, C>) -> Self {
-        Prev {
-            issuer: delegation.issuer,
-            subject: delegation.subject,
-            ability_builder: Box::new(delegation.ability_builder),
-        }
-    }
+    check_chain: T,
 }
 
 // FIXME this needs to move to Delegatable
-fn step<'a, T, U: Delegatable, C: Condition>(
-    prev: &'a Prev<T>,
+fn step<'a, T: JustCheck<U::Builder>, U: Delegatable, C: Condition>(
+    prev: &'a Acc<T>,
     proof: &'a Payload<U, C>,
     invoked_ipld: &'a Ipld,
     now: SystemTime,
 ) -> ()
 // FIXME
 where
-    T: TryProve<<U as Delegatable>::Builder> + Clone,
-    U::Builder: Clone,
-    Ipld: From<U::Builder>,
-    <T as TryProve<U::Builder>>::Error: Clone,
+    U::Builder: HasChecker,
 {
     if prev.issuer != proof.audience {
         todo!()
@@ -245,7 +233,8 @@ where
         })
         .expect("FIXME");
 
-    Box::leak(prev.ability_builder).try_prove1(proof.ability_builder.clone()); // So many clones that this may as well be owned
+    // Box::leak(prev.ability_builder).try_prove1(proof.ability_builder.clone()); // So many clones that this may as well be owned
+    JustCheck::check(&prev.check_chain, &proof.ability_builder);
 
     ()
 }
