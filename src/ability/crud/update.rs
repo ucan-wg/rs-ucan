@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentful::Parentful,
-        traits::{CheckParents, CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -68,37 +65,23 @@ impl Checkable for UpdateBuilder {
     type CheckAs = Parentful<UpdateBuilder>;
 }
 
-impl CheckSelf for UpdateBuilder {
-    type Error = ();
-    fn check_against_self(&self, _proof: &Self) -> Result<(), Self::Error> {
-        Ok(())
+impl CheckSame for UpdateBuilder {
+    type Error = (); // FIXME
+
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        self.uri.check_same(&proof.uri).map_err(|_| ())?;
+        self.args.check_same(&proof.args).map_err(|_| ())
     }
 }
 
 impl CheckParents for UpdateBuilder {
     type Parents = Mutable;
-    type ParentError = ();
+    type ParentError = (); // FIXME
 
-    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        if let Some(self_uri) = &self.uri {
-            match other {
-                Mutable::Any(any) => {
-                    if let Some(proof_uri) = &any.uri {
-                        if self_uri != proof_uri {
-                            return Err(());
-                        }
-                    }
-                }
-                Mutable::Mutate(mutate) => {
-                    if let Some(proof_uri) = &mutate.uri {
-                        if self_uri != proof_uri {
-                            return Err(());
-                        }
-                    }
-                }
-            }
+    fn check_parents(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+        match proof {
+            Mutable::Any(any) => self.uri.check_same(&any.uri).map_err(|_| ()),
+            Mutable::Mutate(mutate) => self.uri.check_same(&mutate.uri).map_err(|_| ()),
         }
-
-        Ok(())
     }
 }

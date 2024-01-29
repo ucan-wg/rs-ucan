@@ -1,4 +1,4 @@
-use super::Condition;
+use super::traits::Condition;
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use regex::Regex;
 use serde;
@@ -15,8 +15,6 @@ pub enum Common {
     Matches(Matches),
 }
 
-// FIXME dynamic js version?
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainsAll {
@@ -24,11 +22,11 @@ pub struct ContainsAll {
     values: Vec<Ipld>,
 }
 
-// impl From<ContainsAll> for Ipld {
-//     fn from(contains_all: ContainsAll) -> Self {
-//         contains_all.into()
-//     }
-// }
+impl From<ContainsAll> for Ipld {
+    fn from(contains_all: ContainsAll) -> Self {
+        contains_all.into()
+    }
+}
 
 impl TryFrom<Ipld> for ContainsAll {
     type Error = (); // FIXME

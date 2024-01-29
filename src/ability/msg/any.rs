@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentless::Parentless,
-        traits::{CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentless::Parentless, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -37,9 +34,9 @@ impl Checkable for Any {
     type CheckAs = Parentless<Any>;
 }
 
-impl CheckSelf for Any {
+impl CheckSame for Any {
     type Error = ();
-    fn check_against_self(&self, _proof: &Self) -> Result<(), Self::Error> {
+    fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentful::Parentful,
-        traits::{CheckParents, CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -39,9 +36,9 @@ impl Checkable for MutateBuilder {
     type CheckAs = Parentful<MutateBuilder>;
 }
 
-impl CheckSelf for MutateBuilder {
+impl CheckSame for MutateBuilder {
     type Error = ();
-    fn check_against_self(&self, _proof: &Self) -> Result<(), Self::Error> {
+    fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -51,7 +48,7 @@ impl CheckParents for MutateBuilder {
     type Parents = AnyBuilder;
     type ParentError = ();
 
-    fn check_against_parents(&self, _proof: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parents(&self, _proof: &Self::Parents) -> Result<(), Self::ParentError> {
         Ok(())
     }
 }

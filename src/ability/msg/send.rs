@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentful::Parentful,
-        traits::{CheckParents, CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -63,51 +60,21 @@ impl Checkable for SendBuilder {
     type CheckAs = Parentful<SendBuilder>;
 }
 
-impl CheckSelf for SendBuilder {
+impl CheckSame for SendBuilder {
     type Error = (); // FIXME better error
-    fn check_against_self(&self, proof: &Self) -> Result<(), Self::Error> {
-        if let Some(self_to) = &self.to {
-            if let Some(proof_to) = &proof.to {
-                if self_to != proof_to {
-                    return Err(());
-                }
-            }
-        }
-
-        if let Some(self_from) = &self.from {
-            if let Some(proof_from) = &proof.from {
-                if self_from != proof_from {
-                    return Err(());
-                }
-            }
-        }
-
-        if let Some(self_msg) = &self.message {
-            if let Some(proof_msg) = &proof.message {
-                if self_msg != proof_msg {
-                    return Err(());
-                }
-            }
-        }
-
-        Ok(())
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        self.to.check_same(&proof.to).map_err(|_| ())?; // FIXME
+        self.from.check_same(&proof.from).map_err(|_| ())?;
+        self.message.check_same(&proof.message).map_err(|_| ())
     }
 }
 
 impl CheckParents for SendBuilder {
     type Parents = msg::Any;
-    type ParentError = <msg::Any as CheckSelf>::Error;
+    type ParentError = <msg::Any as CheckSame>::Error;
 
     // FIXME rename other to proof
-    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        if let Some(self_from) = &self.from {
-            if let Some(proof_from) = &other.from {
-                if self_from != proof_from {
-                    return Err(());
-                }
-            }
-        }
-
-        Ok(())
+    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        self.from.check_same(&other.from).map_err(|_| ())
     }
 }

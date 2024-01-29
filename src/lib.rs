@@ -119,7 +119,7 @@ pub mod invocation;
 pub mod ipld;
 pub mod nonce;
 pub mod promise;
-pub mod prove;
+pub mod proof;
 pub mod receipt;
 pub mod signature;
 

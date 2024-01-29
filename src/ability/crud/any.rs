@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentless::Parentless,
-        traits::{CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentless::Parentless, same::CheckSame},
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -22,9 +19,9 @@ impl Checkable for AnyBuilder {
     type CheckAs = Parentless<AnyBuilder>;
 }
 
-impl CheckSelf for AnyBuilder {
+impl CheckSame for AnyBuilder {
     type Error = ();
-    fn check_against_self(&self, _proof: &Self) -> Result<(), Self::Error> {
+    fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

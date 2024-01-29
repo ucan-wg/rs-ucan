@@ -1,10 +1,15 @@
-use super::condition::Condition;
+use super::condition::traits::Condition;
 use crate::{
-    ability::traits::{Command, Delegatable, DynJs},
+    ability::traits::{Command, Delegatable, DynJs, Resolvable},
     capsule::Capsule,
     did::Did,
+    invocation::payload as invocation,
     nonce::Nonce,
-    prove::traits::{Checkable, Prove},
+    proof::{
+        checkable::Checkable,
+        prove::{Outcome, Prove},
+        same::CheckSame,
+    },
     time::Timestamp,
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
@@ -82,8 +87,6 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
     }
 }
 
-use crate::{ability::traits::Resolvable, invocation::payload as invocation};
-
 impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
         invoked: invocation::Payload<T>, // FIXME promisory version
@@ -93,7 +96,7 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
     where
         // FIXME so so so broken
         invocation::Payload<T>: Clone,
-        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + Prove<T::CheckAs>,
+        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + Prove<T::CheckAs> + CheckSame,
         U::Builder: Clone,
     {
         let check_chain: T::CheckAs = invoked.clone().into();
@@ -105,18 +108,28 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
 
         let ipld: Ipld = invoked.into();
 
-        let result = proofs.iter().fold(Ok(&start), |prev, proof| {
+        let result = proofs.iter().fold(Ok(start), |prev, proof| {
             if let Ok(to_check) = prev {
                 match step1(&to_check, proof, &ipld, now) {
-                    Err(_) => Err(()),
-                    Ok(next) => Ok(next),
+                    Outcome::ArgumentEscelation(_) => Err(()),
+                    Outcome::InvalidProofChain(_) => Err(()),
+                    Outcome::ProvenByAny => Ok(to_check), // NOTE this case!
+                    Outcome::Proven => Ok(Acc {
+                        issuer: proof.issuer.clone(),
+                        subject: proof.subject.clone(),
+                        check_chain: proof.ability_builder.clone().into(), // FIXME double check
+                    }),
                 }
             } else {
                 prev
             }
         });
 
-        todo!()
+        // FIXME
+        match result {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        }
     }
 }
 
@@ -127,55 +140,66 @@ struct Acc<T: Checkable> {
     check_chain: T::CheckAs,
 }
 
+// FIXME replace with check_parents?
 // FIXME this needs to move to Delegatable
 fn step1<'a, T: Checkable, U: Delegatable, C: Condition>(
     prev: &'a Acc<T>,
     proof: &'a Payload<U, C>,
     invoked_ipld: &'a Ipld,
     now: SystemTime,
-) -> Result<&'a Acc<T>, ()>
+) -> Outcome<(), ()>
+// FIXME Outcome types
 where
     T::CheckAs: From<U::Builder> + Prove<T::CheckAs>,
     U::Builder: Clone,
 {
-    if prev.issuer != proof.audience {
-        todo!()
+    if let Err(_) = prev.issuer.check_same(&proof.issuer) {
+        return Outcome::InvalidProofChain(());
     }
 
-    if prev.subject != proof.subject {
-        todo!()
+    if let Err(_) = prev.subject.check_same(&proof.subject) {
+        return Outcome::InvalidProofChain(());
     }
 
     if let Some(nbf) = proof.not_before.clone() {
         if SystemTime::from(nbf) > now {
-            todo!()
+            return Outcome::InvalidProofChain(());
         }
     }
 
     if SystemTime::from(proof.expiration.clone()) > now {
-        todo!()
+        return Outcome::InvalidProofChain(());
     }
 
     // FIXME check the spec
-    // if self.conditions != proof.conditions {
+    // if self.conditions.len() < proof.conditions {
+    //      ...etc etc
     //      return Err(());
     //  }
 
-    proof
-        .conditions
-        .iter()
-        .try_fold((), |_acc, c| {
-            if c.validate(&invoked_ipld) {
-                Ok(())
-            } else {
-                Err(())
-            }
-        })
-        .expect("FIXME");
+    let cond_result = proof.conditions.iter().try_fold((), |_acc, c| {
+        if c.validate(&invoked_ipld) {
+            Ok(())
+        } else {
+            Err(())
+        }
+    });
 
-    Prove::check(&prev.check_chain, &proof.ability_builder.clone().into());
+    if let Err(_) = cond_result {
+        return Outcome::InvalidProofChain(());
+    }
 
-    todo!()
+    // FIXME pricey clone
+    let foo = prev
+        .check_chain
+        .check(&proof.ability_builder.clone().into());
+
+    match foo {
+        Outcome::Proven => Outcome::Proven,
+        Outcome::ProvenByAny => Outcome::ProvenByAny,
+        Outcome::ArgumentEscelation(_) => Outcome::ArgumentEscelation(()),
+        Outcome::InvalidProofChain(_) => Outcome::InvalidProofChain(()),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

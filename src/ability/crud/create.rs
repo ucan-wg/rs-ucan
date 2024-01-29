@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentful::Parentful,
-        traits::{CheckParents, CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -44,9 +41,9 @@ impl Checkable for Create {
     type CheckAs = Parentful<Create>;
 }
 
-impl CheckSelf for Create {
+impl CheckSame for Create {
     type Error = (); // FIXME better error
-    fn check_against_self(&self, proof: &Self) -> Result<(), Self::Error> {
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         if self.uri == proof.uri {
             Ok(())
         } else {
@@ -59,7 +56,7 @@ impl CheckParents for Create {
     type Parents = Mutable;
     type ParentError = ();
 
-    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         if let Some(self_uri) = &self.uri {
             match other {
                 Mutable::Any(any) => {

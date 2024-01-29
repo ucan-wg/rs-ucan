@@ -1,9 +1,6 @@
 use crate::{
     ability::traits::Command,
-    prove::{
-        parentful::Parentful,
-        traits::{CheckParents, CheckSelf, Checkable},
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -41,9 +38,9 @@ impl Checkable for Destroy {
     type CheckAs = Parentful<Destroy>;
 }
 
-impl CheckSelf for Destroy {
+impl CheckSame for Destroy {
     type Error = ();
-    fn check_against_self(&self, _proof: &Self) -> Result<(), Self::Error> {
+    fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -52,7 +49,7 @@ impl CheckParents for Destroy {
     type Parents = Mutable;
     type ParentError = ();
 
-    fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         match other {
             Mutable::Mutate(mutate) => Ok(()),
             Mutable::Any(any) => Ok(()),
