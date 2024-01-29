@@ -31,7 +31,7 @@ impl TryFrom<Ipld> for Any {
 }
 
 impl Checkable for Any {
-    type CheckAs = Parentless<Any>;
+    type Heirarchy = Parentless<Any>;
 }
 
 impl CheckSame for Any {

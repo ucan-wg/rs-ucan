@@ -33,7 +33,7 @@ impl TryFrom<Ipld> for MutateBuilder {
 }
 
 impl Checkable for MutateBuilder {
-    type CheckAs = Parentful<MutateBuilder>;
+    type Heirarchy = Parentful<MutateBuilder>;
 }
 
 impl CheckSame for MutateBuilder {

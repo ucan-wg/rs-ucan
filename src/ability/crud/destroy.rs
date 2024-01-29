@@ -35,7 +35,7 @@ impl TryFrom<Ipld> for Destroy {
 }
 
 impl Checkable for Destroy {
-    type CheckAs = Parentful<Destroy>;
+    type Heirarchy = Parentful<Destroy>;
 }
 
 impl CheckSame for Destroy {

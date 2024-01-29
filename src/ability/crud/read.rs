@@ -39,7 +39,7 @@ impl TryFrom<Ipld> for Read {
 }
 
 impl Checkable for Read {
-    type CheckAs = Parentful<Read>;
+    type Heirarchy = Parentful<Read>;
 }
 
 impl CheckSame for Read {

@@ -40,7 +40,7 @@ impl TryFrom<Ipld> for Receive {
 }
 
 impl Checkable for Receive {
-    type CheckAs = Parentful<Receive>;
+    type Heirarchy = Parentful<Receive>;
 }
 
 impl CheckSame for Receive {

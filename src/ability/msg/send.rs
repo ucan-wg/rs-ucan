@@ -57,7 +57,7 @@ impl TryFrom<Ipld> for SendBuilder {
 }
 
 impl Checkable for SendBuilder {
-    type CheckAs = Parentful<SendBuilder>;
+    type Heirarchy = Parentful<SendBuilder>;
 }
 
 impl CheckSame for SendBuilder {

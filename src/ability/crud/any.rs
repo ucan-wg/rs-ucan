@@ -16,7 +16,7 @@ impl Command for AnyBuilder {
 }
 
 impl Checkable for AnyBuilder {
-    type CheckAs = Parentless<AnyBuilder>;
+    type Heirarchy = Parentless<AnyBuilder>;
 }
 
 impl CheckSame for AnyBuilder {

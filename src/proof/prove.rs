@@ -4,13 +4,20 @@ use super::internal::Checker;
 pub trait Prove<T: Checker> {
     type ArgumentError;
     type ProofChainError;
+    type ParentsError;
 
-    fn check<'a>(&'a self, proof: &'a T) -> Outcome<Self::ArgumentError, Self::ProofChainError>;
+    fn check(
+        &self,
+        proof: &T,
+    ) -> Outcome<Self::ArgumentError, Self::ProofChainError, Self::ParentsError>;
 }
 
-pub enum Outcome<ArgErr, ChainErr> {
+// FIXME that's a lot of error type params
+pub enum Outcome<ArgErr, ChainErr, ParentErr> {
     Proven,
     ProvenByAny,
     ArgumentEscelation(ArgErr),
     InvalidProofChain(ChainErr),
+    InvalidParents(ParentErr),
+    CommandEscelation,
 }

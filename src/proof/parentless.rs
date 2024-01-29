@@ -13,6 +13,12 @@ pub enum Parentless<T> {
     This(T),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParentlessError<T: CheckSame> {
+    CommandEscelation,
+    ArgumentEscelation(T::Error),
+}
+
 impl<T> From<Parentless<T>> for Ipld
 where
     Ipld: From<T>,
@@ -30,18 +36,38 @@ impl<T: TryFrom<Ipld> + DeserializeOwned> TryFrom<Ipld> for Parentless<T> {
     }
 }
 
+impl<T: CheckSame> CheckSame for Parentless<T> {
+    type Error = ParentlessError<T>;
+
+    fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
+        match other {
+            Parentless::Any => Ok(()),
+            Parentless::This(that) => match self {
+                Parentless::Any => Err(ParentlessError::CommandEscelation),
+                Parentless::This(this) => this
+                    .check_same(that)
+                    .map_err(ParentlessError::ArgumentEscelation),
+            },
+        }
+    }
+}
+
 impl<T: CheckSame> Checker for Parentless<T> {}
 
-impl<T: CheckSame> Prove<Parentless<T>> for T {
+impl<T: CheckSame> Prove<Parentless<T>> for Parentless<T> {
     type ArgumentError = T::Error;
     type ProofChainError = Infallible;
+    type ParentsError = Infallible;
 
-    fn check<'a>(&'a self, proof: &'a Parentless<T>) -> Outcome<T::Error, Infallible> {
+    fn check(&self, proof: &Parentless<T>) -> Outcome<T::Error, Infallible, Infallible> {
         match proof {
             Parentless::Any => Outcome::Proven,
-            Parentless::This(this) => match self.check_same(&this) {
-                Ok(()) => Outcome::Proven,
-                Err(e) => Outcome::ArgumentEscelation(e),
+            Parentless::This(that) => match self {
+                Parentless::Any => Outcome::Proven,
+                Parentless::This(this) => match this.check_same(that) {
+                    Ok(()) => Outcome::Proven,
+                    Err(e) => Outcome::ArgumentEscelation(e),
+                },
             },
         }
     }

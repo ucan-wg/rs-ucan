@@ -81,7 +81,7 @@ where
     }
 }
 
-impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
+impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
     fn from(payload: Payload<T, C>) -> Self {
         payload.into()
     }
@@ -89,39 +89,44 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
 
 impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
-        invoked: invocation::Payload<T>, // FIXME promisory version
+        invoked: &'a invocation::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
-        // FIXME so so so broken
         invocation::Payload<T>: Clone,
-        T::CheckAs: From<invocation::Payload<T>> + From<U::Builder> + Prove<T::CheckAs> + CheckSame,
         U::Builder: Clone,
+        T::Heirarchy: From<invocation::Payload<T>> + From<U::Builder> + CheckSame,
     {
-        let check_chain: T::CheckAs = invoked.clone().into();
-        let start: Acc<T> = Acc {
-            issuer: invoked.issuer.clone(),
-            subject: invoked.subject.clone(),
-            check_chain,
+        let start: Acc<'a, T> = Acc {
+            issuer: &invoked.issuer,
+            subject: &invoked.subject,
+            to_check: invoked.clone().into(), // FIXME surely we can eliminate this clone
         };
 
-        let ipld: Ipld = invoked.into();
+        let ipld: Ipld = invoked.clone().into();
 
-        let result = proofs.iter().fold(Ok(start), |prev, proof| {
-            if let Ok(to_check) = prev {
-                match step1(&to_check, proof, &ipld, now) {
+        let result = proofs.iter().fold(Ok(start), |acc, proof| {
+            if let Ok(prev) = acc {
+                match step(&prev, proof, &ipld, now) {
                     Outcome::ArgumentEscelation(_) => Err(()),
                     Outcome::InvalidProofChain(_) => Err(()),
-                    Outcome::ProvenByAny => Ok(to_check), // NOTE this case!
+                    Outcome::InvalidParents(_) => Err(()),
+                    Outcome::CommandEscelation => Err(()),
+                    // NOTE this case!
+                    Outcome::ProvenByAny => Ok(Acc {
+                        issuer: &proof.issuer,
+                        subject: &proof.subject,
+                        to_check: prev.to_check,
+                    }),
                     Outcome::Proven => Ok(Acc {
-                        issuer: proof.issuer.clone(),
-                        subject: proof.subject.clone(),
-                        check_chain: proof.ability_builder.clone().into(), // FIXME double check
+                        issuer: &proof.issuer,
+                        subject: &proof.subject,
+                        to_check: proof.ability_builder.clone().into(), // FIXME double check
                     }),
                 }
             } else {
-                prev
+                acc
             }
         });
 
@@ -133,25 +138,24 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
     }
 }
 
-#[derive(Clone)]
-struct Acc<T: Checkable> {
-    issuer: Did,
-    subject: Did,
-    check_chain: T::CheckAs,
+#[derive(Debug, Clone)]
+struct Acc<'a, T: Checkable> {
+    issuer: &'a Did,
+    subject: &'a Did,
+    to_check: T::Heirarchy,
 }
 
-// FIXME replace with check_parents?
-// FIXME this needs to move to Delegatable
-fn step1<'a, T: Checkable, U: Delegatable, C: Condition>(
-    prev: &'a Acc<T>,
-    proof: &'a Payload<U, C>,
-    invoked_ipld: &'a Ipld,
+// FIXME this should move to Delegatable
+fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
+    prev: &Acc<'a, T>,
+    proof: &Payload<U, C>,
+    invoked_ipld: &Ipld,
     now: SystemTime,
-) -> Outcome<(), ()>
-// FIXME Outcome types
+) -> Outcome<(), (), ()>
+// FIXME ^^^^^^^^^^^^ Outcome types
 where
-    T::CheckAs: From<U::Builder> + Prove<T::CheckAs>,
     U::Builder: Clone,
+    T::Heirarchy: From<U::Builder>,
 {
     if let Err(_) = prev.issuer.check_same(&proof.issuer) {
         return Outcome::InvalidProofChain(());
@@ -189,16 +193,16 @@ where
         return Outcome::InvalidProofChain(());
     }
 
-    // FIXME pricey clone
-    let foo = prev
-        .check_chain
-        .check(&proof.ability_builder.clone().into());
+    // FIXME pretty sure we can avoid this clone
+    let outcome = prev.to_check.check(&proof.ability_builder.clone().into());
 
-    match foo {
+    match outcome {
         Outcome::Proven => Outcome::Proven,
         Outcome::ProvenByAny => Outcome::ProvenByAny,
+        Outcome::CommandEscelation => Outcome::CommandEscelation,
         Outcome::ArgumentEscelation(_) => Outcome::ArgumentEscelation(()),
         Outcome::InvalidProofChain(_) => Outcome::InvalidProofChain(()),
+        Outcome::InvalidParents(_) => Outcome::InvalidParents(()),
     }
 }
 

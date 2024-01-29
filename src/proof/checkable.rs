@@ -1,5 +1,5 @@
-use super::{internal::Checker, same::CheckSame};
+use super::{internal::Checker, prove::Prove, same::CheckSame};
 
 pub trait Checkable: CheckSame {
-    type CheckAs: Checker;
+    type Heirarchy: Checker + Prove<Self::Heirarchy>;
 }
