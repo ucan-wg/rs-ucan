@@ -1,31 +1,53 @@
-use crate::prove::{
-    parentful::Parentful,
-    traits::{CheckParents, CheckSelf, HasChecker},
+use crate::{
+    ability::traits::Command,
+    prove::{
+        parentful::Parentful,
+        traits::{CheckParents, CheckSelf, Checkable},
+    },
 };
-use libipld_core::ipld::Ipld;
+use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use url::Url;
 
 use super::parents::Mutable;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Create {
-    pub uri: Url,
-    pub args: BTreeMap<String, String>,
-}
-
-pub struct CreateBuilder {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<Url>,
-    pub args: BTreeMap<String, Ipld>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<BTreeMap<String, Ipld>>,
 }
 
-impl HasChecker for CreateBuilder {
-    type CheckAs = Parentful<CreateBuilder>;
+impl Command for Create {
+    const COMMAND: &'static str = "crud/create";
 }
 
-impl CheckSelf for CreateBuilder {
+impl From<Create> for Ipld {
+    fn from(create: Create) -> Self {
+        create.into()
+    }
+}
+
+impl TryFrom<Ipld> for Create {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    }
+}
+
+impl Checkable for Create {
+    type CheckAs = Parentful<Create>;
+}
+
+impl CheckSelf for Create {
     type Error = (); // FIXME better error
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
-        if self.uri == other.uri {
+    fn check_against_self(&self, proof: &Self) -> Result<(), Self::Error> {
+        if self.uri == proof.uri {
             Ok(())
         } else {
             Err(())
@@ -33,14 +55,30 @@ impl CheckSelf for CreateBuilder {
     }
 }
 
-impl CheckParents for CreateBuilder {
+impl CheckParents for Create {
     type Parents = Mutable;
     type ParentError = ();
 
     fn check_against_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        match other {
-            Mutable::Mutate(mutate) => Ok(()),
-            Mutable::Any(any) => Ok(()),
+        if let Some(self_uri) = &self.uri {
+            match other {
+                Mutable::Any(any) => {
+                    if let Some(proof_uri) = &any.uri {
+                        if self_uri != proof_uri {
+                            return Err(());
+                        }
+                    }
+                }
+                Mutable::Mutate(mutate) => {
+                    if let Some(proof_uri) = &mutate.uri {
+                        if self_uri != proof_uri {
+                            return Err(());
+                        }
+                    }
+                }
+            }
         }
+
+        Ok(())
     }
 }

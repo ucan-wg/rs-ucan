@@ -1,12 +1,35 @@
 use super::{
-    internal::IsChecker,
+    internal::Checker,
     traits::{CheckParents, CheckSelf, Prove},
 };
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Parentful<T: CheckParents> {
     Any,
     Parents(T::Parents),
-    Me(T),
+    This(T),
+}
+
+impl<T: CheckParents> From<Parentful<T>> for Ipld
+where
+    Ipld: From<T>,
+{
+    fn from(parentful: Parentful<T>) -> Self {
+        parentful.into()
+    }
+}
+
+impl<T: TryFrom<Ipld> + DeserializeOwned + CheckParents> TryFrom<Ipld> for Parentful<T>
+where
+    <T as CheckParents>::Parents: DeserializeOwned,
+{
+    type Error = SerdeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
+    }
 }
 
 // TODO better names & derivations
@@ -23,7 +46,7 @@ where
     EscelationError,
 }
 
-impl<T: CheckParents> IsChecker for Parentful<T> {}
+impl<T: CheckParents> Checker for Parentful<T> {}
 
 impl<T: CheckParents> CheckSelf for Parentful<T>
 where
@@ -31,24 +54,24 @@ where
 {
     type Error = ParentfulError<T>;
 
-    fn check_against_self(&self, other: &Self) -> Result<(), Self::Error> {
+    fn check_against_self(&self, proof: &Self) -> Result<(), Self::Error> {
         match self {
             Parentful::Any => Ok(()),
-            Parentful::Parents(parents) => match other {
+            Parentful::Parents(parents) => match proof {
                 Parentful::Any => Ok(()),
                 Parentful::Parents(other_parents) => parents
                     .check_against_self(other_parents)
                     .map_err(ParentfulError::ParentSelfError),
-                Parentful::Me(_other_me) => Err(ParentfulError::EscelationError),
+                Parentful::This(_other_me) => Err(ParentfulError::EscelationError),
             },
-            Parentful::Me(me) => match other {
+            Parentful::This(this) => match proof {
                 Parentful::Any => Ok(()),
-                Parentful::Parents(other_parents) => me
+                Parentful::Parents(other_parents) => this
                     .check_against_parents(other_parents)
                     .map_err(ParentfulError::ParentError),
-                Parentful::Me(other_me) => me
-                    .check_against_self(other_me)
-                    .map_err(ParentfulError::Error),
+                Parentful::This(that) => {
+                    this.check_against_self(that).map_err(ParentfulError::Error)
+                }
             },
         }
     }
@@ -67,7 +90,7 @@ where
         match self {
             Parentful::Any => Ok(()),
             Parentful::Parents(parents) => parents.check_against_self(other).map_err(|_| todo!()), // FIXME ParentfulError::ParentError),
-            Parentful::Me(me) => me
+            Parentful::This(this) => this
                 .check_against_parents(other)
                 .map_err(ParentfulError::ParentError),
         }
@@ -79,13 +102,15 @@ where
     T::Parents: CheckSelf,
 {
     type ProveError = ParentfulError<T>;
-    fn check<'a>(&'a self, other: &'a Parentful<T>) -> Result<(), Self::ProveError> {
-        match other {
+    fn check<'a>(&'a self, proof: &'a Parentful<T>) -> Result<(), Self::ProveError> {
+        match proof {
             Parentful::Any => Ok(()),
             Parentful::Parents(parents) => self
                 .check_against_parents(parents)
                 .map_err(ParentfulError::ParentError),
-            Parentful::Me(me) => self.check_against_self(&me).map_err(ParentfulError::Error),
+            Parentful::This(that) => self
+                .check_against_self(&that)
+                .map_err(ParentfulError::Error),
         }
     }
 }

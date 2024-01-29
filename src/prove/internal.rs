@@ -1,2 +1,2 @@
 // FIXME rename
-pub trait IsChecker {}
+pub trait Checker {}

@@ -4,7 +4,7 @@ use crate::{
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
-    prove::traits::{HasChecker, Prove},
+    prove::traits::{Checkable, Prove},
     time::Timestamp,
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
@@ -84,7 +84,7 @@ impl<T: Delegatable + Debug, C: Condition> From<Payload<T, C>> for Ipld {
 
 use crate::{ability::traits::Resolvable, invocation::payload as invocation};
 
-impl<'a, T: Delegatable + Resolvable + HasChecker + Clone, C: Condition> Payload<T, C> {
+impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
         invoked: invocation::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
@@ -121,14 +121,14 @@ impl<'a, T: Delegatable + Resolvable + HasChecker + Clone, C: Condition> Payload
 }
 
 #[derive(Clone)]
-struct Acc<T: HasChecker> {
+struct Acc<T: Checkable> {
     issuer: Did,
     subject: Did,
     check_chain: T::CheckAs,
 }
 
 // FIXME this needs to move to Delegatable
-fn step1<'a, T: HasChecker, U: Delegatable, C: Condition>(
+fn step1<'a, T: Checkable, U: Delegatable, C: Condition>(
     prev: &'a Acc<T>,
     proof: &'a Payload<U, C>,
     invoked_ipld: &'a Ipld,
