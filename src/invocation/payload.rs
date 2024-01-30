@@ -160,6 +160,7 @@ impl From<InternalSerializer> for Payload<DynJs> {
             ability: DynJs {
                 cmd: s.command,
                 args: s.arguments,
+                serialize_nonce: todo!(),
             },
 
             proofs: s.proofs,

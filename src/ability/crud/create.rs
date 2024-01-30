@@ -38,7 +38,7 @@ impl TryFrom<Ipld> for Create {
 }
 
 impl Checkable for Create {
-    type Heirarchy = Parentful<Create>;
+    type Hierarchy = Parentful<Create>;
 }
 
 impl CheckSame for Create {

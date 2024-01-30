@@ -14,33 +14,12 @@ pub struct Receive {
     pub from: Option<Url>,
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-// #[serde(deny_unknown_fields)]
-// pub struct MsgReceiveDeferrable {
-//     to: Deferrable<Url>,
-//     from: Deferrable<Url>,
-// }
-
 impl Command for Receive {
     const COMMAND: &'static str = "msg/send";
 }
 
-impl From<Receive> for Ipld {
-    fn from(receive: Receive) -> Self {
-        receive.into()
-    }
-}
-
-impl TryFrom<Ipld> for Receive {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
-    }
-}
-
 impl Checkable for Receive {
-    type Heirarchy = Parentful<Receive>;
+    type Hierarchy = Parentful<Receive>;
 }
 
 impl CheckSame for Receive {
@@ -56,5 +35,22 @@ impl CheckParents for Receive {
 
     fn check_parents(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         self.from.check_same(&proof.from).map_err(|_| ())
+    }
+}
+
+////////////
+
+
+impl From<Receive> for Ipld {
+    fn from(receive: Receive) -> Self {
+        receive.into()
+    }
+}
+
+impl TryFrom<Ipld> for Receive {
+    type Error = SerdeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     ability::traits::Command,
-    proof::{checkable::Checkable, parentless::Parentless, same::CheckSame},
+    proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub struct Any {
 }
 
 impl Command for Any {
-    const COMMAND: &'static str = "msg";
+    const COMMAND: &'static str = "msg/*";
 }
 
 impl From<Any> for Ipld {
@@ -30,9 +30,7 @@ impl TryFrom<Ipld> for Any {
     }
 }
 
-impl Checkable for Any {
-    type Heirarchy = Parentless<Any>;
-}
+impl NoParents for Any {}
 
 impl CheckSame for Any {
     type Error = ();

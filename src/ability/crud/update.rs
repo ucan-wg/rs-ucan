@@ -62,7 +62,7 @@ impl TryFrom<Ipld> for UpdateBuilder {
 }
 
 impl Checkable for UpdateBuilder {
-    type Heirarchy = Parentful<UpdateBuilder>;
+    type Hierarchy = Parentful<UpdateBuilder>;
 }
 
 impl CheckSame for UpdateBuilder {

@@ -96,7 +96,7 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
     where
         invocation::Payload<T>: Clone,
         U::Builder: Clone,
-        T::Heirarchy: From<invocation::Payload<T>> + From<U::Builder> + CheckSame,
+        T::Hierarchy: From<invocation::Payload<T>> + From<U::Builder> + CheckSame,
     {
         let start: Acc<'a, T> = Acc {
             issuer: &invoked.issuer,
@@ -142,7 +142,7 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
 struct Acc<'a, T: Checkable> {
     issuer: &'a Did,
     subject: &'a Did,
-    to_check: T::Heirarchy,
+    to_check: T::Hierarchy,
 }
 
 // FIXME this should move to Delegatable
@@ -155,9 +155,9 @@ fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
 // FIXME ^^^^^^^^^^^^ Outcome types
 where
     U::Builder: Clone,
-    T::Heirarchy: From<U::Builder>,
+    T::Hierarchy: From<U::Builder>,
 {
-    if let Err(_) = prev.issuer.check_same(&proof.issuer) {
+    if let Err(_) = prev.issuer.check_same(&proof.audience) {
         return Outcome::InvalidProofChain(());
     }
 
@@ -278,6 +278,7 @@ impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<DynJs
             ability_builder: DynJs {
                 cmd: s.command,
                 args: s.arguments,
+                serialize_nonce: todo!(),
             },
             conditions: s
                 .conditions

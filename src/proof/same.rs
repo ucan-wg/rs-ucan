@@ -1,5 +1,5 @@
 use crate::did::Did;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub trait CheckSame {
     type Error;
@@ -8,10 +8,16 @@ pub trait CheckSame {
 }
 
 // Genereic
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Unequal;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpionalFieldErr<T> {
+    pub field: T, // Enum of fields
+    pub err: OptionalFieldErr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OptionalFieldErr {
     MissingField,
     UnequalValue,

@@ -1,3 +1,4 @@
+use super::any;
 use crate::{
     ability::traits::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
@@ -6,11 +7,10 @@ use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::any::AnyBuilder;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MutateBuilder {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<Url>,
 }
 
@@ -33,7 +33,7 @@ impl TryFrom<Ipld> for MutateBuilder {
 }
 
 impl Checkable for MutateBuilder {
-    type Heirarchy = Parentful<MutateBuilder>;
+    type Hierarchy = Parentful<MutateBuilder>;
 }
 
 impl CheckSame for MutateBuilder {
@@ -45,7 +45,7 @@ impl CheckSame for MutateBuilder {
 
 // TODO note to self, this is effectively a partial order
 impl CheckParents for MutateBuilder {
-    type Parents = AnyBuilder;
+    type Parents = any::Builder;
     type ParentError = ();
 
     fn check_parents(&self, _proof: &Self::Parents) -> Result<(), Self::ParentError> {

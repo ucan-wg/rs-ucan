@@ -5,12 +5,24 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum Deferrable<T>
-where
-    T: Debug + Clone + PartialEq,
-{
+pub enum Deferrable<T> {
     Resolved(T),
     Await(Promise),
+}
+
+impl<T> Deferrable<T> {
+    pub fn try_extract(self) -> Result<T, Self> {
+        match self {
+            Deferrable::Resolved(t) => Ok(t),
+            Deferrable::Await(promise) => Err(Deferrable::Await(promise)),
+        }
+    }
+}
+
+impl<T> From<T> for Deferrable<T> {
+    fn from(t: T) -> Self {
+        Deferrable::Resolved(t)
+    }
 }
 
 /// A [`Promise`] is a way to defer the presence of a value to the result of some [`Invocation`].
@@ -19,15 +31,15 @@ where
 pub enum Promise {
     PromiseAny {
         #[serde(rename = "ucan/*")] // FIXME test to make sure that this is right?
-        await_any: Cid,
+        any: Cid,
     },
     PromiseOk {
         #[serde(rename = "ucan/ok")]
-        await_ok: Cid,
+        ok: Cid,
     },
     PromiseErr {
         #[serde(rename = "ucan/err")]
-        await_err: Cid,
+        err: Cid,
     },
 }
 

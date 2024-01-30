@@ -1,3 +1,4 @@
+use super::any;
 use crate::{
     ability::traits::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
@@ -6,8 +7,6 @@ use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use url::Url;
-
-use super::any::AnyBuilder;
 
 // Read is its own builder
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -39,7 +38,7 @@ impl TryFrom<Ipld> for Read {
 }
 
 impl Checkable for Read {
-    type Heirarchy = Parentful<Read>;
+    type Hierarchy = Parentful<Read>;
 }
 
 impl CheckSame for Read {
@@ -50,7 +49,7 @@ impl CheckSame for Read {
 }
 
 impl CheckParents for Read {
-    type Parents = AnyBuilder;
+    type Parents = any::Builder;
     type ParentError = ();
     fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         Ok(())

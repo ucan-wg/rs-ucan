@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<T: CheckSame + CheckParents> CheckSame for Parentful<T>
+impl<T: CheckParents> CheckSame for Parentful<T>
 where
     T::Parents: CheckSame,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<T: CheckSame + CheckParents> CheckParents for Parentful<T>
+impl<T: CheckParents> CheckParents for Parentful<T>
 where
     T::Parents: CheckSame,
 {

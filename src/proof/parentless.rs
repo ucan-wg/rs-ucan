@@ -1,4 +1,5 @@
 use super::{
+    checkable::Checkable,
     internal::Checker,
     prove::{Outcome, Prove},
     same::CheckSame,
@@ -13,10 +14,18 @@ pub enum Parentless<T> {
     This(T),
 }
 
+// FIXME generally useful (e.g. checkiung `_/*`); move to its own module and rename
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParentlessError<T: CheckSame> {
     CommandEscelation,
     ArgumentEscelation(T::Error),
+}
+
+// FIXME better name
+pub trait NoParents {}
+
+impl<T: NoParents + CheckSame> Checkable for T {
+    type Hierarchy = Parentless<Self>;
 }
 
 impl<T> From<Parentless<T>> for Ipld
