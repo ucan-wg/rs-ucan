@@ -6,19 +6,19 @@ use crate::{
     nonce::Nonce,
     time::Timestamp,
 };
-use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
+use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 
 // FIXME this version should not be resolvable...
 // FIXME ...or at least have two versions via abstraction
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Resolvable> {
+pub struct Payload<T> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Option<Did>,
 
-    pub ability: T::Promised,
+    pub ability: T,
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
@@ -29,11 +29,28 @@ pub struct Payload<T: Resolvable> {
     pub expiration: Timestamp,
 }
 
-impl<T: Resolvable + Command> Capsule for Payload<T> {
+// NOTE This is the version that accepts promises
+pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
+// type Dynamic = Payload<dynamic::Dynamic>; <- ?
+
+// FIXME parser for both versions
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MaybeResolved<T: Resolvable + Command + Clone + TryFrom<Arguments> + Into<Arguments>>
+where
+    Payload<T>: From<InternalSerializer>,
+    Unresolved<T>: From<InternalSerializer>,
+    T::Promised: Clone + Command + Debug + PartialEq,
+{
+    Resolved(Payload<T>),
+    Unresolved(Unresolved<T>),
+}
+
+impl<T> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T: Resolvable> Serialize for Payload<T>
+impl<T> Serialize for Payload<T>
 where
     Payload<T>: Clone,
     InternalSerializer: From<Payload<T>>,
@@ -43,11 +60,11 @@ where
         S: Serializer,
     {
         let s = InternalSerializer::from(self.clone());
-        Serialize::serialize(&s, serializer)
+        serde::Serialize::serialize(&s, serializer)
     }
 }
 
-impl<'de, T: Resolvable> Deserialize<'de> for Payload<T>
+impl<'de, T> serde::Deserialize<'de> for Payload<T>
 where
     Payload<T>: TryFrom<InternalSerializer>,
     <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
@@ -65,7 +82,7 @@ where
     }
 }
 
-impl<T: Resolvable> TryFrom<Ipld> for Payload<T>
+impl<T> TryFrom<Ipld> for Payload<T>
 where
     Payload<T>: TryFrom<InternalSerializer>,
 {
@@ -77,15 +94,15 @@ where
     }
 }
 
-impl<T: Resolvable> From<Payload<T>> for Ipld {
+impl<T> From<Payload<T>> for Ipld {
     fn from(payload: Payload<T>) -> Self {
         payload.into()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct InternalSerializer {
+pub(super) struct InternalSerializer {
     #[serde(rename = "iss")]
     issuer: Did,
     #[serde(rename = "sub")]
@@ -114,33 +131,17 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Resolvable + Command> From<Payload<T>> for InternalSerializer {
-    fn from(payload: Payload<T>) -> Self {
-        InternalSerializer {
-            issuer: payload.issuer,
-            subject: payload.subject,
-            audience: payload.audience,
-
-            command: T::COMMAND.into(),
-            arguments: payload.ability.into(),
-
-            proofs: payload.proofs,
-            cause: payload.cause,
-            metadata: payload.metadata,
-
-            nonce: payload.nonce,
-
-            not_before: payload.not_before,
-            expiration: payload.expiration,
-        }
+impl From<InternalSerializer> for Ipld {
+    fn from(serializer: InternalSerializer) -> Self {
+        serializer.into()
     }
 }
 
 impl TryFrom<Ipld> for InternalSerializer {
-    type Error = (); // FIXME
+    type Error = SerdeError;
 
-    fn try_from(ipld: Ipld) -> Result<Self, ()> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
     }
 }
 
@@ -186,6 +187,28 @@ impl From<Payload<dynamic::Dynamic>> for InternalSerializer {
 
             not_before: p.not_before,
             expiration: p.expiration,
+        }
+    }
+}
+
+impl<T: Command + Into<Arguments>> From<Payload<T>> for InternalSerializer {
+    fn from(payload: Payload<T>) -> Self {
+        InternalSerializer {
+            issuer: payload.issuer,
+            subject: payload.subject,
+            audience: payload.audience,
+
+            command: T::COMMAND.into(),
+            arguments: payload.ability.into(),
+
+            proofs: payload.proofs,
+            cause: payload.cause,
+            metadata: payload.metadata,
+
+            nonce: payload.nonce,
+
+            not_before: payload.not_before,
+            expiration: payload.expiration,
         }
     }
 }
