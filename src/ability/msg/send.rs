@@ -1,10 +1,13 @@
 use crate::{
-    ability::traits::{Command, Delegatable, Resolvable},
-    promise::Deferrable,
+    ability::{arguments::Arguments, command::Command},
+    delegation::delegatable::Delegatable,
+    invocation::resolvable::Resolvable,
+    promise::Promise,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::collections::BTreeMap;
 use url::Url;
 
 use super::any as msg;
@@ -19,18 +22,41 @@ pub struct Generic<To, From, Message> {
 
 pub type Resolved = Generic<Url, Url, String>;
 pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
-pub type Awaiting = Generic<Deferrable<Url>, Deferrable<Url>, Deferrable<String>>;
+pub type Promised = Generic<Promise<Url>, Promise<Url>, Promise<String>>;
 
 impl Delegatable for Resolved {
     type Builder = Builder;
 }
 
 impl Resolvable for Resolved {
-    type Awaiting = Awaiting;
+    type Promised = Promised;
 }
 
-impl From<Awaiting> for Builder {
-    fn from(awaiting: Awaiting) -> Self {
+impl From<Builder> for Arguments {
+    fn from(b: Builder) -> Self {
+        let mut btree = BTreeMap::new();
+        b.to.map(|to| btree.insert("to".into(), to.to_string().into()));
+        b.from
+            .map(|from| btree.insert("from".into(), from.to_string().into()));
+        b.message
+            .map(|msg| btree.insert("message".into(), msg.into()));
+
+        Arguments(btree)
+    }
+}
+
+impl From<Promised> for Arguments {
+    fn from(promised: Promised) -> Self {
+        Arguments(BTreeMap::from_iter([
+            ("to".into(), promised.to.map(String::from).into()),
+            ("from".into(), promised.from.map(String::from).into()),
+            ("message".into(), promised.message.into()),
+        ]))
+    }
+}
+
+impl From<Promised> for Builder {
+    fn from(awaiting: Promised) -> Self {
         Builder {
             to: awaiting.to.try_extract().ok(),
             from: awaiting.from.try_extract().ok(),
@@ -76,7 +102,7 @@ impl From<Resolved> for Builder {
     }
 }
 
-impl From<Resolved> for Awaiting {
+impl From<Resolved> for Promised {
     fn from(resolved: Resolved) -> Self {
         Generic {
             to: resolved.to.into(),
@@ -86,10 +112,10 @@ impl From<Resolved> for Awaiting {
     }
 }
 
-impl TryFrom<Awaiting> for Resolved {
+impl TryFrom<Promised> for Resolved {
     type Error = ();
 
-    fn try_from(awaiting: Awaiting) -> Result<Self, ()> {
+    fn try_from(awaiting: Promised) -> Result<Self, ()> {
         Ok(Generic {
             to: awaiting.to.try_extract().map_err(|_| ())?,
             from: awaiting.from.try_extract().map_err(|_| ())?,

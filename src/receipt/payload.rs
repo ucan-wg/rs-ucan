@@ -1,4 +1,5 @@
-use crate::{ability::traits::Runnable, capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
+use super::runnable::Runnable;
+use crate::{capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
 use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -6,12 +7,12 @@ use std::{collections::BTreeMap, fmt::Debug};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Payload<T: Runnable>
 where
-    T::Output: Serialize + DeserializeOwned,
+    T::Success: Serialize + DeserializeOwned,
 {
     pub issuer: Did,
 
     pub ran: Cid,
-    pub out: Result<T::Output, BTreeMap<String, Ipld>>,
+    pub out: Result<T::Success, BTreeMap<String, Ipld>>,
     pub next: Vec<Cid>,
 
     pub proofs: Vec<Cid>,
@@ -23,14 +24,14 @@ where
 
 impl<T: Runnable> Capsule for Payload<T>
 where
-    for<'de> T::Output: Serialize + Deserialize<'de>,
+    for<'de> T::Success: Serialize + Deserialize<'de>,
 {
     const TAG: &'static str = "ucan/r/1.0.0-rc.1"; // FIXME extract out version
 }
 
 impl<T: Runnable> TryFrom<Ipld> for Payload<T>
 where
-    for<'de> T::Output: Serialize + Deserialize<'de>,
+    for<'de> T::Success: Serialize + Deserialize<'de>,
 {
     type Error = (); // FIXME
 
@@ -41,7 +42,7 @@ where
 
 impl<T: Runnable> From<Payload<T>> for Ipld
 where
-    for<'de> T::Output: Serialize + Deserialize<'de>,
+    for<'de> T::Success: Serialize + Deserialize<'de>,
 {
     fn from(payload: Payload<T>) -> Self {
         payload.into()

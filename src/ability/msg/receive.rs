@@ -1,5 +1,5 @@
 use crate::{
-    ability::traits::Command,
+    ability::command::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -39,7 +39,6 @@ impl CheckParents for Receive {
 }
 
 ////////////
-
 
 impl From<Receive> for Ipld {
     fn from(receive: Receive) -> Self {

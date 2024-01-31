@@ -1,4 +1,5 @@
 pub mod payload;
+pub mod resolvable;
 
 use crate::signature;
 

@@ -1,78 +1,66 @@
-//! This module is for dynamic abilities, especially for Wasm support
+//! This module is for dynamic abilities, especially for FFI and Wasm support
 
-use super::traits::{Ability, Command};
-use crate::prove::TryProve;
-use libipld_core::ipld::Ipld;
-use std::collections::BTreeMap;
+use super::{arguments::Arguments, command::ToCommand};
+use crate::{
+    delegation::delegatable::Delegatable, invocation::resolvable::Resolvable, promise::Promise,
+};
+use serde_derive::{Deserialize, Serialize};
+use std::fmt::Debug;
 
-use crate::ipld::WrappedIpld;
+// FIXME move module?
+// use js_sys;
+// use wasm_bindgen::prelude::*;
+// type JsDynamic = Dynamic<&'a js_sys::Function>;
+// type JsBuilder = Builder<&'a js_sys::Function>;
+// type JsPromised = Promised<&'a js_sys::Function>;
+// FIXME move these fiels to a wrapper struct in a different module
+//     #[serde(skip_serializing)]
+//     pub chain_validator: Pred,
+//     #[serde(skip_serializing)]
+//     pub shape_validator: Pred,
+//     #[serde(skip_serializing)]
+//     pub serialize_nonce: DefaultTrue,
 
-use js_sys;
-use wasm_bindgen::prelude::*;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Dynamic<'a> {
-    pub command: String,
-    pub args: BTreeMap<String, Ipld>, // FIXME consider this being just JsValue
-    pub validator: &'a js_sys::Function,
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Generic<Args> {
+    pub cmd: String,
+    pub args: Args,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct DynamicBuilder<'a> {
-    pub command: String,
-    pub args: Option<BTreeMap<String, Ipld>>,
-    pub validator: &'a js_sys::Function,
-}
+pub type Dynamic = Generic<Arguments>;
+pub type Promised = Generic<Promise<Arguments>>;
 
-impl<'a> From<Dynamic<'a>> for DynamicBuilder<'a> {
-    fn from(dynamic: Dynamic<'a>) -> Self {
-        Self {
-            command: dynamic.command.clone(),
-            args: Some(dynamic.args),
-            validator: dynamic.validator,
-        }
+impl<Args> ToCommand for Generic<Args> {
+    fn to_command(&self) -> String {
+        self.cmd.clone()
     }
 }
 
-impl<'a> TryFrom<DynamicBuilder<'a>> for Dynamic<'a> {
+impl Delegatable for Dynamic {
+    type Builder = Dynamic;
+}
+
+impl Resolvable for Dynamic {
+    type Promised = Dynamic;
+}
+
+impl From<Dynamic> for Arguments {
+    fn from(dynamic: Dynamic) -> Self {
+        dynamic.args
+    }
+}
+
+impl TryFrom<Promised> for Dynamic {
     type Error = (); // FIXME
 
-    fn try_from(builder: DynamicBuilder) -> Result<Self, ()> {
-        if let Some(args) = builder.clone().args {
-            Ok(Self {
-                command: builder.command.clone(),
-                args,
+    fn try_from(awaiting: Promised) -> Result<Self, ()> {
+        if let Promise::Resolved(args) = &awaiting.args {
+            Ok(Dynamic {
+                cmd: awaiting.cmd,
+                args: args.clone(),
             })
         } else {
             Err(())
         }
-    }
-}
-
-impl<'a> Command for Dynamic<'a> {
-    fn command(&self) -> &'static str {
-        self.command
-    }
-}
-
-impl<'a> Command for DynamicBuilder<'a> {
-    fn command(&self) -> &'static str {
-        self.command
-    }
-}
-
-impl<'a> Ability for Dynamic<'a> {
-    type Builder = DynamicBuilder<'a>;
-}
-
-impl<'a> TryProve<DynamicBuilder<'a>> for DynamicBuilder<'a> {
-    type Error = JsError;
-    type Proven = DynamicBuilder<'a>; // TODO docs: even if you parse a well-structred type, you MUST return a dynamic builder and continue checking that
-
-    fn try_prove(&'a self, proof: &'a DynamicBuilder) -> Result<&'a Self::Proven, ()> {
-        let js_self: JsValue = self.into().into();
-        let js_proof: JsValue = proof.into().into();
-
-        self.validator.apply(js_self, js_proof);
     }
 }

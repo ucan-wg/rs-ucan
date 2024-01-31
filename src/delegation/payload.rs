@@ -1,9 +1,9 @@
-use super::condition::traits::Condition;
+use super::{condition::traits::Condition, delegatable::Delegatable};
 use crate::{
-    ability::traits::{Command, Delegatable, DynJs, Resolvable},
+    ability::{arguments::Arguments, command::Command, dynamic},
     capsule::Capsule,
     did::Did,
-    invocation::payload as invocation,
+    invocation::{payload as invocation, resolvable::Resolvable},
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -95,8 +95,8 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
     ) -> Result<(), ()>
     where
         invocation::Payload<T>: Clone,
-        U::Builder: Clone,
-        T::Hierarchy: From<invocation::Payload<T>> + From<U::Builder> + CheckSame,
+        U::Builder: Clone + Into<T::Hierarchy>,
+        T::Hierarchy: From<invocation::Payload<T>>,
     {
         let start: Acc<'a, T> = Acc {
             issuer: &invoked.issuer,
@@ -154,8 +154,7 @@ fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
 ) -> Outcome<(), (), ()>
 // FIXME ^^^^^^^^^^^^ Outcome types
 where
-    U::Builder: Clone,
-    T::Hierarchy: From<U::Builder>,
+    U::Builder: Into<T::Hierarchy> + Clone,
 {
     if let Err(_) = prev.issuer.check_same(&proof.audience) {
         return Outcome::InvalidProofChain(());
@@ -219,7 +218,7 @@ struct InternalSerializer {
     #[serde(rename = "can")]
     command: String,
     #[serde(rename = "args")]
-    arguments: BTreeMap<String, Ipld>,
+    arguments: Arguments,
     #[serde(rename = "cond")]
     conditions: Vec<Ipld>,
 
@@ -234,8 +233,7 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Delegatable + Command + Debug, C: Condition + Into<Ipld>> From<Payload<T, C>>
-    for InternalSerializer
+impl<T: Delegatable + Command, C: Condition + Into<Ipld>> From<Payload<T, C>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Builder>,
 {
@@ -266,19 +264,18 @@ impl TryFrom<Ipld> for InternalSerializer {
     }
 }
 
-impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<DynJs, C> {
+impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<dynamic::Dynamic, C> {
     type Error = (); // FIXME
 
-    fn try_from(s: InternalSerializer) -> Result<Payload<DynJs, C>, ()> {
+    fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic, C>, ()> {
         Ok(Payload {
             issuer: s.issuer,
             subject: s.subject,
             audience: s.audience,
 
-            ability_builder: DynJs {
+            ability_builder: dynamic::Dynamic {
                 cmd: s.command,
                 args: s.arguments,
-                serialize_nonce: todo!(),
             },
             conditions: s
                 .conditions
@@ -300,8 +297,8 @@ impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<DynJs
     }
 }
 
-impl<C: Condition + Into<Ipld>> From<Payload<DynJs, C>> for InternalSerializer {
-    fn from(p: Payload<DynJs, C>) -> Self {
+impl<C: Condition + Into<Ipld>> From<Payload<dynamic::Dynamic, C>> for InternalSerializer {
+    fn from(p: Payload<dynamic::Dynamic, C>) -> Self {
         InternalSerializer {
             issuer: p.issuer,
             subject: p.subject,

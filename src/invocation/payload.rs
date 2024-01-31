@@ -1,5 +1,6 @@
+use super::resolvable::Resolvable;
 use crate::{
-    ability::traits::{Command, DynJs, Resolvable},
+    ability::{arguments::Arguments, command::Command, dynamic},
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
@@ -9,13 +10,15 @@ use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 
+// FIXME this version should not be resolvable...
+// FIXME ...or at least have two versions via abstraction
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<T: Resolvable> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Option<Did>,
 
-    pub ability: T::Awaiting,
+    pub ability: T::Promised,
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
@@ -93,7 +96,7 @@ struct InternalSerializer {
     #[serde(rename = "do")]
     command: String,
     #[serde(rename = "args")]
-    arguments: BTreeMap<String, Ipld>,
+    arguments: Arguments,
 
     #[serde(rename = "prf")]
     proofs: Vec<Cid>,
@@ -111,24 +114,15 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Resolvable + Command + Debug> From<Payload<T>> for InternalSerializer
-where
-    BTreeMap<String, Ipld>: From<T::Awaiting>,
-    Ipld: From<T::Awaiting>,
-{
+impl<T: Resolvable + Command> From<Payload<T>> for InternalSerializer {
     fn from(payload: Payload<T>) -> Self {
-        let arguments: BTreeMap<String, Ipld> = match Ipld::from(payload.ability) {
-            Ipld::Map(btree) => btree,
-            _ => panic!("FIXME"),
-        };
-
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
             audience: payload.audience,
 
             command: T::COMMAND.into(),
-            arguments,
+            arguments: payload.ability.into(),
 
             proofs: payload.proofs,
             cause: payload.cause,
@@ -150,17 +144,16 @@ impl TryFrom<Ipld> for InternalSerializer {
     }
 }
 
-impl From<InternalSerializer> for Payload<DynJs> {
+impl From<InternalSerializer> for Payload<dynamic::Dynamic> {
     fn from(s: InternalSerializer) -> Self {
         Payload {
             issuer: s.issuer,
             subject: s.subject,
             audience: s.audience,
 
-            ability: DynJs {
+            ability: dynamic::Dynamic {
                 cmd: s.command,
-                args: s.arguments,
-                serialize_nonce: todo!(),
+                args: s.arguments.into(),
             },
 
             proofs: s.proofs,
@@ -175,11 +168,9 @@ impl From<InternalSerializer> for Payload<DynJs> {
     }
 }
 
-impl TryFrom<Payload<DynJs>> for InternalSerializer {
-    type Error = (); // FIXME
-
-    fn try_from(p: Payload<DynJs>) -> Result<Self, ()> {
-        Ok(InternalSerializer {
+impl From<Payload<dynamic::Dynamic>> for InternalSerializer {
+    fn from(p: Payload<dynamic::Dynamic>) -> Self {
+        InternalSerializer {
             issuer: p.issuer,
             subject: p.subject,
             audience: p.audience,
@@ -195,6 +186,6 @@ impl TryFrom<Payload<DynJs>> for InternalSerializer {
 
             not_before: p.not_before,
             expiration: p.expiration,
-        })
+        }
     }
 }

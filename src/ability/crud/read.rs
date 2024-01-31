@@ -1,6 +1,6 @@
 use super::any;
 use crate::{
-    ability::traits::Command,
+    ability::command::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};

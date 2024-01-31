@@ -1,5 +1,5 @@
 use crate::{
-    ability::traits::Command,
+    ability::command::Command,
     proof::{
         parentless::NoParents,
         same::{CheckSame, OptionalFieldErr},

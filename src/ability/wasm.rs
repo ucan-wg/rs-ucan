@@ -1,4 +1,5 @@
-use crate::proof::parentless::NoParents;
+use super::command::Command;
+use crate::proof::{parentless::NoParents, same::CheckSame};
 use libipld_core::{ipld::Ipld, link::Link};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,6 +9,7 @@ pub struct Run {
     pub args: Vec<Ipld>,
 }
 
+// FIXME
 #[derive(Debug, Clone, PartialEq)]
 pub enum Module {
     Inline(Vec<u8>),
@@ -21,8 +23,8 @@ impl Command for Run {
 impl NoParents for Run {}
 
 impl CheckSame for Run {
-    type Error = ();
+    type Error = (); // FIXME
     fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
-        Ok(())
+        Ok(()) // FIXME
     }
 }

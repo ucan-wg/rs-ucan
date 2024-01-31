@@ -1,5 +1,5 @@
 use crate::{
-    ability::traits::Command,
+    ability::command::Command,
     proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};

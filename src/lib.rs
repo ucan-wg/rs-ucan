@@ -123,6 +123,7 @@ pub mod promise;
 pub mod proof;
 pub mod receipt;
 pub mod signature;
+pub mod task;
 
 /// The empty fact
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
