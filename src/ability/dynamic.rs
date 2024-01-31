@@ -1,9 +1,7 @@
 //! This module is for dynamic abilities, especially for FFI and Wasm support
 
 use super::{arguments::Arguments, command::ToCommand};
-use crate::{
-    delegation::delegatable::Delegatable, invocation::resolvable::Resolvable, promise::Promise,
-};
+use crate::{delegate::Delegatable, invoke::Resolvable, promise::Promise};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 

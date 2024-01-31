@@ -3,23 +3,23 @@ use libipld_core::ipld::Ipld;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
-pub struct WrappedIpld(pub Ipld);
+pub struct Newtype(pub Ipld);
 
-impl From<Ipld> for WrappedIpld {
+impl From<Ipld> for Newtype {
     fn from(ipld: Ipld) -> Self {
         Self(ipld)
     }
 }
 
-impl From<WrappedIpld> for Ipld {
-    fn from(wrapped: WrappedIpld) -> Self {
+impl From<Newtype> for Ipld {
+    fn from(wrapped: Newtype) -> Self {
         wrapped.0
     }
 }
 
 // TODO testme
 #[cfg(target_arch = "wasm32")]
-impl From<WrappedIpld> for JsValue {
+impl From<Newtype> for JsValue {
     fn from(wrapped: WrappedIpld) -> Self {
         match wrapped.0 {
             Ipld::Null => JsValue::Null,

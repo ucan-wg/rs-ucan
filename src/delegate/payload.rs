@@ -3,7 +3,8 @@ use crate::{
     ability::{arguments::Arguments, command::Command, dynamic},
     capsule::Capsule,
     did::Did,
-    invocation::{payload as invocation, resolvable::Resolvable},
+    invoke,
+    invoke::Resolvable,
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -89,14 +90,14 @@ impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
 
 impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
-        invoked: &'a invocation::Payload<T>, // FIXME promisory version
+        invoked: &'a invoke::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
-        invocation::Payload<T>: Clone,
+        invoke::Payload<T>: Clone,
         U::Builder: Clone + Into<T::Hierarchy>,
-        T::Hierarchy: From<invocation::Payload<T>>,
+        T::Hierarchy: From<invoke::Payload<T>>,
     {
         let start: Acc<'a, T> = Acc {
             issuer: &invoked.issuer,

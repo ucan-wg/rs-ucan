@@ -114,14 +114,14 @@ use std::fmt::Debug;
 
 pub mod ability;
 pub mod capsule;
-pub mod delegation;
-pub mod invocation;
+pub mod delegate;
+pub mod invoke;
 pub mod ipld;
 pub mod nonce;
 pub mod number;
 pub mod promise;
 pub mod proof;
-pub mod receipt;
+pub mod respond;
 pub mod signature;
 pub mod task;
 

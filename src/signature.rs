@@ -1,5 +1,6 @@
 use crate::capsule::Capsule;
 use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,7 +10,8 @@ pub struct Envelope<T: Capsule> {
 }
 
 // FIXME consider kicking Batch down the road for spec reasons?
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Signature {
     One(Vec<u8>),
     Batch {
@@ -17,6 +19,58 @@ pub enum Signature {
         merkle_proof: Vec<Vec<u8>>,
     },
 }
+
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// #[serde(transparent)]
+// pub struct StaticVec<T> {
+//     pub slice: Box<[T]>,
+// }
+//
+// impl<T> From<Vec<T>> for StaticVec<T> {
+//     fn from(vec: Vec<T>) -> Self {
+//         Self {
+//             slice: vec.into_boxed_slice(),
+//         }
+//     }
+// }
+//
+// impl<T> From<StaticVec<T>> for Vec<T> {
+//     fn from(vec: StaticVec<T>) -> Vec<T> {
+//         vec.slice.into()
+//     }
+// }
+//
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// #[serde(transparent)]
+// pub struct StaticString {
+//     string: Box<str>,
+// }
+//
+// impl From<String> for StaticString {
+//     fn from(string: String) -> Self {
+//         Self {
+//             string: string.into_boxed_str(),
+//         }
+//     }
+// }
+//
+// impl<'a> From<&'a str> for StaticString {
+//     fn from(s: &'a str) -> Self {
+//         Self { string: s.into() }
+//     }
+// }
+//
+// impl<'a> From<&'a StaticString> for &'a str {
+//     fn from(s: &'a StaticString) -> &'a str {
+//         &s.string
+//     }
+// }
+//
+// impl From<StaticString> for String {
+//     fn from(s: StaticString) -> String {
+//         s.string.into()
+//     }
+// }
 
 impl From<&Signature> for Ipld {
     fn from(sig: &Signature) -> Self {

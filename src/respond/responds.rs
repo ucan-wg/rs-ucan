@@ -1,6 +1,6 @@
 use crate::{did::Did, nonce::Nonce, task, task::Task};
 
-pub trait Runnable {
+pub trait Responds {
     type Success;
 
     fn to_task(&self, subject: Did, nonce: Nonce) -> Task;

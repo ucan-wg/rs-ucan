@@ -11,6 +11,22 @@ impl Arguments {
     }
 }
 
+impl Arguments {
+    pub fn insert(&mut self, key: String, value: Ipld) -> Option<Ipld> {
+        self.0.insert(key, value)
+    }
+
+    pub fn get(&self, key: &str) -> Option<&Ipld> {
+        self.0.get(key)
+    }
+}
+
+impl Default for Arguments {
+    fn default() -> Self {
+        Arguments(BTreeMap::new())
+    }
+}
+
 impl TryFrom<Ipld> for Arguments {
     type Error = SerdeError;
 

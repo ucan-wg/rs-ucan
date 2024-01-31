@@ -4,6 +4,8 @@ use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+// FIXME move under invoke?
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Promise<T> {

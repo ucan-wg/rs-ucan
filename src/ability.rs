@@ -1,6 +1,7 @@
 // FIXME feature flag each?
 pub mod crud;
 pub mod msg;
+pub mod ucan;
 pub mod wasm;
 
 pub mod arguments;

@@ -1,13 +1,14 @@
 // FIXME rename delegate?
 
-pub mod condition;
-pub mod delegatable;
-pub mod delegate;
-pub mod payload;
+mod condition;
+mod delegatable;
+mod payload;
+
+pub use condition::traits::Condition;
+pub use delegatable::Delegatable;
+pub use payload::Payload;
 
 use crate::signature;
-pub use delegate::Delegate;
-pub use payload::Payload;
 
 /// A [`Delegation`] is a signed delegation [`Payload`]
 ///

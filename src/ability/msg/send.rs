@@ -1,7 +1,7 @@
 use crate::{
     ability::{arguments::Arguments, command::Command},
-    delegation::delegatable::Delegatable,
-    invocation::resolvable::Resolvable,
+    delegate::Delegatable,
+    invoke::Resolvable,
     promise::Promise,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };

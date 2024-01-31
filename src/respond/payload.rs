@@ -1,11 +1,11 @@
-use super::runnable::Runnable;
+use super::responds::Responds;
 use crate::{capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
 use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Payload<T: Runnable>
+pub struct Payload<T: Responds>
 where
     T::Success: Serialize + DeserializeOwned,
 {
@@ -22,14 +22,14 @@ where
     pub issued_at: Option<Timestamp>,
 }
 
-impl<T: Runnable> Capsule for Payload<T>
+impl<T: Responds> Capsule for Payload<T>
 where
     for<'de> T::Success: Serialize + Deserialize<'de>,
 {
     const TAG: &'static str = "ucan/r/1.0.0-rc.1"; // FIXME extract out version
 }
 
-impl<T: Runnable> TryFrom<Ipld> for Payload<T>
+impl<T: Responds> TryFrom<Ipld> for Payload<T>
 where
     for<'de> T::Success: Serialize + Deserialize<'de>,
 {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<T: Runnable> From<Payload<T>> for Ipld
+impl<T: Responds> From<Payload<T>> for Ipld
 where
     for<'de> T::Success: Serialize + Deserialize<'de>,
 {
