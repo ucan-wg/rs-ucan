@@ -66,6 +66,7 @@ pub mod delegation;
 pub mod did;
 pub mod invocation;
 pub mod ipld;
+pub mod metadata;
 pub mod nonce;
 pub mod number;
 pub mod promise;

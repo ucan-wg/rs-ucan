@@ -15,6 +15,6 @@ use crate::signature;
 ///
 /// # Examples
 /// FIXME
-pub type Delegation<T, C> = signature::Envelope<Payload<T, C>>;
+pub type Delegation<T, C, E> = signature::Envelope<Payload<T, C, E>>;
 
 // FIXME add a store with delegation indexing

@@ -5,6 +5,8 @@ use crate::{
     did::Did,
     invocation,
     invocation::Resolvable,
+    metadata as meta,
+    metadata::{Mergable, Metadata},
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -19,7 +21,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Delegatable, C: Condition> {
+pub struct Payload<T: Delegatable, C: Condition, E: meta::Entries> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Did,
@@ -27,21 +29,21 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub ability_builder: T::Builder,
     pub conditions: Vec<C>,
 
-    pub metadata: BTreeMap<String, Ipld>,
+    pub metadata: Metadata<E>,
     pub nonce: Nonce,
 
     pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition> Capsule for Payload<T, C> {
+impl<T: Delegatable, C: Condition, E: meta::Entries> Capsule for Payload<T, C, E> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: Delegatable, C: Condition + Serialize> Serialize for Payload<T, C>
+impl<T: Delegatable, C: Condition + Serialize, E: meta::Entries> Serialize for Payload<T, C, E>
 where
-    InternalSerializer: From<Payload<T, C>>,
-    Payload<T, C>: Clone,
+    InternalSerializer: From<Payload<T, C, E>>,
+    Payload<T, C, E>: Clone,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -52,10 +54,11 @@ where
     }
 }
 
-impl<'de, T: Delegatable, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
+impl<'de, T: Delegatable, C: Condition + DeserializeOwned, E: meta::Entries> Deserialize<'de>
+    for Payload<T, C, E>
 where
-    Payload<T, C>: TryFrom<InternalSerializer>,
-    <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T, C, E>: TryFrom<InternalSerializer>,
+    <Payload<T, C, E> as TryFrom<InternalSerializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -70,9 +73,10 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
+impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned, M: meta::Entries> TryFrom<Ipld>
+    for Payload<T, C, M>
 where
-    Payload<T, C>: TryFrom<InternalSerializer>,
+    Payload<T, C, M>: TryFrom<InternalSerializer>,
 {
     type Error = (); // FIXME
 
@@ -82,16 +86,18 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
-    fn from(payload: Payload<T, C>) -> Self {
+impl<T: Delegatable, C: Condition, E: meta::Entries> From<Payload<T, C, E>> for Ipld {
+    fn from(payload: Payload<T, C, E>) -> Self {
         payload.into()
     }
 }
 
-impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
+impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition, E: meta::Entries>
+    Payload<T, C, E>
+{
     pub fn check<U: Delegatable + Clone>(
         invoked: &'a invocation::Payload<T>, // FIXME promisory version
-        proofs: Vec<Payload<U, C>>,
+        proofs: Vec<Payload<U, C, E>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
@@ -147,9 +153,9 @@ struct Acc<'a, T: Checkable> {
 }
 
 // FIXME this should move to Delegatable
-fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
+fn step<'a, T: Checkable, U: Delegatable, C: Condition, E: meta::Entries>(
     prev: &Acc<'a, T>,
-    proof: &Payload<U, C>,
+    proof: &Payload<U, C, E>,
     invoked_ipld: &Ipld,
     now: SystemTime,
 ) -> Outcome<(), (), ()>
@@ -234,11 +240,13 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Delegatable + Command, C: Condition + Into<Ipld>> From<Payload<T, C>> for InternalSerializer
+impl<T: Delegatable + Command, C: Condition + Into<Ipld>, E: meta::Entries + Clone>
+    From<Payload<T, C, E>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Builder>,
+    Metadata<E>: Mergable,
 {
-    fn from(payload: Payload<T, C>) -> Self {
+    fn from(payload: Payload<T, C, E>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
@@ -248,7 +256,7 @@ where
             arguments: payload.ability_builder.into(),
             conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
 
-            metadata: payload.metadata,
+            metadata: payload.metadata.merge(),
             nonce: payload.nonce,
 
             not_before: payload.not_before,
@@ -265,10 +273,12 @@ impl TryFrom<Ipld> for InternalSerializer {
     }
 }
 
-impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<dynamic::Dynamic, C> {
+impl<C: Condition + TryFrom<Ipld>, E: meta::Entries + Clone> TryFrom<InternalSerializer>
+    for Payload<dynamic::Dynamic, C, E>
+{
     type Error = (); // FIXME
 
-    fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic, C>, ()> {
+    fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic, C, E>, ()> {
         Ok(Payload {
             issuer: s.issuer,
             subject: s.subject,
@@ -289,7 +299,7 @@ impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<dynam
                 })
                 .map_err(|_| ())?, // FIXME better error (collect all errors
 
-            metadata: s.metadata,
+            metadata: Metadata::extract(s.metadata),
             nonce: s.nonce,
 
             not_before: s.not_before,
@@ -298,8 +308,12 @@ impl<C: Condition + TryFrom<Ipld>> TryFrom<InternalSerializer> for Payload<dynam
     }
 }
 
-impl<C: Condition + Into<Ipld>> From<Payload<dynamic::Dynamic, C>> for InternalSerializer {
-    fn from(p: Payload<dynamic::Dynamic, C>) -> Self {
+impl<C: Condition + Into<Ipld>, E: meta::Entries + Clone> From<Payload<dynamic::Dynamic, C, E>>
+    for InternalSerializer
+where
+    Metadata<E>: Mergable,
+{
+    fn from(p: Payload<dynamic::Dynamic, C, E>) -> Self {
         InternalSerializer {
             issuer: p.issuer,
             subject: p.subject,
@@ -309,7 +323,7 @@ impl<C: Condition + Into<Ipld>> From<Payload<dynamic::Dynamic, C>> for InternalS
             arguments: p.ability_builder.args,
             conditions: p.conditions.into_iter().map(|c| c.into()).collect(),
 
-            metadata: p.metadata,
+            metadata: p.metadata.merge(),
             nonce: p.nonce,
 
             not_before: p.not_before,

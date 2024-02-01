@@ -1,16 +1,15 @@
 use super::{Receipt, Responds};
-use crate::task;
+use crate::{metadata, task};
 use libipld_core::ipld::Ipld;
 
-pub trait Store {
-    type Abilities: Responds;
+pub trait Store<T: Responds, E: metadata::Entries> {
     type Error;
 
-    fn get(id: task::Id) -> Result<Receipt<Self::Abilities>, Self::Error>
+    fn get(id: task::Id) -> Result<Receipt<T, E>, Self::Error>
     where
-        <Self::Abilities as Responds>::Success: TryFrom<Ipld>;
+        <T as Responds>::Success: TryFrom<Ipld>;
 
-    fn put_keyed(id: task::Id, receipt: Receipt<Self::Abilities>) -> Result<(), Self::Error>
+    fn put_keyed(id: task::Id, receipt: Receipt<T, E>) -> Result<(), Self::Error>
     where
-        <Self::Abilities as Responds>::Success: Into<Ipld>;
+        <T as Responds>::Success: Into<Ipld>;
 }

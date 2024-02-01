@@ -2,7 +2,7 @@ use crate::ability::arguments::Arguments;
 use cid::Cid;
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 // FIXME move under invocation?
 
@@ -95,6 +95,20 @@ impl TryFrom<Ipld> for Selector {
 
 impl From<Selector> for Arguments {
     fn from(selector: Selector) -> Self {
-        todo!() // Arguments(selector.to_string())
+        let mut btree = BTreeMap::new();
+
+        match selector {
+            Selector::Any { any } => {
+                btree.insert("ucan/*".into(), any.into());
+            }
+            Selector::Ok { ok } => {
+                btree.insert("ucan/ok".into(), ok.into());
+            }
+            Selector::Err { err } => {
+                btree.insert("ucan/err".into(), err.into());
+            }
+        }
+
+        Arguments(btree)
     }
 }
