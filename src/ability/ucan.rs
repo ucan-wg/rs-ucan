@@ -1,10 +1,10 @@
 use super::arguments::Arguments;
-use crate::{ability::command::Command, delegate::Delegatable, promise::Promise};
+use crate::{ability::command::Command, delegation::Delegatable, promise::Promise};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-// NOTE This one is primarily for enabling delegated recipets
+// NOTE This one is primarily for enabling delegationd recipets
 
 // FIXME
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

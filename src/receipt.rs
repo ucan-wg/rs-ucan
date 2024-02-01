@@ -1,9 +1,9 @@
 mod payload;
+mod receipt;
 mod responds;
+mod store;
 
 pub use payload::Payload;
+pub use receipt::Receipt;
 pub use responds::Responds;
-
-use crate::signature;
-
-pub type Receipt<T> = signature::Envelope<Payload<T>>;
+pub use store::Store;

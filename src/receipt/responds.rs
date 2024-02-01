@@ -10,6 +10,4 @@ pub trait Responds {
             cid: self.to_task(subject, nonce).into(),
         }
     }
-
-    // fn lookup(id: TaskId>) -> Result<Self::Output, ()>;
 }

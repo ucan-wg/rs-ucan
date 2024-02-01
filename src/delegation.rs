@@ -1,10 +1,9 @@
-// FIXME rename delegate?
-
 mod condition;
 mod delegatable;
 mod payload;
 
-pub use condition::traits::Condition;
+pub use condition::*;
+
 pub use delegatable::Delegatable;
 pub use payload::Payload;
 
@@ -16,4 +15,6 @@ use crate::signature;
 ///
 /// # Examples
 /// FIXME
-pub type Delegation<B, C> = signature::Envelope<Payload<B, C>>;
+pub type Delegation<T, C> = signature::Envelope<Payload<T, C>>;
+
+// FIXME add a store with delegation indexing

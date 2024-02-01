@@ -4,7 +4,7 @@ use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-// FIXME move under invoke?
+// FIXME move under invocation?
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]

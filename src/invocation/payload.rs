@@ -102,7 +102,7 @@ impl<T> From<Payload<T>> for Ipld {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct InternalSerializer {
+struct InternalSerializer {
     #[serde(rename = "iss")]
     issuer: Did,
     #[serde(rename = "sub")]

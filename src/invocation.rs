@@ -2,7 +2,7 @@ mod payload;
 mod resolvable;
 mod serializer;
 
-pub use payload::Payload;
+pub use payload::{Payload, Unresolved};
 pub use resolvable::Resolvable;
 
 use crate::signature;

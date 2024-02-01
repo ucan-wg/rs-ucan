@@ -1,11 +1,11 @@
 //! This module is for dynamic abilities, especially for FFI and Wasm support
 
 use super::{arguments::Arguments, command::ToCommand};
-use crate::{delegate::Delegatable, invoke::Resolvable, promise::Promise};
+use crate::{delegation::Delegatable, invocation::Resolvable, promise::Promise};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-// FIXME move module?
+// FIXME move commented-out module?
 // use js_sys;
 // use wasm_bindgen::prelude::*;
 // type JsDynamic = Dynamic<&'a js_sys::Function>;
@@ -19,6 +19,9 @@ use std::fmt::Debug;
 //     #[serde(skip_serializing)]
 //     pub serialize_nonce: DefaultTrue,
 
+// NOTE the lack of checking functions!
+// This is meant to be embedded inside of structs that have e.g. FFI bindings to
+// a validation function, such as a &js_sys::Function, Ruby magnus::function!, etc etc
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Generic<Args> {
     pub cmd: String,
