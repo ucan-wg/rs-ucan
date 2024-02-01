@@ -1,6 +1,6 @@
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize, Serializer};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, convert::Infallible};
 
 // FIXME rename modeule to metadata
 
@@ -12,59 +12,72 @@ pub trait Entries: TryFrom<Ipld> + Into<Ipld> {
     const KEYS: &'static [&'static str];
 }
 
-pub trait Meta {}
-impl<T: Entries> Meta for T {}
+pub trait Mergable {
+    fn merge(self) -> BTreeMap<String, Ipld>;
+    fn extract(merged: BTreeMap<String, Ipld>) -> Self;
+}
 
 pub enum Empty {}
-impl Meta for Empty {}
 
 // NOTE no Serde
 #[derive(Debug, Clone, PartialEq)]
-pub struct Metadata<T: Meta> {
+pub struct Metadata<T> {
     known: BTreeMap<String, T>,
     unknown: BTreeMap<String, Ipld>,
 }
 
-impl From<Metadata<Empty>> for Ipld {
-    fn from(meta: Metadata<Empty>) -> Ipld {
-        Ipld::Map(meta.unknown)
+impl Mergable for Metadata<Empty> {
+    fn merge(self) -> BTreeMap<String, Ipld> {
+        self.unknown
     }
-}
 
-impl TryFrom<Ipld> for Metadata<Empty> {
-    type Error = ();
-
-    fn try_from(ipld: Ipld) -> Result<Metadata<Empty>, Self::Error> {
-        match ipld {
-            Ipld::Map(unknown) => Ok(Metadata {
-                known: BTreeMap::new(),
-                unknown,
-            }),
-            _ => Err(()),
+    // FIXME better error
+    fn extract(unknown: BTreeMap<String, Ipld>) -> Self {
+        Metadata {
+            known: BTreeMap::new(),
+            unknown,
         }
     }
 }
 
-impl<T: Entries> Serialize for Metadata<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = Ipld::from(*self); // FIXME kill that clone with tons of refs?
-        serde::Serialize::serialize(&s, serializer)
+impl<T: Entries> Mergable for Metadata<T> {
+    fn merge(self) -> BTreeMap<String, Ipld> {
+        let mut meta = self.unknown;
+
+        // FIXME kill the clone
+        for (k, v) in self.known {
+            meta.insert(k, v.into());
+        }
+
+        meta
+    }
+
+    // FIXME better error
+    fn extract(merged: BTreeMap<String, Ipld>) -> Self {
+        let mut known = BTreeMap::new();
+        let mut unknown = BTreeMap::new();
+
+        for (k, v) in merged {
+            if let Ok(entry) = v.clone().try_into() {
+                known.insert(k, entry);
+            } else {
+                unknown.insert(k, v);
+            }
+        }
+
+        Metadata { known, unknown }
     }
 }
 
-impl<'de, T: Entries + Clone> Deserialize<'de> for Metadata<T> {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ipld::deserialize(d).map(Metadata::from)
+impl TryFrom<Metadata<Empty>> for Ipld {
+    type Error = Infallible;
+
+    fn try_from(meta: Metadata<Empty>) -> Result<Ipld, Infallible> {
+        Ok(Ipld::Map(meta.merge()))
     }
 }
 
-impl<E: Entries> TryFrom<Metadata<E>> for Ipld {
+impl<E: Entries + Clone + Serialize> TryFrom<Metadata<E>> for Ipld {
     type Error = String; // FIXME
 
     fn try_from(meta: Metadata<E>) -> Result<Self, Self::Error> {
@@ -79,6 +92,25 @@ impl<E: Entries> TryFrom<Metadata<E>> for Ipld {
         }
 
         Ok(Ipld::Map(btree))
+    }
+}
+
+impl<T: Entries + Clone> Serialize for Metadata<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = Ipld::Map((*self).clone().merge()); // FIXME kill that clone with tons of refs?
+        serde::Serialize::serialize(&s, serializer)
+    }
+}
+
+impl<'de, T: Entries + Clone> Deserialize<'de> for Metadata<T> {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ipld::deserialize(d).and_then(|ipld| ipld.try_into().map_err(|_| todo!()))
     }
 }
 
@@ -110,7 +142,7 @@ impl<T: Entries> TryFrom<Ipld> for Metadata<T> {
     }
 }
 
-impl<T: Meta + Clone> Metadata<T> {
+impl<T: Mergable + Clone> Metadata<T> {
     pub fn new(
         known: BTreeMap<String, T>,
         unknown: BTreeMap<String, Ipld>,
@@ -156,54 +188,7 @@ impl<T: Meta + Clone> Metadata<T> {
     }
 }
 
-pub trait Mergable {
-    fn merge(&self) -> BTreeMap<String, Ipld>;
-    fn extract(merged: BTreeMap<String, Ipld>) -> Self;
-}
-
-impl Mergable for Metadata<Empty> {
-    fn merge(&self) -> BTreeMap<String, Ipld> {
-        self.unknown
-    }
-
-    // FIXME better error
-    fn extract(unknown: BTreeMap<String, Ipld>) -> Self {
-        Metadata {
-            known: BTreeMap::new(),
-            unknown,
-        }
-    }
-}
-
-impl<T: Entries + Clone> Mergable for Metadata<T> {
-    fn merge(&self) -> BTreeMap<String, Ipld> {
-        let mut meta = self.unknown().clone();
-
-        for (k, v) in self.known() {
-            meta.insert(k.clone(), v.clone().into());
-        }
-
-        meta
-    }
-
-    // FIXME better error
-    fn extract(merged: BTreeMap<String, Ipld>) -> Self {
-        let mut known = BTreeMap::new();
-        let mut unknown = BTreeMap::new();
-
-        for (k, v) in merged {
-            if let Ok(entry) = v.clone().try_into() {
-                known.insert(k, entry);
-            } else {
-                unknown.insert(k, v);
-            }
-        }
-
-        Metadata { known, unknown }
-    }
-}
-
-impl<T: Meta> Default for Metadata<T> {
+impl<T: Mergable> Default for Metadata<T> {
     fn default() -> Self {
         Metadata {
             known: BTreeMap::new(),
