@@ -4,6 +4,9 @@
 
 //! ucan
 
+#[cfg(target_arch = "wasm32")]
+extern crate alloc;
+
 // use std::str::FromStr;
 //
 // use cid::{multihash, Cid};
