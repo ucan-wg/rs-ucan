@@ -34,7 +34,8 @@ async-signature = "0.4.0"
 async-trait = "0.1.73"
 blst = { version = "0.3.11", optional = true, default-features = false }
 cfg-if = "0.1"
-cid = "0.10"
+# FIXME attempt to remove
+cid = "0.11"
 did_url = "0.1"
 downcast-rs = "1.2.0"
 dyn-clone = "1.0.14"
@@ -49,7 +50,6 @@ lazy_static = "1.4.0"
 libipld-core = { version = "0.16", features = ["serde-codec"] }
 libipld-cbor = "0.16"
 multibase = "0.9.1"
-multihash = {version = "0.19", features = ["serde"]}
 p256 = { version = "0.13.2", features = ["ecdsa"], optional = true, default-features = false }
 p384 = { version = "0.13.0", features = ["ecdsa"], optional = true, default-features = false }
 p521 = { version = "0.13.0", optional = true, default-features = false }
@@ -66,6 +66,7 @@ thiserror = "1.0"
 tracing = "0.1.40"
 unsigned-varint = "0.7.2"
 url = { version = "2.5", features = ["serde"] }
+uuid = "1.7"
 web-time = "0.2.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -74,12 +75,13 @@ linkme = "0.3.15"
 uuid = { version = "1.7", features = ["v4"] }
 xid = "1.0"
 
+# FIXME also have a wasi target
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = { version = "0.1" }
-getrandom = { version = "*", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 js-sys = { version = "0.3" }
-serde-wasm-bindgen = "0.6.1"
-wasm-bindgen = "0.2.87"
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "0.2"
 wasm-bindgen-futures = { version = "0.4" }
 web-sys = { version = "0.3", features = ["Crypto", "CryptoKey", "CryptoKeyPair", "SubtleCrypto"] }
 
@@ -96,7 +98,15 @@ proptest = { version = "*", default-features = false, features = ["std"] }
 wasm-bindgen-test = "0.2"
 
 [features]
-default = ["did-key", "eddsa-verifier", "es256-verifier", "es256k-verifier", "es384-verifier", "ps256-verifier", "rs256-verifier"]
+default = [
+  "did-key",
+  "eddsa-verifier",
+  "es256-verifier",
+  "es256k-verifier",
+  "es384-verifier",
+  "ps256-verifier",
+  "rs256-verifier",
+]
 test_utils = ["proptest"]
 did-key = []
 eddsa = ["dep:ed25519", "dep:ed25519-dalek"]

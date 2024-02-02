@@ -2,8 +2,8 @@ pub trait Command {
     const COMMAND: &'static str;
 }
 
-// NOTE do not export
-pub(crate) trait ToCommand {
+// NOTE do not export // FIXME move to internal?
+pub(super) trait ToCommand {
     fn to_command(&self) -> String;
 }
 

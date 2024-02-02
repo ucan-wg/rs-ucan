@@ -9,6 +9,14 @@ impl Arguments {
     pub fn from_iter(iterable: impl IntoIterator<Item = (String, Ipld)>) -> Self {
         Arguments(iterable.into_iter().collect())
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Ipld)> {
+        self.0.iter()
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (String, Ipld)> {
+        self.0.into_iter()
+    }
 }
 
 impl Arguments {

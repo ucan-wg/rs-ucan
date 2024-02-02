@@ -5,11 +5,13 @@ use libipld_core::{
     codec::Encode,
     error::SerdeError,
     ipld::Ipld,
-    multihash::{Code::Sha2_256, MultihashDigest},
+    multihash::MultihashGeneric,
     serde as ipld_serde,
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
+
+const SHA2_256: u64 = 0x12;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
@@ -92,6 +94,10 @@ impl From<Task> for Cid {
         let ipld: Ipld = task.into();
         ipld.encode(DagCborCodec, &mut buffer)
             .expect("DagCborCodec to encode any arbitrary `Ipld`");
-        CidGeneric::new_v1(DagCborCodec.into(), Sha2_256.digest(buffer.as_slice()))
+        CidGeneric::new_v1(
+            DagCborCodec.into(),
+            MultihashGeneric::wrap(SHA2_256, buffer.as_slice())
+                .expect("DagCborCodec + Sha2_256 should always successfully encode Ipld to a Cid"),
+        )
     }
 }

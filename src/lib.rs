@@ -67,6 +67,7 @@ pub mod did;
 pub mod invocation;
 pub mod ipld;
 pub mod metadata;
+pub mod new_wasm;
 pub mod nonce;
 pub mod number;
 pub mod promise;

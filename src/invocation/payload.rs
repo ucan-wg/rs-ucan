@@ -145,51 +145,53 @@ impl TryFrom<Ipld> for InternalSerializer {
     }
 }
 
-impl From<InternalSerializer> for Payload<dynamic::Dynamic> {
-    fn from(s: InternalSerializer) -> Self {
-        Payload {
-            issuer: s.issuer,
-            subject: s.subject,
-            audience: s.audience,
+// FIXME
+// impl From<InternalSerializer> for Payload<dynamic::Dynamic> {
+//     fn from(s: InternalSerializer) -> Self {
+//         Payload {
+//             issuer: s.issuer,
+//             subject: s.subject,
+//             audience: s.audience,
+//
+//             ability: dynamic::Dynamic {
+//                 cmd: s.command,
+//                 args: s.arguments.into(),
+//             },
+//
+//             proofs: s.proofs,
+//             cause: s.cause,
+//             metadata: s.metadata,
+//
+//             nonce: s.nonce,
+//
+//             not_before: s.not_before,
+//             expiration: s.expiration,
+//         }
+//     }
+// }
 
-            ability: dynamic::Dynamic {
-                cmd: s.command,
-                args: s.arguments.into(),
-            },
-
-            proofs: s.proofs,
-            cause: s.cause,
-            metadata: s.metadata,
-
-            nonce: s.nonce,
-
-            not_before: s.not_before,
-            expiration: s.expiration,
-        }
-    }
-}
-
-impl From<Payload<dynamic::Dynamic>> for InternalSerializer {
-    fn from(p: Payload<dynamic::Dynamic>) -> Self {
-        InternalSerializer {
-            issuer: p.issuer,
-            subject: p.subject,
-            audience: p.audience,
-
-            command: p.ability.cmd,
-            arguments: p.ability.args,
-
-            proofs: p.proofs,
-            cause: p.cause,
-            metadata: p.metadata,
-
-            nonce: p.nonce,
-
-            not_before: p.not_before,
-            expiration: p.expiration,
-        }
-    }
-}
+// FIXME
+// impl From<Payload<dynamic::Dynamic>> for InternalSerializer {
+//     fn from(p: Payload<dynamic::Dynamic>) -> Self {
+//         InternalSerializer {
+//             issuer: p.issuer,
+//             subject: p.subject,
+//             audience: p.audience,
+//
+//             command: p.ability.cmd,
+//             arguments: p.ability.args,
+//
+//             proofs: p.proofs,
+//             cause: p.cause,
+//             metadata: p.metadata,
+//
+//             nonce: p.nonce,
+//
+//             not_before: p.not_before,
+//             expiration: p.expiration,
+//         }
+//     }
+// }
 
 impl<T: Command + Into<Arguments>> From<Payload<T>> for InternalSerializer {
     fn from(payload: Payload<T>) -> Self {

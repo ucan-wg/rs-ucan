@@ -7,8 +7,8 @@ pub mod wasm;
 pub mod arguments;
 pub mod command;
 
-// TODO move to crate::wasm?
-// #[cfg(feature = "wasm")]
+// // TODO move to crate::wasm? or hide behind feature flag?
+#[cfg(target_arch = "wasm32")]
 pub mod dynamic;
 
 // FIXME macro to derive promise versions & delagted builder versions

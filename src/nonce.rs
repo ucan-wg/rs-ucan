@@ -3,7 +3,12 @@ use enum_as_inner::EnumAsInner;
 use libipld_core::{ipld::Ipld, multibase::Base::Base32HexLower};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+
+#[cfg(not(target_arch = "wasm32"))]
 use uuid::Uuid;
+
+#[cfg(target_arch = "wasm32")]
+use web_sys;
 
 // FIXME
 pub struct Unit;
@@ -22,13 +27,24 @@ pub enum Nonce {
 }
 
 impl Nonce {
+    // pub fn new() -> Self {
+    //     Self::generate_96()
+    // }
+
+    //     #[cfg(target_arch = "wasm32")]
+    //     pub fn gen_wasm_96() -> Self {
+    //         web_sys::Crypto::get_random_values_with_u8_array()
+    //     }
+
     /// Default generator, outputting an [`xid`] nonce,
     /// which is a 96-bit (12-byte) nonce.
-    pub fn generate() -> Self {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_96() -> Self {
         Nonce::Nonce96(*xid::new().as_bytes())
     }
 
     /// Generate a default 128-bit(16-byte) nonce via [`Uuid::new_v4()`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_128() -> Self {
         Nonce::Nonce128(*Uuid::new_v4().as_bytes())
     }

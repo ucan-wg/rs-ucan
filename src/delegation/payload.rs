@@ -273,61 +273,62 @@ impl TryFrom<Ipld> for InternalSerializer {
     }
 }
 
-impl<C: Condition + TryFrom<Ipld>, E: meta::Entries + Clone> TryFrom<InternalSerializer>
-    for Payload<dynamic::Dynamic, C, E>
-{
-    type Error = (); // FIXME
-
-    fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic, C, E>, ()> {
-        Ok(Payload {
-            issuer: s.issuer,
-            subject: s.subject,
-            audience: s.audience,
-
-            ability_builder: dynamic::Dynamic {
-                cmd: s.command,
-                args: s.arguments,
-            },
-            conditions: s
-                .conditions
-                .iter()
-                .try_fold(Vec::new(), |mut acc, c| {
-                    C::try_from(c.clone()).map(|x| {
-                        acc.push(x);
-                        acc
-                    })
-                })
-                .map_err(|_| ())?, // FIXME better error (collect all errors
-
-            metadata: Metadata::extract(s.metadata),
-            nonce: s.nonce,
-
-            not_before: s.not_before,
-            expiration: s.expiration,
-        })
-    }
-}
-
-impl<C: Condition + Into<Ipld>, E: meta::Entries + Clone> From<Payload<dynamic::Dynamic, C, E>>
-    for InternalSerializer
-where
-    Metadata<E>: Mergable,
-{
-    fn from(p: Payload<dynamic::Dynamic, C, E>) -> Self {
-        InternalSerializer {
-            issuer: p.issuer,
-            subject: p.subject,
-            audience: p.audience,
-
-            command: p.ability_builder.cmd,
-            arguments: p.ability_builder.args,
-            conditions: p.conditions.into_iter().map(|c| c.into()).collect(),
-
-            metadata: p.metadata.merge(),
-            nonce: p.nonce,
-
-            not_before: p.not_before,
-            expiration: p.expiration,
-        }
-    }
-}
+// FIXME
+// impl<C: Condition + TryFrom<Ipld>, E: meta::Entries + Clone> TryFrom<InternalSerializer>
+//     for Payload<dynamic::Dynamic<F>, C, E>
+// {
+//     type Error = (); // FIXME
+//
+//     fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic<F>, C, E>, ()> {
+//         Ok(Payload {
+//             issuer: s.issuer,
+//             subject: s.subject,
+//             audience: s.audience,
+//
+//             ability_builder: dynamic::Dynamic {
+//                 cmd: s.command,
+//                 args: s.arguments,
+//             },
+//             conditions: s
+//                 .conditions
+//                 .iter()
+//                 .try_fold(Vec::new(), |mut acc, c| {
+//                     C::try_from(c.clone()).map(|x| {
+//                         acc.push(x);
+//                         acc
+//                     })
+//                 })
+//                 .map_err(|_| ())?, // FIXME better error (collect all errors
+//
+//             metadata: Metadata::extract(s.metadata),
+//             nonce: s.nonce,
+//
+//             not_before: s.not_before,
+//             expiration: s.expiration,
+//         })
+//     }
+// }
+//
+// impl<C: Condition + Into<Ipld>, E: meta::Entries + Clone, F>
+//     From<Payload<dynamic::Dynamic<F>, C, E>> for InternalSerializer
+// where
+//     Metadata<E>: Mergable,
+// {
+//     fn from(p: Payload<dynamic::Dynamic<F>, C, E>) -> Self {
+//         InternalSerializer {
+//             issuer: p.issuer,
+//             subject: p.subject,
+//             audience: p.audience,
+//
+//             command: p.ability_builder.cmd,
+//             arguments: p.ability_builder.args,
+//             conditions: p.conditions.into_iter().map(|c| c.into()).collect(),
+//
+//             metadata: p.metadata.merge(),
+//             nonce: p.nonce,
+//
+//             not_before: p.not_before,
+//             expiration: p.expiration,
+//         }
+//     }
+// }
