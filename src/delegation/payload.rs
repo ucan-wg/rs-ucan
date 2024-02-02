@@ -222,7 +222,7 @@ struct InternalSerializer {
     #[serde(rename = "aud")]
     audience: Did,
 
-    #[serde(rename = "can")]
+    #[serde(rename = "cmd")]
     command: String,
     #[serde(rename = "args")]
     arguments: Arguments,

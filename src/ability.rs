@@ -7,6 +7,9 @@ pub mod wasm;
 pub mod arguments;
 pub mod command;
 
+#[cfg(target_arch = "wasm32")]
+pub mod js;
+
 // // TODO move to crate::wasm? or hide behind feature flag?
 #[cfg(target_arch = "wasm32")]
 pub mod dynamic;

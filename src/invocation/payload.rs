@@ -110,7 +110,7 @@ struct InternalSerializer {
     #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
     audience: Option<Did>,
 
-    #[serde(rename = "do")]
+    #[serde(rename = "cmd")]
     command: String,
     #[serde(rename = "args")]
     arguments: Arguments,

@@ -10,22 +10,20 @@ impl Arguments {
         Arguments(iterable.into_iter().collect())
     }
 
+    pub fn get(&self, key: &str) -> Option<&Ipld> {
+        self.0.get(key)
+    }
+
+    pub fn insert(&mut self, key: String, value: Ipld) -> Option<Ipld> {
+        self.0.insert(key, value)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&String, &Ipld)> {
         self.0.iter()
     }
 
     pub fn into_iter(self) -> impl Iterator<Item = (String, Ipld)> {
         self.0.into_iter()
-    }
-}
-
-impl Arguments {
-    pub fn insert(&mut self, key: String, value: Ipld) -> Option<Ipld> {
-        self.0.insert(key, value)
-    }
-
-    pub fn get(&self, key: &str) -> Option<&Ipld> {
-        self.0.get(key)
     }
 }
 
