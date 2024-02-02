@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
 // FIXME dynamic
+#[wasm_bindgen]
 pub struct Ability {
-    pub cmd: String, // FIXME don't need this field because it's on the validator?
+    cmd: String, // FIXME don't need this field because it's on the validator?
     // FIXME JsCast for Args or WrappedIpld, esp for Cids
-    pub args: BTreeMap<String, JsValue>, // FIXME args
-                                         // pub args: wasm_bindgen::JsValue, // js_sys::Object, // BTreeMap<String, JsValue>, // FIXME args
+    args: BTreeMap<String, JsValue>, // FIXME args
+                                     // pub args: wasm_bindgen::JsValue, // js_sys::Object, // BTreeMap<String, JsValue>, // FIXME args
 }
 
 impl From<Ability> for js_sys::Object {
@@ -76,6 +77,19 @@ pub struct Validator {
 
     #[wasm_bindgen(skip)]
     pub check_parent: Option<js_sys::Function>, // FIXME explore concrete types + an enum
+}
+
+// Helper
+pub fn invoke(f: &js_sys::Function, args: Vec<JsValue>) -> Result<JsValue, JsValue> {
+    // FIXME annoying number of steps... so I guess that's why they have the numbered versions...
+    // but those end at 3 :/
+    // Hmm I guess this is reasonable, since it needs to copy the `Vec` to the JsArray
+    let arr = js_sys::Array::new_with_length(args.len() as u32);
+    for (i, arg) in args.iter().enumerate() {
+        arr.set(i as u32, arg.clone());
+    }
+
+    f.apply(&wasm_bindgen::JsValue::NULL, &arr)
 }
 
 // NOTE more like a config object
