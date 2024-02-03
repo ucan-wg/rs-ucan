@@ -6,7 +6,7 @@ pub mod cid;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, Map, Uint8Array};
+use js_sys::{Array, Map, Object, Uint8Array};
 
 pub struct Newtype(pub Ipld);
 
@@ -129,28 +129,26 @@ impl TryFrom<JsValue> for Newtype {
         }
 
         if js_val.is_object() {
+            let obj = Object::from(js_val);
             let mut m = std::collections::BTreeMap::new();
             let mut acc = Ok(());
 
-            //                            This order is correct per the docs
-            //                                       vvvvvvvvvv
-            Map::from(js_val).for_each(&mut |value, key| {
+            Object::entries(&obj).for_each(&mut |js_val, _, _| {
                 if acc.is_err() {
                     return;
                 }
 
-                match key.as_string() {
-                    None => {
+                // By definition this must be the array [value, key], in that order
+                let arr = Array::from(&js_val);
+
+                match (arr.get(0).as_string(), Newtype::try_from(arr.get(1))) {
+                    (Some(k), Ok(v)) => {
+                        m.insert(k, v.0);
+                    }
+                    // FIXME more specific errors
+                    _ => {
                         acc = Err(());
                     }
-                    Some(k) => match Newtype::try_from(value) {
-                        Err(_) => {
-                            acc = Err(());
-                        }
-                        Ok(v) => {
-                            m.insert(k, v.0);
-                        }
-                    },
                 }
             });
 

@@ -4,6 +4,7 @@ use super::{arguments::Arguments, command::ToCommand};
 use crate::{
     delegation::Delegatable,
     invocation::Resolvable,
+    ipld,
     promise::Promise,
     proof::{
         checkable::Checkable, parentful::Parentful, parentless::Parentless, parents::CheckParents,
@@ -11,6 +12,7 @@ use crate::{
     },
     task::DefaultTrue,
 };
+use js_sys;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
     de::DeserializeOwned, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer,
@@ -21,69 +23,87 @@ use wasm_bindgen::prelude::*;
 // NOTE the lack of checking functions!
 // This is meant to be embedded inside of structs that have e.g. FFI bindings to
 // a validation function, such as a &js_sys::Function, Ruby magnus::function!, etc etc
-#[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[derive(Clone, PartialEq, Debug)] // FIXME serialize / deserilaize?
 pub struct Dynamic {
     pub cmd: String,
     pub args: Arguments,
 }
 
-pub struct ValidateWithoutParents<ValShape, ValSame> {
-    ability: Dynamic,
-    config: Config0<ValShape, ValSame>,
+impl From<Dynamic> for Arguments {
+    fn from(dynamic: Dynamic) -> Self {
+        dynamic.args
+    }
 }
 
-pub struct ValidateWithParents<ValShape, ValSame, ValParent> {
-    ability: Dynamic,
-    config: Config1<ValShape, ValSame, ValParent>,
+#[cfg(target_arch = "wasm32")]
+impl From<Dynamic> for js_sys::Map {
+    fn from(ability: Dynamic) -> Self {
+        let args = js_sys::Map::new();
+        for (k, v) in ability.args.0 {
+            args.set(&k.into(), &ipld::Newtype(v).into());
+        }
+
+        let map = js_sys::Map::new();
+        map.set(&"args".into(), &js_sys::Object::from(args).into());
+        map.set(&"cmd".into(), &ability.cmd.into());
+        map
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Config0<ValShape, ValSame> {
-    pub is_nonce_meaningful: bool,
-    pub validate_shape: ValShape,
-    pub check_same: ValSame,
+#[cfg(target_arch = "wasm32")]
+impl TryFrom<js_sys::Map> for Dynamic {
+    type Error = JsValue;
+
+    fn try_from(map: js_sys::Map) -> Result<Self, Self::Error> {
+        if let (Some(cmd), js_args) = (
+            map.get(&("cmd".into())).as_string(),
+            &map.get(&("args".into())),
+        ) {
+            let obj_args = js_sys::Object::try_from(js_args).ok_or(wasm_bindgen::JsValue::NULL)?;
+            let keys = js_sys::Object::keys(obj_args);
+            let values = js_sys::Object::values(obj_args);
+
+            let mut btree = BTreeMap::new();
+            for (k, v) in keys.iter().zip(values) {
+                if let Some(k) = k.as_string() {
+                    btree.insert(k, ipld::Newtype::try_from(v).expect("FIXME").0);
+                } else {
+                    return Err(k);
+                }
+            }
+
+            Ok(Dynamic {
+                cmd,
+                args: Arguments(btree), // FIXME kill clone
+            })
+        } else {
+            Err(JsValue::NULL) // FIXME
+        }
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Config1<ValShape, ValSame, ValParent> {
-    //   #[wasm_bindgen(readonly)]
-    pub is_nonce_meaningful: bool,
+impl CheckSame for Dynamic {
+    type Error = String; // FIXME better err
 
-    // #[wasm_bindgen(skip)]
-    pub validate_shape: ValShape,
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        if self.cmd != proof.cmd {
+            return Err("Command mismatch".into());
+        }
 
-    //#[wasm_bindgen(skip)]
-    pub check_same: ValSame,
+        self.args.0.iter().try_for_each(|(k, v)| {
+            if let Some(proof_v) = proof.args.0.get(k) {
+                if v != proof_v {
+                    return Err("Arguments mismatch".into());
+                }
+            } else {
+                return Err("Arguments mismatch".into());
+            }
 
-    //#[wasm_bindgen(skip)]
-    pub check_parent: ValParent, // FIXME explore concrete types + an enum
+            Ok(())
+        })
+    }
 }
 
-// // pub struct DynamicValidator {
-// //     fn check_shape(self) -> ();
-// //     // fn check_same: Fn(&String, &Arguments, &String, &Arguments) -> Result<(), String>,
-// //     // fn check_parents: Fn(&String, &Arguments, &String, &Arguments) -> Result<(), String>,
-// // }
-// //
-// //
-// //
-// // // FIXME Actually, we shoudl go back to wrapping?
-// // // impl<F> CheckSame for Dynamic<F>
-// // // where
-// // //     F: Fn(&String, &Arguments) -> Result<(), String>,
-// // // {
-// // //     type Error = String;
-// // //
-// // //     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-// // //         let chain_checker = &self.same_validator;
-// // //         let shape_checker = &self.same_validator;
-// // //
-// // //         shape_checker(&proof.cmd, &proof.args)?;
-// // //         chain_checker(&proof.cmd, &proof.args)
-// // //     }
-// // // }
-//
 // impl<F> Debug for Generic<Arguments, F> {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 //         f.debug_struct("Generic")

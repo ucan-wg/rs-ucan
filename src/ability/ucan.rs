@@ -6,6 +6,8 @@ use std::fmt::Debug;
 
 // NOTE This one is primarily for enabling delegationd recipets
 
+// FIXME aslo add revokation, so thsi module needs to be broken up
+
 // FIXME
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Generic<Args> {
