@@ -21,15 +21,44 @@ use wasm_bindgen::prelude::*;
 // NOTE the lack of checking functions!
 // This is meant to be embedded inside of structs that have e.g. FFI bindings to
 // a validation function, such as a &js_sys::Function, Ruby magnus::function!, etc etc
-// #[derive(Clone, PartialEq)]
-// pub struct Generic<Args, F> {
-//     pub cmd: String,
-//     pub args: Args,
-//     //     pub is_nonce_meaningful: Fn(&String) -> bool,
-//     //     pub same_validator: Fn(&String, &Arguments) -> Result<(), String>,
-//     //     pub parent_validator: F, // FIXME needs to be a different types, and fall back to Void
-//     //     pub shape_validator: Fn(&String, &Arguments) -> Result<(), String>,  // FIXME needs to be a different type
-// }
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub struct Dynamic {
+    pub cmd: String,
+    pub args: Arguments,
+}
+
+pub struct ValidateWithoutParents<ValShape, ValSame> {
+    ability: Dynamic,
+    config: Config0<ValShape, ValSame>,
+}
+
+pub struct ValidateWithParents<ValShape, ValSame, ValParent> {
+    ability: Dynamic,
+    config: Config1<ValShape, ValSame, ValParent>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Config0<ValShape, ValSame> {
+    pub is_nonce_meaningful: bool,
+    pub validate_shape: ValShape,
+    pub check_same: ValSame,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Config1<ValShape, ValSame, ValParent> {
+    //   #[wasm_bindgen(readonly)]
+    pub is_nonce_meaningful: bool,
+
+    // #[wasm_bindgen(skip)]
+    pub validate_shape: ValShape,
+
+    //#[wasm_bindgen(skip)]
+    pub check_same: ValSame,
+
+    //#[wasm_bindgen(skip)]
+    pub check_parent: ValParent, // FIXME explore concrete types + an enum
+}
 
 // // pub struct DynamicValidator {
 // //     fn check_shape(self) -> ();

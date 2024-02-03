@@ -34,17 +34,17 @@ pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
 // type Dynamic = Payload<dynamic::Dynamic>; <- ?
 
 // FIXME parser for both versions
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MaybeResolved<T: Resolvable + Command + Clone + TryFrom<Arguments> + Into<Arguments>>
-where
-    Payload<T>: From<InternalSerializer>,
-    Unresolved<T>: From<InternalSerializer>,
-    T::Promised: Clone + Command + Debug + PartialEq,
-{
-    Resolved(Payload<T>),
-    Unresolved(Unresolved<T>),
-}
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// #[serde(untagged)]
+// pub enum MaybeResolved<T: Resolvable + Command + Clone + TryFrom<Arguments> + Into<Arguments>>
+// where
+//     Payload<T>: From<InternalSerializer>,
+//     Unresolved<T>: From<InternalSerializer>,
+//     T::Promised: Clone + Command + Debug + PartialEq,
+// {
+//     Resolved(Payload<T>),
+//     Unresolved(Unresolved<T>),
+// }
 
 impl<T> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";

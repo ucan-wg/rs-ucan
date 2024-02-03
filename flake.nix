@@ -294,10 +294,22 @@
               command = "${cargo} doc --features=mermaid_docs";
             }
             {
+              name = "docs:wasm:build";
+              help = "Refresh the docs with the wasm32-unknown-unknown target";
+              category = "dev";
+              command = "${cargo} doc --features=mermaid_docs --target=wasm32-unknown-unknown";
+            }
+            {
               name = "docs:open";
               help = "Open refreshed docs";
               category = "dev";
               command = "${cargo} doc --features=mermaid_docs --open";
+            }
+            {
+              name = "docs:wasm:open";
+              help = "Open refreshed docs for wasm32-unknown-unknown";
+              category = "dev";
+              command = "${cargo} doc --features=mermaid_docs --target=wasm32-unknown-unknown --open";
             }
           ];
         };

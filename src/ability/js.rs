@@ -1,24 +1,24 @@
-use super::arguments::Arguments;
-use crate::proof::same::CheckSame;
+use super::{arguments::Arguments, dynamic};
+use crate::{ipld, proof::same::CheckSame};
 use js_sys::Object;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
-// FIXME dynamic
+// FIXME now we can just use dynamic again (yay)
 #[wasm_bindgen]
 pub struct Ability {
     cmd: String, // FIXME don't need this field because it's on the validator?
     // FIXME JsCast for Args or WrappedIpld, esp for Cids
-    args: BTreeMap<String, JsValue>, // FIXME args
-                                     // pub args: wasm_bindgen::JsValue, // js_sys::Object, // BTreeMap<String, JsValue>, // FIXME args
+    args: Arguments, // FIXME args
+                     // pub args: wasm_bindgen::JsValue, // js_sys::Object, // BTreeMap<String, JsValue>, // FIXME args
 }
 
-impl From<Ability> for js_sys::Object {
+impl From<Ability> for js_sys::Map {
     fn from(ability: Ability) -> Self {
         let args = js_sys::Map::new();
-        for (k, v) in ability.args {
-            args.set(&k.into(), &v);
+        for (k, v) in ability.args.0 {
+            args.set(&k.into(), &ipld::Newtype(v).into());
         }
 
         let map = js_sys::Map::new();
@@ -40,11 +40,10 @@ impl TryFrom<js_sys::Map> for Ability {
             let keys = Object::keys(obj_args);
             let values = Object::values(obj_args);
 
-            // FIXME come back when TryInto<Ipld> is done... if it matters
-            let mut args = BTreeMap::new();
+            let mut btree = BTreeMap::new();
             for (k, v) in keys.iter().zip(values) {
                 if let Some(k) = k.as_string() {
-                    args.insert(k, v);
+                    btree.insert(k, ipld::Newtype::try_from(v).expect("FIXME").0);
                 } else {
                     return Err(k);
                 }
@@ -52,7 +51,7 @@ impl TryFrom<js_sys::Map> for Ability {
 
             Ok(Ability {
                 cmd,
-                args: args.clone(), // FIXME kill clone
+                args: Arguments(btree), // FIXME kill clone
             })
         } else {
             Err(JsValue::NULL) // FIXME
@@ -60,24 +59,48 @@ impl TryFrom<js_sys::Map> for Ability {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Debug, Clone, PartialEq)]
-pub struct Validator {
-    #[wasm_bindgen(skip)]
-    pub cmd: String,
+pub type Abc = dynamic::ValidateWithoutParents<js_sys::Function, js_sys::Function>;
+pub type Xyz = dynamic::ValidateWithParents<js_sys::Function, js_sys::Function, js_sys::Function>;
 
-    #[wasm_bindgen(readonly)]
-    pub is_nonce_meaningful: bool,
+// #[wasm_bindgen]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ValidateWithoutParents {
+//     ability: dynamic::Dynamic,
+//
+//     #[wasm_bindgen(skip)]
+//     config: u32, // dynamic::Config0<js_sys::Function, js_sys::Function>,
+// }
+//
+// // pub struct ValidateWithParents {
+// //     ability: Dynamic,
+// //     config: Config1<js_sys::Function, js_sys::Function, js_sys::Function>,
+// // }
+//
+// #[wasm_bindgen]
+// impl ValidateWithoutParents {
+//     pub fn foo(x: u32) -> ValidateWithoutParents {
+//         todo!()
+//     }
+// }
 
-    #[wasm_bindgen(skip)]
-    pub validate_shape: js_sys::Function,
-
-    #[wasm_bindgen(skip)]
-    pub check_same: js_sys::Function,
-
-    #[wasm_bindgen(skip)]
-    pub check_parent: Option<js_sys::Function>, // FIXME explore concrete types + an enum
-}
+// #[wasm_bindgen]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Validator {
+//     #[wasm_bindgen(skip)]
+//     pub cmd: String,
+//
+//     #[wasm_bindgen(readonly)]
+//     pub is_nonce_meaningful: bool,
+//
+//     #[wasm_bindgen(skip)]
+//     pub validate_shape: js_sys::Function,
+//
+//     #[wasm_bindgen(skip)]
+//     pub check_same: js_sys::Function,
+//
+//     #[wasm_bindgen(skip)]
+//     pub check_parent: Option<js_sys::Function>, // FIXME explore concrete types + an enum
+// }
 
 // Helper
 pub fn invoke(f: &js_sys::Function, args: Vec<JsValue>) -> Result<JsValue, JsValue> {
@@ -92,136 +115,150 @@ pub fn invoke(f: &js_sys::Function, args: Vec<JsValue>) -> Result<JsValue, JsVal
     f.apply(&wasm_bindgen::JsValue::NULL, &arr)
 }
 
-// NOTE more like a config object
-#[wasm_bindgen]
-impl Validator {
-    // FIXME wrap in func that checks the jsval or better: converts form Ipld
-    // FIXME notes about checking shape on the way in
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        cmd: String,
-        is_nonce_meaningful: bool,
-        validate_shape: js_sys::Function,
-        check_same: js_sys::Function,
-        check_parent: Option<js_sys::Function>,
-    ) -> Validator {
-        // FIXME chec that JsErr doesn't auto-throw
-        Validator {
-            cmd,
-            is_nonce_meaningful,
-            validate_shape,
-            check_same,
-            check_parent,
-        }
-    }
-
-    pub fn command(&self) -> String {
-        self.cmd.clone()
-    }
-
-    // e.g. reject extra fields
-    pub fn validate_shape(&self, args: &wasm_bindgen::JsValue) -> Result<(), JsValue> {
-        let this = wasm_bindgen::JsValue::NULL;
-        self.validate_shape.call1(&this, args)?;
-        Ok(())
-    }
-
-    // FIXME only dynamic?
-    pub fn check_same(
-        &self,
-        target: &js_sys::Object,
-        proof: &js_sys::Object,
-    ) -> Result<(), JsValue> {
-        let this = wasm_bindgen::JsValue::NULL;
-        self.check_same.call2(&this, target, proof)?;
-        Ok(())
-    }
-
-    pub fn check_parents(
-        &self,
-        target: &js_sys::Object, // FIXME better type, esp for TS?
-        proof: &js_sys::Object,
-    ) -> Result<(), JsValue> {
-        let this = wasm_bindgen::JsValue::NULL;
-        if let Some(checker) = &self.check_parent {
-            checker.call2(&this, target, proof)?;
-            return Ok(());
-        }
-
-        Err(this)
-    }
-}
-
-pub struct Foo {
-    ability: Ability,
-    validator: Validator,
-}
-
-impl From<Foo> for Arguments {
-    fn from(foo: Foo) -> Self {
-        todo!() // FIXME
-    }
-}
-
-use crate::delegation::Delegatable;
-
-impl Delegatable for Foo {
-    type Builder = Foo;
-}
-
-impl CheckSame for Foo {
-    type Error = JsValue;
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        let this_it = self.ability.args.iter().map(|(k, v)| (JsValue::from(k), v));
-
-        let mut this_args = js_sys::Map::new();
-        for (k, v) in this_it {
-            this_args.set(&k, v);
-        }
-
-        let proof_it = proof
-            .ability
-            .args
-            .iter()
-            .map(|(k, v)| (JsValue::from(k), v));
-
-        let mut proof_args = js_sys::Map::new();
-        for (k, v) in proof_it {
-            proof_args.set(&k, v);
-        }
-
-        self.validator.check_same(
-            &Object::from_entries(&this_args)?,
-            &Object::from_entries(&proof_args)?,
-        )
-    }
-}
-
-// pub struct Ability {
-//     pub cmd: String,
-//     pub args: BTreeMap<String, Ipld>, // FIXME args
-//     pub val: JsValidator,
-// }
-//
+// // NOTE more like a config object
 // #[wasm_bindgen]
-// impl Ability {
+// impl Validator {
+//     // FIXME wrap in func that checks the jsval or better: converts form Ipld
+//     // FIXME notes about checking shape on the way in
 //     #[wasm_bindgen(constructor)]
-//     fn new(
+//     pub fn new(
 //         cmd: String,
-//         args: BTreeMap<String, JsValue>,
-//         validator: JsValidator,
-//     ) -> Result<Self, JsError> {
-//         let args = args
-//             .iter()
-//             .map(|(k, v)| (k.clone(), JsValue::from(v.clone())))
-//             .collect();
+//         is_nonce_meaningful: bool,
+//         validate_shape: js_sys::Function,
+//         check_same: js_sys::Function,
+//         check_parent: Option<js_sys::Function>,
+//     ) -> Validator {
+//         // FIXME chec that JsErr doesn't auto-throw
+//         Validator {
+//             cmd,
+//             is_nonce_meaningful,
+//             validate_shape,
+//             check_same,
+//             check_parent,
+//         }
+//     }
 //
-//         validator.check_shape(args)?;
-//         Ok(Ability { cmd, args, val })
+//     pub fn command(&self) -> String {
+//         self.cmd.clone()
+//     }
+//
+//     // e.g. reject extra fields
+//     pub fn validate_shape(&self, args: &wasm_bindgen::JsValue) -> Result<(), JsValue> {
+//         let this = wasm_bindgen::JsValue::NULL;
+//         self.validate_shape.call1(&this, args)?;
+//         Ok(())
+//     }
+//
+//     // FIXME only dynamic?
+//     pub fn check_same(
+//         &self,
+//         target: &js_sys::Object,
+//         proof: &js_sys::Object,
+//     ) -> Result<(), JsValue> {
+//         let this = wasm_bindgen::JsValue::NULL;
+//         self.check_same.call2(&this, target, proof)?;
+//         Ok(())
+//     }
+//
+//     pub fn check_parents(
+//         &self,
+//         target: &js_sys::Object, // FIXME better type, esp for TS?
+//         proof: &js_sys::Object,
+//     ) -> Result<(), JsValue> {
+//         let this = wasm_bindgen::JsValue::NULL;
+//         if let Some(checker) = &self.check_parent {
+//             checker.call2(&this, target, proof)?;
+//             return Ok(());
+//         }
+//
+//         Err(this)
 //     }
 // }
 //
-// pub struct Pipeline {
-//     pub validators: Vec<JsValidator>,
+// pub struct Quux<T> {
+//     quux: T,
 // }
+//
+// type Bez = Quux<u32>;
+//
+// #[wasm_bindgen]
+// impl Bez {}
+//
+// pub struct Baz<T> {
+//     pub ability: Ability,
+//     pub validator: T,
+// }
+//
+// pub struct Foo {
+//     pub ability: Ability,
+//     pub validator: Validator,
+// }
+//
+// impl From<Foo> for Arguments {
+//     fn from(foo: Foo) -> Self {
+//         todo!() // FIXME
+//     }
+// }
+//
+// use crate::delegation::Delegatable;
+//
+// impl Delegatable for Foo {
+//     type Builder = Foo;
+// }
+//
+// impl CheckSame for Foo {
+//     type Error = JsValue;
+//
+//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+//         let this_it = self.ability.args.iter().map(|(k, v)| (JsValue::from(k), v));
+//
+//         let mut this_args = js_sys::Map::new();
+//         for (k, v) in this_it {
+//             this_args.set(&k, &ipld::Newtype(v.clone()).into());
+//         }
+//
+//         let proof_it = proof
+//             .ability
+//             .args
+//             .iter()
+//             .map(|(k, v)| (JsValue::from(k), v));
+//
+//         let mut proof_args = js_sys::Map::new();
+//         for (k, v) in proof_it {
+//             proof_args.set(&k, &ipld::Newtype(v.clone()).into());
+//         }
+//
+//         self.validator.check_same(
+//             &Object::from_entries(&this_args)?,
+//             &Object::from_entries(&proof_args)?,
+//         )
+//     }
+// }
+//
+// // pub struct Ability {
+// //     pub cmd: String,
+// //     pub args: BTreeMap<String, Ipld>, // FIXME args
+// //     pub val: JsValidator,
+// // }
+// //
+// // #[wasm_bindgen]
+// // impl Ability {
+// //     #[wasm_bindgen(constructor)]
+// //     fn new(
+// //         cmd: String,
+// //         args: BTreeMap<String, JsValue>,
+// //         validator: JsValidator,
+// //     ) -> Result<Self, JsError> {
+// //         let args = args
+// //             .iter()
+// //             .map(|(k, v)| (k.clone(), JsValue::from(v.clone())))
+// //             .collect();
+// //
+// //         validator.check_shape(args)?;
+// //         Ok(Ability { cmd, args, val })
+// //     }
+// // }
+// //
+// // pub struct Pipeline {
+// //     pub validators: Vec<JsValidator>,
+// // }
