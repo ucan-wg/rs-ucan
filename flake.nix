@@ -131,10 +131,16 @@
               command = "${cargo} build --release";
             }
             {
-              name = "release:wasm";
+              name = "release:wasm:web";
               help = "Release for current host target";
               category = "release";
-              command = "${cargo} build --release --target=wasm32-unknown-unknown";
+              command = "${wasm-pack} build --release --target=web";
+            }
+            {
+              name = "release:wasm:nodejs";
+              help = "Release for current host target";
+              category = "release";
+              command = "${wasm-pack} build --release --target=nodejs";
             }
             # Build
             {
@@ -150,10 +156,16 @@
               command = "${cargo} build";
             }
             {
-              name = "build:wasm";
-              help = "Build for wasm32-unknown-unknown";
+              name = "build:wasm:web";
+              help = "Build for wasm32-unknown-unknown with web bindings";
               category = "build";
-              command = "${cargo} build --target=wasm32-unknown-unknown";
+              command = "${wasm-pack} build --dev --target=web";
+            }
+            {
+              name = "build:wasm:nodejs";
+              help = "Build for wasm32-unknown-unknown with Node.js bindgings";
+              category = "build";
+              command = "${wasm-pack} build --dev --target=nodejs";
             }
             {
               name = "build:node";

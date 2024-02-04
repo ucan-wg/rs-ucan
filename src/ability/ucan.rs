@@ -10,7 +10,7 @@ use std::fmt::Debug;
 
 // FIXME
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Generic<Args> {
+pub struct Generic<Args> {
     pub cmd: String,
     pub args: Args, // FIXME Does this have specific fields?
 }

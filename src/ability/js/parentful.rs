@@ -18,7 +18,7 @@ type JsWithParents = dynamic::Configured<Config>;
 // FIXME represent promises (for Promised) and options (for builder)
 
 // FIXME rename ability? abilityconfig? leave as is?
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 #[wasm_bindgen(getter_with_clone)]
 pub struct Config {
     pub command: String,
@@ -31,27 +31,55 @@ pub struct Config {
     pub check_parents: BTreeMap<String, Box<Function>>,
 }
 
+#[wasm_bindgen(typescript_custom_section)]
+const CONSTRUCTOR_WITH_MAP: &str = r#"
+interface ConfigArgs {
+    command: string,
+    is_nonce_meaningful: boolean,
+    validate_shape: Function,
+    check_same: Function,
+    check_parents: Map<string, Function>
+}
+"#;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "ConfigArgs")]
+    pub type ConfigArgs;
+
+    pub fn command(this: &ConfigArgs) -> String;
+
+    pub fn is_nonce_meaningful(this: &ConfigArgs) -> bool;
+
+    pub fn validate_shape(this: &ConfigArgs) -> Function;
+
+    pub fn check_same(this: &ConfigArgs) -> Function;
+
+    pub fn check_parents(this: &ConfigArgs) -> Map;
+}
+
 #[wasm_bindgen]
 impl Config {
     // FIXME object args as an option
-    #[wasm_bindgen(constructor)]
+    #[wasm_bindgen(constructor, typescript_type = "ConfigArgs")]
     pub fn new(
-        command: String,
-        is_nonce_meaningful: bool,
-        validate_shape: Function,
-        check_same: Function,
-        check_parents: Map, // FIXME swap for an object?
+        js: ConfigArgs,
+        //  command: String,
+        //  is_nonce_meaningful: bool,
+        //  validate_shape: Function,
+        //  check_same: Function,
+        //  check_parents: Map, // FIXME swap for an object?
     ) -> Result<Config, JsValue> {
         Ok(Config {
-            command,
-            is_nonce_meaningful,
-            validate_shape,
-            check_same,
+            command: command(&js),
+            is_nonce_meaningful: is_nonce_meaningful(&js),
+            validate_shape: validate_shape(&js),
+            check_same: check_same(&js),
             check_parents: {
                 let mut btree = BTreeMap::new();
                 let mut acc = Ok(());
                 //                    Correct order
-                check_parents.for_each(&mut |value, key| {
+                check_parents(&js).for_each(&mut |value, key| {
                     if let Ok(_) = &acc {
                         match key.as_string() {
                             None => acc = Err(JsString::from("Key is not a string")), // FIXME better err

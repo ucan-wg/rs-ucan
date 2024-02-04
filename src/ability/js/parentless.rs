@@ -12,23 +12,28 @@ use wasm_bindgen::{prelude::*, JsValue};
 // and we (Rust) wire it up and run it for you
 // NOTE becuase of the above, no need to export JsWithParents to JS
 // FIXME rename
-type JsWithoutParents = dynamic::Configured<Config>;
+type JsWithoutParents = dynamic::Configured<Config1>;
 
 // FIXME rename ability? abilityconfig? leave as is?
+// #[wasm_bindgen(getter_with_clone)]
 #[derive(Debug, Clone, PartialEq)]
-#[wasm_bindgen(getter_with_clone)]
-pub struct Config {
-    pub command: String,
-    pub is_nonce_meaningful: bool,
+#[wasm_bindgen]
+pub struct Config1 {
+    // #[wasm_bindgen(skip)]
+    command: String,
+    is_nonce_meaningful: bool,
 
-    pub validate_shape: Function,
-    pub check_same: Function,
+    // #[wasm_bindgen(skip)]
+    validate_shape: Function,
+
+    //#[wasm_bindgen(skip)]
+    check_same: Function,
 }
 
 // FIXME represent promises (for Promised) and options (for builder)
 
 #[wasm_bindgen]
-impl Config {
+impl Config1 {
     // FIXME object args as an option
     #[wasm_bindgen(constructor)]
     pub fn new(
@@ -36,8 +41,8 @@ impl Config {
         is_nonce_meaningful: bool,
         validate_shape: Function,
         check_same: Function,
-    ) -> Config {
-        Config {
+    ) -> Config1 {
+        Config1 {
             command,
             is_nonce_meaningful,
             validate_shape,
@@ -72,7 +77,7 @@ impl CheckSame for JsWithoutParents {
     }
 }
 
-impl ToCommand for Config {
+impl ToCommand for Config1 {
     fn to_command(&self) -> String {
         self.command.clone()
     }
