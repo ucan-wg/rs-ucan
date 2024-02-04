@@ -99,7 +99,7 @@ impl CheckSame for JsWithParents {
 }
 
 impl CheckParents for JsWithParents {
-    type Parents = dynamic::Dynamic;
+    type Parents = dynamic::Dynamic; // FIXME actually no? What if we want to plug in random stuff?
     type ParentError = JsValue;
 
     fn check_parents(&self, parent: &dynamic::Dynamic) -> Result<(), Self::Error> {

@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use url::Url;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 // Read is its own builder
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16,7 +19,22 @@ pub struct Read {
     pub uri: Option<Url>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<BTreeMap<String, Ipld>>,
+    pub args: Option<BTreeMap<String, Ipld>>, // FIXME rename Argumenst to get the traits?
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct Js(#[wasm_bindgen(skip)] pub Read);
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl Js {
+    // FIXME
+    pub fn check_same(&self, proof: &Js) -> Result<(), JsValue> {
+        self.0
+            .check_same(&proof.0)
+            .map_err(|err| JsValue::from_str(&format!("{:?}", err)))
+    }
 }
 
 impl Command for Read {
