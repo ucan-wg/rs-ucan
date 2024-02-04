@@ -23,16 +23,104 @@ use wasm_bindgen::prelude::*;
 // NOTE the lack of checking functions!
 // This is meant to be embedded inside of structs that have e.g. FFI bindings to
 // a validation function, such as a &js_sys::Function, Ruby magnus::function!, etc etc
-#[derive(Clone, PartialEq, Debug)] // FIXME serialize / deserilaize?
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)] // FIXME serialize / deserilaize?
 pub struct Dynamic {
     pub cmd: String,
     pub args: Arguments,
+}
+
+// NOTE plug this into Configured<T> like: Configured<Resolved<Dynamic>>
+pub struct Builder<T>(pub T);
+pub struct Promised<T>(pub T);
+
+impl<T: Into<Arguments>> From<Builder<T>> for Arguments {
+    fn from(builder: Builder<T>) -> Self {
+        builder.0.into()
+    }
+}
+
+impl<T> From<Configured<T>> for Builder<Configured<T>> {
+    fn from(configured: Configured<T>) -> Self {
+        Builder(configured)
+    }
+}
+
+impl<T: ToCommand> From<Builder<Configured<T>>> for Configured<T> {
+    fn from(builder: Builder<Configured<T>>) -> Self {
+        builder.0
+    }
+}
+
+impl<T: Into<Arguments>> From<Promised<T>> for Arguments {
+    fn from(promised: Promised<T>) -> Self {
+        promised.0.into()
+    }
+}
+
+impl<T> From<Configured<T>> for Promised<Configured<T>> {
+    fn from(configured: Configured<T>) -> Self {
+        Promised(configured)
+    }
+}
+
+impl<T: ToCommand> From<Promised<Configured<T>>> for Configured<T> {
+    fn from(promised: Promised<Configured<T>>) -> Self {
+        promised.0
+    }
+}
+
+// NOTE to self: this is helpful as a common container to lift various FFI into
+#[derive(Clone, PartialEq, Debug)]
+pub struct Configured<T> {
+    pub arguments: Arguments,
+    pub config: T,
+}
+
+impl<T: ToCommand> Delegatable for Configured<T> {
+    type Builder = Builder<Configured<T>>;
+}
+
+impl<T: ToCommand> Resolvable for Configured<T> {
+    type Promised = Promised<Configured<T>>;
+}
+
+impl<T: ToCommand> ToCommand for Configured<T> {
+    fn to_command(&self) -> String {
+        self.config.to_command()
+    }
+}
+
+impl<T: CheckSame> CheckSame for Configured<T> {
+    type Error = T::Error;
+
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        self.config.check_same(&proof.config)
+    }
+}
+
+impl<T: CheckParents> CheckParents for Configured<T> {
+    type Parents = Dynamic;
+    type ParentError = T::ParentError;
+
+    fn check_parents(&self, parent: &Dynamic) -> Result<(), Self::ParentError> {
+        self.check_parents(parent)
+    }
+}
+
+impl<T> From<Configured<T>> for Arguments {
+    fn from(reader: Configured<T>) -> Self {
+        reader.arguments
+    }
 }
 
 impl From<Dynamic> for Arguments {
     fn from(dynamic: Dynamic) -> Self {
         dynamic.args
     }
+}
+
+impl<T: Checkable> Checkable for Configured<T> {
+    type Hierarchy = T::Hierarchy;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -104,125 +192,16 @@ impl CheckSame for Dynamic {
     }
 }
 
-// impl<F> Debug for Generic<Arguments, F> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("Generic")
-//             .field("cmd", &self.cmd)
-//             .field("args", &self.args)
-//             .field("is_nonce_meaningful", &self.is_nonce_meaningful)
-//             .finish()
-//     }
-// }
-//
-// pub type Dynamic<F> = Generic<Arguments, F>;
-// pub type Promised<F> = Generic<Promise<Arguments>, F>;
-//
-// impl<Args: Serialize + Clone> Serialize for Generic<Args, ()>
-// where
-//     Arguments: From<Args>,
-// {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut map = serializer.serialize_map(Some(2))?;
-//         map.serialize_entry("cmd", &self.cmd)?;
-//         map.serialize_entry("args", &Arguments::from(self.args.clone()))?;
-//         map.end()
-//     }
-// }
-//
-// impl<'de, Args: Deserialize<'de>> Deserialize<'de> for Generic<Args, ()> {
-//     fn deserialize<D>(deserializer: D) -> Result<Generic<Args, ()>, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         // FIXME
-//         todo!()
-//         //         let btree = BTreeMap::deserialize(deserializer)?;
-//         //         Ok(Generic {
-//         //             cmd: btree.get("cmd")?.to_string(),
-//         //             args: btree.get("args")?.clone(),
-//         //             is_nonce_meaningful: DefaultTrue::default(),
-//         //
-//         //             same_validator: (),
-//         //             parent_validator: (),
-//         //             shape_validator: (),
-//         //         })
-//     }
-// }
-//
-// impl<Args, F> ToCommand for Generic<Args, F> {
-//     fn to_command(&self) -> String {
-//         self.cmd.clone()
-//     }
-// }
-//
-// impl<F> Delegatable for Dynamic<F> {
-//     type Builder = Dynamic<F>;
-// }
-//
-// impl<F> Resolvable for Dynamic<F> {
-//     type Promised = Promised<F>;
-// }
-//
-// impl<Args: Serialize> From<Generic<Args, ()>> for Ipld {
-//     fn from(generic: Generic<Args, ()>) -> Self {
-//         generic.into()
-//     }
-// }
-//
-// impl<Args: DeserializeOwned> TryFrom<Ipld> for Generic<Args, ()> {
-//     type Error = SerdeError;
-//
-//     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-//         ipld_serde::from_ipld(ipld)
-//     }
-// }
-//
-// impl<Args: Into<Arguments>, F> From<Generic<Args, F>> for Arguments {
-//     fn from(generic: Generic<Args, F>) -> Self {
-//         generic.args.into()
-//     }
-// }
-//
-// impl<F> TryFrom<Promised<F>> for Dynamic<F> {
-//     type Error = (); // FIXME
-//
-//     fn try_from(awaiting: Promised<F>) -> Result<Self, ()> {
-//         if let Promise::Resolved(args) = &awaiting.args {
-//             Ok(Dynamic {
-//                 cmd: awaiting.cmd,
-//                 args: args.clone(),
-//
-//                 same_validator: awaiting.same_validator,
-//                 parent_validator: awaiting.parent_validator,
-//                 shape_validator: awaiting.shape_validator,
-//                 is_nonce_meaningful: awaiting.is_nonce_meaningful,
-//             })
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
-//
-// impl<F> From<Dynamic<F>> for Promised<F> {
-//     fn from(d: Dynamic<F>) -> Self {
-//         Promised {
-//             cmd: d.cmd,
-//             args: Promise::Resolved(d.args),
-//
-//             same_validator: d.same_validator,
-//             parent_validator: d.parent_validator,
-//             shape_validator: d.shape_validator,
-//             is_nonce_meaningful: d.is_nonce_meaningful,
-//         }
-//     }
-// }
-//
-// impl<F> Checkable for Dynamic<F>
-// where
-//     F: Fn(&String, &Arguments) -> Result<(), String>,
-// {
-//     type Hierarchy = Parentless<Dynamic<F>>; // FIXME I bet we can revover parents
-// }
+impl From<Dynamic> for Ipld {
+    fn from(dynamic: Dynamic) -> Self {
+        dynamic.into()
+    }
+}
+
+impl TryFrom<Ipld> for Dynamic {
+    type Error = SerdeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
+    }
+}

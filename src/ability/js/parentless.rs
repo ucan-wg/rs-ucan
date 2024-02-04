@@ -1,76 +1,57 @@
 use crate::{
     ability::{arguments::Arguments, command::ToCommand, dynamic},
     ipld,
-    proof::{checkable::Checkable, parentless::Parentless, same::CheckSame},
+    proof::{checkable::Checkable, parentless::Parentless, parents::CheckParents, same::CheckSame},
 };
-use js_sys::{Function, Map, Object, Reflect};
+use js_sys::{Function, JsString, Map, Object, Reflect};
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use wasm_bindgen::{prelude::*, JsValue};
 
-#[derive(Debug, Clone, PartialEq)]
-#[wasm_bindgen]
-pub struct JsWithoutParents {
-    #[wasm_bindgen(skip)]
-    pub ability: dynamic::Dynamic,
+// NOTE NOTE NOTE: the strategy is: "you (JS) hand us the cfg" AKA strategy,
+// and we (Rust) wire it up and run it for you
+// NOTE becuase of the above, no need to export JsWithParents to JS
+// FIXME rename
+type JsWithoutParents = dynamic::Configured<Config>;
 
-    #[wasm_bindgen(skip)]
-    pub config: Config,
-}
-
-// FIXME just inline
+// FIXME rename ability? abilityconfig? leave as is?
 #[derive(Debug, Clone, PartialEq)]
+#[wasm_bindgen(getter_with_clone)]
 pub struct Config {
+    pub command: String,
     pub is_nonce_meaningful: bool,
+
     pub validate_shape: Function,
     pub check_same: Function,
 }
 
+// FIXME represent promises (for Promised) and options (for builder)
+
 #[wasm_bindgen]
-impl JsWithoutParents {
-    // FIXME consider using an object with named fields
-    // FIXME needs borrows?
+impl Config {
+    // FIXME object args as an option
     #[wasm_bindgen(constructor)]
     pub fn new(
-        cmd: String,
-        args: Object,
+        command: String,
         is_nonce_meaningful: bool,
-        validate_shape: js_sys::Function,
-        check_same: js_sys::Function,
-    ) -> JsWithoutParents {
-        JsWithoutParents {
-            ability: dynamic::Dynamic {
-                cmd,
-                args: (&args).into(),
-            },
-            config: Config {
-                is_nonce_meaningful,
-                validate_shape,
-                check_same,
-            },
+        validate_shape: Function,
+        check_same: Function,
+    ) -> Config {
+        Config {
+            command,
+            is_nonce_meaningful,
+            validate_shape,
+            check_same,
         }
     }
+}
 
-    #[wasm_bindgen(getter)]
-    pub fn is_nonce_meaningful(&self) -> bool {
-        self.config.is_nonce_meaningful
-    }
-
-    pub fn check_shape(&self) -> Result<(), JsValue> {
-        let this = wasm_bindgen::JsValue::NULL;
-        self.config
-            .validate_shape
-            .call1(&this, &self.ability.args.clone().into())
-            .map(|_| ())
-    }
-
-    // FIXME throws on Err
-    pub fn check_same(&self, proof: &Object) -> Result<(), JsValue> {
-        let this = wasm_bindgen::JsValue::NULL;
-        self.config
-            .check_same
-            .call2(&this, &self.ability.args.clone().into(), proof)
-            .map(|_| ())
+impl From<JsWithoutParents> for dynamic::Dynamic {
+    fn from(js: JsWithoutParents) -> Self {
+        dynamic::Dynamic {
+            cmd: js.config.command,
+            args: js.arguments,
+        }
     }
 }
 
@@ -79,19 +60,21 @@ impl CheckSame for JsWithoutParents {
     type Error = JsValue;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.check_same(&proof.ability.args.clone().into())
+        let this = wasm_bindgen::JsValue::NULL;
+        self.config
+            .check_same
+            .call2(
+                &this,
+                &self.arguments.clone().into(),
+                &Arguments::from(proof.clone()).into(),
+            )
+            .map(|_| ())
     }
 }
 
-impl ToCommand for JsWithoutParents {
+impl ToCommand for Config {
     fn to_command(&self) -> String {
-        self.ability.cmd.clone()
-    }
-}
-
-impl From<JsWithoutParents> for Arguments {
-    fn from(js: JsWithoutParents) -> Self {
-        js.ability.into()
+        self.command.clone()
     }
 }
 

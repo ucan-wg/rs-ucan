@@ -3,6 +3,9 @@ use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 // FIXME move under invocation?
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -11,6 +14,32 @@ pub enum Promise<T> {
     Resolved(T),
     Waiting(Selector),
 }
+
+#[cfg(target_arch = "wasm32")]
+pub enum JsStatus {
+    Resolved,
+    Waiting,
+}
+
+// FIXME no way to make this consistent, because of C enums ruining Rust convetions, right?
+// FIXME consider wrapping in a trait
+#[cfg(target_arch = "wasm32")]
+pub struct JsPromise {
+    status: JsStatus,
+    selector: Selector,
+    value: Option<JsValue>,
+}
+
+// TODO remove; I'd rather have liine 70 blanket than this
+// #[cfg(target_arch = "wasm32")]
+// impl<T: From<JsValue>> From<JsPromise> for Promise<T> {
+//     fn from(js: JsPromise) -> Self {
+//         match js.status {
+//             JsStatus::Resolved => Promise::Resolved(js.value.unwrap().into()),
+//             JsStatus::Waiting => Promise::Waiting(js.selector),
+//         }
+//     }
+// }
 
 impl<T> Promise<T> {
     pub fn map<U, F>(self, f: F) -> Promise<U>
@@ -43,8 +72,8 @@ impl<T> Promise<T> {
 }
 
 impl<T> From<T> for Promise<T> {
-    fn from(t: T) -> Self {
-        Promise::Resolved(t)
+    fn from(value: T) -> Self {
+        Promise::Resolved(value)
     }
 }
 
