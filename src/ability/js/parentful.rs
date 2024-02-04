@@ -32,7 +32,7 @@ pub struct Config {
 }
 
 #[wasm_bindgen(typescript_custom_section)]
-const CONSTRUCTOR_WITH_MAP: &str = r#"
+const CONFIG_ARGS: &str = r#"
 interface ConfigArgs {
     command: string,
     is_nonce_meaningful: boolean,
@@ -48,38 +48,28 @@ extern "C" {
     pub type ConfigArgs;
 
     pub fn command(this: &ConfigArgs) -> String;
-
     pub fn is_nonce_meaningful(this: &ConfigArgs) -> bool;
-
     pub fn validate_shape(this: &ConfigArgs) -> Function;
-
     pub fn check_same(this: &ConfigArgs) -> Function;
-
     pub fn check_parents(this: &ConfigArgs) -> Map;
 }
 
 #[wasm_bindgen]
 impl Config {
     // FIXME object args as an option
-    #[wasm_bindgen(constructor, typescript_type = "ConfigArgs")]
-    pub fn new(
-        js: ConfigArgs,
-        //  command: String,
-        //  is_nonce_meaningful: bool,
-        //  validate_shape: Function,
-        //  check_same: Function,
-        //  check_parents: Map, // FIXME swap for an object?
-    ) -> Result<Config, JsValue> {
+    #[wasm_bindgen(constructor)]
+    pub fn new(js_obj: ConfigArgs) -> Result<Config, JsValue> {
         Ok(Config {
-            command: command(&js),
-            is_nonce_meaningful: is_nonce_meaningful(&js),
-            validate_shape: validate_shape(&js),
-            check_same: check_same(&js),
+            command: command(&js_obj),
+            is_nonce_meaningful: is_nonce_meaningful(&js_obj),
+            validate_shape: validate_shape(&js_obj),
+            check_same: check_same(&js_obj),
             check_parents: {
                 let mut btree = BTreeMap::new();
                 let mut acc = Ok(());
-                //                    Correct order
-                check_parents(&js).for_each(&mut |value, key| {
+
+                check_parents(&js_obj).for_each(&mut |value, key| {
+                    // |value, key| is correct ------^^^^^^^^^^^^
                     if let Ok(_) = &acc {
                         match key.as_string() {
                             None => acc = Err(JsString::from("Key is not a string")), // FIXME better err

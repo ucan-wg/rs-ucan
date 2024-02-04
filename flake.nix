@@ -86,6 +86,7 @@
         cargo = "${pkgs.cargo}/bin/cargo";
         node = "${unstable.nodejs_20}/bin/node";
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
+        wasm-opt = "${pkgs.binaryen}/bin/wasm-opt";
       in rec {
         devShells.default = pkgs.devshell.mkShell {
           name = "ucan";
@@ -134,13 +135,13 @@
               name = "release:wasm:web";
               help = "Release for current host target";
               category = "release";
-              command = "${wasm-pack} build --release --target=web";
+              command = "${wasm-pack} build --release --target=web && ${wasm-opt} -Os ./pkg/ucan_bg.wasm -o ./pkg/ucan_bg.opt.wasm && ls -lh pkg/*.wasm | cut -d ' ' -f 8,13";
             }
             {
               name = "release:wasm:nodejs";
               help = "Release for current host target";
               category = "release";
-              command = "${wasm-pack} build --release --target=nodejs";
+              command = "${wasm-pack} build --release --target=nodejs && ${wasm-opt} -Os ./pkg/ucan_bg.wasm -o ./pkg/ucan_bg.opt.wasm && ls -lah pkg/*.wasm | cut -d ' ' -f 8,13";
             }
             # Build
             {
