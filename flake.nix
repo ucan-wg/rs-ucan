@@ -135,13 +135,13 @@
               name = "release:wasm:web";
               help = "Release for current host target";
               category = "release";
-              command = "${wasm-pack} build --release --target=web && ${wasm-opt} -Os ./pkg/ucan_bg.wasm -o ./pkg/ucan_bg.opt.wasm && ls -lh pkg/*.wasm | cut -d ' ' -f 8,13";
+              command = "${wasm-pack} build --release --target=web";
             }
             {
               name = "release:wasm:nodejs";
               help = "Release for current host target";
               category = "release";
-              command = "${wasm-pack} build --release --target=nodejs && ${wasm-opt} -Os ./pkg/ucan_bg.wasm -o ./pkg/ucan_bg.opt.wasm && ls -lah pkg/*.wasm | cut -d ' ' -f 8,13";
+              command = "${wasm-pack} build --release --target=nodejs";
             }
             # Build
             {

@@ -1,19 +1,21 @@
 use super::resolvable::Resolvable;
 use crate::{
-    ability::{arguments::Arguments, command::Command, dynamic},
+    ability::{arguments::Arguments, command::Command},
     capsule::Capsule,
     did::Did,
+    metadata as meta,
+    metadata::{Mergable, Metadata},
     nonce::Nonce,
     time::Timestamp,
 };
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 
 // FIXME this version should not be resolvable...
 // FIXME ...or at least have two versions via abstraction
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T> {
+pub struct Payload<T, E: meta::Entries> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Option<Did>,
@@ -22,7 +24,7 @@ pub struct Payload<T> {
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
-    pub metadata: BTreeMap<String, Ipld>, // FIXME parameterize?
+    pub metadata: Metadata<E>,
     pub nonce: Nonce,
 
     pub not_before: Option<Timestamp>,
@@ -30,7 +32,7 @@ pub struct Payload<T> {
 }
 
 // NOTE This is the version that accepts promises
-pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
+pub type Unresolved<T: Resolvable, E: meta::Entries> = Payload<T::Promised, E>;
 // type Dynamic = Payload<dynamic::Dynamic>; <- ?
 
 // FIXME parser for both versions
@@ -46,14 +48,14 @@ pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
 //     Unresolved(Unresolved<T>),
 // }
 
-impl<T> Capsule for Payload<T> {
+impl<T, E: meta::Entries> Capsule for Payload<T, E> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T> Serialize for Payload<T>
+impl<T, E: meta::Entries> Serialize for Payload<T, E>
 where
-    Payload<T>: Clone,
-    InternalSerializer: From<Payload<T>>,
+    Payload<T, E>: Clone,
+    InternalSerializer: From<Payload<T, E>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -64,10 +66,10 @@ where
     }
 }
 
-impl<'de, T> serde::Deserialize<'de> for Payload<T>
+impl<'de, T, E: meta::Entries> serde::Deserialize<'de> for Payload<T, E>
 where
-    Payload<T>: TryFrom<InternalSerializer>,
-    <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T, E>: TryFrom<InternalSerializer>,
+    <Payload<T, E> as TryFrom<InternalSerializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -82,9 +84,9 @@ where
     }
 }
 
-impl<T> TryFrom<Ipld> for Payload<T>
+impl<T, E: meta::Entries> TryFrom<Ipld> for Payload<T, E>
 where
-    Payload<T>: TryFrom<InternalSerializer>,
+    Payload<T, E>: TryFrom<InternalSerializer>,
 {
     type Error = (); // FIXME
 
@@ -94,8 +96,8 @@ where
     }
 }
 
-impl<T> From<Payload<T>> for Ipld {
-    fn from(payload: Payload<T>) -> Self {
+impl<T, E: meta::Entries> From<Payload<T, E>> for Ipld {
+    fn from(payload: Payload<T, E>) -> Self {
         payload.into()
     }
 }
@@ -193,8 +195,8 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 
-impl<T: Command + Into<Arguments>> From<Payload<T>> for InternalSerializer {
-    fn from(payload: Payload<T>) -> Self {
+impl<T: Command + Into<Arguments>, E: meta::Entries> From<Payload<T, E>> for InternalSerializer {
+    fn from(payload: Payload<T, E>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
@@ -205,7 +207,7 @@ impl<T: Command + Into<Arguments>> From<Payload<T>> for InternalSerializer {
 
             proofs: payload.proofs,
             cause: payload.cause,
-            metadata: payload.metadata,
+            metadata: payload.metadata.merge(),
 
             nonce: payload.nonce,
 

@@ -11,35 +11,72 @@ use wasm_bindgen::prelude::*;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Promise<T> {
-    Resolved(T),
-    Waiting(Selector),
+    Fulfilled(T),
+    Pending(Selector),
 }
 
 #[cfg(target_arch = "wasm32")]
-pub enum JsStatus {
-    Resolved,
-    Waiting,
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[wasm_bindgen]
+pub enum UcanPromiseStatus {
+    Fulfilled,
+    Pending,
 }
 
 // FIXME no way to make this consistent, because of C enums ruining Rust convetions, right?
 // FIXME consider wrapping in a trait
 #[cfg(target_arch = "wasm32")]
-pub struct JsPromise {
-    status: JsStatus,
-    selector: Selector,
+#[derive(Clone, Debug, PartialEq)]
+#[wasm_bindgen]
+pub struct UcanPromise {
+    status: UcanPromiseStatus,
+    selector: Option<Selector>,
     value: Option<JsValue>,
 }
 
-// TODO remove; I'd rather have liine 70 blanket than this
-// #[cfg(target_arch = "wasm32")]
-// impl<T: From<JsValue>> From<JsPromise> for Promise<T> {
-//     fn from(js: JsPromise) -> Self {
-//         match js.status {
-//             JsStatus::Resolved => Promise::Resolved(js.value.unwrap().into()),
-//             JsStatus::Waiting => Promise::Waiting(js.selector),
-//         }
-//     }
-// }
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(getter_with_clone)]
+pub struct IncoherentPromise(pub UcanPromise);
+
+#[cfg(target_arch = "wasm32")]
+impl TryFrom<UcanPromise> for Promise<JsValue> {
+    type Error = IncoherentPromise;
+
+    fn try_from(js: UcanPromise) -> Result<Self, Self::Error> {
+        match js.status {
+            UcanPromiseStatus::Fulfilled => {
+                if let Some(val) = &js.value {
+                    return Ok(Promise::Fulfilled(val.clone()));
+                }
+            }
+            UcanPromiseStatus::Pending => {
+                if let Some(selector) = &js.selector {
+                    return Ok(Promise::Pending(selector.clone()));
+                }
+            }
+        }
+
+        Err(IncoherentPromise(js))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl<T: Into<JsValue>> From<Promise<T>> for UcanPromise {
+    fn from(promise: Promise<T>) -> Self {
+        match promise {
+            Promise::Fulfilled(val) => UcanPromise {
+                status: UcanPromiseStatus::Fulfilled,
+                selector: None,
+                value: Some(val.into()),
+            },
+            Promise::Pending(cid) => UcanPromise {
+                status: UcanPromiseStatus::Pending,
+                selector: Some(cid),
+                value: None,
+            },
+        }
+    }
+}
 
 impl<T> Promise<T> {
     pub fn map<U, F>(self, f: F) -> Promise<U>
@@ -47,8 +84,8 @@ impl<T> Promise<T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Promise::Resolved(t) => Promise::Resolved(f(t)),
-            Promise::Waiting(selector) => Promise::Waiting(selector),
+            Promise::Fulfilled(t) => Promise::Fulfilled(f(t)),
+            Promise::Pending(selector) => Promise::Pending(selector),
         }
     }
 }
@@ -56,24 +93,24 @@ impl<T> Promise<T> {
 impl<T: Into<Arguments>> From<Promise<T>> for Arguments {
     fn from(promise: Promise<T>) -> Self {
         match promise {
-            Promise::Resolved(t) => t.into(),
-            Promise::Waiting(selector) => selector.into(),
-        }
-    }
-}
-
-impl<T> Promise<T> {
-    pub fn try_extract(self) -> Result<T, Self> {
-        match self {
-            Promise::Resolved(t) => Ok(t),
-            Promise::Waiting(promise) => Err(Promise::Waiting(promise)),
+            Promise::Fulfilled(t) => t.into(),
+            Promise::Pending(selector) => selector.into(),
         }
     }
 }
 
 impl<T> From<T> for Promise<T> {
     fn from(value: T) -> Self {
-        Promise::Resolved(value)
+        Promise::Fulfilled(value)
+    }
+}
+
+impl<T> Promise<T> {
+    pub fn try_resolve(self) -> Result<T, Selector> {
+        match self {
+            Promise::Fulfilled(t) => Ok(t),
+            Promise::Pending(selector) => Err(selector),
+        }
     }
 }
 
@@ -83,8 +120,8 @@ where
 {
     fn from(promise: Promise<T>) -> Self {
         match promise {
-            Promise::Resolved(t) => t.into(),
-            Promise::Waiting(selector) => selector.into(),
+            Promise::Fulfilled(t) => t.into(),
+            Promise::Pending(selector) => selector.into(),
         }
     }
 }

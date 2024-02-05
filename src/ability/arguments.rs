@@ -6,12 +6,10 @@ use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, Map, Object, Reflect, Uint8Array};
+use js_sys::{Array, Map, Object, Reflect};
 
 #[cfg(target_arch = "wasm32")]
 use crate::ipld;
-
-use super::wasm;
 
 // FIXME yes I'm seriously considering laying this out in the wasm abi by han d
 // #[cfg(not(target_arch = "wasm32"))]

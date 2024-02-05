@@ -49,10 +49,10 @@ impl CheckParents for Destroy {
     type Parents = Mutable;
     type ParentError = ();
 
-    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         match other {
-            Mutable::Mutate(mutate) => Ok(()), // FIXME
-            Mutable::Any(any) => Ok(()),       // FIXME
+            Mutable::Mutate(_mutate) => Ok(()), // FIXME
+            Mutable::Any(_any) => Ok(()),       // FIXME
         }
     }
 }

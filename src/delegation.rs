@@ -2,12 +2,16 @@ mod condition;
 mod delegatable;
 mod payload;
 
-pub use condition::*;
+pub mod store;
 
+pub use condition::*;
 pub use delegatable::Delegatable;
 pub use payload::Payload;
 
-use crate::signature;
+use condition::traits::Condition;
+use store::IndexedStore;
+
+use crate::{metadata as meta, signature};
 
 /// A [`Delegation`] is a signed delegation [`Payload`]
 ///
@@ -17,4 +21,25 @@ use crate::signature;
 /// FIXME
 pub type Delegation<T, C, E> = signature::Envelope<Payload<T, C, E>>;
 
-// FIXME add a store with delegation indexing
+// FIXME
+impl<T: Delegatable, C: Condition, E: meta::Entries> Delegation<T, C, E> {
+    // FIXME include cache
+    //pub fn check<S: IndexedStore<T, C, E>>(&self, store: &S) -> Result<(), ()> {
+    //    if let Ok(is_valid) = store.previously_checked(self) {
+    //        if is_valid {
+    //            return Ok(());
+    //        }
+    //    }
+
+    //    if let Ok(chains) = store.chains_for(self) {
+    //        for chain in chains {
+    //            todo!()
+    //            // if self.check_self(self).is_ok() {
+    //            //     return Ok(());
+    //            // }
+    //        }
+    //    }
+
+    //    Err(())
+    //}
+}

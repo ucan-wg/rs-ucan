@@ -1,18 +1,17 @@
 use crate::{
     ability::{arguments::Arguments, command::ToCommand, dynamic},
-    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    reader::Reader,
 };
-use js_sys::{Function, JsString, Map, Object, Reflect};
-use libipld_core::ipld::Ipld;
+use js_sys::{Function, JsString, Map};
 use std::collections::BTreeMap;
 use wasm_bindgen::{prelude::*, JsValue};
 
 // NOTE NOTE NOTE: the strategy is: "you (JS) hand us the cfg" AKA strategy,
 // and we (Rust) wire it up and run it for you
-// NOTE becuase of the above, no need to export JsWithParents to JS
+// NOTE becuase of the above, no need to export WithParents to JS
 // FIXME rename
-type JsWithParents = dynamic::Configured<Config>;
+type WithParents = Reader<Config, Arguments>;
 
 // Promise = Promise? Ah, nope becuase we need that CID on the promise
 // FIXME represent promises (for Promised) and options (for builder)
@@ -28,47 +27,47 @@ pub struct Config {
     pub check_same: Function,
 
     #[wasm_bindgen(skip)]
-    pub check_parents: BTreeMap<String, Box<Function>>,
+    pub check_parent: BTreeMap<String, Function>,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
 const CONFIG_ARGS: &str = r#"
-interface ConfigArgs {
+interface ParentfulArgs {
     command: string,
     is_nonce_meaningful: boolean,
     validate_shape: Function,
     check_same: Function,
-    check_parents: Map<string, Function>
+    check_parent: Map<string, Function>
 }
 "#;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(typescript_type = "ConfigArgs")]
-    pub type ConfigArgs;
+    #[wasm_bindgen(typescript_type = "ParentfulArgs")]
+    pub type ParentfulArgs;
 
-    pub fn command(this: &ConfigArgs) -> String;
-    pub fn is_nonce_meaningful(this: &ConfigArgs) -> bool;
-    pub fn validate_shape(this: &ConfigArgs) -> Function;
-    pub fn check_same(this: &ConfigArgs) -> Function;
-    pub fn check_parents(this: &ConfigArgs) -> Map;
+    pub fn command(this: &ParentfulArgs) -> String;
+    pub fn is_nonce_meaningful(this: &ParentfulArgs) -> bool;
+    pub fn validate_shape(this: &ParentfulArgs) -> Function;
+    pub fn check_same(this: &ParentfulArgs) -> Function;
+    pub fn check_parent(this: &ParentfulArgs) -> Map;
 }
 
 #[wasm_bindgen]
 impl Config {
     // FIXME object args as an option
     #[wasm_bindgen(constructor)]
-    pub fn new(js_obj: ConfigArgs) -> Result<Config, JsValue> {
+    pub fn new(js_obj: ParentfulArgs) -> Result<Config, JsValue> {
         Ok(Config {
             command: command(&js_obj),
             is_nonce_meaningful: is_nonce_meaningful(&js_obj),
             validate_shape: validate_shape(&js_obj),
             check_same: check_same(&js_obj),
-            check_parents: {
+            check_parent: {
                 let mut btree = BTreeMap::new();
                 let mut acc = Ok(());
 
-                check_parents(&js_obj).for_each(&mut |value, key| {
+                check_parent(&js_obj).for_each(&mut |value, key| {
                     // |value, key| is correct ------^^^^^^^^^^^^
                     if let Ok(_) = &acc {
                         match key.as_string() {
@@ -76,7 +75,7 @@ impl Config {
                             Some(str_key) => match value.dyn_ref::<Function>() {
                                 None => acc = Err("Value is not a function".into()),
                                 Some(f) => {
-                                    btree.insert(str_key, Box::new(f.clone()));
+                                    btree.insert(str_key, f.clone());
                                     acc = Ok(());
                                 }
                             },
@@ -90,46 +89,42 @@ impl Config {
     }
 }
 
-impl From<JsWithParents> for dynamic::Dynamic {
-    fn from(js: JsWithParents) -> Self {
+impl From<WithParents> for dynamic::Dynamic {
+    fn from(js: WithParents) -> Self {
         dynamic::Dynamic {
-            cmd: js.config.command,
-            args: js.arguments,
+            cmd: js.env.command,
+            args: js.val,
         }
     }
 }
 
 // FIXME while this can totally be done by converting to the dynamic carrier type, this seems more straightforward?
-impl CheckSame for JsWithParents {
+impl CheckSame for WithParents {
     type Error = JsValue;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         let this = wasm_bindgen::JsValue::NULL;
-        self.config
+        self.env
             .check_same
             .call2(
                 &this,
-                &self.arguments.clone().into(),
+                &self.val.clone().into(),
                 &Arguments::from(proof.clone()).into(),
             )
             .map(|_| ())
     }
 }
 
-impl CheckParents for JsWithParents {
-    type Parents = dynamic::Dynamic; // FIXME actually no? What if we want to plug in random stuff?
+impl CheckParents for WithParents {
+    type Parents = dynamic::Dynamic;
     type ParentError = JsValue;
 
-    fn check_parents(&self, parent: &dynamic::Dynamic) -> Result<(), Self::Error> {
-        if let Some(handler) = self.config.check_parents.get(&parent.cmd) {
+    fn check_parent(&self, parent: &dynamic::Dynamic) -> Result<(), Self::Error> {
+        if let Some(handler) = self.env.check_parent.get(&parent.cmd) {
             let this = wasm_bindgen::JsValue::NULL;
             handler
-                .call2(
-                    &this,
-                    &self.arguments.clone().into(),
-                    &parent.args.clone().into(),
-                )
-                .map(|_| ())
+                .call2(&this, &self.val.clone().into(), &parent.args.clone().into())
+                .map(|_| ()) // FIXME
         } else {
             Err(JsValue::from("No handler for parent"))
         }
@@ -142,6 +137,6 @@ impl ToCommand for Config {
     }
 }
 
-impl Checkable for JsWithParents {
-    type Hierarchy = Parentful<JsWithParents>;
+impl Checkable for WithParents {
+    type Hierarchy = Parentful<WithParents>;
 }

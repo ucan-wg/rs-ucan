@@ -1,6 +1,6 @@
 use super::{condition::traits::Condition, delegatable::Delegatable};
 use crate::{
-    ability::{arguments::Arguments, command::Command, dynamic},
+    ability::{arguments::Arguments, command::Command},
     capsule::Capsule,
     did::Did,
     invocation,
@@ -92,18 +92,19 @@ impl<T: Delegatable, C: Condition, E: meta::Entries> From<Payload<T, C, E>> for 
     }
 }
 
+// FIXME this likely should move to invocation
 impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition, E: meta::Entries>
     Payload<T, C, E>
 {
     pub fn check<U: Delegatable + Clone>(
-        invoked: &'a invocation::Payload<T>, // FIXME promisory version
+        invoked: &'a invocation::Payload<T, E>, // FIXME promisory version
         proofs: Vec<Payload<U, C, E>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
-        invocation::Payload<T>: Clone,
+        invocation::Payload<T, E>: Clone,
         U::Builder: Clone + Into<T::Hierarchy>,
-        T::Hierarchy: From<invocation::Payload<T>>,
+        T::Hierarchy: From<invocation::Payload<T, E>>,
     {
         let start: Acc<'a, T> = Acc {
             issuer: &invoked.issuer,

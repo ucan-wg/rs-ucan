@@ -14,12 +14,10 @@ impl From<Did> for String {
 }
 
 impl TryFrom<String> for Did {
-    type Error = String; // FIXME
+    type Error = <DID as TryFrom<String>>::Error;
 
     fn try_from(string: String) -> Result<Self, Self::Error> {
-        DID::parse(&string)
-            .map_err(|err| format!("Failed to parse DID: {}", err))
-            .map(Self)
+        DID::parse(&string).map(Did)
     }
 }
 
@@ -36,9 +34,12 @@ impl From<Did> for Ipld {
 }
 
 impl TryFrom<Ipld> for Did {
-    type Error = (); // FIXME
+    type Error = <Did as TryFrom<String>>::Error; // FIXME also include the "can't parse form ipld" case; seems like someythjing taht can be abstrcated out, too
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        Self::try_from(ipld)
+        match ipld {
+            Ipld::String(string) => Did::try_from(string),
+            _ => todo!(), // Err(()),
+        }
     }
 }

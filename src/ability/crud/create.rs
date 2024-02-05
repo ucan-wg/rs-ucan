@@ -56,7 +56,7 @@ impl CheckParents for Create {
     type Parents = Mutable;
     type ParentError = ();
 
-    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         if let Some(self_uri) = &self.uri {
             match other {
                 Mutable::Any(any) => {

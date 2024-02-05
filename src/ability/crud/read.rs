@@ -3,9 +3,10 @@ use crate::{
     ability::command::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use thiserror::Error;
 use url::Url;
 
 #[cfg(target_arch = "wasm32")]
@@ -22,21 +23,6 @@ pub struct Read {
     pub args: Option<BTreeMap<String, Ipld>>, // FIXME rename Argumenst to get the traits?
 }
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub struct Js(#[wasm_bindgen(skip)] pub Read);
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-impl Js {
-    // FIXME
-    pub fn check_same(&self, proof: &Js) -> Result<(), JsValue> {
-        self.0
-            .check_same(&proof.0)
-            .map_err(|err| JsValue::from_str(&format!("{:?}", err)))
-    }
-}
-
 impl Command for Read {
     const COMMAND: &'static str = "crud/read";
 }
@@ -48,11 +34,18 @@ impl From<Read> for Ipld {
 }
 
 impl TryFrom<Ipld> for Read {
-    type Error = (); // FIXME
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+        ipld_serde::from_ipld(ipld)
     }
+}
+
+// FIXME
+#[derive(Debug, Error)]
+pub enum E {
+    #[error("Some error")]
+    SomeErrMsg(String),
 }
 
 impl Checkable for Read {
@@ -60,16 +53,53 @@ impl Checkable for Read {
 }
 
 impl CheckSame for Read {
-    type Error = ();
+    type Error = E;
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        if let Some(uri) = &self.uri {
+            if uri != proof.uri.as_ref().unwrap() {
+                return Err(E::SomeErrMsg("".into()));
+            }
+        }
+
+        if let Some(args) = &self.args {
+            if let Some(proof_args) = &proof.args {
+                for (k, v) in args {
+                    if proof_args.get(k) != Some(v) {
+                        return Err(E::SomeErrMsg("".into()));
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }
 
 impl CheckParents for Read {
     type Parents = any::Builder;
-    type ParentError = ();
-    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        Ok(())
+    type ParentError = E;
+
+    fn check_parent(&self, _other: &Self::Parents) -> Result<(), Self::ParentError> {
+        Ok(()) // FIXME
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct CrudRead(#[wasm_bindgen(skip)] pub Read);
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl CrudRead {
+    pub fn command(&self) -> String {
+        Read::COMMAND.to_string()
+    }
+
+    pub fn check_same(&self, proof: &CrudRead) -> Result<(), JsError> {
+        self.0.check_same(&proof.0).map_err(Into::into)
+    }
+
+    pub fn check_parent(&self, proof: &any::CrudAny) -> Result<(), JsError> {
+        self.0.check_parent(&proof.0).map_err(Into::into)
     }
 }

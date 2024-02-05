@@ -1,8 +1,7 @@
 use crate::{
     ability::{arguments::Arguments, command::Command},
     delegation::Delegatable,
-    invocation::Resolvable,
-    promise::Promise,
+    invocation::{Promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -58,9 +57,9 @@ impl From<Promised> for Arguments {
 impl From<Promised> for Builder {
     fn from(awaiting: Promised) -> Self {
         Builder {
-            to: awaiting.to.try_extract().ok(),
-            from: awaiting.from.try_extract().ok(),
-            message: awaiting.message.try_extract().ok(),
+            to: awaiting.to.try_resolve().ok(),
+            from: awaiting.from.try_resolve().ok(),
+            message: awaiting.message.try_resolve().ok(),
         }
     }
 }
@@ -87,7 +86,7 @@ impl CheckParents for Builder {
     type ParentError = <msg::Any as CheckSame>::Error;
 
     // FIXME rename other to proof
-    fn check_parents(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
         self.from.check_same(&other.from).map_err(|_| ())
     }
 }
@@ -117,9 +116,9 @@ impl TryFrom<Promised> for Resolved {
 
     fn try_from(awaiting: Promised) -> Result<Self, ()> {
         Ok(Generic {
-            to: awaiting.to.try_extract().map_err(|_| ())?,
-            from: awaiting.from.try_extract().map_err(|_| ())?,
-            message: awaiting.message.try_extract().map_err(|_| ())?,
+            to: awaiting.to.try_resolve().map_err(|_| ())?,
+            from: awaiting.from.try_resolve().map_err(|_| ())?,
+            message: awaiting.message.try_resolve().map_err(|_| ())?,
         })
     }
 }

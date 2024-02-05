@@ -7,9 +7,6 @@ use std::fmt;
 #[cfg(not(target_arch = "wasm32"))]
 use uuid::Uuid;
 
-#[cfg(target_arch = "wasm32")]
-use web_sys;
-
 // FIXME
 pub struct Unit;
 // FIXME

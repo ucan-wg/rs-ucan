@@ -1,22 +1,10 @@
 //! This module is for dynamic abilities, especially for FFI and Wasm support
 
 use super::{arguments::Arguments, command::ToCommand};
-use crate::{
-    delegation::Delegatable,
-    invocation::Resolvable,
-    ipld,
-    promise::Promise,
-    proof::{
-        checkable::Checkable, parentful::Parentful, parentless::Parentless, parents::CheckParents,
-        same::CheckSame,
-    },
-    task::DefaultTrue,
-};
+use crate::{ipld, proof::same::CheckSame};
 use js_sys;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{
-    de::DeserializeOwned, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 use wasm_bindgen::prelude::*;
 
@@ -29,87 +17,9 @@ pub struct Dynamic {
     pub args: Arguments,
 }
 
-// NOTE plug this into Configured<T> like: Configured<Resolved<Dynamic>>
-pub struct Builder<T>(pub T);
-pub struct Promised<T>(pub T);
-
-impl<T: Into<Arguments>> From<Builder<T>> for Arguments {
-    fn from(builder: Builder<T>) -> Self {
-        builder.0.into()
-    }
-}
-
-impl<T> From<Configured<T>> for Builder<Configured<T>> {
-    fn from(configured: Configured<T>) -> Self {
-        Builder(configured)
-    }
-}
-
-impl<T: ToCommand> From<Builder<Configured<T>>> for Configured<T> {
-    fn from(builder: Builder<Configured<T>>) -> Self {
-        builder.0
-    }
-}
-
-impl<T: Into<Arguments>> From<Promised<T>> for Arguments {
-    fn from(promised: Promised<T>) -> Self {
-        promised.0.into()
-    }
-}
-
-impl<T> From<Configured<T>> for Promised<Configured<T>> {
-    fn from(configured: Configured<T>) -> Self {
-        Promised(configured)
-    }
-}
-
-impl<T: ToCommand> From<Promised<Configured<T>>> for Configured<T> {
-    fn from(promised: Promised<Configured<T>>) -> Self {
-        promised.0
-    }
-}
-
-// NOTE to self: this is helpful as a common container to lift various FFI into
-#[derive(Clone, PartialEq, Debug)]
-pub struct Configured<T> {
-    pub arguments: Arguments,
-    pub config: T,
-}
-
-impl<T: ToCommand> Delegatable for Configured<T> {
-    type Builder = Builder<Configured<T>>;
-}
-
-impl<T: ToCommand> Resolvable for Configured<T> {
-    type Promised = Promised<Configured<T>>;
-}
-
-impl<T: ToCommand> ToCommand for Configured<T> {
+impl ToCommand for Dynamic {
     fn to_command(&self) -> String {
-        self.config.to_command()
-    }
-}
-
-impl<T: CheckSame> CheckSame for Configured<T> {
-    type Error = T::Error;
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.config.check_same(&proof.config)
-    }
-}
-
-impl<T: CheckParents> CheckParents for Configured<T> {
-    type Parents = Dynamic;
-    type ParentError = T::ParentError;
-
-    fn check_parents(&self, parent: &Dynamic) -> Result<(), Self::ParentError> {
-        self.check_parents(parent)
-    }
-}
-
-impl<T> From<Configured<T>> for Arguments {
-    fn from(reader: Configured<T>) -> Self {
-        reader.arguments
+        self.cmd.clone()
     }
 }
 
@@ -117,10 +27,6 @@ impl From<Dynamic> for Arguments {
     fn from(dynamic: Dynamic) -> Self {
         dynamic.args
     }
-}
-
-impl<T: Checkable> Checkable for Configured<T> {
-    type Hierarchy = T::Hierarchy;
 }
 
 #[cfg(target_arch = "wasm32")]

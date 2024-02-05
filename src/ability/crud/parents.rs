@@ -15,7 +15,7 @@ impl CheckSame for Mutable {
         match self {
             Mutable::Mutate(mutate) => match proof {
                 Mutable::Mutate(other_mutate) => mutate.check_same(other_mutate),
-                Mutable::Any(any) => Ok(()),
+                Mutable::Any(_any) => Ok(()),
             },
             _ => Err(()),
         }

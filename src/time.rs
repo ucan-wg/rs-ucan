@@ -34,7 +34,7 @@ impl Serialize for Timestamp {
     {
         match self {
             Timestamp::Sending(js_time) => js_time.serialize(serializer),
-            Timestamp::Receiving(sys_time) => todo!(), // FIXME See comment on deserilaizer sys_time.serialize(serializer),
+            Timestamp::Receiving(_sys_time) => todo!(), // FIXME See comment on deserilaizer sys_time.serialize(serializer),
         }
     }
 }
@@ -106,6 +106,7 @@ impl<'de> Deserialize<'de> for JsTime {
 }
 
 // FIXME just lifting this from Elixir for now
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutOfRangeError {
     pub tried: SystemTime,
 }

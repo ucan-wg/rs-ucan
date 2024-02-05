@@ -64,6 +64,7 @@ extern crate alloc;
 // }
 
 pub mod ability;
+pub mod agent;
 pub mod capsule;
 pub mod delegation;
 pub mod did;
@@ -73,8 +74,8 @@ pub mod metadata;
 pub mod new_wasm;
 pub mod nonce;
 pub mod number;
-pub mod promise;
 pub mod proof;
+pub mod reader;
 pub mod receipt;
 pub mod signature;
 pub mod task;

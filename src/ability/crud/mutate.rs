@@ -48,7 +48,7 @@ impl CheckParents for MutateBuilder {
     type Parents = any::Builder;
     type ParentError = ();
 
-    fn check_parents(&self, _proof: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, _proof: &Self::Parents) -> Result<(), Self::ParentError> {
         Ok(())
     }
 }

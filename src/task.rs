@@ -21,7 +21,7 @@ pub struct Task {
     pub nonce: Option<Nonce>,
 
     pub cmd: String,
-    pub args: BTreeMap<String, Ipld>,
+    pub args: BTreeMap<String, Ipld>, // FIXME change to Arguments?
 }
 
 impl From<Task> for Id {
@@ -62,29 +62,6 @@ impl TryFrom<Ipld> for Id {
 impl From<Id> for Ipld {
     fn from(id: Id) -> Self {
         id.cid.into()
-    }
-}
-
-// FIXME move to differet module
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct DefaultTrue(pub bool);
-
-impl From<DefaultTrue> for bool {
-    fn from(def_true: DefaultTrue) -> Self {
-        def_true.0
-    }
-}
-
-impl From<bool> for DefaultTrue {
-    fn from(b: bool) -> Self {
-        DefaultTrue(b)
-    }
-}
-
-impl Default for DefaultTrue {
-    fn default() -> Self {
-        DefaultTrue(true)
     }
 }
 

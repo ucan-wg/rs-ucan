@@ -78,7 +78,7 @@ impl CheckParents for UpdateBuilder {
     type Parents = Mutable;
     type ParentError = (); // FIXME
 
-    fn check_parents(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         match proof {
             Mutable::Any(any) => self.uri.check_same(&any.uri).map_err(|_| ()),
             Mutable::Mutate(mutate) => self.uri.check_same(&mutate.uri).map_err(|_| ()),

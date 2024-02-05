@@ -56,7 +56,7 @@ where
                     .check_same(their_parents)
                     .map_err(ParentfulError::InvalidParents),
                 Parentful::This(this) => this
-                    .check_parents(their_parents)
+                    .check_parent(their_parents)
                     .map_err(ParentfulError::InvalidProofChain),
             },
             Parentful::This(that) => match self {
@@ -77,7 +77,7 @@ where
     type Parents = Parentful<T>;
     type ParentError = ParentfulError<T::Error, T::ParentError, <T::Parents as CheckSame>::Error>;
 
-    fn check_parents(&self, proof: &Parentful<T>) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, proof: &Parentful<T>) -> Result<(), Self::ParentError> {
         match proof {
             Parentful::Any => Ok(()),
             Parentful::Parents(their_parents) => match self {
@@ -86,7 +86,7 @@ where
                     .check_same(their_parents)
                     .map_err(ParentfulError::InvalidParents),
                 Parentful::This(this) => this
-                    .check_parents(their_parents)
+                    .check_parent(their_parents)
                     .map_err(ParentfulError::InvalidProofChain),
             },
             Parentful::This(that) => match self {
@@ -119,7 +119,7 @@ where
                     Ok(()) => Outcome::Proven,
                     Err(e) => Outcome::InvalidParents(e),
                 },
-                Parentful::This(this) => match this.check_parents(their_parents) {
+                Parentful::This(this) => match this.check_parent(their_parents) {
                     Ok(()) => Outcome::Proven,
                     Err(e) => Outcome::InvalidProofChain(e),
                 },

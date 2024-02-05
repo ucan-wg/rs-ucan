@@ -33,7 +33,7 @@ impl CheckParents for Receive {
     type Parents = msg::Any;
     type ParentError = <msg::Any as CheckSame>::Error;
 
-    fn check_parents(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         self.from.check_same(&proof.from).map_err(|_| ())
     }
 }
