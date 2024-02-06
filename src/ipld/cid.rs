@@ -1,3 +1,5 @@
+//! Utilities for [`Cid`]s
+
 use libipld_core::cid::Cid;
 
 #[cfg(target_arch = "wasm32")]
@@ -6,7 +8,9 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_derive::TryFromJsValue;
 
-// FIXME better name
+/// A newtype wrapper around a [`Cid`]
+///
+/// This is largely to attach traits to [`Cid`]s, such as [`wasm_bindgen`] conversions.
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(target_arch = "wasm32", derive(TryFromJsValue))]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -28,10 +32,12 @@ extern "C" {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl Newtype {
+    /// Parse a [`Newtype`] from a string
     pub fn from_string(cid_string: String) -> Result<Newtype, JsValue> {
         Newtype::try_from(cid_string).map_err(|e| JsValue::from_str(&format!("{}", e)))
     }
 
+    /// Convert the [`Cid`] to a string
     pub fn to_string(&self) -> String {
         self.cid.to_string()
     }

@@ -1,4 +1,4 @@
-//! JavaScript interafce for abilities that *do not* require a parent hierarchy
+//! JavaScript interface for abilities that *do not* require a parent hierarchy
 
 use crate::{
     ability::{arguments, command::ToCommand, dynamic},

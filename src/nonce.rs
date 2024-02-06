@@ -4,11 +4,12 @@ use libipld_core::{ipld::Ipld, multibase::Base::Base32HexLower};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 #[cfg(not(target_arch = "wasm32"))]
 use uuid::Uuid;
 
-// FIXME
-pub struct Unit;
 // FIXME
 pub struct Error<T>(T);
 
@@ -23,16 +24,20 @@ pub enum Nonce {
     Custom(Vec<u8>),
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 impl Nonce {
-    // pub fn new() -> Self {
-    //     Self::generate_96()
+    // FIXME this is probably _tooo_ different from the non-wasm one
+    // Perhaps worth one to ingest nonces via JSValues.
+    // #[cfg(target_arch = "wasm32")]
+    // pub fn generate_wasm_96(info: &mut [u8], crypto: web_sys::Crypto) -> Result<Self, JsError> {
+    //     let buf = &mut [];
+    //     web_sys::Crypto::get_random_values_with_u8_array(&crypto, buf) // `Result<Object, JsValue>`
     // }
+}
 
-    //     #[cfg(target_arch = "wasm32")]
-    //     pub fn gen_wasm_96() -> Self {
-    //         web_sys::Crypto::get_random_values_with_u8_array()
-    //     }
-
+#[cfg(not(target_arch = "wasm32"))]
+impl Nonce {
     /// Default generator, outputting an [`xid`] nonce,
     /// which is a 96-bit (12-byte) nonce.
     #[cfg(not(target_arch = "wasm32"))]

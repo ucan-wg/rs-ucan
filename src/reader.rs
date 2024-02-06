@@ -1,3 +1,5 @@
+//! Configure & attach an ambient environment to a value
+
 use crate::{
     ability::{arguments, command::ToCommand},
     delegation::Delegatable,
