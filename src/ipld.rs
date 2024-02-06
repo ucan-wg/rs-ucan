@@ -3,7 +3,6 @@
 pub mod cid;
 
 use libipld_core::ipld::Ipld;
-use std::fmt;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -23,7 +22,7 @@ use js_sys::{Array, Map, Object, Uint8Array};
 /// let wrapped = ipld::Newtype(ipld.clone());
 /// // wrapped.some_trait_method();
 /// ```
-// /
+///
 /// Unwrap a [`Newtype`] to use any interfaces that expect plain [`Ipld`].
 ///
 /// ```
@@ -37,13 +36,6 @@ use js_sys::{Array, Map, Object, Uint8Array};
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Newtype(pub Ipld);
-
-// FIXME
-// impl fmt::Display for Newtype {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", String::from(self.0))
-//     }
-// }
 
 impl From<Ipld> for Newtype {
     fn from(ipld: Ipld) -> Self {

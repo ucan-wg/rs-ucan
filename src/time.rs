@@ -1,8 +1,13 @@
 //! Time utilities
 
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
+use thiserror::Error;
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 /// Get the current time in seconds since UNIX_EPOCH
 pub fn now() -> u64 {
@@ -12,19 +17,17 @@ pub fn now() -> u64 {
         .as_secs()
 }
 
+/// All timestamps that this library can handle
+///
+/// Strictly speaking, UCAN only supports [`JsTime`] for JavaScript interoperability.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Timestamp {
-    // FIXME probably overkill, but overflows are bad. Need to check on ingestion, too
-    // Per the spec, timestamps MUST respect [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754)
-    // (64-bit double precision = 53-bit truncated integer) for JavaScript interoperability.
-    //
-    // This range can represent millions of years into the future,
-    // and is thus sufficient for nearly all use cases.
-    Sending(JsTime),
+    /// An entry for [`JsTime`], which is compatible with JavaScript's 2⁵³ numberic range
+    JsSafe(JsTime),
 
     /// Following [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle),
-    /// received timestamps may be parsed as regular [SystemTime]
-    Receiving(SystemTime),
+    /// received timestamps may be parsed as regular [`SystemTime`]
+    Postel(SystemTime),
 }
 
 impl Serialize for Timestamp {
@@ -33,8 +36,8 @@ impl Serialize for Timestamp {
         S: Serializer,
     {
         match self {
-            Timestamp::Sending(js_time) => js_time.serialize(serializer),
-            Timestamp::Receiving(_sys_time) => todo!(), // FIXME See comment on deserilaizer sys_time.serialize(serializer),
+            Timestamp::JsSafe(js_time) => js_time.serialize(serializer),
+            Timestamp::Postel(_sys_time) => todo!(), // FIXME See comment on deserilaizer sys_time.serialize(serializer),
         }
     }
 }
@@ -45,7 +48,7 @@ impl<'de> Deserialize<'de> for Timestamp {
         D: Deserializer<'de>,
     {
         if let Ok(js_time) = JsTime::deserialize(deserializer) {
-            return Ok(Timestamp::Sending(js_time));
+            return Ok(Timestamp::JsSafe(js_time));
         }
 
         todo!()
@@ -56,8 +59,8 @@ impl<'de> Deserialize<'de> for Timestamp {
 impl From<Timestamp> for SystemTime {
     fn from(timestamp: Timestamp) -> Self {
         match timestamp {
-            Timestamp::Sending(js_time) => js_time.time,
-            Timestamp::Receiving(sys_time) => sys_time,
+            Timestamp::JsSafe(js_time) => js_time.time,
+            Timestamp::Postel(sys_time) => sys_time,
         }
     }
 }
@@ -69,16 +72,71 @@ impl From<Timestamp> for Ipld {
 }
 
 impl TryFrom<Ipld> for Timestamp {
-    type Error = (); // FIXME
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+        ipld_serde::from_ipld(ipld)
     }
 }
 
+/// Per the UCAN spec, timestamps MUST respect [IEEE-754]
+/// (64-bit double precision = 53-bit truncated integer) for JavaScript interoperability.
+///
+/// This range can represent millions of years into the future,
+/// and is thus sufficient for "nearly" all auth use cases.
+///
+/// [IEEE-754]: https://en.wikipedia.org/wiki/IEEE_754
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct JsTime {
     time: SystemTime,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl JsTime {
+    /// Lift a [`js_sys::Date`] into a Rust [`JsTime`]
+    pub fn from_date(date_time: js_sys::Date) -> Result<JsTime, JsError> {
+        let millis = date_time.get_time() as u64;
+        let secs: u64 = (millis / 1000) as u64;
+        let duration = Duration::new(secs, 0); // Just round off the nanos
+        JsTime::new(UNIX_EPOCH + duration).map_err(Into::into)
+    }
+
+    /// Lower the [`JsTime`] to a [`js_sys::Date`]
+    pub fn to_date(&self) -> js_sys::Date {
+        js_sys::Date::new(&JsValue::from(
+            self.time
+                .duration_since(UNIX_EPOCH)
+                .expect("time should be in range since it's getting a JS Date")
+                .as_millis(),
+        ))
+    }
+}
+
+impl JsTime {
+    /// Create a [`JsTime`] from a [`SystemTime`]
+    ///
+    /// # Errors
+    ///
+    /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
+    pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
+        if time.duration_since(UNIX_EPOCH).expect("FIXME").as_secs() > 0x1FFFFFFFFFFFFF {
+            Err(OutOfRangeError { tried: time })
+        } else {
+            Ok(JsTime { time })
+        }
+    }
+}
+
+impl From<JsTime> for Ipld {
+    fn from(js_time: JsTime) -> Self {
+        js_time
+            .time
+            .duration_since(UNIX_EPOCH)
+            .expect("FIXME")
+            .as_secs()
+            .into()
+    }
 }
 
 impl Serialize for JsTime {
@@ -105,34 +163,15 @@ impl<'de> Deserialize<'de> for JsTime {
     }
 }
 
-// FIXME just lifting this from Elixir for now
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// An error expressing when a time is larger than 2^53 seconds past the Unix epoch
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub struct OutOfRangeError {
+    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2^53)
     pub tried: SystemTime,
 }
 
-impl JsTime {
-    /// Create a [`JsTime`] from a [`SystemTime`]
-    ///
-    /// # Errors
-    ///
-    /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
-    pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
-        if time.duration_since(UNIX_EPOCH).expect("FIXME").as_secs() > 0x1FFFFFFFFFFFFF {
-            Err(OutOfRangeError { tried: time })
-        } else {
-            Ok(JsTime { time })
-        }
-    }
-}
-
-impl From<JsTime> for Ipld {
-    fn from(js_time: JsTime) -> Self {
-        js_time
-            .time
-            .duration_since(UNIX_EPOCH)
-            .expect("FIXME")
-            .as_secs()
-            .into()
+impl fmt::Display for OutOfRangeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "time out of JsTime (2^53) range: {:?}", self.tried)
     }
 }
