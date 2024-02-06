@@ -1,6 +1,9 @@
-use libipld_core::ipld::Ipld;
+//! Helpers for working with [`Ipld`]
 
 pub mod cid;
+
+use libipld_core::ipld::Ipld;
+use std::fmt;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -8,7 +11,39 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Map, Object, Uint8Array};
 
+/// A wrapper around [`Ipld`] that has additional trait implementations
+///
+/// Usage is very simple: wrap a [`Newtype`] to gain access to additional traits and methods.
+///
+/// ```rust
+/// # use libipld_core::ipld::Ipld;
+/// # use ucan::ipld;
+/// #
+/// let ipld = Ipld::String("hello".into());
+/// let wrapped = ipld::Newtype(ipld.clone());
+/// // wrapped.some_trait_method();
+/// ```
+// /
+/// Unwrap a [`Newtype`] to use any interfaces that expect plain [`Ipld`].
+///
+/// ```
+/// # use libipld_core::ipld::Ipld;
+/// # use ucan::ipld;
+/// #
+/// # let ipld = Ipld::String("hello".into());
+/// # let wrapped = ipld::Newtype(ipld.clone());
+/// #
+/// assert_eq!(wrapped.0, ipld);
+/// ```
+#[derive(Debug, Clone, PartialEq)]
 pub struct Newtype(pub Ipld);
+
+// FIXME
+// impl fmt::Display for Newtype {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "{}", String::from(self.0))
+//     }
+// }
 
 impl From<Ipld> for Newtype {
     fn from(ipld: Ipld) -> Self {
@@ -19,6 +54,19 @@ impl From<Ipld> for Newtype {
 impl From<Newtype> for Ipld {
     fn from(wrapped: Newtype) -> Self {
         wrapped.0
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Newtype {
+    pub fn try_into_jsvalue<T: TryFrom<Ipld>>(js_val: JsValue) -> Result<T, JsError>
+    where
+        JsError: From<<T as TryFrom<Ipld>>::Error>,
+    {
+        match Newtype::try_from(js_val) {
+            Err(_err) => Err(JsError::new("can't convert")), // FIXME
+            Ok(nt) => nt.0.try_into().map_err(JsError::from),
+        }
     }
 }
 

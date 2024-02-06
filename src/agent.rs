@@ -19,7 +19,7 @@ impl<S> Agent<S> {
     //      signature::Envelope::new(payload, signature)
     //  }
 
-    pub fn invoke<T: Delegatable + CheckParents, C: Condition, E: meta::Entries>(
+    pub fn invoke<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
         &self,
         delegation: Delegation<T, C, E>,
         proof_chain: Vec<Delegation<T::Parents, C, E>>, // FIXME T must also accept Self and *
@@ -34,7 +34,7 @@ impl<S> Agent<S> {
         todo!()
     }
 
-    pub fn revoke<T: Delegatable + CheckParents, C: Condition, E: meta::Entries>(
+    pub fn revoke<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
         &self,
         delegation: Delegation<T, C, E>,
     ) -> ()
@@ -44,14 +44,14 @@ impl<S> Agent<S> {
         todo!()
     }
 
-    pub fn receive_delegation<T: Delegatable + CheckParents, C: Condition, E: meta::Entries>(
+    pub fn receive_delegation<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
         &self,
         delegation: Delegation<T, C, E>,
     ) -> () {
         todo!()
     }
 
-    pub fn receive_invocation<T, E: meta::Entries>(&self, invocation: Invocation<T, E>) -> () {
+    pub fn receive_invocation<T, E: meta::MultiKeyed>(&self, invocation: Invocation<T, E>) -> () {
         todo!()
     }
 

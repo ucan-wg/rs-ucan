@@ -1,16 +1,18 @@
 use super::any;
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use thiserror::Error;
 use url::Url;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use crate::ipld;
 
 // Read is its own builder
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -20,7 +22,7 @@ pub struct Read {
     pub uri: Option<Url>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<BTreeMap<String, Ipld>>, // FIXME rename Argumenst to get the traits?
+    pub args: Option<arguments::Named>,
 }
 
 impl Command for Read {
@@ -63,7 +65,7 @@ impl CheckSame for Read {
 
         if let Some(args) = &self.args {
             if let Some(proof_args) = &proof.args {
-                for (k, v) in args {
+                for (k, v) in args.iter() {
                     if proof_args.get(k) != Some(v) {
                         return Err(E::SomeErrMsg("".into()));
                     }
@@ -91,6 +93,14 @@ pub struct CrudRead(#[wasm_bindgen(skip)] pub Read);
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl CrudRead {
+    pub fn to_jsvalue(self) -> JsValue {
+        ipld::Newtype(Ipld::from(self.0)).into()
+    }
+
+    pub fn from_jsvalue(js_val: JsValue) -> Result<CrudRead, JsError> {
+        ipld::Newtype::try_into_jsvalue(js_val).map(CrudRead)
+    }
+
     pub fn command(&self) -> String {
         Read::COMMAND.to_string()
     }

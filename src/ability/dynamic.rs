@@ -1,6 +1,6 @@
 //! This module is for dynamic abilities, especially for FFI and Wasm support
 
-use super::{arguments::Arguments, command::ToCommand};
+use super::{arguments, command::ToCommand};
 use crate::{ipld, proof::same::CheckSame};
 use js_sys;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)] // FIXME serialize / deserilaize?
 pub struct Dynamic {
     pub cmd: String,
-    pub args: Arguments,
+    pub args: arguments::Named,
 }
 
 impl ToCommand for Dynamic {
@@ -23,7 +23,7 @@ impl ToCommand for Dynamic {
     }
 }
 
-impl From<Dynamic> for Arguments {
+impl From<Dynamic> for arguments::Named {
     fn from(dynamic: Dynamic) -> Self {
         dynamic.args
     }
@@ -68,7 +68,7 @@ impl TryFrom<js_sys::Map> for Dynamic {
 
             Ok(Dynamic {
                 cmd,
-                args: Arguments(btree), // FIXME kill clone
+                args: arguments::Named(btree), // FIXME kill clone
             })
         } else {
             Err(JsValue::NULL) // FIXME
@@ -87,10 +87,10 @@ impl CheckSame for Dynamic {
         self.args.0.iter().try_for_each(|(k, v)| {
             if let Some(proof_v) = proof.args.0.get(k) {
                 if v != proof_v {
-                    return Err("Arguments mismatch".into());
+                    return Err("arguments::Named mismatch".into());
                 }
             } else {
-                return Err("Arguments mismatch".into());
+                return Err("arguments::Named mismatch".into());
             }
 
             Ok(())

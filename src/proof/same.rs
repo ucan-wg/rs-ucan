@@ -1,5 +1,10 @@
 use crate::did::Did;
+use core::fmt;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 pub trait CheckSame {
     type Error;
@@ -11,16 +16,39 @@ pub trait CheckSame {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Unequal;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OpionalFieldErr<T> {
-    pub field: T, // Enum of fields
-    pub err: OptionalFieldErr,
+// FIXME move under error.rs
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter_with_clone))]
+pub struct OptionalFieldErr {
+    pub field: String,
+    pub err: OptionalFieldReason,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OptionalFieldErr {
+impl fmt::Display for OptionalFieldErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Field {} is {}", self.field, self.err)
+    }
+}
+
+// FIXME at minimum the name is confusing
+#[derive(Copy, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub enum OptionalFieldReason {
     MissingField,
     UnequalValue,
+}
+
+impl fmt::Display for OptionalFieldReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                OptionalFieldReason::MissingField => "missing",
+                OptionalFieldReason::UnequalValue => "unequal",
+            }
+        )
+    }
 }
 
 impl CheckSame for Did {
@@ -36,18 +64,18 @@ impl CheckSame for Did {
 }
 
 impl<T: PartialEq> CheckSame for Option<T> {
-    type Error = OptionalFieldErr;
+    type Error = OptionalFieldReason;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         match proof {
             None => Ok(()),
             Some(proof_) => match self {
-                None => Err(OptionalFieldErr::MissingField),
+                None => Err(OptionalFieldReason::MissingField),
                 Some(self_) => {
                     if self_.eq(proof_) {
                         Ok(())
                     } else {
-                        Err(OptionalFieldErr::UnequalValue)
+                        Err(OptionalFieldReason::UnequalValue)
                     }
                 }
             },

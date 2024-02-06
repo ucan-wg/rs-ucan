@@ -1,5 +1,7 @@
+//! The ability to send messages
+
 use crate::{
-    ability::{arguments::Arguments, command::Command},
+    ability::{arguments, command::Command},
     delegation::Delegatable,
     invocation::{Promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
@@ -14,13 +16,105 @@ use super::any as msg;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Generic<To, From, Message> {
+    /// The recipient of the message
     pub to: To,
+
+    /// The sender address of the message
+    ///
+    /// This *may* be a URL (such as an email address).
+    /// If provided, the `subject` must have the right to send from this address.
     pub from: From,
+
+    /// The main body of the message
     pub message: Message,
 }
 
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// The executable/dispatchable variant of the `msg/send` ability.
+///
+/// # Lifecycle
+///
+/// The hierarchy of message abilities is as follows:
+///
+/// ```mermaid
+/// flowchart LR
+///     subgraph Delegations
+///       top("*")
+///
+///       any("msg/*")
+///
+///       subgraph Invokable
+///         send("msg/send")
+///       end
+///     end
+///
+///     sendpromise("msg::send::Promised")
+///     sendrun("msg::send::Resolved")
+///
+///     top --> any
+///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
+///
+///     style sendrun stroke:orange;
+/// ```
 pub type Resolved = Generic<Url, Url, String>;
+
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// The delegatable variant of the `msg/send` ability.
+///
+/// # Delegation Hierarchy
+///
+/// The hierarchy of message abilities is as follows:
+///
+/// ```mermaid
+/// flowchart LR
+///     top("*")
+///
+///     subgraph Message Abilities
+///       any("msg/*")
+///
+///       subgraph Invokable
+///         send("msg/send")
+///       end
+///     end
+///
+///     sendrun{{"invoke"}}
+///
+///     top --> any
+///     any --> send -.-> sendrun
+///
+///     style send stroke:orange;
+/// ```
 pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
+
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// The invoked variant of the `msg/send` ability
+///
+/// This variant may be linked to other invoked abilities by [`Promise`][crate::invocation::Promise]s.
+///
+/// # Lifecycle
+///
+/// The hierarchy of message abilities is as follows:
+///
+/// ```mermaid
+/// flowchart LR
+///     subgraph Delegations
+///       top("*")
+///
+///       any("msg/*")
+///
+///       subgraph Invokable
+///         send("msg/send")
+///       end
+///     end
+///
+///     sendpromise("msg::send::Promised")
+///     sendrun("msg::send::Resolved")
+///
+///     top --> any
+///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
+///
+///     style sendpromise stroke:orange;
+/// ```
 pub type Promised = Generic<Promise<Url>, Promise<Url>, Promise<String>>;
 
 impl Delegatable for Resolved {
@@ -31,7 +125,7 @@ impl Resolvable for Resolved {
     type Promised = Promised;
 }
 
-impl From<Builder> for Arguments {
+impl From<Builder> for arguments::Named {
     fn from(b: Builder) -> Self {
         let mut btree = BTreeMap::new();
         b.to.map(|to| btree.insert("to".into(), to.to_string().into()));
@@ -40,13 +134,13 @@ impl From<Builder> for Arguments {
         b.message
             .map(|msg| btree.insert("message".into(), msg.into()));
 
-        Arguments(btree)
+        arguments::Named(btree)
     }
 }
 
-impl From<Promised> for Arguments {
+impl From<Promised> for arguments::Named {
     fn from(promised: Promised) -> Self {
-        Arguments(BTreeMap::from_iter([
+        arguments::Named(BTreeMap::from_iter([
             ("to".into(), promised.to.map(String::from).into()),
             ("from".into(), promised.from.map(String::from).into()),
             ("message".into(), promised.message.into()),

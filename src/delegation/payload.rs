@@ -1,12 +1,13 @@
 use super::{condition::traits::Condition, delegatable::Delegatable};
 use crate::{
-    ability::{arguments::Arguments, command::Command},
+    ability::{arguments, command::Command},
     capsule::Capsule,
     did::Did,
     invocation,
     invocation::Resolvable,
     metadata as meta,
-    metadata::{Mergable, Metadata},
+    metadata::Metadata,
+    // metadata::{Mergable, Metadata},
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -21,7 +22,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Delegatable, C: Condition, E: meta::Entries> {
+pub struct Payload<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Did,
@@ -36,11 +37,11 @@ pub struct Payload<T: Delegatable, C: Condition, E: meta::Entries> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition, E: meta::Entries> Capsule for Payload<T, C, E> {
+impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> Capsule for Payload<T, C, E> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: Delegatable, C: Condition + Serialize, E: meta::Entries> Serialize for Payload<T, C, E>
+impl<T: Delegatable, C: Condition + Serialize, E: meta::MultiKeyed> Serialize for Payload<T, C, E>
 where
     InternalSerializer: From<Payload<T, C, E>>,
     Payload<T, C, E>: Clone,
@@ -54,7 +55,7 @@ where
     }
 }
 
-impl<'de, T: Delegatable, C: Condition + DeserializeOwned, E: meta::Entries> Deserialize<'de>
+impl<'de, T: Delegatable, C: Condition + DeserializeOwned, E: meta::MultiKeyed> Deserialize<'de>
     for Payload<T, C, E>
 where
     Payload<T, C, E>: TryFrom<InternalSerializer>,
@@ -73,7 +74,7 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned, M: meta::Entries> TryFrom<Ipld>
+impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned, M: meta::MultiKeyed> TryFrom<Ipld>
     for Payload<T, C, M>
 where
     Payload<T, C, M>: TryFrom<InternalSerializer>,
@@ -86,14 +87,14 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition, E: meta::Entries> From<Payload<T, C, E>> for Ipld {
+impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> From<Payload<T, C, E>> for Ipld {
     fn from(payload: Payload<T, C, E>) -> Self {
         payload.into()
     }
 }
 
 // FIXME this likely should move to invocation
-impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition, E: meta::Entries>
+impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition, E: meta::MultiKeyed>
     Payload<T, C, E>
 {
     pub fn check<U: Delegatable + Clone>(
@@ -154,7 +155,7 @@ struct Acc<'a, T: Checkable> {
 }
 
 // FIXME this should move to Delegatable
-fn step<'a, T: Checkable, U: Delegatable, C: Condition, E: meta::Entries>(
+fn step<'a, T: Checkable, U: Delegatable, C: Condition, E: meta::MultiKeyed>(
     prev: &Acc<'a, T>,
     proof: &Payload<U, C, E>,
     invoked_ipld: &Ipld,
@@ -226,7 +227,7 @@ struct InternalSerializer {
     #[serde(rename = "cmd")]
     command: String,
     #[serde(rename = "args")]
-    arguments: Arguments,
+    arguments: arguments::Named,
     #[serde(rename = "cond")]
     conditions: Vec<Ipld>,
 
@@ -241,11 +242,11 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Delegatable + Command, C: Condition + Into<Ipld>, E: meta::Entries + Clone>
+impl<T: Delegatable + Command, C: Condition + Into<Ipld>, E: meta::MultiKeyed>
     From<Payload<T, C, E>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Builder>,
-    Metadata<E>: Mergable,
+    Ipld: From<E>,
 {
     fn from(payload: Payload<T, C, E>) -> Self {
         InternalSerializer {
@@ -257,7 +258,7 @@ where
             arguments: payload.ability_builder.into(),
             conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
 
-            metadata: payload.metadata.merge(),
+            metadata: payload.metadata.into(),
             nonce: payload.nonce,
 
             not_before: payload.not_before,
@@ -275,7 +276,7 @@ impl TryFrom<Ipld> for InternalSerializer {
 }
 
 // FIXME
-// impl<C: Condition + TryFrom<Ipld>, E: meta::Entries + Clone> TryFrom<InternalSerializer>
+// impl<C: Condition + TryFrom<Ipld>, E: meta::MultiKeyed + Clone> TryFrom<InternalSerializer>
 //     for Payload<dynamic::Dynamic<F>, C, E>
 // {
 //     type Error = (); // FIXME
@@ -310,7 +311,7 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 //
-// impl<C: Condition + Into<Ipld>, E: meta::Entries + Clone, F>
+// impl<C: Condition + Into<Ipld>, E: meta::MultiKeyed + Clone, F>
 //     From<Payload<dynamic::Dynamic<F>, C, E>> for InternalSerializer
 // where
 //     Metadata<E>: Mergable,

@@ -291,7 +291,7 @@
               name = "test:docs";
               help = "Run Cargo doctests";
               category = "test";
-              command = "${cargo} test --doc";
+              command = "${cargo} test --doc --features=mermaid_docs";
             }
             # Docs
             {

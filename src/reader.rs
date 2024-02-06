@@ -1,5 +1,5 @@
 use crate::{
-    ability::{arguments::Arguments, command::ToCommand},
+    ability::{arguments, command::ToCommand},
     delegation::Delegatable,
     invocation::Resolvable,
     proof::{checkable::Checkable, same::CheckSame},
@@ -13,7 +13,7 @@ pub struct Reader<Env, T> {
     pub val: T,
 }
 
-impl<Env, T: Into<Arguments>> From<Reader<Env, T>> for Arguments {
+impl<Env, T: Into<arguments::Named>> From<Reader<Env, T>> for arguments::Named {
     fn from(reader: Reader<Env, T>) -> Self {
         reader.val.into()
     }
@@ -26,13 +26,13 @@ pub struct Builder<T>(pub T);
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Promised<T>(pub T);
 
-impl<T: Into<Arguments>> From<Builder<T>> for Arguments {
+impl<T: Into<arguments::Named>> From<Builder<T>> for arguments::Named {
     fn from(builder: Builder<T>) -> Self {
         builder.0.into()
     }
 }
 
-impl<T: Into<Arguments>> From<Promised<T>> for Arguments {
+impl<T: Into<arguments::Named>> From<Promised<T>> for arguments::Named {
     fn from(promised: Promised<T>) -> Self {
         promised.0.into()
     }
@@ -97,11 +97,11 @@ impl<Env, T: ToCommand> From<Reader<Env, Promised<T>>> for Reader<Env, T> {
     }
 }
 
-impl<Env, T: ToCommand + Into<Arguments>> Delegatable for Reader<Env, T> {
+impl<Env, T: ToCommand + Into<arguments::Named>> Delegatable for Reader<Env, T> {
     type Builder = Reader<Env, Builder<T>>;
 }
 
-impl<Env, T: ToCommand + Into<Arguments>> Resolvable for Reader<Env, T> {
+impl<Env, T: ToCommand + Into<arguments::Named>> Resolvable for Reader<Env, T> {
     type Promised = Reader<Env, Promised<T>>;
 }
 

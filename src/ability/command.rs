@@ -1,4 +1,51 @@
+//! Ability command utilities
+//!
+//! Commands are the `cmd` field of a UCAN, and set the shape of the `args` field.
+//!
+//! ```js
+//! // Here is a UCAN payload:
+//! {
+//!   "iss": "did:example:123",
+//!   "aud": "did:example:456",
+//!   "cmd": "msg/send", // <--- This is the command
+//!   "args": {                           // ┐
+//!     "to": "mailto:alice@example.com", // ├─ These are determined by the command
+//!     "message": "Hello, World!",       // │
+//!   }                                   // ┘
+//!   "exp": 1234567890
+//! }
+//! ```
+
+/// Attach a `cmd` field to a type
+///
+/// Commands are the `cmd` field of a UCAN, and set the shape of the `args` field.
+/// The `COMMAND` attaches this to types so that they can be serialized appropriately.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ucan::ability::command::Command;
+/// #
+/// struct Upload {
+///    pub gb_quota: u64,
+///    pub mime_types: Vec<String>,
+/// }
+///
+/// impl Command for Upload {
+///    const COMMAND: &'static str = "storage/upload";
+/// }
+///
+/// assert_eq!(Upload::COMMAND, "storage/upload");
+/// ```
 pub trait Command {
+    /// The value that will be placed in the UCAN's `cmd` field for the given type
+    ///
+    /// This is a `const` because it *must not*[^dynamic] depend on the runtime values of a type
+    /// in order to ensure type safety.
+    ///
+    /// [^dynamic]: <small>Note that if the `dynamic` feature is enabled, the exception is
+    /// a special ability called [`Dynamic`][super::dynamic::Dynamic] (for e.g. JS FFI)
+    /// that uses a non-exported code path separate from the [`Command`] trait.</small>
     const COMMAND: &'static str;
 }
 

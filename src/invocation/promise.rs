@@ -1,4 +1,4 @@
-use crate::ability::arguments::Arguments;
+use crate::ability::arguments;
 use libipld_core::{cid::Cid, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -90,7 +90,7 @@ impl<T> Promise<T> {
     }
 }
 
-impl<T: Into<Arguments>> From<Promise<T>> for Arguments {
+impl<T: Into<arguments::Named>> From<Promise<T>> for arguments::Named {
     fn from(promise: Promise<T>) -> Self {
         match promise {
             Promise::Fulfilled(t) => t.into(),
@@ -158,7 +158,7 @@ impl TryFrom<Ipld> for Selector {
     }
 }
 
-impl From<Selector> for Arguments {
+impl From<Selector> for arguments::Named {
     fn from(selector: Selector) -> Self {
         let mut btree = BTreeMap::new();
 
@@ -174,6 +174,6 @@ impl From<Selector> for Arguments {
             }
         }
 
-        Arguments(btree)
+        arguments::Named(btree)
     }
 }

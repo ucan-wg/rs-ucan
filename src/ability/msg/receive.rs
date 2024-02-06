@@ -1,3 +1,5 @@
+//! The ability to receive messages
+
 use crate::{
     ability::command::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
@@ -8,9 +10,39 @@ use url::Url;
 
 use super::any as msg;
 
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// The ability to receive messages
+///
+/// This ability is used to receive messages from other actors.
+///
+/// # Delegation Hierarchy
+///
+/// The hierarchy of message abilities is as follows:
+///
+/// ```mermaid
+/// flowchart TB
+///     top("*")
+///
+///     subgraph Message Abilities
+///       any("msg/*")
+///
+///       subgraph Invokable
+///         rec("msg/receive")
+///       end
+///     end
+///
+///     recrun{{"invoke"}}
+///
+///     top --> any
+///     any --> rec -.-> recrun
+///
+///     style rec stroke:orange;
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Receive {
+    /// An *optional* URL (e.g. email, DID, socket) to receive messages from.
+    /// This assumes that the `subject` has the authority to issue such a capability.
     pub from: Option<Url>,
 }
 

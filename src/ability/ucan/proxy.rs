@@ -1,5 +1,5 @@
 use crate::{
-    ability::{arguments::Arguments, command::Command},
+    ability::{arguments, command::Command},
     delegation::Delegatable,
     invocation::Promise,
 };
@@ -18,9 +18,9 @@ pub struct Generic<Args> {
                     // FIXME should args just be a CID
 }
 
-pub type Resolved = Generic<Arguments>;
-pub type Builder = Generic<Option<Arguments>>;
-pub type Promised = Generic<Promise<Arguments>>;
+pub type Resolved = Generic<arguments::Named>;
+pub type Builder = Generic<Option<arguments::Named>>;
+pub type Promised = Generic<Promise<arguments::Named>>;
 
 impl<Args> Command for Generic<Args> {
     const COMMAND: &'static str = "ucan/proxy";
@@ -50,8 +50,8 @@ impl TryFrom<Builder> for Resolved {
     }
 }
 
-impl From<Builder> for Arguments {
-    fn from(b: Builder) -> Arguments {
+impl From<Builder> for arguments::Named {
+    fn from(b: Builder) -> arguments::Named {
         let mut args = b.args.unwrap_or_default();
         args.insert("cmd".into(), Ipld::String(b.cmd));
         args

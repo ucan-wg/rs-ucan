@@ -22,7 +22,7 @@ use crate::{metadata as meta, signature};
 pub type Delegation<T, C, E> = signature::Envelope<Payload<T, C, E>>;
 
 // FIXME
-impl<T: Delegatable, C: Condition, E: meta::Entries> Delegation<T, C, E> {
+impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> Delegation<T, C, E> {
     // FIXME include cache
     //pub fn check<S: IndexedStore<T, C, E>>(&self, store: &S) -> Result<(), ()> {
     //    if let Ok(is_valid) = store.previously_checked(self) {

@@ -2,7 +2,7 @@ use super::{Receipt, Responds};
 use crate::{metadata, task};
 use libipld_core::ipld::Ipld;
 
-pub trait Store<T: Responds, E: metadata::Entries> {
+pub trait Store<T: Responds, E: metadata::MultiKeyed> {
     type Error;
 
     fn get(id: task::Id) -> Result<Receipt<T, E>, Self::Error>

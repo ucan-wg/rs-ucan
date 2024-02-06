@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use web_time::SystemTime;
 
 // NOTE can already look up by CID in other traits
-pub trait IndexedStore<T: Delegatable, C: Condition, E: meta::Entries> {
+pub trait IndexedStore<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
     type Error;
 
     fn get_by(query: Query) -> Result<HashMap<Cid, Delegation<T, C, E>>, Self::Error>;

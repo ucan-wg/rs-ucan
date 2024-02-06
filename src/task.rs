@@ -21,7 +21,7 @@ pub struct Task {
     pub nonce: Option<Nonce>,
 
     pub cmd: String,
-    pub args: BTreeMap<String, Ipld>, // FIXME change to Arguments?
+    pub args: BTreeMap<String, Ipld>, // FIXME change to Named?
 }
 
 impl From<Task> for Id {
