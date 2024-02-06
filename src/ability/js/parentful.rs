@@ -20,9 +20,14 @@ type WithParents = Reader<ParentfulConfig, arguments::Named>;
 #[wasm_bindgen(getter_with_clone)]
 pub struct ParentfulConfig {
     pub command: String,
+
+    #[wasm_bindgen(js_name = isNonceMeaningful)]
     pub is_nonce_meaningful: bool,
 
+    #[wasm_bindgen(js_name = validateShape)]
     pub validate_shape: Function,
+
+    #[wasm_bindgen(js_name = checkSame)]
     pub check_same: Function,
 
     #[wasm_bindgen(skip)]

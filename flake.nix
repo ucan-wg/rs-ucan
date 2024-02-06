@@ -256,6 +256,18 @@
               category = "watch";
               command = "${cargo} watch --clear --exec test";
             }
+            {
+              name = "watch:test:wasm";
+              help = "Run all tests on save";
+              category = "watch";
+              command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown'";
+            }
+            {
+              name = "watch:test:docs:wasm";
+              help = "Run all tests on save";
+              category = "watch";
+              command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown'";
+            }
             # Test
             {
               name = "test:all";

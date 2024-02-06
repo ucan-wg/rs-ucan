@@ -1,64 +1,97 @@
-// use crate::{Error, Unit};
+//! Nonce utilities
+
 use enum_as_inner::EnumAsInner;
-use libipld_core::{ipld::Ipld, multibase::Base::Base32HexLower};
+use getrandom::getrandom;
+use libipld_core::{
+    ipld::Ipld,
+    multibase::Base::Base32HexLower,
+    multihash::{Hasher, Sha2_256},
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-#[cfg(not(target_arch = "wasm32"))]
-use uuid::Uuid;
-
-// FIXME
-pub struct Error<T>(T);
-
-/// Enumeration over allowed `nonce` types.
+/// Known [`Nonce`] types
 #[derive(Clone, Debug, PartialEq, EnumAsInner, Serialize, Deserialize)]
 pub enum Nonce {
-    /// 96-bit, 12-byte nonce, e.g. [`xid`].
-    Nonce96([u8; 12]),
-    /// 128-bit, 16-byte nonce.
-    Nonce128([u8; 16]),
-    /// No Nonce attributed.
+    /// 96-bit, 12-byte nonce
+    Nonce12([u8; 12]),
+
+    /// 128-bit, 16-byte nonce
+    Nonce16([u8; 16]),
+
+    /// Dynamic sized nonce
     Custom(Vec<u8>),
 }
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-impl Nonce {
-    // FIXME this is probably _tooo_ different from the non-wasm one
-    // Perhaps worth one to ingest nonces via JSValues.
-    // #[cfg(target_arch = "wasm32")]
-    // pub fn generate_wasm_96(info: &mut [u8], crypto: web_sys::Crypto) -> Result<Self, JsError> {
-    //     let buf = &mut [];
-    //     web_sys::Crypto::get_random_values_with_u8_array(&crypto, buf) // `Result<Object, JsValue>`
-    // }
+impl From<[u8; 12]> for Nonce {
+    fn from(s: [u8; 12]) -> Self {
+        Nonce::Nonce12(s)
+    }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+impl From<[u8; 16]> for Nonce {
+    fn from(s: [u8; 16]) -> Self {
+        Nonce::Nonce16(s)
+    }
+}
+
+impl From<Vec<u8>> for Nonce {
+    fn from(nonce: Vec<u8>) -> Self {
+        match nonce.len() {
+            12 => Nonce::Nonce12(
+                nonce
+                    .try_into()
+                    .expect("12 bytes because we checked in the match"),
+            ),
+            16 => Nonce::Nonce16(
+                nonce
+                    .try_into()
+                    .expect("16 bytes because we checked in the match"),
+            ),
+            _ => Nonce::Custom(nonce),
+        }
+    }
+}
+
 impl Nonce {
-    /// Default generator, outputting an [`xid`] nonce,
-    /// which is a 96-bit (12-byte) nonce.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_96() -> Self {
-        Nonce::Nonce96(*xid::new().as_bytes())
+    // NOTE seed = domain-separator
+    pub fn generate_12(seed: &mut Vec<u8>) -> Nonce {
+        seed.append(&mut [0].repeat(12));
+
+        let buf = seed.as_mut_slice();
+        getrandom(buf).expect("irrecoverable getrandom failure");
+
+        let mut hasher = Sha2_256::default();
+        hasher.update(buf);
+
+        let bytes = hasher.finalize().try_into().expect("SHA2_256 is 32 bytes");
+        Nonce::Nonce12(bytes)
     }
 
-    /// Generate a default 128-bit(16-byte) nonce via [`Uuid::new_v4()`].
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_128() -> Self {
-        Nonce::Nonce128(*Uuid::new_v4().as_bytes())
+    pub fn generate_16(seed: &mut Vec<u8>) -> Nonce {
+        seed.append(&mut [0].repeat(16));
+
+        let buf = seed.as_mut_slice();
+        getrandom(buf).expect("irrecoverable getrandom failure");
+
+        let mut hasher = Sha2_256::default();
+        hasher.update(buf);
+
+        let bytes = hasher.finalize().try_into().expect("SHA2_256 is 32 bytes");
+        Nonce::Nonce12(bytes)
     }
 }
 
 impl fmt::Display for Nonce {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Nonce::Nonce96(nonce) => {
+            Nonce::Nonce12(nonce) => {
                 write!(f, "{}", Base32HexLower.encode(nonce.as_slice()))
             }
-            Nonce::Nonce128(nonce) => {
+            Nonce::Nonce16(nonce) => {
                 write!(f, "{}", Base32HexLower.encode(nonce.as_slice()))
             }
             Nonce::Custom(nonce) => {
@@ -71,8 +104,8 @@ impl fmt::Display for Nonce {
 impl From<Nonce> for Ipld {
     fn from(nonce: Nonce) -> Self {
         match nonce {
-            Nonce::Nonce96(nonce) => Ipld::Bytes(nonce.to_vec()),
-            Nonce::Nonce128(nonce) => Ipld::Bytes(nonce.to_vec()),
+            Nonce::Nonce12(nonce) => Ipld::Bytes(nonce.to_vec()),
+            Nonce::Nonce16(nonce) => Ipld::Bytes(nonce.to_vec()),
             Nonce::Custom(nonce) => Ipld::Bytes(nonce),
         }
     }
@@ -84,11 +117,11 @@ impl TryFrom<Ipld> for Nonce {
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         if let Ipld::Bytes(v) = ipld {
             match v.len() {
-                12 => Ok(Nonce::Nonce96(
+                12 => Ok(Nonce::Nonce12(
                     v.try_into()
                         .expect("12 bytes because we checked in the match"),
                 )),
-                16 => Ok(Nonce::Nonce128(
+                16 => Ok(Nonce::Nonce16(
                     v.try_into()
                         .expect("16 bytes because we checked in the match"),
                 )),
@@ -108,16 +141,60 @@ impl TryFrom<&Ipld> for Nonce {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[wasm_bindgen]
+pub struct JsNonce(#[wasm_bindgen(skip)] pub Nonce);
+
+#[cfg(target_arch = "wasm32")]
+impl From<JsNonce> for Nonce {
+    fn from(newtype: JsNonce) -> Self {
+        newtype.0
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl From<Nonce> for JsNonce {
+    fn from(nonce: Nonce) -> Self {
+        JsNonce(nonce)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl JsNonce {
+    pub fn generate_12(mut seed: Vec<u8>) -> JsNonce {
+        Nonce::generate_12(&mut seed).into()
+    }
+
+    pub fn generate_16(mut seed: Vec<u8>) -> JsNonce {
+        Nonce::generate_16(&mut seed).into()
+    }
+
+    pub fn from_uint8_array(arr: Box<[u8]>) -> JsNonce {
+        Nonce::from(arr.to_vec()).into()
+    }
+
+    pub fn to_uint8_array(&self) -> Box<[u8]> {
+        match &self.0 {
+            Nonce::Nonce12(nonce) => nonce.to_vec().into_boxed_slice(),
+            Nonce::Nonce16(nonce) => nonce.to_vec().into_boxed_slice(),
+            Nonce::Custom(nonce) => nonce.clone().into_boxed_slice(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
+    // FIXME prop test with lots of inputs
     #[test]
     fn ipld_roundtrip_12() {
-        let gen = Nonce::generate();
+        let gen = Nonce::generate_12(&mut vec![]);
         let ipld = Ipld::from(gen.clone());
 
-        let inner = if let Nonce::Nonce96(nonce) = gen {
+        let inner = if let Nonce::Nonce12(nonce) = gen {
             Ipld::Bytes(nonce.to_vec())
         } else {
             panic!("No conversion!")
@@ -127,12 +204,13 @@ mod test {
         assert_eq!(gen, ipld.try_into().unwrap());
     }
 
+    // FIXME prop test with lots of inputs
     #[test]
     fn ipld_roundtrip_16() {
-        let gen = Nonce::generate_128();
+        let gen = Nonce::generate_16(&mut vec![]);
         let ipld = Ipld::from(gen.clone());
 
-        let inner = if let Nonce::Nonce128(nonce) = gen {
+        let inner = if let Nonce::Nonce16(nonce) = gen {
             Ipld::Bytes(nonce.to_vec())
         } else {
             panic!("No conversion!")
@@ -142,9 +220,10 @@ mod test {
         assert_eq!(gen, ipld.try_into().unwrap());
     }
 
+    // FIXME prop test with lots of inputs
     #[test]
     fn ser_de() {
-        let gen = Nonce::generate_128();
+        let gen = Nonce::generate_16(&mut vec![]);
         let ser = serde_json::to_string(&gen).unwrap();
         let de = serde_json::from_str(&ser).unwrap();
 

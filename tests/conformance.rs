@@ -1,6 +1,6 @@
 use libipld_core::{ipld::Ipld, raw::RawCodec};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
+use std::{collections::HashMap, fs::File, io::BufReader};
 
 use ucan::{
     capability::DefaultCapabilityParser,
@@ -318,10 +318,7 @@ impl TestTask for RefuteTest {
 
         if let Ok(ucan) = Ucan::<DefaultFact, DefaultCapabilityParser>::from_str(&self.inputs.token)
         {
-            if ucan
-                .validate(ucan::time::now(), &did_verifier_map)
-                .is_ok()
-            {
+            if ucan.validate(ucan::time::now(), &did_verifier_map).is_ok() {
                 report.register_failure(
                     &name,
                     "expected token to fail validation, but it passed".to_string(),
