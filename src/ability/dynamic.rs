@@ -9,11 +9,30 @@ use std::{collections::BTreeMap, fmt::Debug};
 use wasm_bindgen::prelude::*;
 
 // NOTE the lack of checking functions!
-// This is meant to be embedded inside of structs that have e.g. FFI bindings to
-// a validation function, such as a &js_sys::Function, Ruby magnus::function!, etc etc
+
+/// A "dynamic" ability with the bare minimum of statics
+///
+/// <div class="warning">
+/// This should be a last resort for e.g. FFI. The Dynamic ability is
+/// <em>not recommended</em> for typical Rust usage.
+///
+///
+/// This is instead meant to be embedded inside of structs that have e.g. FFI bindings to
+/// a validation function, such as `js_sys::Function` for JS, `magnus::function!` for Ruby,
+/// and so on.
+/// </div>
+///
+/// Dynamic none of the typical ability traits directly. Rather, it must be wrapped
+/// in [`Reader`][crate::reader::Reader], which wires up dynamic dispatch for the
+/// relevant traits using a configuration struct.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)] // FIXME serialize / deserilaize?
 pub struct Dynamic {
+    /// The `cmd` field (hooks into a dynamic version of [`Command`][crate::ability::command::Command])
     pub cmd: String,
+
+    /// Unstructured, named arguments
+    ///
+    /// The only requirement is that the keys are strings and the values are [`Ipld`]
     pub args: arguments::Named,
 }
 
