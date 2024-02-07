@@ -11,7 +11,7 @@ pub use payload::Payload;
 use condition::traits::Condition;
 use store::IndexedStore;
 
-use crate::{metadata as meta, signature};
+use crate::signature;
 
 /// A [`Delegation`] is a signed delegation [`Payload`]
 ///
@@ -19,10 +19,10 @@ use crate::{metadata as meta, signature};
 ///
 /// # Examples
 /// FIXME
-pub type Delegation<T, C, E> = signature::Envelope<Payload<T, C, E>>;
+pub type Delegation<T, C> = signature::Envelope<Payload<T, C>>;
 
 // FIXME
-impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> Delegation<T, C, E> {
+impl<T: Delegatable, C: Condition> Delegation<T, C> {
     // FIXME include cache
     //pub fn check<S: IndexedStore<T, C, E>>(&self, store: &S) -> Result<(), ()> {
     //    if let Ok(is_valid) = store.previously_checked(self) {

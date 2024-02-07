@@ -9,4 +9,4 @@ pub use resolvable::Resolvable;
 
 use crate::signature;
 
-pub type Invocation<B, E> = signature::Envelope<payload::Payload<B, E>>;
+pub type Invocation<T> = signature::Envelope<payload::Payload<T>>;

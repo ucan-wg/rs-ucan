@@ -1,15 +1,15 @@
 use super::{condition::traits::Condition, delegatable::Delegatable, Delegation};
-use crate::{did::Did, metadata as meta};
+use crate::did::Did;
 use libipld_core::cid::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use web_time::SystemTime;
 
 // NOTE can already look up by CID in other traits
-pub trait IndexedStore<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
+pub trait IndexedStore<T: Delegatable, C: Condition> {
     type Error;
 
-    fn get_by(query: Query) -> Result<HashMap<Cid, Delegation<T, C, E>>, Self::Error>;
+    fn get_by(query: Query) -> Result<HashMap<Cid, Delegation<T, C>>, Self::Error>;
 
     fn previously_checked(cid: Cid) -> Result<bool, Self::Error>;
 
@@ -20,7 +20,7 @@ pub trait IndexedStore<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
         subject: Did,
         command: String,
         audience: Did,
-    ) -> Result<Vec<Vec<(Cid, Delegation<T, C, E>)>>, Self::Error>;
+    ) -> Result<Vec<Vec<(Cid, Delegation<T, C>)>>, Self::Error>;
     //  if let Ok(possible) = self.get_by(Query {
     //      audience: Some(audience),
     //      command: Some(command),
@@ -53,13 +53,13 @@ pub trait IndexedStore<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
     //      }
     //  }
 
-    fn get_one(&self, query: Query) -> Result<(Cid, Delegation<T, C, E>), Self::Error> {
+    fn get_one(&self, query: Query) -> Result<(Cid, Delegation<T, C>), Self::Error> {
         todo!()
         //let mut results = Self::get_by(query)?;
         //results.pop().ok_or_else(|_| todo!())
     }
 
-    fn expired(&self) -> Result<BTreeMap<Cid, Delegation<T, C, E>>, Self::Error> {
+    fn expired(&self) -> Result<BTreeMap<Cid, Delegation<T, C>>, Self::Error> {
         todo!()
         // self.get_by(Query {
         //     expires_before: Some(SystemTime::now()),

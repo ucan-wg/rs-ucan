@@ -3,9 +3,6 @@ use crate::{
     ability::{arguments, command::Command},
     capsule::Capsule,
     did::Did,
-    metadata as meta,
-    metadata::Metadata,
-    // metadata::{Mergable, Metadata},
     nonce::Nonce,
     time::Timestamp,
 };
@@ -16,7 +13,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 // FIXME this version should not be resolvable...
 // FIXME ...or at least have two versions via abstraction
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T, E: meta::MultiKeyed> {
+pub struct Payload<T> {
     // FIXME we're going to toss that E
     pub issuer: Did,
     pub subject: Did,
@@ -26,7 +23,7 @@ pub struct Payload<T, E: meta::MultiKeyed> {
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
-    pub metadata: Metadata<E>,
+    pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
 
     pub not_before: Option<Timestamp>,
@@ -36,7 +33,7 @@ pub struct Payload<T, E: meta::MultiKeyed> {
 // FIXME To TaskId
 
 // NOTE This is the version that accepts promises
-pub type Unresolved<T: Resolvable, E> = Payload<T::Promised, E>;
+pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
 // type Dynamic = Payload<dynamic::Dynamic>; <- ?
 
 // FIXME parser for both versions
@@ -52,14 +49,14 @@ pub type Unresolved<T: Resolvable, E> = Payload<T::Promised, E>;
 //     Unresolved(Unresolved<T>),
 // }
 
-impl<T, E: meta::MultiKeyed> Capsule for Payload<T, E> {
+impl<T> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T, E: meta::MultiKeyed> Serialize for Payload<T, E>
+impl<T> Serialize for Payload<T>
 where
-    Payload<T, E>: Clone,
-    InternalSerializer: From<Payload<T, E>>,
+    Payload<T>: Clone,
+    InternalSerializer: From<Payload<T>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -70,10 +67,10 @@ where
     }
 }
 
-impl<'de, T, E: meta::MultiKeyed> serde::Deserialize<'de> for Payload<T, E>
+impl<'de, T> serde::Deserialize<'de> for Payload<T>
 where
-    Payload<T, E>: TryFrom<InternalSerializer>,
-    <Payload<T, E> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T>: TryFrom<InternalSerializer>,
+    <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -88,9 +85,9 @@ where
     }
 }
 
-impl<T, E: meta::MultiKeyed> TryFrom<Ipld> for Payload<T, E>
+impl<T> TryFrom<Ipld> for Payload<T>
 where
-    Payload<T, E>: TryFrom<InternalSerializer>,
+    Payload<T>: TryFrom<InternalSerializer>,
 {
     type Error = (); // FIXME
 
@@ -100,8 +97,8 @@ where
     }
 }
 
-impl<T, E: meta::MultiKeyed> From<Payload<T, E>> for Ipld {
-    fn from(payload: Payload<T, E>) -> Self {
+impl<T> From<Payload<T>> for Ipld {
+    fn from(payload: Payload<T>) -> Self {
         payload.into()
     }
 }
@@ -199,10 +196,8 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 
-impl<T: Command + Into<arguments::Named>, E: meta::MultiKeyed> From<Payload<T, E>>
-    for InternalSerializer
-{
-    fn from(payload: Payload<T, E>) -> Self {
+impl<T: Command + Into<arguments::Named>> From<Payload<T>> for InternalSerializer {
+    fn from(payload: Payload<T>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
@@ -213,7 +208,7 @@ impl<T: Command + Into<arguments::Named>, E: meta::MultiKeyed> From<Payload<T, E
 
             proofs: payload.proofs,
             cause: payload.cause,
-            metadata: payload.metadata.into(),
+            metadata: payload.metadata,
 
             nonce: payload.nonce,
 

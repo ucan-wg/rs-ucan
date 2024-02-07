@@ -5,9 +5,6 @@ use crate::{
     did::Did,
     invocation,
     invocation::Resolvable,
-    metadata as meta,
-    metadata::Metadata,
-    // metadata::{Mergable, Metadata},
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -22,7 +19,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
+pub struct Payload<T: Delegatable, C: Condition> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Did,
@@ -30,21 +27,21 @@ pub struct Payload<T: Delegatable, C: Condition, E: meta::MultiKeyed> {
     pub ability_builder: T::Builder,
     pub conditions: Vec<C>,
 
-    pub metadata: Metadata<E>,
+    pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
 
     pub expiration: Timestamp,
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> Capsule for Payload<T, C, E> {
+impl<T: Delegatable, C: Condition> Capsule for Payload<T, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: Delegatable, C: Condition + Serialize, E: meta::MultiKeyed> Serialize for Payload<T, C, E>
+impl<T: Delegatable, C: Condition + Serialize> Serialize for Payload<T, C>
 where
-    InternalSerializer: From<Payload<T, C, E>>,
-    Payload<T, C, E>: Clone,
+    InternalSerializer: From<Payload<T, C>>,
+    Payload<T, C>: Clone,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -55,11 +52,10 @@ where
     }
 }
 
-impl<'de, T: Delegatable, C: Condition + DeserializeOwned, E: meta::MultiKeyed> Deserialize<'de>
-    for Payload<T, C, E>
+impl<'de, T: Delegatable, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
 where
-    Payload<T, C, E>: TryFrom<InternalSerializer>,
-    <Payload<T, C, E> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T, C>: TryFrom<InternalSerializer>,
+    <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -74,10 +70,9 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned, M: meta::MultiKeyed> TryFrom<Ipld>
-    for Payload<T, C, M>
+impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
 where
-    Payload<T, C, M>: TryFrom<InternalSerializer>,
+    Payload<T, C>: TryFrom<InternalSerializer>,
 {
     type Error = (); // FIXME
 
@@ -87,25 +82,23 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition, E: meta::MultiKeyed> From<Payload<T, C, E>> for Ipld {
-    fn from(payload: Payload<T, C, E>) -> Self {
+impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
+    fn from(payload: Payload<T, C>) -> Self {
         payload.into()
     }
 }
 
 // FIXME this likely should move to invocation
-impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition, E: meta::MultiKeyed>
-    Payload<T, C, E>
-{
+impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
     pub fn check<U: Delegatable + Clone>(
-        invoked: &'a invocation::Payload<T, E>, // FIXME promisory version
-        proofs: Vec<Payload<U, C, E>>,
+        invoked: &'a invocation::Payload<T>, // FIXME promisory version
+        proofs: Vec<Payload<U, C>>,
         now: SystemTime,
     ) -> Result<(), ()>
     where
-        invocation::Payload<T, E>: Clone,
+        invocation::Payload<T>: Clone,
         U::Builder: Clone + Into<T::Hierarchy>,
-        T::Hierarchy: From<invocation::Payload<T, E>>,
+        T::Hierarchy: From<invocation::Payload<T>>,
     {
         let start: Acc<'a, T> = Acc {
             issuer: &invoked.issuer,
@@ -155,9 +148,9 @@ struct Acc<'a, T: Checkable> {
 }
 
 // FIXME this should move to Delegatable
-fn step<'a, T: Checkable, U: Delegatable, C: Condition, E: meta::MultiKeyed>(
+fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
     prev: &Acc<'a, T>,
-    proof: &Payload<U, C, E>,
+    proof: &Payload<U, C>,
     invoked_ipld: &Ipld,
     now: SystemTime,
 ) -> Outcome<(), (), ()>
@@ -242,13 +235,11 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Delegatable + Command, C: Condition + Into<Ipld>, E: meta::MultiKeyed>
-    From<Payload<T, C, E>> for InternalSerializer
+impl<T: Delegatable + Command, C: Condition + Into<Ipld>> From<Payload<T, C>> for InternalSerializer
 where
     BTreeMap<String, Ipld>: From<T::Builder>,
-    Ipld: From<E>,
 {
-    fn from(payload: Payload<T, C, E>) -> Self {
+    fn from(payload: Payload<T, C>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
@@ -258,7 +249,7 @@ where
             arguments: payload.ability_builder.into(),
             conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
 
-            metadata: payload.metadata.into(),
+            metadata: payload.metadata,
             nonce: payload.nonce,
 
             not_before: payload.not_before,

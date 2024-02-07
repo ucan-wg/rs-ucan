@@ -1,8 +1,5 @@
 use super::responds::Responds;
-use crate::{
-    ability::arguments, capsule::Capsule, did::Did, metadata as meta, metadata::Metadata,
-    nonce::Nonce, time::Timestamp,
-};
+use crate::{ability::arguments, capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -10,7 +7,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 // FIXME serialize/deseialize split out for when the T has implementations
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Responds, E> {
+pub struct Payload<T: Responds> {
     pub issuer: Did,
 
     pub ran: Cid,
@@ -18,21 +15,20 @@ pub struct Payload<T: Responds, E> {
     pub next: Vec<Cid>, // FIXME rename here or in spec?
 
     pub proofs: Vec<Cid>,
-    pub metadata: Metadata<E>,
+    pub metadata: BTreeMap<String, Ipld>,
 
     pub nonce: Nonce,
     pub issued_at: Option<Timestamp>,
 }
 
-impl<T: Responds, E> Capsule for Payload<T, E> {
+impl<T: Responds> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/r/1.0.0-rc.1"; // FIXME extract out version
 }
 
-impl<T: Responds + Serialize, E> Serialize for Payload<T, E>
+impl<T: Responds + Serialize> Serialize for Payload<T>
 where
-    Payload<T, E>: Clone,
+    Payload<T>: Clone,
     T::Success: Serialize + DeserializeOwned,
-    Ipld: From<E>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -43,13 +39,9 @@ where
     }
 }
 
-impl<
-        'de,
-        T: Responds + Deserialize<'de>,
-        E: DeserializeOwned + Serialize + meta::MultiKeyed + TryFrom<Ipld>,
-    > Deserialize<'de> for Payload<T, E>
+impl<'de, T: Responds + Deserialize<'de>> Deserialize<'de> for Payload<T>
 where
-    <Payload<T, E> as TryFrom<InternalSerializer<T>>>::Error: Debug,
+    <Payload<T> as TryFrom<InternalSerializer<T>>>::Error: Debug,
     T::Success: DeserializeOwned + Serialize,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
@@ -63,8 +55,7 @@ where
     }
 }
 
-impl<T: Responds, E: Serialize + DeserializeOwned + TryFrom<Ipld> + meta::MultiKeyed> TryFrom<Ipld>
-    for Payload<T, E>
+impl<T: Responds> TryFrom<Ipld> for Payload<T>
 where
     T::Success: Serialize + DeserializeOwned,
 {
@@ -76,8 +67,8 @@ where
     }
 }
 
-impl<T: Responds, E> From<Payload<T, E>> for Ipld {
-    fn from(payload: Payload<T, E>) -> Self {
+impl<T: Responds> From<Payload<T>> for Ipld {
+    fn from(payload: Payload<T>) -> Self {
         payload.into()
     }
 }
@@ -105,7 +96,7 @@ where
     issued_at: Option<Timestamp>,
 }
 
-impl<T: Responds, E: meta::MultiKeyed + TryFrom<Ipld>> From<InternalSerializer<T>> for Payload<T, E>
+impl<T: Responds> From<InternalSerializer<T>> for Payload<T>
 where
     T::Success: Serialize + DeserializeOwned,
 {
@@ -116,19 +107,18 @@ where
             out: s.out,
             next: s.next,
             proofs: s.proofs,
-            metadata: s.metadata.into(),
+            metadata: s.metadata,
             nonce: s.nonce,
             issued_at: s.issued_at,
         }
     }
 }
 
-impl<T: Responds, E> From<Payload<T, E>> for InternalSerializer<T>
+impl<T: Responds> From<Payload<T>> for InternalSerializer<T>
 where
-    Ipld: From<E>,
     T::Success: Serialize + DeserializeOwned,
 {
-    fn from(s: Payload<T, E>) -> Self {
+    fn from(s: Payload<T>) -> Self {
         InternalSerializer {
             issuer: s.issuer,
             ran: s.ran,

@@ -3,7 +3,6 @@ use crate::{
     delegation::{traits::Condition, Delegatable, Delegation},
     did::Did,
     invocation::Invocation,
-    metadata as meta,
     proof::parents::CheckParents,
 };
 
@@ -19,10 +18,10 @@ impl<S> Agent<S> {
     //      signature::Envelope::new(payload, signature)
     //  }
 
-    pub fn invoke<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
+    pub fn invoke<T: Delegatable + CheckParents, C: Condition>(
         &self,
-        delegation: Delegation<T, C, E>,
-        proof_chain: Vec<Delegation<T::Parents, C, E>>, // FIXME T must also accept Self and *
+        delegation: Delegation<T, C>,
+        proof_chain: Vec<Delegation<T::Parents, C>>, // FIXME T must also accept Self and *
     ) -> ()
     where
         T::Parents: Delegatable,
@@ -34,9 +33,9 @@ impl<S> Agent<S> {
         todo!()
     }
 
-    pub fn revoke<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
+    pub fn revoke<T: Delegatable + CheckParents, C: Condition>(
         &self,
-        delegation: Delegation<T, C, E>,
+        delegation: Delegation<T, C>,
     ) -> ()
 //     where
 //         T::Parents: Delegatable,
@@ -44,14 +43,14 @@ impl<S> Agent<S> {
         todo!()
     }
 
-    pub fn receive_delegation<T: Delegatable + CheckParents, C: Condition, E: meta::MultiKeyed>(
+    pub fn receive_delegation<T: Delegatable + CheckParents, C: Condition>(
         &self,
-        delegation: Delegation<T, C, E>,
+        delegation: Delegation<T, C>,
     ) -> () {
         todo!()
     }
 
-    pub fn receive_invocation<T, E: meta::MultiKeyed>(&self, invocation: Invocation<T, E>) -> () {
+    pub fn receive_invocation<T>(&self, invocation: Invocation<T>) -> () {
         todo!()
     }
 
