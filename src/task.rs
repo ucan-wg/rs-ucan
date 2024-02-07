@@ -21,19 +21,19 @@ const SHA2_256: u64 = 0x12;
 /// on the type. In particular, the `nonce` field should be constant for all of the same type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
-    /// The `subject`: root issuer, and arbiter of the semantics/namespace
+    /// The `subject`: root issuer, and arbiter of the semantics/namespace.
     pub sub: Did,
 
-    /// A unique identifier for the particular task run
+    /// A unique identifier for the particular task run.
     ///
     /// This is an [`Option`] because not all task types require a nonce.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nonce: Option<Nonce>,
 
-    /// The command identifier
+    /// The command identifier.
     pub cmd: String,
 
-    /// The arguments to the command
+    /// The arguments to the command.
     pub args: arguments::Named,
 }
 
@@ -67,7 +67,7 @@ impl From<Task> for Cid {
     }
 }
 
-/// The unique identifier for a [`Task`]
+/// The unique identifier for a [`Task`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Id {

@@ -13,16 +13,15 @@ use wasm_bindgen::prelude::*;
 /// A "dynamic" ability with the bare minimum of statics
 ///
 /// <div class="warning">
-/// This should be a last resort for e.g. FFI. The Dynamic ability is
+/// This should be a last resort, and only for e.g. FFI. The Dynamic ability is
 /// <em>not recommended</em> for typical Rust usage.
-///
 ///
 /// This is instead meant to be embedded inside of structs that have e.g. FFI bindings to
 /// a validation function, such as `js_sys::Function` for JS, `magnus::function!` for Ruby,
 /// and so on.
 /// </div>
 ///
-/// Dynamic none of the typical ability traits directly. Rather, it must be wrapped
+/// [`Dynamic`] uses none of the typical ability traits directly. Rather, it must be wrapped
 /// in [`Reader`][crate::reader::Reader], which wires up dynamic dispatch for the
 /// relevant traits using a configuration struct.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)] // FIXME serialize / deserilaize?

@@ -254,7 +254,7 @@
               name = "watch:test:docs:host";
               help = "Run all tests on save";
               category = "watch";
-              command = "${cargo} watch --clear --exec test";
+              command = "${cargo} watch --clear --exec 'test --features=mermaid_docs'";
             }
             {
               name = "watch:test:wasm";
@@ -266,7 +266,7 @@
               name = "watch:test:docs:wasm";
               help = "Run all tests on save";
               category = "watch";
-              command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown'";
+              command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown --features=mermaid_docs'";
             }
             # Test
             {
@@ -310,25 +310,31 @@
               name = "docs";
               help = "[DEFAULT]: Open refreshed docs";
               category = "dev";
-              command = "docs:open";
+              command = "docs:open:host";
             }
             {
-              name = "docs:build";
+              name = "docs:build:host";
               help = "Refresh the docs";
               category = "dev";
               command = "${cargo} doc --features=mermaid_docs";
             }
             {
-              name = "docs:wasm:build";
+              name = "docs:build:wasm";
               help = "Refresh the docs with the wasm32-unknown-unknown target";
               category = "dev";
               command = "${cargo} doc --features=mermaid_docs --target=wasm32-unknown-unknown";
             }
             {
-              name = "docs:open";
+              name = "docs:open:host";
               help = "Open refreshed docs";
               category = "dev";
               command = "${cargo} doc --features=mermaid_docs --open";
+            }
+            {
+              name = "docs:open:wasm";
+              help = "Open refreshed docs";
+              category = "dev";
+              command = "${cargo} doc --features=mermaid_docs --open --target=wasm32-unknown-unknown";
             }
             {
               name = "docs:wasm:open";

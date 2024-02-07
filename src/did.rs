@@ -1,3 +1,5 @@
+//! Decentralized Identifier (DID) utilities
+
 use did_url::DID;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -63,19 +65,12 @@ impl TryFrom<Ipld> for Did {
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum FromIpldError {
     /// Strutural errors in the [`Did`]
-    StructuralError(did_url::Error),
+    #[error(transparent)]
+    StructuralError(#[from] did_url::Error),
 
     /// The [`Ipld`] was not a string
+    #[error("Not an IPLD String")]
     NotAnIpldString(Ipld),
-}
-
-impl fmt::Display for FromIpldError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FromIpldError::StructuralError(e) => write!(f, "DID Error: {}", e),
-            FromIpldError::NotAnIpldString(_ipld) => write!(f, "Not an IPLD String"), // FIXME include the bad ipld, but needs a Display instance
-        }
-    }
 }
 
 impl Serialize for FromIpldError {

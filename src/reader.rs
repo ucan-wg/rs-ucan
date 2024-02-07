@@ -8,8 +8,6 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-// NOTE to self: this is helpful as a common container to lift various FFI into
-
 /// A struct that attaches an ambient environment to a value
 ///
 /// This is helpful for dependency injection and/or passing around values that
@@ -70,31 +68,6 @@ pub struct Reader<Env, T> {
 
     /// The raw value
     pub val: T,
-}
-
-impl<Env, T: Into<arguments::Named>> From<Reader<Env, T>> for arguments::Named {
-    fn from(reader: Reader<Env, T>) -> Self {
-        reader.val.into()
-    }
-}
-
-// NOTE plug this into Reader<Env, T> like: Reader<Resolved<Dynamic>>
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct Builder<T>(pub T);
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct Promised<T>(pub T);
-
-impl<T: Into<arguments::Named>> From<Builder<T>> for arguments::Named {
-    fn from(builder: Builder<T>) -> Self {
-        builder.0.into()
-    }
-}
-
-impl<T: Into<arguments::Named>> From<Promised<T>> for arguments::Named {
-    fn from(promised: Promised<T>) -> Self {
-        promised.0.into()
-    }
 }
 
 impl<Env, T> Reader<Env, T> {
@@ -178,9 +151,76 @@ impl<Env, T> Reader<Env, T> {
     }
 }
 
+impl<Env, T: Into<arguments::Named>> From<Reader<Env, T>> for arguments::Named {
+    fn from(reader: Reader<Env, T>) -> Self {
+        reader.val.into()
+    }
+}
+
+impl<Env: Checkable, T> Checkable for Reader<Env, T>
+where
+    Reader<Env, T>: CheckSame,
+{
+    type Hierarchy = Env::Hierarchy;
+}
+
+impl<Env: ToCommand, T> ToCommand for Reader<Env, T> {
+    fn to_command(&self) -> String {
+        self.env.to_command()
+    }
+}
+
+/// A helper newtype that marks a value as being a [`Delegatable::Builder`].
+///
+/// The is often used as:
+///
+/// ```rust
+/// # use ucan::reader::{Reader, Builder};
+/// # type Env = ();
+/// # let env = ();
+/// let example: Reader<Env, Builder<u64>> = Reader {
+///    env: env,
+///    val: Builder(42),
+/// };
+/// ```
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Builder<T>(pub T);
+
+impl<T: Into<arguments::Named>> From<Builder<T>> for arguments::Named {
+    fn from(builder: Builder<T>) -> Self {
+        builder.0.into()
+    }
+}
+
 impl<Env, T> From<Reader<Env, T>> for Reader<Env, Builder<T>> {
     fn from(reader: Reader<Env, T>) -> Self {
         reader.map(Builder)
+    }
+}
+
+impl<Env, T: ToCommand + Into<arguments::Named>> Delegatable for Reader<Env, T> {
+    type Builder = Reader<Env, Builder<T>>;
+}
+
+/// A helper newtype that marks a value as being a [`Resolvable::Promised`].
+///
+/// The is often used as:
+///
+/// ```rust
+/// # use ucan::reader::{Reader, Promised};
+/// # type Env = ();
+/// # let env = ();
+/// let example: Reader<Env, Promised<u64>> = Reader {
+///    env: env,
+///    val: Promised(42),
+/// };
+/// ```
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Promised<T>(pub T);
+
+impl<T: Into<arguments::Named>> From<Promised<T>> for arguments::Named {
+    fn from(promised: Promised<T>) -> Self {
+        promised.0.into()
     }
 }
 
@@ -202,23 +242,6 @@ impl<Env, T: ToCommand> From<Reader<Env, Promised<T>>> for Reader<Env, T> {
     }
 }
 
-impl<Env, T: ToCommand + Into<arguments::Named>> Delegatable for Reader<Env, T> {
-    type Builder = Reader<Env, Builder<T>>;
-}
-
 impl<Env, T: ToCommand + Into<arguments::Named>> Resolvable for Reader<Env, T> {
     type Promised = Reader<Env, Promised<T>>;
-}
-
-impl<Env: ToCommand, T> ToCommand for Reader<Env, T> {
-    fn to_command(&self) -> String {
-        self.env.to_command()
-    }
-}
-
-impl<Env: Checkable, T> Checkable for Reader<Env, T>
-where
-    Reader<Env, T>: CheckSame,
-{
-    type Hierarchy = Env::Hierarchy;
 }

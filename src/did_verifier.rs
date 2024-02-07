@@ -1,4 +1,4 @@
-//! DID verifier methods
+// //! DID verifier methods
 
 use core::fmt;
 use std::collections::HashMap;

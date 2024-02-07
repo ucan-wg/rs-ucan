@@ -9,7 +9,7 @@ use web_time::{Duration, SystemTime, UNIX_EPOCH};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-/// Get the current time in seconds since UNIX_EPOCH
+/// Get the current time in seconds since [`UNIX_EPOCH`].
 pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -17,16 +17,16 @@ pub fn now() -> u64 {
         .as_secs()
 }
 
-/// All timestamps that this library can handle
+/// All timestamps that this library can handle.
 ///
-/// Strictly speaking, UCAN only supports [`JsTime`] for JavaScript interoperability.
+/// Strictly speaking, UCAN exclusively supports [`JsTime`] (for JavaScript interoperability).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Timestamp {
-    /// An entry for [`JsTime`], which is compatible with JavaScript's 2⁵³ numberic range
+    /// An entry for [`JsTime`], which is compatible with JavaScript's 2⁵³ numeric range.
     JsSafe(JsTime),
 
     /// Following [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle),
-    /// received timestamps may be parsed as regular [`SystemTime`]
+    /// received timestamps may be parsed as regular [`SystemTime`].
     Postel(SystemTime),
 }
 
@@ -47,12 +47,14 @@ impl<'de> Deserialize<'de> for Timestamp {
     where
         D: Deserializer<'de>,
     {
-        if let Ok(js_time) = JsTime::deserialize(deserializer) {
-            return Ok(Timestamp::JsSafe(js_time));
+        if let Ok(sys_time) = SystemTime::deserialize(deserializer) {
+            match JsTime::new(sys_time) {
+                Ok(js_time) => Ok(Timestamp::JsSafe(js_time)),
+                Err(_) => Ok(Timestamp::Postel(sys_time)),
+            }
+        } else {
+            Err(serde::de::Error::custom("not a Timestamp"))
         }
-
-        todo!()
-        // FIXME just todo()ing this for now becuase the enum will likely go away very shortly
     }
 }
 
@@ -79,6 +81,8 @@ impl TryFrom<Ipld> for Timestamp {
     }
 }
 
+/// A JavaScript-wrapper for [`Timestamp`].
+///
 /// Per the UCAN spec, timestamps MUST respect [IEEE-754]
 /// (64-bit double precision = 53-bit truncated integer) for JavaScript interoperability.
 ///
@@ -93,6 +97,7 @@ pub struct JsTime {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 impl JsTime {
     /// Lift a [`js_sys::Date`] into a Rust [`JsTime`]
     pub fn from_date(date_time: js_sys::Date) -> Result<JsTime, JsError> {
@@ -114,7 +119,11 @@ impl JsTime {
 }
 
 impl JsTime {
-    /// Create a [`JsTime`] from a [`SystemTime`]
+    /// Create a [`JsTime`] from a [`SystemTime`].
+    ///
+    /// # Arguments
+    ///
+    /// * `time` — The time to convert
     ///
     /// # Errors
     ///
@@ -166,7 +175,7 @@ impl<'de> Deserialize<'de> for JsTime {
 /// An error expressing when a time is larger than 2^53 seconds past the Unix epoch
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub struct OutOfRangeError {
-    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2^53)
+    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2^53).
     pub tried: SystemTime,
 }
 

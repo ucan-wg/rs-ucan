@@ -38,6 +38,16 @@ impl From<[u8; 16]> for Nonce {
     }
 }
 
+impl From<Nonce> for Vec<u8> {
+    fn from(nonce: Nonce) -> Self {
+        match nonce {
+            Nonce::Nonce12(nonce) => nonce.to_vec(),
+            Nonce::Nonce16(nonce) => nonce.to_vec(),
+            Nonce::Custom(nonce) => nonce,
+        }
+    }
+}
+
 impl From<Vec<u8>> for Nonce {
     fn from(nonce: Vec<u8>) -> Self {
         match nonce.len() {
@@ -57,31 +67,80 @@ impl From<Vec<u8>> for Nonce {
 }
 
 impl Nonce {
-    // NOTE seed = domain-separator
-    pub fn generate_12(seed: &mut Vec<u8>) -> Nonce {
-        seed.append(&mut [0].repeat(12));
+    // NOTE salt = domain-separator
+    /// Generate a 96-bit, 12-byte nonce.
+    /// This is the minimum nonce size typically recommended.
+    ///
+    /// # Arguments
+    ///
+    /// * `salt` - A salt. This may be left empty, but is recommended to avoid collision.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use ucan::nonce::Nonce;
+    /// # use ucan::did::Did;
+    /// #
+    /// let mut salt = "did:example:123".as_bytes().to_vec();
+    /// let nonce = Nonce::generate_12(&mut salt);
+    ///
+    /// assert_eq!(Vec::from(nonce).len(), 12);
+    /// ```
+    pub fn generate_12(salt: &mut Vec<u8>) -> Nonce {
+        salt.append(&mut [0].repeat(12));
 
-        let buf = seed.as_mut_slice();
+        let buf = salt.as_mut_slice();
         getrandom(buf).expect("irrecoverable getrandom failure");
 
         let mut hasher = Sha2_256::default();
         hasher.update(buf);
 
-        let bytes = hasher.finalize().try_into().expect("SHA2_256 is 32 bytes");
+        let bytes = hasher
+            .finalize()
+            .chunks(12)
+            .next()
+            .expect("SHA2_256 is 32 bytes")
+            .try_into()
+            .expect("we set the length to 12 earlier");
+
         Nonce::Nonce12(bytes)
     }
 
-    pub fn generate_16(seed: &mut Vec<u8>) -> Nonce {
-        seed.append(&mut [0].repeat(16));
+    /// Generate a 128-bit, 16-byte nonce
+    ///
+    /// # Arguments
+    ///
+    /// * `salt` - A salt. This may be left empty, but is recommended to avoid collision.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use ucan::nonce::Nonce;
+    /// # use ucan::did::Did;
+    /// #
+    /// let mut salt = "did:example:123".as_bytes().to_vec();
+    /// let nonce = Nonce::generate_16(&mut salt);
+    ///
+    /// assert_eq!(Vec::from(nonce).len(), 16);
+    /// ```
+    pub fn generate_16(salt: &mut Vec<u8>) -> Nonce {
+        salt.append(&mut [0].repeat(16));
 
-        let buf = seed.as_mut_slice();
+        let buf = salt.as_mut_slice();
         getrandom(buf).expect("irrecoverable getrandom failure");
 
         let mut hasher = Sha2_256::default();
         hasher.update(buf);
 
-        let bytes = hasher.finalize().try_into().expect("SHA2_256 is 32 bytes");
-        Nonce::Nonce12(bytes)
+        let bytes = hasher
+            .finalize()
+            .chunks(16)
+            .next()
+            .expect("SHA2_256 is 32 bytes")
+            .try_into()
+            .expect("we set the length to 16 earlier");
+
+        Nonce::Nonce16(bytes)
     }
 }
 
@@ -144,6 +203,7 @@ impl TryFrom<&Ipld> for Nonce {
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[wasm_bindgen]
+/// A JavaScript-compatible wrapper for [`Nonce`]
 pub struct JsNonce(#[wasm_bindgen(skip)] pub Nonce);
 
 #[cfg(target_arch = "wasm32")]
@@ -163,18 +223,39 @@ impl From<Nonce> for JsNonce {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl JsNonce {
-    pub fn generate_12(mut seed: Vec<u8>) -> JsNonce {
-        Nonce::generate_12(&mut seed).into()
+    /// Generate a 96-bit, 12-byte nonce.
+    /// This is the minimum nonce size typically recommended.
+    ///
+    /// # Arguments
+    ///
+    /// * `salt` - A salt. This may be left empty, but is recommended to avoid collision.
+    pub fn generate_12(mut salt: Vec<u8>) -> JsNonce {
+        Nonce::generate_12(&mut salt).into()
     }
 
-    pub fn generate_16(mut seed: Vec<u8>) -> JsNonce {
-        Nonce::generate_16(&mut seed).into()
+    /// Generate a 128-bit, 16-byte nonce
+    ///
+    /// # Arguments
+    ///
+    /// * `salt` - A salt. This may be left empty, but is recommended to avoid collision.
+    pub fn generate_16(mut salt: Vec<u8>) -> JsNonce {
+        Nonce::generate_16(&mut salt).into()
     }
 
-    pub fn from_uint8_array(arr: Box<[u8]>) -> JsNonce {
+    /// Directly lift a 12-byte `Uint8Array` into a [`JsNonce`]
+    ///
+    /// # Arguments
+    ///
+    /// * `nonce` - The exact nonce to convert to a [`JsNonce`]
+    pub fn from_uint8_array(nonce: Box<[u8]>) -> JsNonce {
         Nonce::from(arr.to_vec()).into()
     }
 
+    /// Expose the underlying bytes of a [`JsNonce`] as a 12-byte `Uint8Array`
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The [`JsNonce`] to convert to a `Uint8Array`
     pub fn to_uint8_array(&self) -> Box<[u8]> {
         match &self.0 {
             Nonce::Nonce12(nonce) => nonce.to_vec().into_boxed_slice(),

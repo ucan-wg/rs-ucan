@@ -2,6 +2,8 @@
 
 use super::{internal::Checker, prove::Prove, same::CheckSame};
 
+// FIXME move to Delegatbel?
+
 /// Plug a type into the delegation checking pipeline
 pub trait Checkable: CheckSame {
     /// The type of hierarchy this ability has
