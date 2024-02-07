@@ -17,6 +17,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 // FIXME ...or at least have two versions via abstraction
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<T, E: meta::MultiKeyed> {
+    // FIXME we're going to toss that E
     pub issuer: Did,
     pub subject: Did,
     pub audience: Option<Did>,
@@ -31,6 +32,8 @@ pub struct Payload<T, E: meta::MultiKeyed> {
     pub not_before: Option<Timestamp>,
     pub expiration: Timestamp,
 }
+
+// FIXME To TaskId
 
 // NOTE This is the version that accepts promises
 pub type Unresolved<T: Resolvable, E> = Payload<T::Promised, E>;

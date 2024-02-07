@@ -1,4 +1,6 @@
-use crate::{did::Did, nonce::Nonce};
+//! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup
+
+use crate::{ability::arguments, did::Did, nonce::Nonce};
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
     cid::{Cid, CidGeneric},
@@ -9,27 +11,30 @@ use libipld_core::{
     serde as ipld_serde,
 };
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 const SHA2_256: u64 = 0x12;
 
+/// The fields required to uniquely identify a [`Task`], potentially across multiple executors.
+///
+/// This struct should not be used directly, but rather through a [`From`] instance
+/// on the type. In particular, the `nonce` field should be constant for all of the same type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sub: Option<Did>, // Is this optional? May as well make it so for now!
+    /// The `subject`: root issuer, and arbiter of the semantics/namespace
+    pub sub: Did,
+
+    /// A unique identifier for the particular task run
+    ///
+    /// This is an [`Option`] because not all task types require a nonce.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nonce: Option<Nonce>,
 
+    /// The command identifier
     pub cmd: String,
-    pub args: BTreeMap<String, Ipld>, // FIXME change to Named?
-}
 
-impl From<Task> for Id {
-    fn from(task: Task) -> Id {
-        Id {
-            cid: Cid::from(task),
-        }
-    }
+    /// The arguments to the command
+    pub args: arguments::Named,
 }
 
 impl TryFrom<Ipld> for Task {
@@ -46,7 +51,25 @@ impl From<Task> for Ipld {
     }
 }
 
+impl From<Task> for Cid {
+    fn from(task: Task) -> Cid {
+        let mut buffer = vec![];
+        let ipld: Ipld = task.into();
+
+        ipld.encode(DagCborCodec, &mut buffer)
+            .expect("DagCborCodec to encode any arbitrary `Ipld`");
+
+        CidGeneric::new_v1(
+            DagCborCodec.into(),
+            MultihashGeneric::wrap(SHA2_256, buffer.as_slice())
+                .expect("DagCborCodec + Sha2_256 should always successfully encode Ipld to a Cid"),
+        )
+    }
+}
+
+/// The unique identifier for a [`Task`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Id {
     pub cid: Cid,
 }
@@ -65,16 +88,10 @@ impl From<Id> for Ipld {
     }
 }
 
-impl From<Task> for Cid {
-    fn from(task: Task) -> Cid {
-        let mut buffer = vec![];
-        let ipld: Ipld = task.into();
-        ipld.encode(DagCborCodec, &mut buffer)
-            .expect("DagCborCodec to encode any arbitrary `Ipld`");
-        CidGeneric::new_v1(
-            DagCborCodec.into(),
-            MultihashGeneric::wrap(SHA2_256, buffer.as_slice())
-                .expect("DagCborCodec + Sha2_256 should always successfully encode Ipld to a Cid"),
-        )
+impl From<Task> for Id {
+    fn from(task: Task) -> Id {
+        Id {
+            cid: Cid::from(task),
+        }
     }
 }
