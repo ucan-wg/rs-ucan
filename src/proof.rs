@@ -1,6 +1,7 @@
 //! Proof chains, checking, and utilities
 
 pub mod checkable;
+pub mod error;
 pub mod parentful;
 pub mod parentless;
 pub mod parents;

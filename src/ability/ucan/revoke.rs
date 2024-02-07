@@ -4,6 +4,7 @@ use crate::{
     ability::{arguments, command::Command},
     delegation::Delegatable,
     invocation::{Promise, Resolvable},
+    proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,8 @@ impl<Arg> Command for Generic<Arg> {
 /// The fully resolved variant: ready to execute.
 pub type Ready = Generic<Cid>;
 
+impl NoParents for Ready {}
+
 impl Delegatable for Ready {
     type Builder = Builder;
 }
@@ -34,6 +37,14 @@ impl Resolvable for Ready {
 
 /// A variant with some fields waiting to be set.
 pub type Builder = Generic<Option<Cid>>;
+
+impl CheckSame for Builder {
+    type Error = (); // FIXME
+
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        self.ucan.check_same(&proof.ucan).map_err(|_| ())
+    }
+}
 
 impl From<Ready> for Builder {
     fn from(resolved: Ready) -> Builder {
@@ -63,7 +74,7 @@ impl From<Builder> for arguments::Named {
     }
 }
 
-/// A variant where arguments may be [`Promise`]s
+/// A variant where arguments may be [`Promise`]s.
 pub type Promised = Generic<Promise<Cid>>;
 
 impl From<Ready> for Promised {

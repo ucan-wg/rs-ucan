@@ -1,56 +1,52 @@
+//! Check the delegation proof against another instance of the same type
+
+use super::error::{OptionalFieldError, Unequal};
 use crate::did::Did;
-use core::fmt;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
+/// Trait for checking if a proof of the same type is equally or less restrictive.
+///
+/// # Example
+///
+/// ```rust
+/// # use ucan::proof::same::CheckSame;
+/// # use ucan::did::Did;
+/// #
+/// struct HelloBuilder {
+///    wave_at: Option<Did>,
+/// }
+///
+/// enum HelloError {
+///   MissingWaveAt,
+///   WeDontTalkTo(Did)
+/// }
+///
+/// impl CheckSame for HelloBuilder {
+///     type Error = HelloError;
+///
+///     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+///         if self.wave_at == Some(Did::try_from("did:example:mallory".to_string()).unwrap()) {
+///             return Err(HelloError::WeDontTalkTo(self.wave_at.clone().unwrap()));
+///         }
+///
+///         if let Some(_) = &proof.wave_at {
+///             if self.wave_at != proof.wave_at {
+///                 return Err(HelloError::MissingWaveAt);
+///             }
+///         }
+///
+///         Ok(())
+///     }
+/// }
 pub trait CheckSame {
-    type Error;
+    /// Error type describing why a proof was insufficient.
+    type Error; // FIXME Rename CheckSameError?
 
+    /// Check if the proof is equally or less restrictive than the instance.
+    ///
+    /// Delegation must always attenuate. If the proof is more restrictive than the instance,
+    /// it has violated the delegation chain rules.
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error>;
 }
-
-// Genereic
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Unequal;
-
-// FIXME move under error.rs
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter_with_clone))]
-pub struct OptionalFieldErr {
-    pub field: String,
-    pub err: OptionalFieldReason,
-}
-
-impl fmt::Display for OptionalFieldErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Field {} is {}", self.field, self.err)
-    }
-}
-
-// FIXME at minimum the name is confusing
-#[derive(Copy, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-pub enum OptionalFieldReason {
-    MissingField,
-    UnequalValue,
-}
-
-impl fmt::Display for OptionalFieldReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                OptionalFieldReason::MissingField => "missing",
-                OptionalFieldReason::UnequalValue => "unequal",
-            }
-        )
-    }
-}
-
 impl CheckSame for Did {
     type Error = Unequal;
 
@@ -58,24 +54,24 @@ impl CheckSame for Did {
         if self.eq(proof) {
             Ok(())
         } else {
-            Err(Unequal)
+            Err(Unequal {})
         }
     }
 }
 
-impl<T: PartialEq> CheckSame for Option<T> {
-    type Error = OptionalFieldReason;
+impl<T: PartialEq + Clone> CheckSame for Option<T> {
+    type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         match proof {
             None => Ok(()),
             Some(proof_) => match self {
-                None => Err(OptionalFieldReason::MissingField),
+                None => Err(OptionalFieldError::Missing),
                 Some(self_) => {
                     if self_.eq(proof_) {
                         Ok(())
                     } else {
-                        Err(OptionalFieldReason::UnequalValue)
+                        Err(OptionalFieldError::Unequal)
                     }
                 }
             },

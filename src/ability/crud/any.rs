@@ -1,9 +1,6 @@
 use crate::{
     ability::command::Command,
-    proof::{
-        parentless::NoParents,
-        same::{CheckSame, OptionalFieldErr},
-    },
+    proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -11,12 +8,7 @@ use thiserror::Error;
 use url::Url;
 
 #[cfg(target_arch = "wasm32")]
-use crate::{ipld, proof::same::OptionalFieldReason};
-
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
-// NOTE no resolved or awaiting variants, because this cannot be executed, and all fields are optional already!
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,15 +24,10 @@ impl Command for Builder {
 impl NoParents for Builder {}
 
 impl CheckSame for Builder {
-    type Error = OptionalFieldErr;
+    type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.uri
-            .check_same(&proof.uri)
-            .map_err(|err| OptionalFieldErr {
-                field: "uri".into(),
-                err,
-            })
+        self.uri.check_same(&proof.uri)
     }
 }
 

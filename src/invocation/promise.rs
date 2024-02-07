@@ -11,8 +11,16 @@ use wasm_bindgen::prelude::*;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Promise<T> {
+    /// The fulfilled (resolved) value.
     Fulfilled(T),
-    Pending(Selector),
+
+    // Rejected(E)
+    //
+    /// A deferred value and its associated [`Selector`].
+    ///
+    /// The [`Selector`] will resolve a branch from the [`Receipt`][crate::receipt::Receipt]
+    /// and substitute into the value.
+    Pending(Selector), // FIXME shodu there be FulfilledOk and FulfilledErr? If so, why cover al branches here?
 }
 
 #[cfg(target_arch = "wasm32")]

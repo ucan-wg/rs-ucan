@@ -1,3 +1,5 @@
+//! Utilities for working with abilties that *do* have a delegation hirarchy.
+
 use super::{
     internal::Checker,
     parents::CheckParents,
@@ -6,18 +8,43 @@ use super::{
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use thiserror::Error;
 
+/// The possible cases for an [ability][crate::ability]'s
+/// [Delegation][crate::delegation::Delegation] chain when
+/// it has parent abilities (a hierarchy).
+///
+/// This type is generally not used directly, but rather is
+/// called in the plumbing of the library.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Parentful<T: CheckParents> {
+    /// The "top" ability (`*`)
     Any,
+
+    /// All possible parents for the ability.
     Parents(T::Parents),
+
+    /// The (invokable) ability itself.
     This(T),
 }
 
+/// Error cases when checking proofs (including parents)
+#[derive(Debug, Error, PartialEq)]
 pub enum ParentfulError<ArgErr, PrfErr, ParErr> {
+    /// The `cmd` field was more powerful than the proof.
+    ///
+    /// i.e. it behaves like moving "down" the delegation chain not "up"
     CommandEscelation,
+
+    /// The `args` field was more powerful than the proof.
     ArgumentEscelation(ArgErr),
+
+    /// The parents do not prove the ability.
     InvalidProofChain(PrfErr),
+
+    /// Comparing parents in a delegation chain failed.
+    ///
+    /// The specific comparison error is captured in the `ParErr`.
     InvalidParents(ParErr), // FIXME seems kinda broken -- better naming at least
 }
 

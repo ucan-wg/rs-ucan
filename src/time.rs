@@ -172,15 +172,15 @@ impl<'de> Deserialize<'de> for JsTime {
     }
 }
 
-/// An error expressing when a time is larger than 2^53 seconds past the Unix epoch
+/// An error expressing when a time is larger than 2⁵³ seconds past the Unix epoch
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub struct OutOfRangeError {
-    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2^53).
+    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2⁵³).
     pub tried: SystemTime,
 }
 
 impl fmt::Display for OutOfRangeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "time out of JsTime (2^53) range: {:?}", self.tried)
+        write!(f, "time out of JsTime (2⁵³) range: {:?}", self.tried)
     }
 }

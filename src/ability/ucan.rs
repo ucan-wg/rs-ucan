@@ -1,3 +1,4 @@
-pub mod proxy;
+//! Abilities for and about UCANs themselves
+
 pub mod revoke;
-// FIXME pub mod revoke;
+// FIXME pub mod proxy;
