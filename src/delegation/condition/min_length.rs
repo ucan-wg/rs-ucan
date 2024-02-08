@@ -1,12 +1,21 @@
+//! A min length [`Condition`].
 use super::traits::Condition;
+use crate::ability::arguments;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 
+/// A mimimum length [`Condition`]
+///
+/// This checks if the length of a string, list,
+/// or map is greater than or equal to a set size.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MinLength {
-    field: String,
-    min_length: usize,
+    /// Name of the field to check
+    pub field: String,
+
+    /// The minimum length
+    pub min_length: usize,
 }
 
 impl From<MinLength> for Ipld {
@@ -24,11 +33,11 @@ impl TryFrom<Ipld> for MinLength {
 }
 
 impl Condition for MinLength {
-    fn validate(&self, ipld: &Ipld) -> bool {
-        match ipld {
-            Ipld::String(string) => string.len() >= self.min_length,
-            Ipld::List(list) => list.len() >= self.min_length,
-            Ipld::Map(map) => map.len() >= self.min_length,
+    fn validate(&self, args: &arguments::Named) -> bool {
+        match args.get(&self.field) {
+            Some(Ipld::String(string)) => string.len() >= self.min_length,
+            Some(Ipld::List(list)) => list.len() >= self.min_length,
+            Some(Ipld::Map(map)) => map.len() >= self.min_length,
             _ => false,
         }
     }

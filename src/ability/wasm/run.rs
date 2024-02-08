@@ -4,7 +4,7 @@ use super::module::Module;
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegatable,
-    invocation::{Promise, Resolvable},
+    invocation::{promise, Resolvable},
     proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
@@ -112,14 +112,15 @@ impl CheckSame for Builder {
 }
 
 /// A variant meant for linking together invocations with promises
-pub type Promised = Generic<Promise<Module>, Promise<String>, Promise<Vec<Ipld>>>;
+pub type Promised =
+    Generic<promise::Resolves<Module>, promise::Resolves<String>, promise::Resolves<Vec<Ipld>>>;
 
 impl From<Ready> for Promised {
     fn from(ready: Ready) -> Self {
         Promised {
-            module: Promise::from(ready.module),
-            function: Promise::from(ready.function),
-            args: Promise::from(ready.args),
+            module: promise::Resolves::from(Ok(ready.module)),
+            function: promise::Resolves::from(Ok(ready.function)),
+            args: promise::Resolves::from(Ok(ready.args)),
         }
     }
 }

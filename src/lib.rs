@@ -78,6 +78,7 @@ pub mod receipt;
 pub mod signature;
 pub mod task;
 pub mod time;
+pub mod url;
 
 // FIXME consider a fact-system
 // /// The empty fact

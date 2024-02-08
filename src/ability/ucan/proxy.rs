@@ -18,7 +18,7 @@ pub struct Generic<Args> {
                     // FIXME should args just be a CID
 }
 
-pub type Resolved = Generic<arguments::Named>;
+pub type Ready = Generic<arguments::Named>;
 pub type Builder = Generic<Option<arguments::Named>>;
 pub type Promised = Generic<Promise<arguments::Named>>;
 
@@ -26,12 +26,12 @@ impl<Args> Command for Generic<Args> {
     const COMMAND: &'static str = "ucan/proxy";
 }
 
-impl Delegatable for Resolved {
+impl Delegatable for Ready {
     type Builder = Builder;
 }
 
-impl From<Resolved> for Builder {
-    fn from(resolved: Resolved) -> Builder {
+impl From<Ready> for Builder {
+    fn from(resolved: Ready) -> Builder {
         Builder {
             cmd: resolved.cmd,
             args: Some(resolved.args),
@@ -39,11 +39,11 @@ impl From<Resolved> for Builder {
     }
 }
 
-impl TryFrom<Builder> for Resolved {
+impl TryFrom<Builder> for Ready {
     type Error = (); // FIXME
 
     fn try_from(b: Builder) -> Result<Self, Self::Error> {
-        Ok(Resolved {
+        Ok(Ready {
             cmd: b.cmd,
             args: b.args.ok_or(())?,
         })
@@ -57,31 +57,3 @@ impl From<Builder> for arguments::Named {
         args
     }
 }
-
-// // FIXME hmmm need to decide on the exact shape of this
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ProxyExecuteBuilder {
-//     pub command: Option<String>,
-//     pub args: BTreeMap<String, Ipld>,
-// }
-//
-//
-// impl From<ProxyExecute> for ProxyExecuteBuilder {
-//     fn from(proxy: ProxyExecute) -> Self {
-//         ProxyExecuteBuilder {
-//             command: Some(ProxyExecute::COMMAND.into()),
-//             args: proxy.args.clone(),
-//         }
-//     }
-// }
-//
-// impl TryFrom<ProxyExecuteBuilder> for ProxyExecute {
-//     type Error = (); // FIXME
-//
-//     fn try_from(ProxyExecuteBuilder { command, args }: ProxyExecuteBuilder) -> Result<Self, ()> {
-//         match command {
-//             None => Err(()),
-//             Some(command) => Ok(Self { command, args }),
-//         }
-//     }
-// }

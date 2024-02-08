@@ -89,7 +89,12 @@ impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
 }
 
 // FIXME this likely should move to invocation
-impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<T, C> {
+impl<
+        'a,
+        T: Delegatable + Resolvable + Checkable + Clone + Into<arguments::Named>,
+        C: Condition,
+    > Payload<T, C>
+{
     pub fn check<U: Delegatable + Clone>(
         invoked: &'a invocation::Payload<T>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
@@ -106,11 +111,11 @@ impl<'a, T: Delegatable + Resolvable + Checkable + Clone, C: Condition> Payload<
             to_check: invoked.clone().into(), // FIXME surely we can eliminate this clone
         };
 
-        let ipld: Ipld = invoked.clone().into();
+        let args: arguments::Named = invoked.ability.clone().into();
 
         let result = proofs.iter().fold(Ok(start), |acc, proof| {
             if let Ok(prev) = acc {
-                match step(&prev, proof, &ipld, now) {
+                match step(&prev, proof, &args, now) {
                     Outcome::ArgumentEscelation(_) => Err(()),
                     Outcome::InvalidProofChain(_) => Err(()),
                     Outcome::InvalidParents(_) => Err(()),
@@ -151,7 +156,7 @@ struct Acc<'a, T: Checkable> {
 fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
     prev: &Acc<'a, T>,
     proof: &Payload<U, C>,
-    invoked_ipld: &Ipld,
+    args: &arguments::Named,
     now: SystemTime,
 ) -> Outcome<(), (), ()>
 // FIXME ^^^^^^^^^^^^ Outcome types
@@ -182,13 +187,17 @@ where
     //      return Err(());
     //  }
 
-    let cond_result = proof.conditions.iter().try_fold((), |_acc, c| {
-        if c.validate(&invoked_ipld) {
-            Ok(())
-        } else {
-            Err(())
-        }
-    });
+    let cond_result =
+        proof.conditions.iter().try_fold(
+            (),
+            |_acc, c| {
+                if c.validate(&args) {
+                    Ok(())
+                } else {
+                    Err(())
+                }
+            },
+        );
 
     if let Err(_) = cond_result {
         return Outcome::InvalidProofChain(());

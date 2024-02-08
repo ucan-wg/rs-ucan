@@ -3,10 +3,10 @@
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegatable,
-    invocation::{Promise, Resolvable},
+    invocation::{promise, Resolvable},
     proof::{parentless::NoParents, same::CheckSame},
 };
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::cid::Cid;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -75,12 +75,12 @@ impl From<Builder> for arguments::Named {
 }
 
 /// A variant where arguments may be [`Promise`]s.
-pub type Promised = Generic<Promise<Cid>>;
+pub type Promised = Generic<promise::Resolves<Cid>>;
 
 impl From<Ready> for Promised {
     fn from(r: Ready) -> Promised {
         Promised {
-            ucan: Promise::Fulfilled(r.ucan),
+            ucan: Ok(r.ucan).into(),
         }
     }
 }

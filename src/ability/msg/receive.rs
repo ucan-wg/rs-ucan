@@ -8,8 +8,6 @@ use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::any as msg;
-
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The ability to receive messages
 ///
@@ -62,15 +60,13 @@ impl CheckSame for Receive {
 }
 
 impl CheckParents for Receive {
-    type Parents = msg::Any;
-    type ParentError = <msg::Any as CheckSame>::Error;
+    type Parents = super::Any;
+    type ParentError = <super::Any as CheckSame>::Error;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         self.from.check_same(&proof.from).map_err(|_| ())
     }
 }
-
-////////////
 
 impl From<Receive> for Ipld {
     fn from(receive: Receive) -> Self {

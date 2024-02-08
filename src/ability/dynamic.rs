@@ -103,7 +103,7 @@ impl CheckSame for Dynamic {
         }
 
         self.args.0.iter().try_for_each(|(k, v)| {
-            if let Some(proof_v) = proof.args.0.get(k) {
+            if let Some(proof_v) = proof.args.get(k) {
                 if v != proof_v {
                     return Err("arguments::Named mismatch".into());
                 }

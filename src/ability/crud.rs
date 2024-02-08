@@ -1,7 +1,15 @@
-pub mod any;
-pub mod create;
-pub mod destroy;
-pub mod mutate;
+mod any;
+mod create;
+mod destroy;
+mod mutate;
+mod read;
+mod update;
+
 pub mod parents;
-pub mod read;
-pub mod update;
+
+pub use any::Any;
+pub use create::Create;
+pub use destroy::Destroy;
+pub use mutate::Mutate;
+pub use read::Read;
+pub use update::Update;

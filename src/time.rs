@@ -47,10 +47,13 @@ impl<'de> Deserialize<'de> for Timestamp {
     where
         D: Deserializer<'de>,
     {
-        if let Ok(sys_time) = SystemTime::deserialize(deserializer) {
-            match JsTime::new(sys_time) {
-                Ok(js_time) => Ok(Timestamp::JsSafe(js_time)),
-                Err(_) => Ok(Timestamp::Postel(sys_time)),
+        if let Ok(secs) = u64::deserialize(deserializer) {
+            match UNIX_EPOCH.checked_add(Duration::new(secs, 0)) {
+                None => return Err(serde::de::Error::custom("time out of range for SystemTime")),
+                Some(sys_time) => match JsTime::new(sys_time) {
+                    Ok(js_time) => Ok(Timestamp::JsSafe(js_time)),
+                    Err(_) => Ok(Timestamp::Postel(sys_time)),
+                },
             }
         } else {
             Err(serde::de::Error::custom("not a Timestamp"))

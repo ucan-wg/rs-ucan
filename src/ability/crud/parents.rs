@@ -1,12 +1,11 @@
-use super::{any, mutate::MutateBuilder};
 use crate::proof::same::CheckSame;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Mutable {
-    Mutate(MutateBuilder),
-    Any(any::Builder),
+    Mutate(super::Mutate),
+    Any(super::Any),
 }
 
 impl CheckSame for Mutable {

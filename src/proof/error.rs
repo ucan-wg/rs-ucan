@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Error)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[error("unequal")]
-pub struct Unequal {}
+pub struct Unequal();
 
 /// A generic error for when two fields are unequal.
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]

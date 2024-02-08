@@ -3,16 +3,19 @@
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegatable,
-    invocation::{Promise, Resolvable},
+    invocation::{promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    url as url_newtype,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::BTreeMap;
 use url::Url;
 
-use super::any as msg;
-
+/// Helper for creating instances of `msg/send` with the correct shape.
+///
+/// This is not generally used directly, unless you want to abstract
+/// over all of the `msg/send` variants.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Generic<To, From, Message> {
@@ -49,14 +52,14 @@ pub struct Generic<To, From, Message> {
 ///     end
 ///
 ///     sendpromise("msg::send::Promised")
-///     sendrun("msg::send::Resolved")
+///     sendrun("msg::send::Ready")
 ///
 ///     top --> any
 ///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
 ///
 ///     style sendrun stroke:orange;
 /// ```
-pub type Resolved = Generic<Url, Url, String>;
+pub type Ready = Generic<Url, Url, String>;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The delegatable variant of the `msg/send` ability.
@@ -108,20 +111,21 @@ pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
 ///     end
 ///
 ///     sendpromise("msg::send::Promised")
-///     sendrun("msg::send::Resolved")
+///     sendrun("msg::send::Ready")
 ///
 ///     top --> any
 ///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
 ///
 ///     style sendpromise stroke:orange;
 /// ```
-pub type Promised = Generic<Promise<Url>, Promise<Url>, Promise<String>>;
+pub type Promised =
+    Generic<promise::Resolves<Url>, promise::Resolves<Url>, promise::Resolves<String>>;
 
-impl Delegatable for Resolved {
+impl Delegatable for Ready {
     type Builder = Builder;
 }
 
-impl Resolvable for Resolved {
+impl Resolvable for Ready {
     type Promised = Promised;
 }
 
@@ -139,21 +143,21 @@ impl From<Builder> for arguments::Named {
 }
 
 impl From<Promised> for arguments::Named {
-    fn from(promised: Promised) -> Self {
+    fn from(p: Promised) -> Self {
         arguments::Named(BTreeMap::from_iter([
-            ("to".into(), promised.to.map(String::from).into()),
-            ("from".into(), promised.from.map(String::from).into()),
-            ("message".into(), promised.message.into()),
+            ("to".into(), p.to.map(url_newtype::Newtype).into()),
+            ("from".into(), p.from.map(String::from).into()),
+            ("message".into(), p.message.into()),
         ]))
     }
 }
 
 impl From<Promised> for Builder {
-    fn from(awaiting: Promised) -> Self {
+    fn from(p: Promised) -> Self {
         Builder {
-            to: awaiting.to.try_resolve().ok(),
-            from: awaiting.from.try_resolve().ok(),
-            message: awaiting.message.try_resolve().ok(),
+            to: p.to.into(),
+            from: p.from.into(),
+            message: p.message.into(),
         }
     }
 }
@@ -168,6 +172,7 @@ impl Checkable for Builder {
 
 impl CheckSame for Builder {
     type Error = (); // FIXME better error
+
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         self.to.check_same(&proof.to).map_err(|_| ())?;
         self.from.check_same(&proof.from).map_err(|_| ())?;
@@ -176,17 +181,16 @@ impl CheckSame for Builder {
 }
 
 impl CheckParents for Builder {
-    type Parents = msg::Any;
-    type ParentError = <msg::Any as CheckSame>::Error;
+    type Parents = super::Any;
+    type ParentError = <super::Any as CheckSame>::Error;
 
-    // FIXME rename other to proof
-    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        self.from.check_same(&other.from).map_err(|_| ())
+    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+        self.from.check_same(&proof.from).map_err(|_| ())
     }
 }
 
-impl From<Resolved> for Builder {
-    fn from(resolved: Resolved) -> Self {
+impl From<Ready> for Builder {
+    fn from(resolved: Ready) -> Self {
         Generic {
             to: resolved.to.into(),
             from: resolved.from.into(),
@@ -195,36 +199,41 @@ impl From<Resolved> for Builder {
     }
 }
 
-impl From<Resolved> for Promised {
-    fn from(resolved: Resolved) -> Self {
-        Generic {
-            to: resolved.to.into(),
-            from: resolved.from.into(),
-            message: resolved.message.into(),
+impl From<Ready> for Promised {
+    fn from(r: Ready) -> Self {
+        Promised {
+            to: promise::Resolves::from(Ok(r.to)),
+            from: promise::Resolves::from(Ok(r.from)),
+            message: promise::Resolves::from(Ok(r.message)),
         }
     }
 }
 
-impl TryFrom<Promised> for Resolved {
-    type Error = ();
+impl TryFrom<Promised> for Ready {
+    type Error = Promised;
 
-    fn try_from(awaiting: Promised) -> Result<Self, ()> {
-        Ok(Generic {
-            to: awaiting.to.try_resolve().map_err(|_| ())?,
-            from: awaiting.from.try_resolve().map_err(|_| ())?,
-            message: awaiting.message.try_resolve().map_err(|_| ())?,
-        })
+    fn try_from(p: Promised) -> Result<Ready, Promised> {
+        match promise::Resolves::try_resolve_3(p.to, p.from, p.message) {
+            Ok((to, from, message)) => Ok(Ready { to, from, message }),
+            Err((to, from, message)) => Err(Promised { to, from, message }),
+        }
     }
 }
 
-impl TryFrom<Builder> for Resolved {
-    type Error = ();
+impl TryFrom<Builder> for Ready {
+    type Error = Builder;
 
-    fn try_from(builder: Builder) -> Result<Self, ()> {
-        Ok(Generic {
-            to: builder.to.ok_or(())?,
-            from: builder.from.ok_or(())?,
-            message: builder.message.ok_or(())?,
+    fn try_from(b: Builder) -> Result<Self, Builder> {
+        // Entirely by refernce
+        if b.to.is_none() || b.from.is_none() || b.message.is_none() {
+            return Err(b);
+        }
+
+        // Moves, and unwrap because we checked above instead of 2 clones per line
+        Ok(Ready {
+            to: b.to.unwrap(),
+            from: b.from.unwrap(),
+            message: b.message.unwrap(),
         })
     }
 }

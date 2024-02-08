@@ -1,5 +1,9 @@
 //! Message abilities
 
-pub mod any;
-pub mod receive;
+mod any;
+mod receive;
+
 pub mod send;
+
+pub use any::Any;
+pub use receive::Receive;

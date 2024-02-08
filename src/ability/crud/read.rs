@@ -1,6 +1,5 @@
-use super::any;
 use crate::{
-    ability::{arguments, command::Command},
+    ability::{arguments, command::Command, crud::any::CrudAny},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -78,7 +77,7 @@ impl CheckSame for Read {
 }
 
 impl CheckParents for Read {
-    type Parents = any::Builder;
+    type Parents = super::Any;
     type ParentError = E;
 
     fn check_parent(&self, _other: &Self::Parents) -> Result<(), Self::ParentError> {
@@ -109,7 +108,7 @@ impl CrudRead {
         self.0.check_same(&proof.0).map_err(Into::into)
     }
 
-    pub fn check_parent(&self, proof: &any::CrudAny) -> Result<(), JsError> {
+    pub fn check_parent(&self, proof: &CrudAny) -> Result<(), JsError> {
         self.0.check_parent(&proof.0).map_err(Into::into)
     }
 }

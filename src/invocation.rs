@@ -1,10 +1,10 @@
 mod payload;
-mod promise;
 mod resolvable;
 mod serializer;
 
+pub mod promise;
+
 pub use payload::{Payload, Unresolved};
-pub use promise::Promise;
 pub use resolvable::Resolvable;
 
 use crate::signature;

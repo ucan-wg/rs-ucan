@@ -1,5 +1,6 @@
 use crate::{
     ability::command::Command,
+    ipld,
     proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -12,18 +13,18 @@ use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Builder {
+pub struct Any {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<Url>,
 }
 
-impl Command for Builder {
+impl Command for Any {
     const COMMAND: &'static str = "crud/*";
 }
 
-impl NoParents for Builder {}
+impl NoParents for Any {}
 
-impl CheckSame for Builder {
+impl CheckSame for Any {
     type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
@@ -31,7 +32,7 @@ impl CheckSame for Builder {
     }
 }
 
-impl TryFrom<Ipld> for Builder {
+impl TryFrom<Ipld> for Any {
     type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
@@ -39,22 +40,15 @@ impl TryFrom<Ipld> for Builder {
     }
 }
 
-impl From<Builder> for Ipld {
-    fn from(builder: Builder) -> Self {
+impl From<Any> for Ipld {
+    fn from(builder: Any) -> Self {
         builder.into()
     }
 }
 
-// FIXME
-#[derive(Debug, Error)]
-pub enum E {
-    #[error("Some error")]
-    SomeErrMsg(String),
-}
-
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub struct CrudAny(#[wasm_bindgen(skip)] pub Builder);
+pub struct CrudAny(#[wasm_bindgen(skip)] pub Any);
 
 // FIXME macro this away
 #[cfg(target_arch = "wasm32")]
@@ -69,16 +63,20 @@ impl CrudAny {
     }
 
     pub fn command(&self) -> String {
-        Builder::COMMAND.to_string()
+        Any::COMMAND.to_string()
     }
 
     pub fn check_same(&self, proof: &CrudAny) -> Result<(), JsError> {
-        self.0.check_same(&proof.0).map_err(|_| {
-            OptionalFieldErr {
-                field: "uri".into(),
-                err: OptionalFieldReason::MissingField,
+        if self.uri.is_some() {
+            if self.uri != proof.uri {
+                return Err(OptionalFieldError {
+                    field: "uri".into(),
+                    err: OptionalFieldReason::NotEqual,
+                }
+                .into());
             }
-            .into()
-        })
+        }
+
+        Ok(())
     }
 }

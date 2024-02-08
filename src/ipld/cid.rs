@@ -1,6 +1,9 @@
 //! Utilities for [`Cid`]s
 
-use libipld_core::cid::Cid;
+use crate::ipld;
+use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -11,11 +14,21 @@ use wasm_bindgen_derive::TryFromJsValue;
 /// A newtype wrapper around a [`Cid`]
 ///
 /// This is largely to attach traits to [`Cid`]s, such as [`wasm_bindgen`] conversions.
-#[derive(Debug, PartialEq, Eq, Clone)]
-#[cfg_attr(target_arch = "wasm32", derive(TryFromJsValue))]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Newtype {
-    cid: Cid,
+    pub cid: Cid,
+}
+
+/// A newtype wrapper around a [`Cid`]
+///
+/// This is largely to attach traits to [`Cid`]s, such as [`wasm_bindgen`] conversions.
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[wasm_bindgen]
+pub struct Newtype {
+    #[wasm_bindgen(skip)]
+    pub cid: Cid,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -33,17 +46,25 @@ extern "C" {
 #[wasm_bindgen]
 impl Newtype {
     /// Parse a [`Newtype`] from a string
-    pub fn from_string(cid_string: String) -> Result<Newtype, JsValue> {
-        Newtype::try_from(cid_string).map_err(|e| JsValue::from_str(&format!("{}", e)))
+    pub fn from_string(cid_string: String) -> Result<Newtype, JsError> {
+        Newtype::try_from(cid_string).map_err(|e| JsError::new(&format!("{}", e)))
     }
 
+    pub fn try_from_js_value(js: &JsValue) -> Result<Newtype, JsError> {
+        match &js.as_string() {
+            Some(s) => Newtype::from_string(s.clone()),
+            None => Err(JsError::new("Expected a string")),
+        }
+    }
+}
+
+impl Newtype {
     /// Convert the [`Cid`] to a string
     pub fn to_string(&self) -> String {
         self.cid.to_string()
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 impl TryFrom<String> for Newtype {
     type Error = <Cid as TryFrom<String>>::Error;
 
@@ -52,16 +73,47 @@ impl TryFrom<String> for Newtype {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 impl From<Newtype> for Cid {
     fn from(wrapper: Newtype) -> Self {
         wrapper.cid
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 impl From<Cid> for Newtype {
     fn from(cid: Cid) -> Self {
         Self { cid }
     }
 }
+
+impl TryFrom<Ipld> for Newtype {
+    type Error = NotACid;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            Ipld::Link(cid) => Ok(Newtype { cid }),
+            other => Err(NotACid(other.into())),
+        }
+    }
+}
+
+impl TryFrom<&Ipld> for Newtype {
+    type Error = NotACid;
+
+    fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            Ipld::Link(cid) => Ok(Newtype { cid: *cid }),
+            other => Err(NotACid(other.clone().into())),
+        }
+    }
+}
+
+// #[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, PartialEq, Clone, Error, Serialize, Deserialize)]
+#[error("Not a CID: {0:?}")]
+pub struct NotACid(pub ipld::Newtype);
+
+// #[cfg(target_arch = "wasm32")]
+// #[derive(Debug, PartialEq, Clone, Error, Serialize, Deserialize)]
+// #[error("Not a CID: {0:?}")]
+// #[wasm_bindgen]
+// pub struct NotACid(#[wasm_bindgen(skip)] pub ipld::Newtype);

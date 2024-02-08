@@ -192,14 +192,6 @@ impl TryFrom<Ipld> for Nonce {
     }
 }
 
-impl TryFrom<&Ipld> for Nonce {
-    type Error = (); // FIXME
-
-    fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
-        TryFrom::try_from(ipld.to_owned())
-    }
-}
-
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[wasm_bindgen]
@@ -247,7 +239,7 @@ impl JsNonce {
     /// # Arguments
     ///
     /// * `nonce` - The exact nonce to convert to a [`JsNonce`]
-    pub fn from_uint8_array(nonce: Box<[u8]>) -> JsNonce {
+    pub fn from_uint8_array(arr: Box<[u8]>) -> JsNonce {
         Nonce::from(arr.to_vec()).into()
     }
 

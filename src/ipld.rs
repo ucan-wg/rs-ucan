@@ -3,6 +3,7 @@
 pub mod cid;
 
 use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -34,7 +35,8 @@ use js_sys::{Array, Map, Object, Uint8Array};
 /// #
 /// assert_eq!(wrapped.0, ipld);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Newtype(pub Ipld);
 
 impl From<Ipld> for Newtype {
@@ -164,7 +166,7 @@ impl TryFrom<JsValue> for Newtype {
         }
 
         // NOTE *must* come before `is_object` (which is hopefully below)
-        if let Ok(nt) = cid::Newtype::try_from(&js_val) {
+        if let Ok(nt) = cid::Newtype::try_from_js_value(&js_val) {
             return Ok(Newtype(Ipld::Link(nt.into())));
         }
 

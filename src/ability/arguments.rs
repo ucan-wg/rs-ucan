@@ -21,37 +21,42 @@ use crate::ipld;
 /// # Examples
 ///
 /// ```rust
-/// # use ucan::ability::arguments::Named;
+/// # use ucan::ability::arguments;
 /// # use url::Url;
 /// # use libipld::ipld;
 /// #
 /// struct Execute {
 ///    program: Url,
-///    args: Named,
+///    instructions: arguments::Named,
 /// }
 ///
 /// let ability = Execute {
 ///   program: Url::parse("file://host.name/path/to/exe").unwrap(),
-///   args: Named::try_from(ipld!({
-///     "bold": true,
-///     "message": "hello world",
-///   })).unwrap()
+///   instructions: arguments::Named::from_iter([
+///     ("bold".into(), ipld!(true)),
+///     ("message".into(), ipld!("hello world")),
+///   ])
 /// };
 ///
-/// assert_eq!(ability.args.get("bold"), Some(&ipld!(true)));
+/// assert_eq!(ability.instructions.get("bold"), Some(&ipld!(true)));
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Named(pub BTreeMap<String, Ipld>);
 
 impl Named {
-    /// Get the value associated with a key
+    /// Create a new, empty `Named` instance.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Get the value associated with a key.
     ///
     /// An alias for [`BTreeMap::insert`].
     pub fn get(&self, key: &str) -> Option<&Ipld> {
         self.0.get(key)
     }
 
-    /// Inserts a key-value pair
+    /// Inserts a key-value pair.
     ///
     /// An alias for [`BTreeMap::insert`].
     pub fn insert(&mut self, key: String, value: Ipld) -> Option<Ipld> {
@@ -63,6 +68,13 @@ impl Named {
     /// A wrapper around [`BTreeMap::iter`].
     pub fn iter(&self) -> impl Iterator<Item = (&String, &Ipld)> {
         self.0.iter()
+    }
+
+    /// The number of entries in.
+    ///
+    /// A wrapper around [`BTreeMap::len`].
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 

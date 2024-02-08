@@ -1,12 +1,21 @@
+//! A max length [`Condition`].
 use super::traits::Condition;
+use crate::ability::arguments;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 
+/// A maximum length [`Condition`]
+///
+/// A condition that checks if the length of a string, list,
+/// or map is less than or equal to a set size.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaxLength {
-    field: String,
-    max_length: usize,
+    /// Name of the field to check
+    pub field: String,
+
+    /// The maximum length
+    pub max_length: usize,
 }
 
 impl From<MaxLength> for Ipld {
@@ -24,11 +33,11 @@ impl TryFrom<Ipld> for MaxLength {
 }
 
 impl Condition for MaxLength {
-    fn validate(&self, ipld: &Ipld) -> bool {
-        match ipld {
-            Ipld::String(string) => string.len() <= self.max_length,
-            Ipld::List(list) => list.len() <= self.max_length,
-            Ipld::Map(map) => map.len() <= self.max_length,
+    fn validate(&self, args: &arguments::Named) -> bool {
+        match args.get(&self.field) {
+            Some(Ipld::String(string)) => string.len() <= self.max_length,
+            Some(Ipld::List(list)) => list.len() <= self.max_length,
+            Some(Ipld::Map(map)) => map.len() <= self.max_length,
             _ => false,
         }
     }
