@@ -19,11 +19,11 @@ pub enum OptionalFieldError {
     /// A required field is missing.
     ///
     /// For example, when its proof has a vaue, but the target does not.
-    #[error("missing")]
+    #[error("Field missing")]
     Missing,
 
     /// A field is present but has a different value in its proof
-    #[error("unequal")]
+    #[error("Field value unequal")]
     Unequal,
 }
 

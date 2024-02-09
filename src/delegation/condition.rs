@@ -1,22 +1,35 @@
-pub mod contains_all;
-pub mod contains_any;
-pub mod contains_key;
-pub mod excludes_all;
-pub mod excludes_key;
-pub mod matches_regex;
-pub mod max_length;
-pub mod max_number;
-pub mod min_length;
-pub mod min_number;
-pub mod traits;
+mod contains_all;
+mod contains_any;
+mod contains_key;
+mod excludes_all;
+mod excludes_key;
+mod matches_regex;
+mod max_length;
+mod max_number;
+mod min_length;
+mod min_number;
+mod traits;
+
+pub use contains_all::ContainsAll;
+pub use contains_any::ContainsAny;
+pub use contains_key::ContainsKey;
+pub use excludes_all::ExcludesAll;
+pub use excludes_key::ExcludesKey;
+pub use matches_regex::MatchesRegex;
+pub use max_length::MaxLength;
+pub use max_number::MaxNumber;
+pub use min_length::MinLength;
+pub use min_number::MinNumber;
+pub use traits::Condition;
 
 use crate::ability::arguments;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
-use traits::Condition;
 
+/// The union of the common [`Condition`]s that ship directly with this library.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
 pub enum Common {
     ContainsAll(contains_all::ContainsAll),
     ContainsAny(contains_any::ContainsAny),

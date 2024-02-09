@@ -1,9 +1,11 @@
 //! The delegation superclass for all mutable CRUD actions.
 
-use super::error::PathError;
 use crate::{
     ability::command::Command,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    proof::{
+        checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
+        parents::CheckParents, same::CheckSame,
+    },
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -82,13 +84,13 @@ impl Checkable for Mutate {
 }
 
 impl CheckSame for Mutate {
-    type Error = PathError;
+    type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         if let Some(path) = &self.path {
-            let proof_path = proof.path.as_ref().ok_or(PathError::Missing)?;
+            let proof_path = proof.path.as_ref().ok_or(OptionalFieldError::Missing)?;
             if path != proof_path {
-                return Err(PathError::Mismatch);
+                return Err(OptionalFieldError::Unequal);
             }
         }
 
@@ -98,13 +100,13 @@ impl CheckSame for Mutate {
 
 impl CheckParents for Mutate {
     type Parents = super::Any;
-    type ParentError = PathError;
+    type ParentError = OptionalFieldError;
 
     fn check_parent(&self, crud_any: &Self::Parents) -> Result<(), Self::ParentError> {
         if let Some(path) = &self.path {
-            let proof_path = crud_any.path.as_ref().ok_or(PathError::Missing)?;
+            let proof_path = crud_any.path.as_ref().ok_or(OptionalFieldError::Missing)?;
             if path != proof_path {
-                return Err(PathError::Mismatch);
+                return Err(OptionalFieldError::Unequal);
             }
         }
 

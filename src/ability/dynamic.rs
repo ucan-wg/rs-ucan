@@ -32,7 +32,7 @@ pub struct Dynamic {
     /// Unstructured, named arguments
     ///
     /// The only requirement is that the keys are strings and the values are [`Ipld`]
-    pub args: arguments::Named,
+    pub args: arguments::Named<Ipld>,
 }
 
 impl ToCommand for Dynamic {
@@ -41,7 +41,7 @@ impl ToCommand for Dynamic {
     }
 }
 
-impl From<Dynamic> for arguments::Named {
+impl From<Dynamic> for arguments::Named<Ipld> {
     fn from(dynamic: Dynamic) -> Self {
         dynamic.args
     }

@@ -1,15 +1,14 @@
-mod condition;
 mod delegatable;
 mod payload;
 
+pub mod condition;
 pub mod store;
 
-pub use condition::*;
 pub use delegatable::Delegatable;
 pub use payload::Payload;
 
-use condition::traits::Condition;
-use store::IndexedStore;
+use condition::Condition;
+// use store::IndexedStore;
 
 use crate::signature;
 

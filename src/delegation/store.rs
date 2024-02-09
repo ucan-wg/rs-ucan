@@ -1,4 +1,4 @@
-use super::{condition::traits::Condition, delegatable::Delegatable, Delegation};
+use super::{condition::Condition, delegatable::Delegatable, Delegation};
 use crate::did::Did;
 use libipld_core::cid::Cid;
 use serde::{Deserialize, Serialize};

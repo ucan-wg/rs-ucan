@@ -6,11 +6,12 @@ use crate::{
     reader::Reader,
 };
 use js_sys::{Function, JsString, Map};
+use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use wasm_bindgen::{prelude::*, JsValue};
 
 // FIXME rename
-type WithParents = Reader<ParentfulConfig, arguments::Named>;
+type WithParents = Reader<ParentfulConfig, arguments::Named<Ipld>>;
 
 // Promise = Promise? Ah, nope becuase we need that CID on the promise
 // FIXME represent promises (for Promised) and options (for builder)

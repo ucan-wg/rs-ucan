@@ -1,7 +1,7 @@
 //! Utilities for [`Cid`]s
 
 use crate::ipld;
-use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld};
+use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -111,9 +111,3 @@ impl TryFrom<&Ipld> for Newtype {
 #[derive(Debug, PartialEq, Clone, Error, Serialize, Deserialize)]
 #[error("Not a CID: {0:?}")]
 pub struct NotACid(pub ipld::Newtype);
-
-// #[cfg(target_arch = "wasm32")]
-// #[derive(Debug, PartialEq, Clone, Error, Serialize, Deserialize)]
-// #[error("Not a CID: {0:?}")]
-// #[wasm_bindgen]
-// pub struct NotACid(#[wasm_bindgen(skip)] pub ipld::Newtype);

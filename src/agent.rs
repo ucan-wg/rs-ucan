@@ -1,6 +1,6 @@
 use crate::{
     ability::command::ToCommand,
-    delegation::{traits::Condition, Delegatable, Delegation},
+    delegation::{condition::Condition, Delegatable, Delegation},
     did::Did,
     invocation::Invocation,
     proof::parents::CheckParents,

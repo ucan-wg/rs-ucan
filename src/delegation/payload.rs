@@ -1,4 +1,4 @@
-use super::{condition::traits::Condition, delegatable::Delegatable};
+use super::{condition::Condition, delegatable::Delegatable};
 use crate::{
     ability::{arguments, command::Command},
     capsule::Capsule,

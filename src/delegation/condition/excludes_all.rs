@@ -12,7 +12,7 @@ use serde_derive::{Deserialize, Serialize};
 /// # Examples
 ///
 /// ```rust
-/// # use ucan::delegation::{excludes_all::ExcludesAll, traits::Condition};
+/// # use ucan::delegation::{condition::{ExcludesAll, Condition}};
 /// # use libipld::ipld;
 /// #
 /// let args = ipld!({"a": [1, "b", 3.14], "b": 4}).try_into().unwrap();

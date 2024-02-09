@@ -1,9 +1,8 @@
 //! "Any" CRUD ability (superclass of all CRUD abilities)
 
-use super::error::PathError;
 use crate::{
     ability::command::Command,
-    proof::{parentless::NoParents, same::CheckSame},
+    proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -68,13 +67,13 @@ impl Command for Any {
 impl NoParents for Any {}
 
 impl CheckSame for Any {
-    type Error = PathError;
+    type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         if let Some(path) = &self.path {
-            let proof_path = proof.path.as_ref().ok_or(PathError::Missing)?;
+            let proof_path = proof.path.as_ref().ok_or(OptionalFieldError::Missing)?;
             if path != proof_path {
-                return Err(PathError::Mismatch);
+                return Err(OptionalFieldError::Unequal);
             }
         }
 

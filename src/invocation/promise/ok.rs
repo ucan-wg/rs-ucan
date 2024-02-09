@@ -2,7 +2,6 @@ use crate::{ability::arguments, ipld::cid};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
-use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
@@ -14,6 +13,7 @@ pub enum PromiseOk<T> {
     Pending(#[serde(rename = "await/ok")] Cid),
 }
 
+// FIXME move try_resolve to a trait, give a blanket impl for prims, and tag them
 impl<T> PromiseOk<T> {
     pub fn try_resolve(self) -> Result<T, PromiseOk<T>> {
         match self {

@@ -26,6 +26,10 @@ impl<T> Resolves<Option<T>> {
 }
 
 impl<T> Resolves<T> {
+    pub fn new(val: T) -> Self {
+        Resolves::Ok(PromiseOk::Fulfilled(val))
+    }
+
     pub fn try_resolve(self) -> Result<T, Resolves<T>> {
         match self {
             Resolves::Ok(p_ok) => p_ok.try_resolve().map_err(Resolves::Ok),
@@ -202,6 +206,16 @@ impl<T> Resolves<T> {
             Resolves::Ok(p_ok) => Resolves::Ok(p_ok.map(f)),
             Resolves::Err(p_err) => Resolves::Err(p_err.map(f)),
         }
+    }
+}
+
+impl<T: TryFrom<Ipld>> TryFrom<Ipld> for Resolves<T> {
+    type Error = Ipld;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        // FIXME so much cloning
+        let t = ipld.clone().try_into().map_err(|_| ipld.clone())?;
+        Ok(PromiseOk::Fulfilled(t).into())
     }
 }
 

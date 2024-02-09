@@ -4,11 +4,14 @@
 //! * See the [`Builder`] to view the [delegation chain](./type.Builder.html#delegation-hierarchy).
 //! * The invocation [Lifecycle](./struct.Ready.html#lifecycle) can be found on [`Ready`] or [`Promised`].
 
-use super::error::{PathError, ProofError};
+use super::error::ProofError;
 use crate::{
     ability::{arguments, command::Command},
-    invocation::promise,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    invocation::{promise, promise::Resolves, Resolvable},
+    proof::{
+        checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
+        parents::CheckParents, same::CheckSame, util::check_optional,
+    },
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -19,9 +22,6 @@ use wasm_bindgen::prelude::*;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The CRUD ability to retrieve data from a resource.
-///
-/// Note that the delegation [`Builder`] has the exact same
-/// fields in this case.
 ///
 /// # Invocation
 ///
@@ -58,16 +58,12 @@ pub struct Ready {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
 
-    /// Optional additional arugments to pass in the request.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<arguments::Named<Ipld>>,
+    /// Additional arugments to pass in the request.
+    pub args: arguments::Named<Ipld>,
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The CRUD ability to retrieve data from a resource.
-///
-/// Note that the delegation [`Builder`] has the exact same
-/// fields as [`read::Ready`][Ready] in this case.
 ///
 /// # Delegation Hierarchy
 ///
@@ -92,52 +88,52 @@ pub struct Ready {
 ///
 ///     style read stroke:orange;
 /// ```
-pub type Builder = Ready;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Builder {
+    // FIXME ^^^^^^ rename delegation as a pattern
+    /// Optional path within the resource.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Additional arugments to pass in the request.
+    pub args: Option<arguments::Named<Ipld>>,
+}
 
 impl Command for Ready {
     const COMMAND: &'static str = "crud/read";
 }
 
-impl Checkable for Ready {
-    type Hierarchy = Parentful<Ready>;
+impl Checkable for Builder {
+    type Hierarchy = Parentful<Builder>;
 }
 
-impl CheckSame for Ready {
+impl CheckSame for Builder {
     type Error = ProofError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if let Some(path) = &self.path {
-            if path != proof.path.as_ref().unwrap() {
-                return Err(PathError::Mismatch.into());
-            }
-        }
+        check_optional(self.path.as_ref(), proof.path.as_ref())
+            .map_err(Into::<ProofError>::into)?;
 
-        if let Some(args) = &self.args {
-            let proof_args = proof.args.as_ref().ok_or(ProofError::MissingProofArgs)?;
-            for (k, v) in args.iter() {
-                if proof_args
-                    .get(k)
-                    .ok_or(arguments::NamedError::FieldMissing(k.clone()))?
-                    .ne(v)
-                {
-                    return Err(arguments::NamedError::FieldValueMismatch(k.clone()).into());
-                }
-            }
+        let args = self.args.as_ref().ok_or(ProofError::MissingProofArgs)?;
+        if let Some(proof_args) = &proof.args {
+            args.contains(proof_args).map_err(Into::into)
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 }
 
-impl CheckParents for Ready {
+impl CheckParents for Builder {
     type Parents = super::Any;
-    type ParentError = PathError;
+    type ParentError = OptionalFieldError;
 
     fn check_parent(&self, crud_any: &super::Any) -> Result<(), Self::ParentError> {
         if let Some(path) = &self.path {
-            let crud_any_path = crud_any.path.as_ref().ok_or(PathError::Missing)?;
+            let crud_any_path = crud_any.path.as_ref().ok_or(OptionalFieldError::Missing)?;
             if path != crud_any_path {
-                return Err(PathError::Mismatch);
+                return Err(OptionalFieldError::Unequal);
             }
         }
 
@@ -192,9 +188,7 @@ pub struct Promised {
     #[serde(skip_serializing_if = "promise::Resolves::resolved_none")]
     pub path: promise::Resolves<Option<PathBuf>>,
 
-    /// Optional additional arugments to pass in the request
-    #[serde(skip_serializing_if = "promise::Resolves::resolved_none")]
-    pub args: promise::Resolves<Option<arguments::Named<promise::Resolves<Ipld>>>>,
+    pub args: arguments::Promised,
 }
 
 impl From<Promised> for Ipld {
@@ -208,5 +202,37 @@ impl TryFrom<Ipld> for Promised {
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         ipld_serde::from_ipld(ipld)
+    }
+}
+
+impl From<Ready> for Promised {
+    fn from(r: Ready) -> Promised {
+        Promised {
+            path: promise::PromiseOk::Fulfilled(r.path).into(),
+            args: promise::PromiseOk::Fulfilled(r.args.into()).into(),
+        }
+    }
+}
+
+impl From<Promised> for arguments::Named<Ipld> {
+    fn from(p: Promised) -> arguments::Named<Ipld> {
+        p.into()
+    }
+}
+
+impl Resolvable for Ready {
+    type Promised = Promised;
+
+    fn try_resolve(p: Promised) -> Result<Ready, Promised> {
+        match Resolves::try_resolve_2(p.path, p.args) {
+            Ok((path, promise_args)) => match promise_args.try_into() {
+                Ok(args) => Ok(Ready { path, args }),
+                Err(args) => Err(Promised {
+                    args: promise::PromiseOk::Fulfilled(args).into(),
+                    path: promise::PromiseOk::Fulfilled(path).into(),
+                }),
+            },
+            Err((path, args)) => Err(Promised { path, args }),
+        }
     }
 }

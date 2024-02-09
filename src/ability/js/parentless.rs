@@ -6,10 +6,11 @@ use crate::{
     reader::Reader,
 };
 use js_sys::Function;
+use libipld_core::ipld::Ipld;
 use wasm_bindgen::prelude::*;
 
 // FIXME rename
-type WithoutParents = Reader<ParentlessConfig, arguments::Named>;
+type WithoutParents = Reader<ParentlessConfig, arguments::Named<Ipld>>;
 
 /// The configuration object that expresses an ability (without parents) from JS
 #[derive(Debug, Clone, PartialEq)]
