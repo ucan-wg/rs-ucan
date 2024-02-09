@@ -2,7 +2,7 @@ use super::{err::PromiseErr, ok::PromiseOk};
 use crate::{ability::arguments, ipld::cid};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
-    de::{DeserializeSeed, Deserializer, Error, Expected, IgnoredAny, MapAccess, Visitor},
+    de::{DeserializeSeed, Deserializer, Error, Expected, MapAccess, Visitor},
     Deserialize, Serialize, Serializer,
 };
 use std::fmt;
@@ -116,31 +116,28 @@ where
     }
 }
 
-impl<T, E> From<PromiseAny<T, E>> for arguments::Named
-where
-    Ipld: From<T> + From<E>,
-{
-    fn from(p: PromiseAny<T, E>) -> arguments::Named {
+impl<T: Into<Ipld>, E: Into<Ipld>> From<PromiseAny<T, E>> for arguments::Named<Ipld> {
+    fn from(p: PromiseAny<T, E>) -> arguments::Named<Ipld> {
         match p {
             PromiseAny::Fulfilled(val) => {
-                arguments::Named::from_iter([("ucan/ok".into(), Ipld::from(val))])
+                arguments::Named::from_iter([("ucan/ok".into(), val.into())])
             }
             PromiseAny::Rejected(err) => {
-                arguments::Named::from_iter([("ucan/err".into(), Ipld::from(err))])
+                arguments::Named::from_iter([("ucan/err".into(), err.into())])
             }
             PromiseAny::Pending(cid) => {
-                arguments::Named::from_iter([("await/*".into(), Ipld::from(cid))])
+                arguments::Named::from_iter([("await/*".into(), cid.into())])
             }
         }
     }
 }
 
-impl<T: for<'a> TryFrom<&'a Ipld>, E: for<'a> TryFrom<&'a Ipld>> TryFrom<arguments::Named>
+impl<T: for<'a> TryFrom<&'a Ipld>, E: for<'a> TryFrom<&'a Ipld>> TryFrom<arguments::Named<Ipld>>
     for PromiseAny<T, E>
 {
     type Error = (); // FIXME
 
-    fn try_from(args: arguments::Named) -> Result<PromiseAny<T, E>, Self::Error> {
+    fn try_from(args: arguments::Named<Ipld>) -> Result<PromiseAny<T, E>, Self::Error> {
         if args.len() != 1 {
             return Err(());
         }

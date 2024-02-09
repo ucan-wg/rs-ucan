@@ -1,6 +1,7 @@
 //! Helpers for working with [`Ipld`]
 
 pub mod cid;
+pub mod promised;
 
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -53,7 +54,7 @@ impl From<Newtype> for Ipld {
 
 #[cfg(target_arch = "wasm32")]
 impl Newtype {
-    pub fn try_into_jsvalue<T: TryFrom<Ipld>>(js_val: JsValue) -> Result<T, JsError>
+    pub fn try_from_js<T: TryFrom<Ipld>>(js_val: JsValue) -> Result<T, JsError>
     where
         JsError: From<<T as TryFrom<Ipld>>::Error>,
     {

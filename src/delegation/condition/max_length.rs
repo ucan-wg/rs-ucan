@@ -33,7 +33,7 @@ impl TryFrom<Ipld> for MaxLength {
 }
 
 impl Condition for MaxLength {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
             Some(Ipld::String(string)) => string.len() <= self.max_length,
             Some(Ipld::List(list)) => list.len() <= self.max_length,

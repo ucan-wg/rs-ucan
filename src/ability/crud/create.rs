@@ -2,18 +2,17 @@ use crate::{
     ability::command::Command,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use url::Url;
+use std::{collections::BTreeMap, path::PathBuf};
 
-use super::parents::Mutable;
+use super::parents::MutableParents;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Create {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<Url>,
+    pub path: Option<PathBuf>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<BTreeMap<String, Ipld>>,
@@ -30,10 +29,10 @@ impl From<Create> for Ipld {
 }
 
 impl TryFrom<Ipld> for Create {
-    type Error = (); // FIXME
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+        ipld_serde::from_ipld(ipld)
     }
 }
 
@@ -43,8 +42,9 @@ impl Checkable for Create {
 
 impl CheckSame for Create {
     type Error = (); // FIXME better error
+
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if self.uri == proof.uri {
+        if self.path == proof.path {
             Ok(())
         } else {
             Err(())
@@ -53,22 +53,22 @@ impl CheckSame for Create {
 }
 
 impl CheckParents for Create {
-    type Parents = Mutable;
+    type Parents = MutableParents;
     type ParentError = ();
 
     fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        if let Some(self_uri) = &self.uri {
+        if let Some(self_path) = &self.path {
             match other {
-                Mutable::Any(any) => {
-                    if let Some(proof_uri) = &any.uri {
-                        if self_uri != proof_uri {
+                MutableParents::Any(any) => {
+                    if let Some(proof_path) = &any.path {
+                        if self_path != proof_path {
                             return Err(());
                         }
                     }
                 }
-                Mutable::Mutate(mutate) => {
-                    if let Some(proof_uri) = &mutate.uri {
-                        if self_uri != proof_uri {
+                MutableParents::Mutate(mutate) => {
+                    if let Some(proof_path) = &mutate.path {
+                        if self_path != proof_path {
                             return Err(());
                         }
                     }

@@ -9,6 +9,22 @@ pub enum Resolves<T> {
     Err(PromiseErr<T>),
 }
 
+impl<T> Resolves<Option<T>> {
+    // FIXME Helpful for serde, maybe extract to a trait?
+    pub fn resolved_none(&self) -> bool {
+        match self {
+            Resolves::Ok(p_ok) => match p_ok {
+                PromiseOk::Fulfilled(None) => true,
+                _ => false,
+            },
+            Resolves::Err(p_err) => match p_err {
+                PromiseErr::Rejected(None) => true,
+                _ => false,
+            },
+        }
+    }
+}
+
 impl<T> Resolves<T> {
     pub fn try_resolve(self) -> Result<T, Resolves<T>> {
         match self {

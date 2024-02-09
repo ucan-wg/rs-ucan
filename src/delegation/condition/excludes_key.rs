@@ -60,7 +60,7 @@ impl TryFrom<Ipld> for ExcludesKey {
 }
 
 impl Condition for ExcludesKey {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
             Some(Ipld::Map(map)) => map.contains_key(&self.field),
             _ => true,

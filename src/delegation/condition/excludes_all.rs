@@ -61,7 +61,7 @@ impl TryFrom<Ipld> for ExcludesAll {
 }
 
 impl Condition for ExcludesAll {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         if let Some(ipld) = args.get(&self.field) {
             let mut it = self.excludes_all.iter();
             match ipld {

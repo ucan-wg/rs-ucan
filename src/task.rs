@@ -34,7 +34,7 @@ pub struct Task {
     pub cmd: String,
 
     /// The arguments to the command.
-    pub args: arguments::Named,
+    pub args: arguments::Named<Ipld>,
 }
 
 impl TryFrom<Ipld> for Task {

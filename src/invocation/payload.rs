@@ -116,7 +116,7 @@ struct InternalSerializer {
     #[serde(rename = "cmd")]
     command: String,
     #[serde(rename = "args")]
-    arguments: arguments::Named,
+    arguments: arguments::Named<Ipld>,
 
     #[serde(rename = "prf")]
     proofs: Vec<Cid>,
@@ -196,7 +196,7 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 
-impl<T: Command + Into<arguments::Named>> From<Payload<T>> for InternalSerializer {
+impl<T: Command + Into<arguments::Named<Ipld>>> From<Payload<T>> for InternalSerializer {
     fn from(payload: Payload<T>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,

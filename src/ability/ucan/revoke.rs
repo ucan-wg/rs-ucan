@@ -6,7 +6,7 @@ use crate::{
     invocation::{promise, Resolvable},
     proof::{parentless::NoParents, same::CheckSame},
 };
-use libipld_core::cid::Cid;
+use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -33,6 +33,13 @@ impl Delegatable for Ready {
 
 impl Resolvable for Ready {
     type Promised = Promised;
+
+    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
+        match promised.ucan.try_resolve() {
+            Ok(ucan) => Ok(Ready { ucan }),
+            Err(ucan) => Err(Promised { ucan }),
+        }
+    }
 }
 
 /// A variant with some fields waiting to be set.
@@ -64,8 +71,8 @@ impl TryFrom<Builder> for Ready {
     }
 }
 
-impl From<Builder> for arguments::Named {
-    fn from(b: Builder) -> arguments::Named {
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(b: Builder) -> arguments::Named<Ipld> {
         let mut btree = BTreeMap::new();
         if let Some(cid) = b.ucan {
             btree.insert("ucan".into(), cid.into());
@@ -85,8 +92,8 @@ impl From<Ready> for Promised {
     }
 }
 
-impl From<Promised> for arguments::Named {
-    fn from(p: Promised) -> arguments::Named {
+impl From<Promised> for arguments::Named<Ipld> {
+    fn from(p: Promised) -> arguments::Named<Ipld> {
         arguments::Named::from_iter([("ucan".into(), p.ucan.into())])
     }
 }

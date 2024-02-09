@@ -3,9 +3,10 @@
 use crate::{
     ability::{arguments, command::ToCommand},
     delegation::Delegatable,
-    invocation::Resolvable,
+    invocation::{promise, Resolvable},
     proof::{checkable::Checkable, same::CheckSame},
 };
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
 /// A struct that attaches an ambient environment to a value
@@ -151,7 +152,7 @@ impl<Env, T> Reader<Env, T> {
     }
 }
 
-impl<Env, T: Into<arguments::Named>> From<Reader<Env, T>> for arguments::Named {
+impl<Env, A, T: Into<arguments::Named<A>>> From<Reader<Env, T>> for arguments::Named<A> {
     fn from(reader: Reader<Env, T>) -> Self {
         reader.val.into()
     }
@@ -186,7 +187,7 @@ impl<Env: ToCommand, T> ToCommand for Reader<Env, T> {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Builder<T>(pub T);
 
-impl<T: Into<arguments::Named>> From<Builder<T>> for arguments::Named {
+impl<A, T: Into<arguments::Named<A>>> From<Builder<T>> for arguments::Named<A> {
     fn from(builder: Builder<T>) -> Self {
         builder.0.into()
     }
@@ -198,7 +199,7 @@ impl<Env, T> From<Reader<Env, T>> for Reader<Env, Builder<T>> {
     }
 }
 
-impl<Env, T: ToCommand + Into<arguments::Named>> Delegatable for Reader<Env, T> {
+impl<Env, T: ToCommand + Into<arguments::Named<Ipld>>> Delegatable for Reader<Env, T> {
     type Builder = Reader<Env, Builder<T>>;
 }
 
@@ -218,7 +219,7 @@ impl<Env, T: ToCommand + Into<arguments::Named>> Delegatable for Reader<Env, T> 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Promised<T>(pub T);
 
-impl<T: Into<arguments::Named>> From<Promised<T>> for arguments::Named {
+impl<A, T: Into<arguments::Named<A>>> From<Promised<T>> for arguments::Named<A> {
     fn from(promised: Promised<T>) -> Self {
         promised.0.into()
     }
@@ -242,6 +243,22 @@ impl<Env, T: ToCommand> From<Reader<Env, Promised<T>>> for Reader<Env, T> {
     }
 }
 
-impl<Env, T: ToCommand + Into<arguments::Named>> Resolvable for Reader<Env, T> {
-    type Promised = Reader<Env, Promised<T>>;
+impl<Env, T: Resolvable> Resolvable for Reader<Env, T>
+where
+    Reader<Env, T::Promised>: Into<arguments::Named<Ipld>>,
+{
+    type Promised = Reader<Env, T::Promised>;
+
+    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
+        match T::try_resolve(promised.val) {
+            Ok(val) => Ok(Reader {
+                env: promised.env,
+                val,
+            }),
+            Err(val) => Err(Reader {
+                env: promised.env,
+                val,
+            }),
+        }
+    }
 }

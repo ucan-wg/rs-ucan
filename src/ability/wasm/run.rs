@@ -37,6 +37,21 @@ impl Delegatable for Ready {
 
 impl Resolvable for Ready {
     type Promised = Promised;
+
+    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
+        match promise::Resolves::try_resolve_3(promised.module, promised.function, promised.args) {
+            Ok((module, function, args)) => Ok(Ready {
+                module,
+                function,
+                args,
+            }),
+            Err((module, function, args)) => Err(Promised {
+                module,
+                function,
+                args,
+            }),
+        }
+    }
 }
 
 /// A variant meant for delegation, where fields may be omitted
@@ -44,7 +59,7 @@ pub type Builder = Generic<Option<Module>, Option<String>, Option<Vec<Ipld>>>;
 
 impl NoParents for Builder {}
 
-impl From<Builder> for arguments::Named {
+impl From<Builder> for arguments::Named<Ipld> {
     fn from(builder: Builder) -> Self {
         let mut btree = BTreeMap::new();
         if let Some(module) = builder.module {
@@ -137,7 +152,7 @@ impl TryFrom<Promised> for Ready {
     }
 }
 
-impl From<Promised> for arguments::Named {
+impl From<Promised> for arguments::Named<Ipld> {
     fn from(promised: Promised) -> Self {
         arguments::Named::from_iter([
             ("module".into(), promised.module.into()),

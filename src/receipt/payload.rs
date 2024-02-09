@@ -11,7 +11,7 @@ pub struct Payload<T: Responds> {
     pub issuer: Did,
 
     pub ran: Cid,
-    pub out: Result<T::Success, arguments::Named>,
+    pub out: Result<T::Success, arguments::Named<Ipld>>,
     pub next: Vec<Cid>, // FIXME rename here or in spec?
 
     pub proofs: Vec<Cid>,
@@ -83,7 +83,7 @@ where
     issuer: Did,
 
     ran: Cid,
-    out: Result<T::Success, arguments::Named>,
+    out: Result<T::Success, arguments::Named<Ipld>>,
     next: Vec<Cid>, // FIXME rename here or in spec?
 
     #[serde(rename = "prf")]

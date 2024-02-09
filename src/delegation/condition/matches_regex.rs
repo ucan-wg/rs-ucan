@@ -33,7 +33,7 @@ impl TryFrom<Ipld> for MatchesRegex {
 }
 
 impl Condition for MatchesRegex {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
             Some(Ipld::String(string)) => self.matches_regex.0.is_match(string),
             _ => false,

@@ -56,11 +56,11 @@ impl<T: DeserializeOwned> TryFrom<Ipld> for PromiseOk<T> {
     }
 }
 
-impl<T: Into<arguments::Named>> From<PromiseOk<T>> for arguments::Named
+impl<T: Into<arguments::Named<Ipld>>> From<PromiseOk<T>> for arguments::Named<Ipld>
 where
     Ipld: From<T>,
 {
-    fn from(p: PromiseOk<T>) -> arguments::Named {
+    fn from(p: PromiseOk<T>) -> arguments::Named<Ipld> {
         match p {
             PromiseOk::Fulfilled(val) => val.into(),
             PromiseOk::Pending(cid) => {
@@ -70,10 +70,10 @@ where
     }
 }
 
-impl<T: TryFrom<Ipld>> TryFrom<arguments::Named> for PromiseOk<T> {
+impl<T: TryFrom<Ipld>> TryFrom<arguments::Named<Ipld>> for PromiseOk<T> {
     type Error = <T as TryFrom<Ipld>>::Error;
 
-    fn try_from(args: arguments::Named) -> Result<PromiseOk<T>, Self::Error> {
+    fn try_from(args: arguments::Named<Ipld>) -> Result<PromiseOk<T>, Self::Error> {
         if let Some(ipld) = args.get("ucan/ok") {
             if args.len() == 1 {
                 if let Ok(cid::Newtype { cid }) = cid::Newtype::try_from(ipld) {

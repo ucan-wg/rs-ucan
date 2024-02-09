@@ -55,11 +55,11 @@ impl<E: DeserializeOwned> TryFrom<Ipld> for PromiseErr<E> {
     }
 }
 
-impl<E: Into<arguments::Named>> From<PromiseErr<E>> for arguments::Named
+impl<E: Into<arguments::Named<Ipld>>> From<PromiseErr<E>> for arguments::Named<Ipld>
 where
     Ipld: From<E>,
 {
-    fn from(p: PromiseErr<E>) -> arguments::Named {
+    fn from(p: PromiseErr<E>) -> arguments::Named<Ipld> {
         match p {
             PromiseErr::Rejected(err) => err.into(),
             PromiseErr::Pending(cid) => {
@@ -69,10 +69,10 @@ where
     }
 }
 
-impl<E: TryFrom<Ipld>> TryFrom<arguments::Named> for PromiseErr<E> {
+impl<E: TryFrom<Ipld>> TryFrom<arguments::Named<Ipld>> for PromiseErr<E> {
     type Error = <E as TryFrom<Ipld>>::Error;
 
-    fn try_from(args: arguments::Named) -> Result<PromiseErr<E>, Self::Error> {
+    fn try_from(args: arguments::Named<Ipld>) -> Result<PromiseErr<E>, Self::Error> {
         if let Some(ipld) = args.get("ucan/err") {
             if args.len() == 1 {
                 if let Ok(cid::Newtype { cid }) = cid::Newtype::try_from(ipld) {

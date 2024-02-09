@@ -44,6 +44,8 @@ pub struct Receive {
     pub from: Option<Url>,
 }
 
+// FIXME needs promisory version
+
 impl Command for Receive {
     const COMMAND: &'static str = "msg/send";
 }

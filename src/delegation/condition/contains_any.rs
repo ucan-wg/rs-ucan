@@ -32,7 +32,7 @@ impl TryFrom<Ipld> for ContainsAny {
 }
 
 impl Condition for ContainsAny {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
             Some(Ipld::List(array)) => array.iter().any(|ipld| self.contains_any.contains(ipld)),
             Some(Ipld::Map(btree)) => {

@@ -45,7 +45,7 @@ impl TryFrom<Ipld> for Common {
 }
 
 impl Condition for Common {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match self {
             Common::ContainsAll(c) => c.validate(args),
             Common::ContainsAny(c) => c.validate(args),

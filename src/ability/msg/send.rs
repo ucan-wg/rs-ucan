@@ -22,6 +22,8 @@ pub struct Generic<To, From, Message> {
     /// The recipient of the message
     pub to: To,
 
+    /// FIXME Builder needs to omit option fields from Serde
+
     /// The sender address of the message
     ///
     /// This *may* be a URL (such as an email address).
@@ -127,9 +129,16 @@ impl Delegatable for Ready {
 
 impl Resolvable for Ready {
     type Promised = Promised;
+
+    fn try_resolve(p: Promised) -> Result<Self, Promised> {
+        match promise::Resolves::try_resolve_3(p.to, p.from, p.message) {
+            Ok((to, from, message)) => Ok(Ready { to, from, message }),
+            Err((to, from, message)) => Err(Promised { to, from, message }),
+        }
+    }
 }
 
-impl From<Builder> for arguments::Named {
+impl From<Builder> for arguments::Named<Ipld> {
     fn from(b: Builder) -> Self {
         let mut btree = BTreeMap::new();
         b.to.map(|to| btree.insert("to".into(), to.to_string().into()));
@@ -142,7 +151,7 @@ impl From<Builder> for arguments::Named {
     }
 }
 
-impl From<Promised> for arguments::Named {
+impl From<Promised> for arguments::Named<Ipld> {
     fn from(p: Promised) -> Self {
         arguments::Named(BTreeMap::from_iter([
             ("to".into(), p.to.map(url_newtype::Newtype).into()),

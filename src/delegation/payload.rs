@@ -91,7 +91,7 @@ impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
 // FIXME this likely should move to invocation
 impl<
         'a,
-        T: Delegatable + Resolvable + Checkable + Clone + Into<arguments::Named>,
+        T: Delegatable + Resolvable + Checkable + Clone + Into<arguments::Named<Ipld>>,
         C: Condition,
     > Payload<T, C>
 {
@@ -111,7 +111,7 @@ impl<
             to_check: invoked.clone().into(), // FIXME surely we can eliminate this clone
         };
 
-        let args: arguments::Named = invoked.ability.clone().into();
+        let args: arguments::Named<Ipld> = invoked.ability.clone().into();
 
         let result = proofs.iter().fold(Ok(start), |acc, proof| {
             if let Ok(prev) = acc {
@@ -156,7 +156,7 @@ struct Acc<'a, T: Checkable> {
 fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
     prev: &Acc<'a, T>,
     proof: &Payload<U, C>,
-    args: &arguments::Named,
+    args: &arguments::Named<Ipld>,
     now: SystemTime,
 ) -> Outcome<(), (), ()>
 // FIXME ^^^^^^^^^^^^ Outcome types
@@ -229,7 +229,7 @@ struct InternalSerializer {
     #[serde(rename = "cmd")]
     command: String,
     #[serde(rename = "args")]
-    arguments: arguments::Named,
+    arguments: arguments::Named<Ipld>,
     #[serde(rename = "cond")]
     conditions: Vec<Ipld>,
 

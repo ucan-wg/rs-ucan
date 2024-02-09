@@ -1,4 +1,6 @@
 // FIXME feature flag each?
+// FIXME ability implementers guide (e.g. serde deny fields)
+//
 pub mod crud;
 pub mod msg;
 pub mod ucan;

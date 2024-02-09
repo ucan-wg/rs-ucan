@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
-/// The [`Any`] message ability may not be invoked, but it is the superclass of
+/// The [`msg::Any`][Any] ability may not be invoked, but it is the superclass of
 /// all other message abilities.
 ///
-/// For example, the [`message::Receive`][super::receive::Receive] ability may
-/// be proven by the [`Any`] ability in a delegation chain.
+/// For example, the [`msg::Receive`][super::receive::Receive] ability may
+/// be proven by the [`msg::Any`][Any] ability in a delegation chain.
 ///
 /// # Delegation Hierarchy
 ///

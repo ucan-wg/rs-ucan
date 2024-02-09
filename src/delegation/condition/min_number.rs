@@ -33,7 +33,7 @@ impl TryFrom<Ipld> for MinNumber {
 }
 
 impl Condition for MinNumber {
-    fn validate(&self, args: &arguments::Named) -> bool {
+    fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
             Some(Ipld::Integer(integer)) => match self.min_number {
                 Number::Float(float) => *integer as f64 >= float,

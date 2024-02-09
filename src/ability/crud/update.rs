@@ -1,87 +1,97 @@
+use super::parents::MutableParents;
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
+    invocation::promise,
+    ipld::promised::PromisedIpld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use url::Url;
-
-use super::parents::Mutable;
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Update {
+pub struct Ready {
+    /// Optional path within the resource.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub uri: Option<Url>,
+    pub path: Option<PathBuf>,
 
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub args: BTreeMap<String, Ipld>,
+    /// Additional arugments to pass in the request.
+    pub args: arguments::Named<Ipld>,
 }
 
-impl From<Update> for Ipld {
-    fn from(udpdate: Update) -> Self {
+impl From<Ready> for Ipld {
+    fn from(udpdate: Ready) -> Self {
         udpdate.into()
     }
 }
 
-impl TryFrom<Ipld> for Update {
-    type Error = (); // FIXME
+impl TryFrom<Ipld> for Ready {
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+        ipld_serde::from_ipld(ipld)
     }
 }
 
-impl Command for Update {
+impl Command for Ready {
     const COMMAND: &'static str = "crud/update";
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct UpdateBuilder {
+pub struct Builder {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub uri: Option<Url>,
+    pub path: Option<PathBuf>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub args: Option<BTreeMap<String, Ipld>>, // FIXME use a type param?
 }
 
-impl From<UpdateBuilder> for Ipld {
-    fn from(udpdate: UpdateBuilder) -> Self {
+impl From<Builder> for Ipld {
+    fn from(udpdate: Builder) -> Self {
         udpdate.into()
     }
 }
 
-impl TryFrom<Ipld> for UpdateBuilder {
-    type Error = (); // FIXME
+impl TryFrom<Ipld> for Builder {
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+        ipld_serde::from_ipld(ipld)
     }
 }
 
-impl Checkable for UpdateBuilder {
-    type Hierarchy = Parentful<UpdateBuilder>;
+impl Checkable for Builder {
+    type Hierarchy = Parentful<Builder>;
 }
 
-impl CheckSame for UpdateBuilder {
+impl CheckSame for Builder {
     type Error = (); // FIXME
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.uri.check_same(&proof.uri).map_err(|_| ())?;
+        self.path.check_same(&proof.path).map_err(|_| ())?;
         self.args.check_same(&proof.args).map_err(|_| ())
     }
 }
 
-impl CheckParents for UpdateBuilder {
-    type Parents = Mutable;
+impl CheckParents for Builder {
+    type Parents = MutableParents;
     type ParentError = (); // FIXME
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         match proof {
-            Mutable::Any(any) => self.uri.check_same(&any.uri).map_err(|_| ()),
-            Mutable::Mutate(mutate) => self.uri.check_same(&mutate.uri).map_err(|_| ()),
+            MutableParents::Any(any) => self.path.check_same(&any.path).map_err(|_| ()),
+            MutableParents::Mutate(mutate) => self.path.check_same(&mutate.path).map_err(|_| ()),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Promised {
+    #[serde(skip_serializing_if = "promise::Resolves::resolved_none")]
+    pub path: promise::Resolves<Option<PathBuf>>,
+
+    pub args: promise::Resolves<arguments::Named<PromisedIpld>>,
 }
