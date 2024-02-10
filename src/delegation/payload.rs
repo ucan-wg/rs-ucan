@@ -3,7 +3,10 @@ use super::{
     error::{DelegationError, EnvelopeError},
 };
 use crate::{
-    ability::{arguments, command::Command},
+    ability::{
+        arguments,
+        command::{Command, ToCommand},
+    },
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
@@ -14,8 +17,8 @@ use crate::{
     },
     time::Timestamp,
 };
-use libipld_core::{ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use serde::{de::DeserializeOwned, ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
@@ -25,6 +28,9 @@ pub struct Payload<D, C: Condition> {
     pub subject: Did,
     pub audience: Did,
 
+    /// A delegatable ability chain.
+    ///
+    /// Note that this should be is some [Proof::Hierarchy] // FIXME enforce in types?
     pub delegated_ability: D,
     pub conditions: Vec<C>, // FIXME BTreeSet?
     pub metadata: BTreeMap<String, Ipld>,
@@ -38,46 +44,66 @@ impl<D, C: Condition> Capsule for Payload<D, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<D, C: Condition + Serialize> Serialize for Payload<D, C>
+impl<D: Clone + ToCommand, C: Condition + Clone + Serialize> Serialize for Payload<D, C>
 where
-    InternalSerializer: From<Payload<D, C>>,
-    Payload<D, C>: Clone,
+    Ipld: From<C>,
+    arguments::Named<Ipld>: From<D>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let s = InternalSerializer::from(self.clone()); // FIXME
-        Serialize::serialize(&s, serializer)
+        let mut state = serializer.serialize_struct("delegation::Payload", 9)?;
+        state.serialize_field("iss", &self.issuer)?;
+        state.serialize_field("sub", &self.subject)?;
+        state.serialize_field("aud", &self.audience)?;
+        state.serialize_field("cmd", &self.delegated_ability.to_command())?;
+        state.serialize_field(
+            "args",
+            &arguments::Named::from(self.delegated_ability.clone()),
+        )?;
+
+        state.serialize_field(
+            "cond",
+            &self
+                .conditions
+                .iter()
+                .map(|c| Ipld::from(c.clone()))
+                .collect::<Vec<Ipld>>(),
+        )?;
+
+        state.serialize_field("meta", &self.metadata)?;
+        state.serialize_field("nonce", &self.nonce)?;
+        state.serialize_field("exp", &self.expiration)?;
+        state.serialize_field("nbf", &self.not_before)?;
+        state.end()
     }
 }
 
 impl<'de, T, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
 where
-    Payload<T, C>: TryFrom<InternalSerializer>,
-    <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T, C>: TryFrom<InternalDeserializer>,
+    <Payload<T, C> as TryFrom<InternalDeserializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        match InternalSerializer::deserialize(d) {
-            Err(e) => Err(e),
-            Ok(s) => s
-                .try_into()
-                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))), // FIXME better error
-        }
+        InternalDeserializer::deserialize(d).and_then(|s| {
+            s.try_into()
+                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))) // FIXME better error
+        })
     }
 }
 
 impl<T, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
 where
-    Payload<T, C>: TryFrom<InternalSerializer>,
+    Payload<T, C>: TryFrom<InternalDeserializer>,
 {
     type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        let s: InternalSerializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?;
+        let s: InternalDeserializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?; // FIXME
         s.try_into().map_err(|_| ()) // FIXME
     }
 }
@@ -88,16 +114,15 @@ impl<T, C: Condition> From<Payload<T, C>> for Ipld {
     }
 }
 
-// FIXME this likely should move to invocation
-impl<'a, T: Checkable + CheckSame + Clone + Prove + Into<arguments::Named<Ipld>>, C: Condition>
-    Payload<T, C>
-{
+impl<'a, T, C: Condition> Payload<T, C> {
     pub fn check(
         delegated: &'a Payload<T, C>, // FIXME promisory version
         proofs: Vec<Payload<T, C>>,
         now: SystemTime,
     ) -> Result<(), DelegationError<<T as Prove>::Error>>
-where {
+    where
+        T: Checkable + CheckSame + Clone + Prove + Into<arguments::Named<Ipld>>,
+    {
         let start: Acc<T> = Acc {
             issuer: delegated.issuer.clone(),
             subject: delegated.subject.clone(),
@@ -133,14 +158,14 @@ where {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Acc<T: Prove> {
+struct Acc<T: Prove> {
     issuer: Did,
     subject: Did,
     hierarchy: T,
 }
 
 // FIXME this should move to Delegatable?
-pub(crate) fn step<'a, T: Prove + Clone + Into<arguments::Named<Ipld>>, C: Condition>(
+fn step<'a, T: Prove + Clone + Into<arguments::Named<Ipld>>, C: Condition>(
     prev: &Acc<T>,
     proof: &Payload<T, C>,
     args: &arguments::Named<Ipld>,
@@ -177,9 +202,9 @@ pub(crate) fn step<'a, T: Prove + Clone + Into<arguments::Named<Ipld>>, C: Condi
         .map_err(DelegationError::SemanticError)
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct InternalSerializer {
+struct InternalDeserializer {
     #[serde(rename = "iss")]
     issuer: Did,
     #[serde(rename = "sub")]
@@ -205,93 +230,39 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<B: Command, C: Condition + Into<Ipld>> From<Payload<B, C>> for InternalSerializer
-where
-    arguments::Named<Ipld>: From<B>,
+impl<B: ToCommand + From<arguments::Named<Ipld>>, C: Condition + From<Ipld>>
+    TryFrom<InternalDeserializer> for Payload<B, C>
 {
-    fn from(payload: Payload<B, C>) -> Self {
-        InternalSerializer {
-            issuer: payload.issuer,
-            subject: payload.subject,
-            audience: payload.audience,
-
-            command: B::COMMAND.into(),
-            arguments: payload.delegated_ability.into(),
-            conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
-
-            metadata: payload.metadata,
-            nonce: payload.nonce,
-
-            not_before: payload.not_before,
-            expiration: payload.expiration,
-        }
-    }
-}
-
-impl TryFrom<Ipld> for InternalSerializer {
     type Error = (); // FIXME
 
-    fn try_from(ipld: Ipld) -> Result<Self, ()> {
-        ipld_serde::from_ipld(ipld).map_err(|_| ())
+    fn try_from(d: InternalDeserializer) -> Result<Self, Self::Error> {
+        let p: Self = Payload {
+            issuer: d.issuer,
+            subject: d.subject,
+            audience: d.audience,
+
+            delegated_ability: d.arguments.try_into().map_err(|_| ())?, // d.command.into(),
+            conditions: d.conditions.into_iter().map(|c| c.into()).collect(),
+
+            metadata: d.metadata,
+            nonce: d.nonce,
+
+            not_before: d.not_before,
+            expiration: d.expiration,
+        };
+
+        if p.delegated_ability.to_command() != d.command {
+            return Err(());
+        }
+
+        Ok(p)
     }
 }
 
-// FIXME
-// impl<C: Condition + TryFrom<Ipld>, E: meta::MultiKeyed + Clone> TryFrom<InternalSerializer>
-//     for Payload<dynamic::Dynamic<F>, C, E>
-// {
-//     type Error = (); // FIXME
-//
-//     fn try_from(s: InternalSerializer) -> Result<Payload<dynamic::Dynamic<F>, C, E>, ()> {
-//         Ok(Payload {
-//             issuer: s.issuer,
-//             subject: s.subject,
-//             audience: s.audience,
-//
-//             ability_builder: dynamic::Dynamic {
-//                 cmd: s.command,
-//                 args: s.arguments,
-//             },
-//             conditions: s
-//                 .conditions
-//                 .iter()
-//                 .try_fold(Vec::new(), |mut acc, c| {
-//                     C::try_from(c.clone()).map(|x| {
-//                         acc.push(x);
-//                         acc
-//                     })
-//                 })
-//                 .map_err(|_| ())?, // FIXME better error (collect all errors
-//
-//             metadata: Metadata::extract(s.metadata),
-//             nonce: s.nonce,
-//
-//             not_before: s.not_before,
-//             expiration: s.expiration,
-//         })
-//     }
-// }
-//
-// impl<C: Condition + Into<Ipld>, E: meta::MultiKeyed + Clone, F>
-//     From<Payload<dynamic::Dynamic<F>, C, E>> for InternalSerializer
-// where
-//     Metadata<E>: Mergable,
-// {
-//     fn from(p: Payload<dynamic::Dynamic<F>, C, E>) -> Self {
-//         InternalSerializer {
-//             issuer: p.issuer,
-//             subject: p.subject,
-//             audience: p.audience,
-//
-//             command: p.ability_builder.cmd,
-//             arguments: p.ability_builder.args,
-//             conditions: p.conditions.into_iter().map(|c| c.into()).collect(),
-//
-//             metadata: p.metadata.merge(),
-//             nonce: p.nonce,
-//
-//             not_before: p.not_before,
-//             expiration: p.expiration,
-//         }
-//     }
-// }
+impl TryFrom<Ipld> for InternalDeserializer {
+    type Error = SerdeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
+    }
+}
