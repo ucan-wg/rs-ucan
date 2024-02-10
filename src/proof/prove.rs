@@ -3,31 +3,21 @@
 use super::internal::Checker;
 
 /// An internal trait that checks based on the other traits for an ability type.
-pub trait Prove<T: Checker> {
-    /// The error if the argument is invalid.
-    type ArgumentError;
+pub trait Prove: Checker {
+    type Error;
 
-    /// The error if the proof chain is invalid.
-    type ProofChainError;
-
-    /// The error if the parents are invalid.
-    type ParentsError;
-
-    fn check(
-        &self,
-        proof: &T,
-    ) -> Outcome<Self::ArgumentError, Self::ProofChainError, Self::ParentsError>;
+    fn check(&self, proof: &Self) -> Result<Success, Self::Error>;
 }
 
-// FIXME that's a lot of error type params
-/// The outcome of a proof check.
-pub enum Outcome<ArgErr, ChainErr, ParentErr> {
+pub enum Success {
     /// Success
     Proven,
 
     /// Special case for success by checking against `*`.
     ProvenByAny,
+}
 
+pub enum Failure<ArgErr, ChainErr, ParentErr> {
     /// An error in the command chain.
     CommandEscelation,
 

@@ -1,24 +1,23 @@
-use super::{condition::Condition, delegatable::Delegatable};
+use super::{
+    condition::Condition,
+    delegatable::Delegatable,
+    error::{DelegationError, EnvelopeError},
+};
 use crate::{
     ability::{arguments, command::Command},
     capsule::Capsule,
     did::Did,
-    invocation,
-    invocation::Resolvable,
     nonce::Nonce,
     proof::{
         checkable::Checkable,
-        prove::{Outcome, Prove},
+        prove::{Prove, Success},
         same::CheckSame,
     },
     time::Timestamp,
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Debug,
-};
+use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,8 +27,7 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub audience: Did,
 
     pub ability_builder: T::Builder,
-    pub conditions: BTreeSet<C>, // FIXME BTreeSet?
-    // pub conditions: Vec<C>, // FIXME BTreeSet?
+    pub conditions: Vec<C>, // FIXME BTreeSet?
     pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
 
@@ -92,128 +90,112 @@ impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
 }
 
 // FIXME this likely should move to invocation
-impl<
-        'a,
-        T: Delegatable + Resolvable + Checkable + Clone + Into<arguments::Named<Ipld>>,
-        C: Condition,
-    > Payload<T, C>
-{
-    pub fn check<U: Delegatable + Clone>(
-        invoked: &'a invocation::Payload<T>, // FIXME promisory version
+impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
+    pub fn check<U>(
+        delegated: &'a Payload<T, C>, // FIXME promisory version
         proofs: Vec<Payload<U, C>>,
         now: SystemTime,
-    ) -> Result<(), ()>
+    ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where
-        invocation::Payload<T>: Clone,
-        U::Builder: Clone + Into<T::Hierarchy>,
-        T::Hierarchy: From<invocation::Payload<T>> + Clone + Into<arguments::Named<Ipld>>,
         arguments::Named<Ipld>: From<U::Builder>,
+        Payload<U, C>: Clone,
+        U: Delegatable + Clone,
+        U::Builder: Clone,
+        T::Builder: Checkable + CheckSame + Clone,
+        <T::Builder as Checkable>::Hierarchy: CheckSame
+            + From<T::Builder>
+            + Clone
+            + Into<arguments::Named<Ipld>>
+            + From<<U as Delegatable>::Builder>,
     {
+        let builder = &delegated.ability_builder;
+        let hierarchy = <T::Builder as Checkable>::Hierarchy::from(builder.clone());
+
         // FIXME this is a task
-        let start: Acc<'_, T> = Acc {
-            issuer: &invoked.issuer,
-            subject: &invoked.subject,
-            ability: invoked.clone().into(), // FIXME surely we can eliminate this clone
+        let start: Acc<T::Builder> = Acc {
+            issuer: delegated.issuer.clone(),
+            subject: delegated.subject.clone(),
+            hierarchy,
         };
 
-        let args: arguments::Named<Ipld> = invoked.ability.clone().into();
+        let args: arguments::Named<Ipld> = delegated.ability_builder.clone().into();
 
-        let result = proofs.iter().fold(Ok(start), |acc, proof| {
-            if let Ok(prev) = acc {
-                match step(&prev, proof, &args, now) {
-                    // FIXME add a `Outdcome::is_success` of into(result) method
-                    Outcome::ArgumentEscelation(_) => Err(()),
-                    Outcome::InvalidProofChain(_) => Err(()),
-                    Outcome::InvalidParents(_) => Err(()),
-                    Outcome::CommandEscelation => Err(()),
-                    // NOTE this case!
-                    Outcome::ProvenByAny => Ok(Acc {
-                        issuer: &proof.issuer,
-                        subject: &proof.subject,
-                        ability: prev.ability,
-                    }),
-                    Outcome::Proven => Ok(Acc {
-                        issuer: &proof.issuer,
-                        subject: &proof.subject,
-                        ability: proof.ability_builder.clone().into(), // FIXME double check
-                    }),
+        proofs
+            .into_iter()
+            .fold(Ok(start), |prev, proof| {
+                if let Ok(prev_) = prev {
+                    step(&prev_, &proof, &args, now).map(move |success| {
+                        match success {
+                            Success::ProvenByAny => Acc {
+                                issuer: proof.issuer.clone(),
+                                subject: proof.subject.clone(),
+                                hierarchy: prev_.hierarchy,
+                            },
+                            Success::Proven => Acc {
+                                issuer: proof.issuer.clone(),
+                                subject: proof.subject.clone(),
+                                hierarchy: <T::Builder as Checkable>::Hierarchy::from(
+                                    proof.ability_builder.clone(),
+                                ), // FIXME double check
+                            },
+                        }
+                    })
+                } else {
+                    prev
                 }
-            } else {
-                acc
-            }
-        });
-
-        // FIXME
-        match result {
-            Ok(_) => Ok(()),
-            Err(_) => Err(()),
-        }
+            })
+            .map(|_| ())
     }
 }
 
 #[derive(Debug, Clone)]
-struct Acc<'a, T: Checkable> {
-    issuer: &'a Did,
-    subject: &'a Did,
-    ability: T::Hierarchy,
+pub(crate) struct Acc<B: Checkable> {
+    issuer: Did,
+    subject: Did,
+    hierarchy: B::Hierarchy,
 }
 
-// FIXME this should move to Delegatable
-fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
-    prev: &Acc<'a, T>,
+// FIXME this should move to Delegatable?
+pub(crate) fn step<'a, B: Checkable, U: Delegatable, C: Condition>(
+    prev: &Acc<B>,
     proof: &Payload<U, C>,
     args: &arguments::Named<Ipld>,
     now: SystemTime,
-) -> Outcome<(), (), ()>
-// FIXME ^^^^^^^^^^^^ Outcome types
+) -> Result<Success, DelegationError<<B::Hierarchy as Prove>::Error>>
 where
-    U::Builder: Into<T::Hierarchy> + Clone,
     arguments::Named<Ipld>: From<U::Builder>,
-    T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+    U::Builder: Into<B::Hierarchy> + Clone,
+    B::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
 {
     if let Err(_) = prev.issuer.check_same(&proof.audience) {
-        return Outcome::InvalidProofChain(());
+        return Err(EnvelopeError::InvalidSubject.into());
     }
 
     if let Err(_) = prev.subject.check_same(&proof.subject) {
-        return Outcome::InvalidProofChain(());
+        return Err(EnvelopeError::MisalignedIssAud.into());
+    }
+
+    if SystemTime::from(proof.expiration.clone()) > now {
+        return Err(EnvelopeError::Expired.into());
     }
 
     if let Some(nbf) = proof.not_before.clone() {
         if SystemTime::from(nbf) > now {
-            return Outcome::InvalidProofChain(());
+            return Err(EnvelopeError::NotYetValid.into());
         }
-    }
-
-    if SystemTime::from(proof.expiration.clone()) > now {
-        return Outcome::InvalidProofChain(());
     }
 
     // FIXME coudl be more efficient, but sets need Ord and we have floats
-    let cond_result = &proof.conditions.iter().try_fold((), |_acc, c| {
+    for c in proof.conditions.iter() {
         // FIXME revisit
-        if c.validate(&args) && c.validate(&prev.ability.clone().into()) {
-            Ok(())
-        } else {
-            Err(())
+        if !c.validate(&args) || !c.validate(&prev.hierarchy.clone().into()) {
+            return Err(DelegationError::FailedCondition);
         }
-    });
-
-    if let Err(_) = cond_result {
-        return Outcome::InvalidProofChain(());
     }
 
-    // FIXME pretty sure we can avoid this clone
-    let outcome = prev.ability.check(&proof.ability_builder.clone().into());
-
-    match outcome {
-        Outcome::Proven => Outcome::Proven,
-        Outcome::ProvenByAny => Outcome::ProvenByAny,
-        Outcome::CommandEscelation => Outcome::CommandEscelation,
-        Outcome::ArgumentEscelation(_) => Outcome::ArgumentEscelation(()),
-        Outcome::InvalidProofChain(_) => Outcome::InvalidProofChain(()),
-        Outcome::InvalidParents(_) => Outcome::InvalidParents(()),
-    }
+    prev.hierarchy
+        .check(&proof.ability_builder.clone().into())
+        .map_err(DelegationError::SemanticError)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

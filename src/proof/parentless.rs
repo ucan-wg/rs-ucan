@@ -3,12 +3,11 @@
 use super::{
     checkable::Checkable,
     internal::Checker,
-    prove::{Outcome, Prove},
+    prove::{Prove, Success},
     same::CheckSame,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::convert::Infallible;
 
 /// The possible cases for an [ability][crate::ability]'s
 /// [Delegation][crate::delegation::Delegation] chain when
@@ -68,8 +67,8 @@ impl<T: TryFrom<Ipld> + DeserializeOwned> TryFrom<Ipld> for Parentless<T> {
 impl<T: CheckSame> CheckSame for Parentless<T> {
     type Error = ParentlessError<T>;
 
-    fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
-        match other {
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        match proof {
             Parentless::Any => Ok(()),
             Parentless::This(that) => match self {
                 Parentless::Any => Err(ParentlessError::CommandEscelation),
@@ -83,19 +82,17 @@ impl<T: CheckSame> CheckSame for Parentless<T> {
 
 impl<T: CheckSame> Checker for Parentless<T> {}
 
-impl<T: CheckSame> Prove<Parentless<T>> for Parentless<T> {
-    type ArgumentError = T::Error;
-    type ProofChainError = Infallible;
-    type ParentsError = Infallible;
+impl<T: CheckSame> Prove for Parentless<T> {
+    type Error = ParentlessError<T>;
 
-    fn check(&self, proof: &Parentless<T>) -> Outcome<T::Error, Infallible, Infallible> {
+    fn check(&self, proof: &Parentless<T>) -> Result<Success, Self::Error> {
         match proof {
-            Parentless::Any => Outcome::Proven,
+            Parentless::Any => Ok(Success::ProvenByAny),
             Parentless::This(that) => match self {
-                Parentless::Any => Outcome::Proven,
+                Parentless::Any => Ok(Success::Proven),
                 Parentless::This(this) => match this.check_same(that) {
-                    Ok(()) => Outcome::Proven,
-                    Err(e) => Outcome::ArgumentEscelation(e),
+                    Ok(()) => Ok(Success::Proven),
+                    Err(e) => Err(ParentlessError::ArgumentEscelation(e)),
                 },
             },
         }

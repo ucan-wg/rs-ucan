@@ -3,7 +3,7 @@
 use super::{
     internal::Checker,
     parents::CheckParents,
-    prove::{Outcome, Prove},
+    prove::{Prove, Success},
     same::CheckSame,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -129,34 +129,32 @@ where
 
 impl<T: CheckParents> Checker for Parentful<T> {}
 
-impl<T: CheckParents> Prove<Parentful<T>> for Parentful<T>
+impl<T: CheckParents> Prove for Parentful<T>
 where
     T::Parents: CheckSame,
 {
-    type ArgumentError = T::Error;
-    type ProofChainError = T::ParentError;
-    type ParentsError = <T::Parents as CheckSame>::Error; // FIXME better name
+    type Error = ParentfulError<T::Error, T::ParentError, <T::Parents as CheckSame>::Error>;
 
-    fn check(&self, proof: &Parentful<T>) -> Outcome<T::Error, T::ParentError, Self::ParentsError> {
+    fn check(&self, proof: &Parentful<T>) -> Result<Success, Self::Error> {
         match proof {
-            Parentful::Any => Outcome::ProvenByAny,
+            Parentful::Any => Ok(Success::ProvenByAny),
             Parentful::Parents(their_parents) => match self {
-                Parentful::Any => Outcome::CommandEscelation,
+                Parentful::Any => Err(ParentfulError::CommandEscelation),
                 Parentful::Parents(parents) => match parents.check_same(their_parents) {
-                    Ok(()) => Outcome::Proven,
-                    Err(e) => Outcome::InvalidParents(e),
+                    Ok(()) => Ok(Success::Proven),
+                    Err(e) => Err(ParentfulError::InvalidParents(e)),
                 },
                 Parentful::This(this) => match this.check_parent(their_parents) {
-                    Ok(()) => Outcome::Proven,
-                    Err(e) => Outcome::InvalidProofChain(e),
+                    Ok(()) => Ok(Success::Proven),
+                    Err(e) => Err(ParentfulError::InvalidProofChain(e)),
                 },
             },
             Parentful::This(that) => match self {
-                Parentful::Any => Outcome::CommandEscelation,
-                Parentful::Parents(_) => Outcome::CommandEscelation,
+                Parentful::Any => Err(ParentfulError::CommandEscelation),
+                Parentful::Parents(_) => Err(ParentfulError::CommandEscelation),
                 Parentful::This(this) => match this.check_same(that) {
-                    Ok(()) => Outcome::Proven,
-                    Err(e) => Outcome::ArgumentEscelation(e),
+                    Ok(()) => Ok(Success::Proven),
+                    Err(e) => Err(ParentfulError::ArgumentEscelation(e)),
                 },
             },
         }

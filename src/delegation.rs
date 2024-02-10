@@ -2,6 +2,7 @@ mod delegatable;
 mod payload;
 
 pub mod condition;
+pub mod error;
 pub mod store;
 
 pub use delegatable::Delegatable;
