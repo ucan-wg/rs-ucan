@@ -16,6 +16,11 @@
 //! }
 //! ```
 
+use crate::ability::arguments;
+use libipld_core::ipld::Ipld;
+use std::fmt;
+use thiserror::Error;
+
 /// Attach a `cmd` field to a type
 ///
 /// Commands are the `cmd` field of a UCAN, and set the shape of the `args` field.
@@ -40,6 +45,7 @@
 pub trait Command {
     /// The value that will be placed in the UCAN's `cmd` field for the given type
     ///
+    /// FIXME
     /// This is a `const` because it *must not*[^dynamic] depend on the runtime values of a type
     /// in order to ensure type safety.
     ///
@@ -47,6 +53,38 @@ pub trait Command {
     /// a special ability called [`Dynamic`][super::dynamic::Dynamic] (for e.g. JS FFI)
     /// that uses a non-exported code path separate from the [`Command`] trait.</small>
     const COMMAND: &'static str;
+}
+
+pub trait ParseAbility: Sized {
+    type Error: fmt::Display;
+    // FIXME rename this trait to Ability?
+    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error>;
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum ParseAbilityError<E: fmt::Display> {
+    #[error("Unknown command")]
+    UnknownCommand,
+
+    #[error(transparent)]
+    InvalidArgs(#[from] E),
+}
+
+impl<T: Command + TryFrom<Ipld>> ParseAbility for T
+where
+    <T as TryFrom<Ipld>>::Error: fmt::Display,
+{
+    type Error = ParseAbilityError<<T as TryFrom<Ipld>>::Error>;
+
+    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        if cmd != T::COMMAND {
+            return Err(ParseAbilityError::UnknownCommand);
+        }
+
+        Ipld::from(args.clone())
+            .try_into()
+            .map_err(ParseAbilityError::InvalidArgs)
+    }
 }
 
 // NOTE do not export; this is used to limit the Hierarchy

@@ -18,8 +18,8 @@ impl CrudAny {
         ipld::Newtype::try_from_js(js).map(CrudAny)
     }
 
-    pub fn command(&self) -> String {
-        Any::COMMAND.to_string()
+    pub fn to_command(&self) -> String {
+        self.to_command()
     }
 
     pub fn check_same(&self, proof: &CrudAny) -> Result<(), JsError> {
@@ -50,8 +50,8 @@ impl CrudRead {
         ipld::Newtype::try_into_jsvalue(js_val).map(CrudRead)
     }
 
-    pub fn command(&self) -> String {
-        Read::COMMAND.to_string()
+    pub fn to_command(&self) -> String {
+        Read::to_command()
     }
 
     pub fn check_same(&self, proof: &CrudRead) -> Result<(), JsError> {

@@ -18,8 +18,12 @@ use crate::{
     time::Timestamp,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, ser::SerializeStruct, Deserialize, Serialize, Serializer};
-use std::{collections::BTreeMap, fmt::Debug};
+use serde::{
+    de::{self, MapAccess, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Serialize, Serializer,
+};
+use std::{collections::BTreeMap, fmt, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +36,7 @@ pub struct Payload<D, C: Condition> {
     ///
     /// Note that this should be is some [Proof::Hierarchy] // FIXME enforce in types?
     pub delegated_ability: D,
+
     pub conditions: Vec<C>, // FIXME BTreeSet?
     pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
@@ -80,31 +85,150 @@ where
     }
 }
 
-impl<'de, T, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
-where
-    Payload<T, C>: TryFrom<InternalDeserializer>,
-    <Payload<T, C> as TryFrom<InternalDeserializer>>::Error: Debug,
+// FIXME
+use crate::ability::command::ParseAbility;
+
+impl<
+        'de,
+        T: ParseAbility + Deserialize<'de> + ToCommand,
+        C: Condition + TryFrom<Ipld> + Deserialize<'de>,
+    > Deserialize<'de> for Payload<T, C>
 {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        InternalDeserializer::deserialize(d).and_then(|s| {
-            s.try_into()
-                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))) // FIXME better error
-        })
-    }
-}
+        struct DelegationPayloadVisitor<T, C: Condition>(std::marker::PhantomData<(T, C)>);
 
-impl<T, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
-where
-    Payload<T, C>: TryFrom<InternalDeserializer>,
-{
-    type Error = (); // FIXME
+        const FIELDS: &'static [&'static str] = &[
+            "iss", "sub", "aud", "cmd", "args", "cond", "meta", "nonce", "exp", "nbf",
+        ];
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        let s: InternalDeserializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?; // FIXME
-        s.try_into().map_err(|_| ()) // FIXME
+        impl<
+                'de,
+                T: Deserialize<'de> + ParseAbility + ToCommand,
+                C: Condition + TryFrom<Ipld> + Deserialize<'de>,
+            > Visitor<'de> for DelegationPayloadVisitor<T, C>
+        {
+            type Value = Payload<T, C>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("struct delegation::Payload")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut issuer = None;
+                let mut subject = None;
+                let mut audience = None;
+                let mut command = None;
+                let mut arguments = None;
+                let mut conditions = None;
+                let mut metadata = None;
+                let mut nonce = None;
+                let mut expiration = None;
+                let mut not_before = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "iss" => {
+                            if issuer.is_some() {
+                                return Err(de::Error::duplicate_field("iss"));
+                            }
+                            issuer = Some(map.next_value()?);
+                        }
+                        "sub" => {
+                            if subject.is_some() {
+                                return Err(de::Error::duplicate_field("sub"));
+                            }
+                            subject = Some(map.next_value()?);
+                        }
+                        "aud" => {
+                            if audience.is_some() {
+                                return Err(de::Error::duplicate_field("aud"));
+                            }
+                            audience = Some(map.next_value()?);
+                        }
+                        "cmd" => {
+                            if command.is_some() {
+                                return Err(de::Error::duplicate_field("cmd"));
+                            }
+                            command = Some(map.next_value()?);
+                        }
+                        "args" => {
+                            if arguments.is_some() {
+                                return Err(de::Error::duplicate_field("args"));
+                            }
+                            arguments = Some(map.next_value()?);
+                        }
+                        "cond" => {
+                            if conditions.is_some() {
+                                return Err(de::Error::duplicate_field("cond"));
+                            }
+                            conditions = Some(map.next_value()?);
+                        }
+                        "meta" => {
+                            if metadata.is_some() {
+                                return Err(de::Error::duplicate_field("meta"));
+                            }
+                            metadata = Some(map.next_value()?);
+                        }
+                        "nonce" => {
+                            if nonce.is_some() {
+                                return Err(de::Error::duplicate_field("nonce"));
+                            }
+                            nonce = Some(map.next_value()?);
+                        }
+                        "exp" => {
+                            if expiration.is_some() {
+                                return Err(de::Error::duplicate_field("exp"));
+                            }
+                            expiration = Some(map.next_value()?);
+                        }
+                        "nbf" => {
+                            if not_before.is_some() {
+                                return Err(de::Error::duplicate_field("nbf"));
+                            }
+                            not_before = Some(map.next_value()?);
+                        }
+                        other => {
+                            return Err(de::Error::unknown_field(other, FIELDS));
+                        }
+                    }
+                }
+
+                let cmd: String = command.ok_or(de::Error::missing_field("cmd"))?;
+                let args = arguments.ok_or(de::Error::missing_field("args"))?;
+
+                let delegated_ability = <T as ParseAbility>::try_parse(cmd.as_str(), &args)
+                    .map_err(|e| {
+                        de::Error::custom(format!(
+                            "Unable to parse ability field for {} because {}",
+                            cmd, e
+                        ))
+                    })?;
+
+                Ok(Payload {
+                    issuer: issuer.ok_or(de::Error::missing_field("iss"))?,
+                    subject: subject.ok_or(de::Error::missing_field("sub"))?,
+                    audience: audience.ok_or(de::Error::missing_field("aud"))?,
+                    delegated_ability,
+                    conditions: conditions.ok_or(de::Error::missing_field("cond"))?,
+                    metadata: metadata.ok_or(de::Error::missing_field("meta"))?,
+                    nonce: nonce.ok_or(de::Error::missing_field("nonce"))?,
+                    expiration: expiration.ok_or(de::Error::missing_field("exp"))?,
+                    not_before,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "DelegationPayload",
+            FIELDS,
+            DelegationPayloadVisitor(Default::default()),
+        )
     }
 }
 

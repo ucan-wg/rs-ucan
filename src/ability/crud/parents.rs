@@ -5,7 +5,10 @@
 //! ability, or the invocable leaves of a delegation hierarchy.
 
 use super::error::ParentError;
-use crate::proof::{parents::CheckParents, same::CheckSame};
+use crate::{
+    ability::command::Command,
+    proof::{parents::CheckParents, same::CheckSame},
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -51,13 +54,55 @@ use thiserror::Error;
 ///     style mutate stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, untagged)]
 pub enum MutableParents {
     /// The `crud/*` ability.
     Any(super::Any),
 
     /// The `crud/mutate` ability.
     Mutate(super::Mutate),
+}
+
+// FIXME
+use crate::ability::command::{ParseAbility, ToCommand};
+
+impl ToCommand for MutableParents {
+    fn to_command(&self) -> String {
+        match self {
+            MutableParents::Any(any) => any.to_command(),
+            MutableParents::Mutate(mutate) => mutate.to_command(),
+        }
+    }
+}
+
+use crate::ability::{arguments, command::ParseAbilityError};
+use libipld_core::ipld::Ipld;
+
+#[derive(Debug, Clone, Error)]
+pub enum ParseError {
+    #[error("Invalid `crud/*` arguments: {0}")]
+    InvalidAnyArgs(#[source] <super::Any as ParseAbility>::Error),
+
+    #[error("Invalid `crud/mutate` arguments: {0}")]
+    InvalidMutateArgs(#[source] <super::Mutate as ParseAbility>::Error),
+}
+
+impl ParseAbility for MutableParents {
+    type Error = ParseAbilityError<ParseError>;
+
+    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        super::Any::try_parse(cmd, args)
+            .map(MutableParents::Any)
+            .map_err(ParseError::InvalidAnyArgs)
+            .map_err(ParseAbilityError::InvalidArgs)?;
+
+        super::Mutate::try_parse(cmd, args)
+            .map(MutableParents::Mutate)
+            .map_err(ParseError::InvalidMutateArgs)
+            .map_err(ParseAbilityError::InvalidArgs)?;
+
+        Err(ParseAbilityError::UnknownCommand)
+    }
 }
 
 impl CheckSame for MutableParents {

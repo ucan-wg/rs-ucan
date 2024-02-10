@@ -1,6 +1,6 @@
 use super::resolvable::Resolvable;
 use crate::{
-    ability::{arguments, command::Command},
+    ability::{arguments, command::ToCommand},
     capsule::Capsule,
     did::Did,
     nonce::Nonce,
@@ -196,14 +196,14 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 
-impl<T: Command + Into<arguments::Named<Ipld>>> From<Payload<T>> for InternalSerializer {
+impl<T: ToCommand + Into<arguments::Named<Ipld>>> From<Payload<T>> for InternalSerializer {
     fn from(payload: Payload<T>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
             audience: payload.audience,
 
-            command: T::COMMAND.into(),
+            command: payload.ability.to_command(),
             arguments: payload.ability.into(),
 
             proofs: payload.proofs,

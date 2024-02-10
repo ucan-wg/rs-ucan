@@ -129,7 +129,7 @@ pub type Builder = Generic<PathBuf, arguments::Named<Ipld>>;
 pub type Promised = Generic<promise::Resolves<PathBuf>, arguments::Promised>;
 
 impl<P, A> Command for Generic<P, A> {
-    const COMMAND: &'static str = "crud/create";
+    const COMMAND: &'static str = "crud/update";
 }
 
 impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {

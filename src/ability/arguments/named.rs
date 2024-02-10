@@ -118,11 +118,28 @@ impl<T> FromIterator<(String, T)> for Named<T> {
     }
 }
 
-impl<T: for<'de> Deserialize<'de>> TryFrom<Ipld> for Named<T> {
-    type Error = SerdeError;
+// FIXME move to common ipld module?
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+pub enum FromIpldError<E> {
+    NotAMap,
+    LeafError(#[from] E),
+}
+
+impl<T: TryFrom<Ipld>> TryFrom<Ipld> for Named<T> {
+    type Error = FromIpldError<<T as TryFrom<Ipld>>::Error>;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        match ipld {
+            Ipld::Map(map) => Ok(map
+                .into_iter()
+                .try_fold(Named::new(), |mut named, (k, v)| {
+                    let value = T::try_from(v).map_err(FromIpldError::LeafError)?;
+                    named.insert(k, value);
+                    Ok::<Named<T>, Self::Error>(named)
+                })?),
+
+            _ => Err(FromIpldError::NotAMap),
+        }
     }
 }
 
