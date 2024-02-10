@@ -1,6 +1,5 @@
 use super::{
     condition::Condition,
-    delegatable::Delegatable,
     error::{DelegationError, EnvelopeError},
 };
 use crate::{
@@ -21,12 +20,12 @@ use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Delegatable, C: Condition> {
+pub struct Payload<D, C: Condition> {
     pub issuer: Did,
     pub subject: Did,
     pub audience: Did,
 
-    pub ability_builder: T::Builder,
+    pub delegated_ability: D,
     pub conditions: Vec<C>, // FIXME BTreeSet?
     pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
@@ -35,25 +34,25 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<T: Delegatable, C: Condition> Capsule for Payload<T, C> {
+impl<D, C: Condition> Capsule for Payload<D, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: Delegatable, C: Condition + Serialize> Serialize for Payload<T, C>
+impl<D, C: Condition + Serialize> Serialize for Payload<D, C>
 where
-    InternalSerializer: From<Payload<T, C>>,
-    Payload<T, C>: Clone,
+    InternalSerializer: From<Payload<D, C>>,
+    Payload<D, C>: Clone,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let s = InternalSerializer::from(self.clone());
+        let s = InternalSerializer::from(self.clone()); // FIXME
         Serialize::serialize(&s, serializer)
     }
 }
 
-impl<'de, T: Delegatable, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
+impl<'de, T, C: Condition + DeserializeOwned> Deserialize<'de> for Payload<T, C>
 where
     Payload<T, C>: TryFrom<InternalSerializer>,
     <Payload<T, C> as TryFrom<InternalSerializer>>::Error: Debug,
@@ -71,7 +70,7 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
+impl<T, C: Condition + Serialize + DeserializeOwned> TryFrom<Ipld> for Payload<T, C>
 where
     Payload<T, C>: TryFrom<InternalSerializer>,
 {
@@ -83,42 +82,29 @@ where
     }
 }
 
-impl<T: Delegatable, C: Condition> From<Payload<T, C>> for Ipld {
+impl<T, C: Condition> From<Payload<T, C>> for Ipld {
     fn from(payload: Payload<T, C>) -> Self {
         payload.into()
     }
 }
 
 // FIXME this likely should move to invocation
-impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
-    pub fn check<U>(
+impl<'a, T: Checkable + CheckSame + Clone + Prove + Into<arguments::Named<Ipld>>, C: Condition>
+    Payload<T, C>
+{
+    pub fn check(
         delegated: &'a Payload<T, C>, // FIXME promisory version
-        proofs: Vec<Payload<U, C>>,
+        proofs: Vec<Payload<T, C>>,
         now: SystemTime,
-    ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
-    where
-        arguments::Named<Ipld>: From<U::Builder>,
-        Payload<U, C>: Clone,
-        U: Delegatable + Clone,
-        U::Builder: Clone,
-        T::Builder: Checkable + CheckSame + Clone,
-        <T::Builder as Checkable>::Hierarchy: CheckSame
-            + From<T::Builder>
-            + Clone
-            + Into<arguments::Named<Ipld>>
-            + From<<U as Delegatable>::Builder>,
-    {
-        let builder = &delegated.ability_builder;
-        let hierarchy = <T::Builder as Checkable>::Hierarchy::from(builder.clone());
-
-        // FIXME this is a task
-        let start: Acc<T::Builder> = Acc {
+    ) -> Result<(), DelegationError<<T as Prove>::Error>>
+where {
+        let start: Acc<T> = Acc {
             issuer: delegated.issuer.clone(),
             subject: delegated.subject.clone(),
-            hierarchy,
+            hierarchy: delegated.delegated_ability.clone(),
         };
 
-        let args: arguments::Named<Ipld> = delegated.ability_builder.clone().into();
+        let args: arguments::Named<Ipld> = delegated.delegated_ability.clone().into();
 
         proofs
             .into_iter()
@@ -134,9 +120,7 @@ impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
                             Success::Proven => Acc {
                                 issuer: proof.issuer.clone(),
                                 subject: proof.subject.clone(),
-                                hierarchy: <T::Builder as Checkable>::Hierarchy::from(
-                                    proof.ability_builder.clone(),
-                                ), // FIXME double check
+                                hierarchy: proof.delegated_ability.clone(), // FIXME double check
                             },
                         }
                     })
@@ -149,24 +133,19 @@ impl<'a, T: Delegatable, C: Condition> Payload<T, C> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Acc<B: Checkable> {
+pub(crate) struct Acc<T: Prove> {
     issuer: Did,
     subject: Did,
-    hierarchy: B::Hierarchy,
+    hierarchy: T,
 }
 
 // FIXME this should move to Delegatable?
-pub(crate) fn step<'a, B: Checkable, U: Delegatable, C: Condition>(
-    prev: &Acc<B>,
-    proof: &Payload<U, C>,
+pub(crate) fn step<'a, T: Prove + Clone + Into<arguments::Named<Ipld>>, C: Condition>(
+    prev: &Acc<T>,
+    proof: &Payload<T, C>,
     args: &arguments::Named<Ipld>,
     now: SystemTime,
-) -> Result<Success, DelegationError<<B::Hierarchy as Prove>::Error>>
-where
-    arguments::Named<Ipld>: From<U::Builder>,
-    U::Builder: Into<B::Hierarchy> + Clone,
-    B::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
-{
+) -> Result<Success, DelegationError<<T as Prove>::Error>> {
     if let Err(_) = prev.issuer.check_same(&proof.audience) {
         return Err(EnvelopeError::InvalidSubject.into());
     }
@@ -194,7 +173,7 @@ where
     }
 
     prev.hierarchy
-        .check(&proof.ability_builder.clone().into())
+        .check(&proof.delegated_ability.clone())
         .map_err(DelegationError::SemanticError)
 }
 
@@ -226,18 +205,18 @@ struct InternalSerializer {
     expiration: Timestamp,
 }
 
-impl<T: Delegatable + Command, C: Condition + Into<Ipld>> From<Payload<T, C>> for InternalSerializer
+impl<B: Command, C: Condition + Into<Ipld>> From<Payload<B, C>> for InternalSerializer
 where
-    BTreeMap<String, Ipld>: From<T::Builder>,
+    arguments::Named<Ipld>: From<B>,
 {
-    fn from(payload: Payload<T, C>) -> Self {
+    fn from(payload: Payload<B, C>) -> Self {
         InternalSerializer {
             issuer: payload.issuer,
             subject: payload.subject,
             audience: payload.audience,
 
-            command: T::COMMAND.into(),
-            arguments: payload.ability_builder.into(),
+            command: B::COMMAND.into(),
+            arguments: payload.delegated_ability.into(),
             conditions: payload.conditions.into_iter().map(|c| c.into()).collect(),
 
             metadata: payload.metadata,
