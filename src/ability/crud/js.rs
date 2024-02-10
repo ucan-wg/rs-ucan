@@ -1,3 +1,5 @@
+//! JavaScript bindings for the CRUD abilities.
+
 use super::{read, Any};
 use wasm_bindgen::prelude::*;
 

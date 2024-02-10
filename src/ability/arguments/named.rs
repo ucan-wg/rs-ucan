@@ -10,9 +10,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Map, Object, Reflect};
 
-#[cfg(target_arch = "wasm32")]
-use crate::ipld;
-
 /// Named arguments
 ///
 /// Being such a common pattern, but with so few trait implementations,
@@ -75,6 +72,10 @@ impl<T> Named<T> {
     /// A wrapper around [`BTreeMap::len`].
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     pub fn contains(&self, other: &Named<T>) -> Result<(), NamedError>

@@ -4,13 +4,52 @@
 //! This only needs to handle "inner" delegation types, not the topmost `*`
 //! ability, or the invocable leaves of a delegation hierarchy.
 
+use super::error::ParentError;
 use crate::proof::{parents::CheckParents, same::CheckSame};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg_attr(doc, aquamarine::aquamarine)]
 /// The union of mutable parents.
 ///
 /// This is helpful as a flat type to put in [`CheckParents::Parents`].
+///
+/// # Delegation Hierarchy
+///
+/// The parents captured here are highlted in the following diagram:
+///
+/// ```mermaid
+/// flowchart TB
+///     top("*")
+///
+///     subgraph CRUD Abilities
+///       any("crud/*")
+///
+///       mutate("crud/mutate")
+///
+///       subgraph Invokable
+///         read("crud/read")
+///         create("crud/create")
+///         update("crud/update")
+///         destroy("crud/destroy")
+///       end
+///     end
+///
+///     readrun{{"invoke"}}
+///     createrun{{"invoke"}}
+///     updaterun{{"invoke"}}
+///     destroyrun{{"invoke"}}
+///
+///     top --> any
+///             any --> read -.-> readrun
+///             any --> mutate
+///                     mutate --> create -.-> createrun
+///                     mutate --> update -.-> updaterun
+///                     mutate --> destroy -.-> destroyrun
+///
+///     style any    stroke:orange;
+///     style mutate stroke:orange;
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum MutableParents {
@@ -22,46 +61,26 @@ pub enum MutableParents {
 }
 
 impl CheckSame for MutableParents {
-    type Error = Error;
+    type Error = ParentError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         match self {
             MutableParents::Mutate(mutate) => match proof {
                 MutableParents::Mutate(proof_mutate) => mutate
                     .check_same(proof_mutate)
-                    .map_err(Error::InvalidMutateProof),
+                    .map_err(ParentError::InvalidMutateProof),
 
                 MutableParents::Any(proof_any) => mutate
                     .check_parent(proof_any)
-                    .map_err(Error::InvalidMutateParent),
+                    .map_err(ParentError::InvalidMutateParent),
             },
 
             MutableParents::Any(any) => match proof {
-                MutableParents::Mutate(_) => Err(Error::CommandEscelation),
-                MutableParents::Any(proof_any) => {
-                    any.check_same(proof_any).map_err(Error::InvalidAnyProof)
-                }
+                MutableParents::Mutate(_) => Err(ParentError::CommandEscelation),
+                MutableParents::Any(proof_any) => any
+                    .check_same(proof_any)
+                    .map_err(ParentError::InvalidAnyProof),
             },
         }
     }
-}
-
-/// Error cases when checking [`MutableParents`] proofs
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
-pub enum Error {
-    /// Error when comparing `crud/*` to another `crud/*`.
-    #[error(transparent)]
-    InvalidAnyProof(<super::Any as CheckSame>::Error),
-
-    /// Error when comparing `crud/mutate` to another `crud/mutate`.
-    #[error(transparent)]
-    InvalidMutateProof(<super::Mutate as CheckSame>::Error),
-
-    /// Error when comparing `crud/*` as a proof for `crud/mutate`.
-    #[error(transparent)]
-    InvalidMutateParent(<super::Mutate as CheckParents>::ParentError),
-
-    /// "Expected `crud/*`, but got `crud/mutate`".
-    #[error("Expected `crud/*`, but got `crud/mutate`")]
-    CommandEscelation,
 }

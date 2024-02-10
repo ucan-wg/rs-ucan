@@ -1,12 +1,24 @@
 use super::enriched::Enriched;
 use crate::invocation::promise::{Promise, PromiseAny, PromiseErr, PromiseOk};
-use libipld_core::{error::SerdeError, ipld::Ipld};
+use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 
 /// A promise to recursively resolve to an [`Ipld`] value.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Promised(pub Promise<Enriched<Promised>, Enriched<Promised>>);
+
+// impl From<Promised> for Ipld {
+//     fn from(promised: Promised) -> Self {
+//         promised.into()
+//     }
+// }
+
+impl Promised {
+    pub fn serialize_as_ipld(&self) -> Ipld {
+        ipld_serde::to_ipld(self).unwrap() // FIXME at worst we can do this by hand
+    }
+}
 
 impl From<Promise<Enriched<Promised>, Enriched<Promised>>> for Promised {
     fn from(promise: Promise<Enriched<Promised>, Enriched<Promised>>) -> Self {

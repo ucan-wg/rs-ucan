@@ -33,7 +33,7 @@ pub struct Payload<T> {
 // FIXME To TaskId
 
 // NOTE This is the version that accepts promises
-pub type Unresolved<T: Resolvable> = Payload<T::Promised>;
+pub type Unresolved<T> = Payload<<T as Resolvable>::Promised>;
 // type Dynamic = Payload<dynamic::Dynamic>; <- ?
 
 // FIXME parser for both versions

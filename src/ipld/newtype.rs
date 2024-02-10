@@ -1,5 +1,6 @@
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -45,6 +46,12 @@ impl From<Ipld> for Newtype {
 impl From<Newtype> for Ipld {
     fn from(wrapped: Newtype) -> Self {
         wrapped.0
+    }
+}
+
+impl From<PathBuf> for Newtype {
+    fn from(path: PathBuf) -> Self {
+        Newtype(Ipld::String(path.to_string_lossy().to_string()))
     }
 }
 

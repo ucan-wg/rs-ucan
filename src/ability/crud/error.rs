@@ -1,9 +1,11 @@
-use crate::{ability::arguments, proof::error::OptionalFieldError};
+//! CRUD-specific errors
+
+use crate::{
+    ability::arguments,
+    proof::{error::OptionalFieldError, parents::CheckParents, same::CheckSame},
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Error, Serialize, Deserialize)]
 pub enum ProofError {
@@ -17,13 +19,22 @@ pub enum ProofError {
     MissingProofArgs,
 }
 
-// FIXME Is this just OptionalFieldError?
-// #[derive(Debug, Clone, PartialEq, Error, Serialize, Deserialize)]
-// #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-// pub enum PathError {
-//     #[error("Path required in proof, but was not present")]
-//     Missing,
-//
-//     #[error("Proof path did not match")]
-//     Mismatch,
-// }
+/// Error cases when checking [`MutableParents`] proofs
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+pub enum ParentError {
+    /// Error when comparing `crud/*` to another `crud/*`.
+    #[error(transparent)]
+    InvalidAnyProof(<super::Any as CheckSame>::Error),
+
+    /// Error when comparing `crud/mutate` to another `crud/mutate`.
+    #[error(transparent)]
+    InvalidMutateProof(<super::Mutate as CheckSame>::Error),
+
+    /// Error when comparing `crud/*` as a proof for `crud/mutate`.
+    #[error(transparent)]
+    InvalidMutateParent(<super::Mutate as CheckParents>::ParentError),
+
+    /// "Expected `crud/*`, but got `crud/mutate`".
+    #[error("Expected `crud/*`, but got `crud/mutate`")]
+    CommandEscelation,
+}

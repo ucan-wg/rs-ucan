@@ -1,157 +1,32 @@
-//! The ability to read (fetch) from a resource.
-//!
-//! * This ability may be invoked when [`Ready`].
-//! * See the [`Builder`] to view the [delegation chain](./type.Builder.html#delegation-hierarchy).
-//! * The invocation [Lifecycle](./struct.Ready.html#lifecycle) can be found on [`Ready`] or [`Promised`].
+//! Read from a resource.
 
-use super::error::ProofError;
+use super::{error::ProofError, parents::MutableParents};
 use crate::{
     ability::{arguments, command::Command},
     invocation::{promise, promise::Resolves, Resolvable},
+    ipld,
     proof::{
         checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
         parents::CheckParents, same::CheckSame, util::check_optional,
     },
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{collections::BTreeMap, path::PathBuf};
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+// FIXME deserialize instance
 
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// The CRUD ability to retrieve data from a resource.
-///
-/// # Invocation
-///
-/// The executable/dispatchable variant of the `msg/send` ability.
-///
-/// # Lifecycle
-///
-/// The hierarchy of message abilities is as follows:
-///
-/// ```mermaid
-/// flowchart LR
-///     subgraph Delegations
-///       top("*")
-///
-///       any("crud/*")
-///
-///       subgraph Invokable
-///         read("crud/read")
-///       end
-///     end
-///
-///     readpromise("crud::read::Promised")
-///     readrun("crud::read::Ready")
-///
-///     top --> any
-///     any --> read -.->|invoke| readpromise -.->|resolve| readrun -.-> exe{{execute}}
-///
-///     style readrun stroke:orange;
-/// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A helper for creating lifecycle instances of `crud/create` with the correct shape.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ready {
-    /// Optional path within the resource.
+pub struct Generic<Path, Args> {
+    /// An optional path to a sub-resource that is to be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<PathBuf>,
+    pub path: Option<Path>,
 
-    /// Additional arugments to pass in the request.
-    pub args: arguments::Named<Ipld>,
-}
-
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// The CRUD ability to retrieve data from a resource.
-///
-/// # Delegation Hierarchy
-///
-/// The hierarchy of CRUD abilities is as follows:
-///
-/// ```mermaid
-/// flowchart TB
-///     top("*")
-///
-///     subgraph Message Abilities
-///       any("crud/*")
-///
-///       subgraph Invokable
-///         read("crud/read")
-///       end
-///     end
-///
-///     readrun{{"invoke"}}
-///
-///     top --> any
-///             any --> read -.-> readrun
-///
-///     style read stroke:orange;
-/// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Builder {
-    // FIXME ^^^^^^ rename delegation as a pattern
-    /// Optional path within the resource.
+    /// Optional arguments to modify the read request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<PathBuf>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    /// Additional arugments to pass in the request.
-    pub args: Option<arguments::Named<Ipld>>,
-}
-
-impl Command for Ready {
-    const COMMAND: &'static str = "crud/read";
-}
-
-impl Checkable for Builder {
-    type Hierarchy = Parentful<Builder>;
-}
-
-impl CheckSame for Builder {
-    type Error = ProofError;
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        check_optional(self.path.as_ref(), proof.path.as_ref())
-            .map_err(Into::<ProofError>::into)?;
-
-        let args = self.args.as_ref().ok_or(ProofError::MissingProofArgs)?;
-        if let Some(proof_args) = &proof.args {
-            args.contains(proof_args).map_err(Into::into)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl CheckParents for Builder {
-    type Parents = super::Any;
-    type ParentError = OptionalFieldError;
-
-    fn check_parent(&self, crud_any: &super::Any) -> Result<(), Self::ParentError> {
-        if let Some(path) = &self.path {
-            let crud_any_path = crud_any.path.as_ref().ok_or(OptionalFieldError::Missing)?;
-            if path != crud_any_path {
-                return Err(OptionalFieldError::Unequal);
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl From<Ready> for Ipld {
-    fn from(ready: Ready) -> Self {
-        ready.into()
-    }
-}
-impl TryFrom<Ipld> for Ready {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
-    }
+    pub args: Option<Args>,
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -159,7 +34,7 @@ impl TryFrom<Ipld> for Ready {
 ///
 /// # Lifecycle
 ///
-/// The hierarchy of message abilities is as follows:
+/// The relevant hierarchy of CRUD abilities is as follows:
 ///
 /// ```mermaid
 /// flowchart LR
@@ -174,49 +49,211 @@ impl TryFrom<Ipld> for Ready {
 ///     end
 ///
 ///     readpromise("crud::read::Promised")
-///     readrun("crud::read::Ready")
+///     readready("crud::read::Ready")
 ///
-///     top --> any
-///     any --> read -.->|invoke| readpromise -.->|resolve| readrun -.-> exe{{execute}}
+///     top --> any --> read
+///     read -.->|invoke| readpromise -.->|resolve| readready -.-> exe{{execute}}
+///
+///     style readready stroke:orange;
+/// ```
+pub type Ready = Generic<PathBuf, arguments::Named<Ipld>>;
+
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// The delegatable ability for reading resources.
+///
+/// # Lifecycle
+///
+/// The lifecycle of a `crud/read` ability is as follows:
+///
+/// ```mermaid
+/// flowchart LR
+///     subgraph Delegations
+///       top("*")
+///
+///       subgraph CRUD Abilities
+///         any("crud/*")
+///
+///         subgraph Invokable
+///           read("crud/read")
+///         end
+///       end
+///     end
+///
+///     readpromise("crud::read::Promised")
+///     readready("crud::read::Ready")
+///
+///     top --> any --> read
+///     read -.->|invoke| readpromise -.->|resolve| readready -.-> exe{{execute}}
+///
+///     style read stroke:orange;
+/// ```
+pub type Builder = Generic<PathBuf, arguments::Named<Ipld>>;
+
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// An invoked `crud/read` ability (but possibly awaiting another
+/// [`Invocation`][crate::invocation::Invocation]).
+///
+/// # Delegation Hierarchy
+///
+/// The hierarchy of CRUD abilities is as follows:
+///
+/// ```mermaid
+/// flowchart LR
+///     subgraph Delegations
+///       top("*")
+///
+///       subgraph CRUD Abilities
+///         any("crud/*")
+///
+///         subgraph Invokable
+///           read("crud/read")
+///         end
+///       end
+///     end
+///
+///     readpromise("crud::read::Promised")
+///     readready("crud::read::Ready")
+///
+///     top --> any --> read
+///     read -.->|invoke| readpromise -.->|resolve| readready -.-> exe{{execute}}
 ///
 ///     style readpromise stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Promised {
-    /// Optional path within the resource
-    #[serde(skip_serializing_if = "promise::Resolves::resolved_none")]
-    pub path: promise::Resolves<Option<PathBuf>>,
+pub type Promised = Generic<promise::Resolves<PathBuf>, arguments::Promised>;
 
-    pub args: arguments::Promised,
+impl<P, A> Command for Generic<P, A> {
+    const COMMAND: &'static str = "crud/read";
 }
 
-impl From<Promised> for Ipld {
-    fn from(promised: Promised) -> Self {
-        promised.into()
+impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {
+    fn from(read: Generic<P, A>) -> Self {
+        read.into()
     }
 }
 
-impl TryFrom<Ipld> for Promised {
-    type Error = SerdeError;
+impl<P: TryFrom<Ipld>, A: TryFrom<Ipld>> TryFrom<Ipld> for Generic<P, A> {
+    type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
-    }
-}
+        if let Ipld::Map(mut map) = ipld {
+            if map.len() > 2 {
+                return Err(()); // FIXME
+            }
 
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Promised {
-        Promised {
-            path: promise::PromiseOk::Fulfilled(r.path).into(),
-            args: promise::PromiseOk::Fulfilled(r.args.into()).into(),
+            Ok(Generic {
+                path: map
+                    .remove("path")
+                    .map(|ipld| P::try_from(ipld).map_err(|_| ()))
+                    .transpose()?,
+
+                args: map
+                    .remove("args")
+                    .map(|ipld| A::try_from(ipld).map_err(|_| ()))
+                    .transpose()?,
+            })
+        } else {
+            Err(()) // FIXME
         }
     }
 }
 
+impl Checkable for Builder {
+    type Hierarchy = Parentful<Builder>;
+}
+
+impl CheckSame for Builder {
+    type Error = (); // FIXME better error
+
+    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+        if self.path == proof.path {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl CheckParents for Builder {
+    type Parents = MutableParents;
+    type ParentError = (); // FIXME
+
+    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+        if let Some(self_path) = &self.path {
+            match other {
+                MutableParents::Any(any) => {
+                    // FIXME check the args, too!
+                    if let Some(proof_path) = &any.path {
+                        if self_path != proof_path {
+                            return Err(());
+                        }
+                    }
+                }
+                MutableParents::Mutate(mutate) => {
+                    // FIXME check the args, too!
+                    if let Some(proof_path) = &mutate.path {
+                        if self_path != proof_path {
+                            return Err(());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl From<Promised> for arguments::Named<Ipld> {
-    fn from(p: Promised) -> arguments::Named<Ipld> {
-        p.into()
+    fn from(promised: Promised) -> Self {
+        let mut named = arguments::Named::new();
+
+        if let Some(path_res) = promised.path {
+            named.insert(
+                "path".to_string(),
+                path_res.map(|p| ipld::Newtype::from(p).0).into(),
+            );
+        }
+
+        if let Some(args_res) = promised.args {
+            named.insert(
+                "args".to_string(),
+                args_res
+                    .map(|a| {
+                        // FIXME extract
+                        a.iter()
+                            .map(|(k, v)| (k.to_string(), v.clone().serialize_as_ipld()))
+                            .collect::<BTreeMap<String, Ipld>>()
+                    })
+                    .into(),
+            );
+        }
+
+        named
+    }
+}
+
+// impl From<arguments::Named<Ipld>> for Promised {
+//     fn from(source: arguments::Named<Ipld>) -> Self {
+//         let path = source
+//             .get("path")
+//             .map(|ipld| ipld.clone().try_into().unwrap());
+//
+//         let args = source
+//             .get("args")
+//             .map(|ipld| ipld.clone().try_into().unwrap());
+//         Promised { path, args }
+//     }
+// }
+
+impl From<Ready> for Promised {
+    fn from(r: Ready) -> Promised {
+        Promised {
+            path: r
+                .path
+                .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
+
+            args: r.args.map(|inner_args| Resolves::new(inner_args.into())),
+        }
     }
 }
 
@@ -224,15 +261,35 @@ impl Resolvable for Ready {
     type Promised = Promised;
 
     fn try_resolve(p: Promised) -> Result<Ready, Promised> {
-        match Resolves::try_resolve_2(p.path, p.args) {
-            Ok((path, promise_args)) => match promise_args.try_into() {
-                Ok(args) => Ok(Ready { path, args }),
-                Err(args) => Err(Promised {
-                    args: promise::PromiseOk::Fulfilled(args).into(),
-                    path: promise::PromiseOk::Fulfilled(path).into(),
-                }),
+        // FIXME extract & cleanup
+        let path = match p.path {
+            Some(ref res_path) => match res_path.clone().try_resolve() {
+                Ok(path) => Some(Ok(path)),
+                Err(unresolved) => Some(Err(Promised {
+                    path: Some(unresolved),
+                    args: p.args.clone(),
+                })),
             },
-            Err((path, args)) => Err(Promised { path, args }),
+            None => None,
         }
+        .transpose()?;
+
+        // FIXME extract & cleanup
+        let args = match p.args {
+            Some(ref res_args) => match res_args.clone().try_resolve() {
+                Ok(args) => {
+                    let ipld = args.try_into().map_err(|_| p.clone())?;
+                    Some(Ok(ipld))
+                }
+                Err(unresolved) => Some(Err(Promised {
+                    path: path.clone().map(|p| Resolves::new(p)),
+                    args: Some(unresolved),
+                })),
+            },
+            None => None,
+        }
+        .transpose()?;
+
+        Ok(Ready { path, args })
     }
 }

@@ -39,16 +39,17 @@
 
 mod any;
 mod mutate;
+mod parents;
 
 pub mod create;
 pub mod destroy;
 pub mod error;
-pub mod parents;
 pub mod read;
 pub mod update;
 
 pub use any::Any;
 pub use mutate::Mutate;
+pub use parents::MutableParents;
 
 #[cfg(target_arch = "wasm32")]
 pub mod js;

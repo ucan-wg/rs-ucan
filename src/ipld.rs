@@ -1,4 +1,4 @@
-//! Helpers for working with [`Ipld`]
+//! Helpers for working with [`Ipld`][libipld_core::ipld::Ipld]
 
 mod enriched;
 mod newtype;

@@ -6,9 +6,4 @@ pub trait Resolvable: Sized {
 
     // FIXME indeed needed to get teh right err type
     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised>;
-
-    // FIXME remove
-    fn try_resolve0(promised: Self::Promised) -> Result<Self, Self::Promised> {
-        Self::try_resolve(promised)
-    }
 }
