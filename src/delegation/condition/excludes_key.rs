@@ -16,26 +16,29 @@ use serde_derive::{Deserialize, Serialize};
 /// # use ucan::delegation::{condition::{ExcludesKey, Condition}};
 /// # use libipld::ipld;
 /// #
-/// let args = ipld!({"a": {"b": 1, "c": 2}, "d": {"e": 3}}).try_into().unwrap();
 /// let cond = ExcludesKey{
 ///   field: "a".into(),
 ///   key: "b".into()
 /// };
 ///
-/// assert!(!cond.validate(&args));
+/// let args1 = ipld!({"a": "b", "c": "d"}).try_into().unwrap();
+/// let args2 = ipld!({"a": {"b": 1, "c": 2}, "d": {"e": 3}}).try_into().unwrap();
+///
+/// assert!(cond.validate(&args1));
+/// assert!(!cond.validate(&args2));
 ///
 /// // Succeeds when the key is not present
 /// assert!(ExcludesKey {
-///     field: "yep".into(),
+///     field: "nope".into(),
 ///     key: "b".into()
-/// }.validate(&args));
+/// }.validate(&args2));
 ///
 /// // Also succeeds when the input is not a map
 /// let list = ipld!({"a": [1, 2, 3]}).try_into().unwrap();
 /// assert!(cond.validate(&list));
 /// assert!(cond.validate(&ipld!({"a": 42}).try_into().unwrap()));
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExcludesKey {
     /// Name of the field to check.
@@ -62,7 +65,7 @@ impl TryFrom<Ipld> for ExcludesKey {
 impl Condition for ExcludesKey {
     fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match args.get(&self.field) {
-            Some(Ipld::Map(map)) => map.contains_key(&self.field),
+            Some(Ipld::Map(map)) => !map.contains_key(&self.key),
             _ => true,
         }
     }

@@ -8,21 +8,25 @@ use serde::{Deserialize, Serialize};
 #[serde(transparent)]
 pub struct Promised(pub Promise<Enriched<Promised>, Enriched<Promised>>);
 
-// impl From<Promised> for Ipld {
-//     fn from(promised: Promised) -> Self {
-//         promised.into()
-//     }
-// }
-
 impl Promised {
+    // FIXME note that this is different from the failable version which is more like
+    // a try_reoslve... which has a note at the bottom on this module
     pub fn serialize_as_ipld(&self) -> Ipld {
         ipld_serde::to_ipld(self).unwrap() // FIXME at worst we can do this by hand
     }
 }
 
+// Promise variants into Promised
+
 impl From<Promise<Enriched<Promised>, Enriched<Promised>>> for Promised {
     fn from(promise: Promise<Enriched<Promised>, Enriched<Promised>>) -> Self {
         Promised(promise)
+    }
+}
+
+impl From<PromiseAny<Enriched<Promised>, Enriched<Promised>>> for Promised {
+    fn from(p_any: PromiseAny<Enriched<Promised>, Enriched<Promised>>) -> Self {
+        Promised(p_any.into())
     }
 }
 
@@ -38,11 +42,7 @@ impl From<PromiseErr<Enriched<Promised>>> for Promised {
     }
 }
 
-impl From<PromiseAny<Enriched<Promised>, Enriched<Promised>>> for Promised {
-    fn from(p_any: PromiseAny<Enriched<Promised>, Enriched<Promised>>) -> Self {
-        Promised(p_any.into())
-    }
-}
+// IPLD
 
 impl From<Ipld> for Promised {
     fn from(ipld: Ipld) -> Self {

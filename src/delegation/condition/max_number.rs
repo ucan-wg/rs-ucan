@@ -8,7 +8,7 @@ use serde_derive::{Deserialize, Serialize};
 ///
 /// A condition that checks if the length of an integer
 /// or float is less than or equal to a set size.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaxNumber {
     /// Name of the field to check

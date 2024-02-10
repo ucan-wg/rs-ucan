@@ -35,7 +35,7 @@ use serde_derive::{Deserialize, Serialize};
 /// assert!(!cond.validate(&list));
 /// assert!(!cond.validate(&ipld!({"a": 42}).try_into().unwrap()));
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainsKey {
     /// Name of the field to check.

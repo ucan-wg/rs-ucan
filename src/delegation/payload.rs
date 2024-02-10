@@ -15,7 +15,10 @@ use crate::{
 };
 use libipld_core::{ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,8 +28,8 @@ pub struct Payload<T: Delegatable, C: Condition> {
     pub audience: Did,
 
     pub ability_builder: T::Builder,
-    pub conditions: Vec<C>,
-
+    pub conditions: BTreeSet<C>, // FIXME BTreeSet?
+    // pub conditions: Vec<C>, // FIXME BTreeSet?
     pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
 
@@ -103,12 +106,14 @@ impl<
     where
         invocation::Payload<T>: Clone,
         U::Builder: Clone + Into<T::Hierarchy>,
-        T::Hierarchy: From<invocation::Payload<T>>,
+        T::Hierarchy: From<invocation::Payload<T>> + Clone + Into<arguments::Named<Ipld>>,
+        arguments::Named<Ipld>: From<U::Builder>,
     {
-        let start: Acc<'a, T> = Acc {
+        // FIXME this is a task
+        let start: Acc<'_, T> = Acc {
             issuer: &invoked.issuer,
             subject: &invoked.subject,
-            to_check: invoked.clone().into(), // FIXME surely we can eliminate this clone
+            ability: invoked.clone().into(), // FIXME surely we can eliminate this clone
         };
 
         let args: arguments::Named<Ipld> = invoked.ability.clone().into();
@@ -116,6 +121,7 @@ impl<
         let result = proofs.iter().fold(Ok(start), |acc, proof| {
             if let Ok(prev) = acc {
                 match step(&prev, proof, &args, now) {
+                    // FIXME add a `Outdcome::is_success` of into(result) method
                     Outcome::ArgumentEscelation(_) => Err(()),
                     Outcome::InvalidProofChain(_) => Err(()),
                     Outcome::InvalidParents(_) => Err(()),
@@ -124,12 +130,12 @@ impl<
                     Outcome::ProvenByAny => Ok(Acc {
                         issuer: &proof.issuer,
                         subject: &proof.subject,
-                        to_check: prev.to_check,
+                        ability: prev.ability,
                     }),
                     Outcome::Proven => Ok(Acc {
                         issuer: &proof.issuer,
                         subject: &proof.subject,
-                        to_check: proof.ability_builder.clone().into(), // FIXME double check
+                        ability: proof.ability_builder.clone().into(), // FIXME double check
                     }),
                 }
             } else {
@@ -149,7 +155,7 @@ impl<
 struct Acc<'a, T: Checkable> {
     issuer: &'a Did,
     subject: &'a Did,
-    to_check: T::Hierarchy,
+    ability: T::Hierarchy,
 }
 
 // FIXME this should move to Delegatable
@@ -162,6 +168,8 @@ fn step<'a, T: Checkable, U: Delegatable, C: Condition>(
 // FIXME ^^^^^^^^^^^^ Outcome types
 where
     U::Builder: Into<T::Hierarchy> + Clone,
+    arguments::Named<Ipld>: From<U::Builder>,
+    T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
 {
     if let Err(_) = prev.issuer.check_same(&proof.audience) {
         return Outcome::InvalidProofChain(());
@@ -181,30 +189,22 @@ where
         return Outcome::InvalidProofChain(());
     }
 
-    // FIXME check the spec
-    // if self.conditions.len() < proof.conditions {
-    //      ...etc etc
-    //      return Err(());
-    //  }
-
-    let cond_result =
-        proof.conditions.iter().try_fold(
-            (),
-            |_acc, c| {
-                if c.validate(&args) {
-                    Ok(())
-                } else {
-                    Err(())
-                }
-            },
-        );
+    // FIXME coudl be more efficient, but sets need Ord and we have floats
+    let cond_result = &proof.conditions.iter().try_fold((), |_acc, c| {
+        // FIXME revisit
+        if c.validate(&args) && c.validate(&prev.ability.clone().into()) {
+            Ok(())
+        } else {
+            Err(())
+        }
+    });
 
     if let Err(_) = cond_result {
         return Outcome::InvalidProofChain(());
     }
 
     // FIXME pretty sure we can avoid this clone
-    let outcome = prev.to_check.check(&proof.ability_builder.clone().into());
+    let outcome = prev.ability.check(&proof.ability_builder.clone().into());
 
     match outcome {
         Outcome::Proven => Outcome::Proven,
