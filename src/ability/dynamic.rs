@@ -1,12 +1,19 @@
 //! This module is for dynamic abilities, especially for FFI and Wasm support
 
-use super::{arguments, command::ToCommand};
+use super::{
+    arguments,
+    command::{ParseAbility, ToCommand},
+};
 use crate::{ipld, proof::same::CheckSame};
-use js_sys;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, convert::Infallible, fmt::Debug};
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use js_sys;
 
 // NOTE the lack of checking functions!
 
@@ -33,6 +40,17 @@ pub struct Dynamic {
     ///
     /// The only requirement is that the keys are strings and the values are [`Ipld`]
     pub args: arguments::Named<Ipld>,
+}
+
+impl ParseAbility for Dynamic {
+    type Error = Infallible;
+
+    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        Ok(Dynamic {
+            cmd: cmd.to_string(),
+            args: args.clone(),
+        })
+    }
 }
 
 impl ToCommand for Dynamic {

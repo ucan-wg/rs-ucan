@@ -1,4 +1,4 @@
-//! Proof chains, checking, and utilities
+//! Proof chains, checking, and utilities.
 
 pub mod checkable;
 pub mod error;

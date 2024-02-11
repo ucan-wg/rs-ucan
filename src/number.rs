@@ -1,4 +1,4 @@
-//! Helpers for working with [`Ipld`] numerics
+//! Helpers for working with [`Ipld`] numerics.
 
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};

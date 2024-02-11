@@ -1,4 +1,4 @@
-//! URL utilities
+//! URL utilities.
 
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};

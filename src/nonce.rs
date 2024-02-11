@@ -1,4 +1,6 @@
-//! Nonce utilities
+//! [Nonce]s & utilities.
+//!
+//! [Nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
 
 use enum_as_inner::EnumAsInner;
 use getrandom::getrandom;

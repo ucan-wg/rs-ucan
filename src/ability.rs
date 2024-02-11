@@ -48,7 +48,6 @@ pub mod command;
 pub mod js;
 
 // // TODO move to crate::wasm? or hide behind "dynamic" feature flag?
-#[cfg(target_arch = "wasm32")]
 pub mod dynamic;
 
 // FIXME macro to derive promise versions & delagted builder versions

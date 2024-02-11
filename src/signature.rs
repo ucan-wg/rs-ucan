@@ -1,11 +1,17 @@
+//! Signatures and cryptographic envelopes.
+
 use crate::capsule::Capsule;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// A container associating a `payload` with its signature over it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Envelope<T: Capsule> {
+    /// The signture of the `payload`.
     pub sig: Signature,
+
+    /// The payload that's being signed over.
     pub payload: T,
 }
 

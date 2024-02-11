@@ -28,6 +28,15 @@ pub enum Parentful<T: CheckParents> {
     This(T),
 }
 
+impl<T> From<T> for Parentful<T>
+where
+    T: CheckParents,
+{
+    fn from(this: T) -> Self {
+        Parentful::This(this)
+    }
+}
+
 /// Error cases when checking proofs (including parents)
 #[derive(Debug, Error, PartialEq)]
 pub enum ParentfulError<ArgErr, PrfErr, ParErr> {

@@ -1,4 +1,4 @@
-//! Capsule type utilities
+//! Capsule type utilities.
 //!
 //! Capsule types are a pattern where you associate a string to type,
 //! and use the tag as a key and the payload as a value in a map.

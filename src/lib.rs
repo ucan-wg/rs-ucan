@@ -80,6 +80,10 @@ pub mod task;
 pub mod time;
 pub mod url;
 
+pub use delegation::Delegation;
+pub use invocation::Invocation;
+pub use receipt::Receipt;
+
 // FIXME consider a fact-system
 // /// The empty fact
 // #[derive(Debug, Clone, Default, Serialize, Deserialize)]

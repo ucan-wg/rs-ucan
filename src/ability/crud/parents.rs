@@ -6,7 +6,7 @@
 
 use super::error::ParentError;
 use crate::{
-    ability::command::Command,
+    ability::command::{ParseAbility, ToCommand},
     proof::{parents::CheckParents, same::CheckSame},
 };
 use serde::{Deserialize, Serialize};
@@ -62,9 +62,6 @@ pub enum MutableParents {
     /// The `crud/mutate` ability.
     Mutate(super::Mutate),
 }
-
-// FIXME
-use crate::ability::command::{ParseAbility, ToCommand};
 
 impl ToCommand for MutableParents {
     fn to_command(&self) -> String {

@@ -1,4 +1,4 @@
-//! Time utilities
+//! Time utilities.
 
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -28,6 +28,19 @@ pub enum Timestamp {
     /// Following [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle),
     /// received timestamps may be parsed as regular [`SystemTime`].
     Postel(SystemTime),
+}
+
+impl From<Timestamp> for Ipld {
+    fn from(timestamp: Timestamp) -> Self {
+        match timestamp {
+            Timestamp::JsSafe(js_time) => js_time.into(),
+            Timestamp::Postel(sys_time) => sys_time
+                .duration_since(UNIX_EPOCH)
+                .expect("FIXME")
+                .as_secs()
+                .into(),
+        }
+    }
 }
 
 impl Serialize for Timestamp {
@@ -67,12 +80,6 @@ impl From<Timestamp> for SystemTime {
             Timestamp::JsSafe(js_time) => js_time.time,
             Timestamp::Postel(sys_time) => sys_time,
         }
-    }
-}
-
-impl From<Timestamp> for Ipld {
-    fn from(timestamp: Timestamp) -> Self {
-        timestamp.into()
     }
 }
 

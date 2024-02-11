@@ -55,8 +55,10 @@ pub trait Command {
     const COMMAND: &'static str;
 }
 
+// FIXME definitely needs a better name
 pub trait ParseAbility: Sized {
     type Error: fmt::Display;
+
     // FIXME rename this trait to Ability?
     fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error>;
 }
@@ -89,7 +91,10 @@ where
 
 // NOTE do not export; this is used to limit the Hierarchy
 // interface to [Parentful] and [Parentless] while enabling [Dynamic]
-pub(crate) trait ToCommand {
+// FIXME ^^^^ NOT ANYMORE
+// Either that needs to be re-locked down, or (because it's all abstract anyways)
+// just note that you probably don;t want this one.
+pub trait ToCommand {
     fn to_command(&self) -> String;
 }
 

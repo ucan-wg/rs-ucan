@@ -24,6 +24,12 @@ pub enum Parentless<T> {
     This(T),
 }
 
+impl<T> From<T> for Parentless<T> {
+    fn from(this: T) -> Self {
+        Parentless::This(this)
+    }
+}
+
 // FIXME generally useful (e.g. checkiung `_/*`); move to its own module and rename?
 /// Error cases when checking proofs
 #[derive(Debug, Clone, PartialEq)]
@@ -53,14 +59,6 @@ where
 {
     fn from(parentless: Parentless<T>) -> Self {
         parentless.into()
-    }
-}
-
-impl<T: TryFrom<Ipld> + DeserializeOwned> TryFrom<Ipld> for Parentless<T> {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
     }
 }
 

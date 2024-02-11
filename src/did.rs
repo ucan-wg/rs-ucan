@@ -1,4 +1,6 @@
-//! Decentralized Identifier (DID) utilities
+//! Decentralized Identifier ([DID][wiki]) utilities.
+//!
+//! [wiki]: https://en.wikipedia.org/wiki/Decentralized_identifier
 
 use did_url::DID;
 use libipld_core::ipld::Ipld;
@@ -6,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(into = "String", try_from = "String")]
 /// A [Decentralized Identifier (DID)][wiki]
 ///

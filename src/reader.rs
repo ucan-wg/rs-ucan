@@ -1,10 +1,12 @@
-//! Configure & attach an ambient environment to a value
+//! Configure & attach an ambient environment to a value.
 
 use crate::{
-    ability::{arguments, command::ToCommand},
+    ability::{
+        arguments,
+        command::{ParseAbility, ParseAbilityError, ToCommand},
+    },
     delegation::Delegatable,
-    invocation::{promise, Resolvable},
-    proof::{checkable::Checkable, same::CheckSame},
+    invocation::Resolvable,
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -158,16 +160,20 @@ impl<Env, A, T: Into<arguments::Named<A>>> From<Reader<Env, T>> for arguments::N
     }
 }
 
-impl<Env: Checkable, T> Checkable for Reader<Env, T>
-where
-    Reader<Env, T>: CheckSame,
-{
-    type Hierarchy = Env::Hierarchy;
-}
-
 impl<Env: ToCommand, T> ToCommand for Reader<Env, T> {
     fn to_command(&self) -> String {
         self.env.to_command()
+    }
+}
+
+impl<Env: Default, T: ParseAbility> ParseAbility for Reader<Env, T> {
+    type Error = ParseAbilityError<<T as ParseAbility>::Error>;
+
+    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        Ok(Reader {
+            env: Default::default(),
+            val: T::try_parse(cmd, args).map_err(ParseAbilityError::InvalidArgs)?,
+        })
     }
 }
 

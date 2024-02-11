@@ -5,7 +5,7 @@ use super::{
 use crate::{
     ability::{
         arguments,
-        command::{Command, ToCommand},
+        command::{Command, ParseAbility, ToCommand},
     },
     capsule::Capsule,
     did::Did,
@@ -26,23 +26,93 @@ use serde::{
 use std::{collections::BTreeMap, fmt, fmt::Debug};
 use web_time::SystemTime;
 
+/// The payload portion of a [`Delegation`][super::Delegation].
+///
+/// This contains the semantic information about the delegation, including the
+/// issuer, subject, audience, the delegated ability, time bounds, and so on.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<D, C: Condition> {
-    pub issuer: Did,
+    /// The subject of the [`Delegation`].
+    ///
+    /// This role *must* have issued the earlier (root)
+    /// delegation in the chain. This makes the chains
+    /// self-certifying.
+    ///
+    /// The semantics of the delegation are established
+    /// by the subject.
+    ///
+    /// [`Delegation`]: super::Delegation
     pub subject: Did,
+
+    /// The issuer of the [`Delegation`].
+    ///
+    /// This [`Did`] *must* match the signature on
+    /// the outer layer of [`Delegation`].
+    ///
+    /// [`Delegation`]: super::Delegation
+    pub issuer: Did,
+
+    /// The agent being delegated to.
     pub audience: Did,
 
     /// A delegatable ability chain.
     ///
-    /// Note that this should be is some [Proof::Hierarchy] // FIXME enforce in types?
+    /// Note that this should be is some [Proof::Hierarchy]
     pub delegated_ability: D,
 
-    pub conditions: Vec<C>, // FIXME BTreeSet?
+    /// Any [`Condition`]s on the `delegated_ability`.
+    pub conditions: Vec<C>,
+
+    /// Extensible, free-form fields.
     pub metadata: BTreeMap<String, Ipld>,
+
+    /// A [cryptographic nonce] to ensure that the UCAN's [`Cid`] is unique.
+    ///
+    /// [cryptograpgic nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
+    /// [`Cid`]: libipld_core::cid::Cid ;
     pub nonce: Nonce,
 
+    /// The latest wall-clock time that the UCAN is valid until,
+    /// given as a [Unix timestamp].
+    ///
+    /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
     pub expiration: Timestamp,
+
+    /// An optional earliest wall-clock time that the UCAN is valid from,
+    /// given as a [Unix timestamp].
+    ///
+    /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
     pub not_before: Option<Timestamp>,
+}
+
+impl<D, C: Condition> Payload<D, C> {
+    pub fn map_ability<T>(self, f: impl FnOnce(D) -> T) -> Payload<T, C> {
+        Payload {
+            issuer: self.issuer,
+            subject: self.subject,
+            audience: self.audience,
+            delegated_ability: f(self.delegated_ability),
+            conditions: self.conditions,
+            metadata: self.metadata,
+            nonce: self.nonce,
+            expiration: self.expiration,
+            not_before: self.not_before,
+        }
+    }
+
+    pub fn map_conditon<T: Condition>(self, f: impl FnMut(C) -> T) -> Payload<D, T> {
+        Payload {
+            issuer: self.issuer,
+            subject: self.subject,
+            audience: self.audience,
+            delegated_ability: self.delegated_ability,
+            conditions: self.conditions.into_iter().map(f).collect(),
+            metadata: self.metadata,
+            nonce: self.nonce,
+            expiration: self.expiration,
+            not_before: self.not_before,
+        }
+    }
 }
 
 impl<D, C: Condition> Capsule for Payload<D, C> {
@@ -62,7 +132,13 @@ where
         state.serialize_field("iss", &self.issuer)?;
         state.serialize_field("sub", &self.subject)?;
         state.serialize_field("aud", &self.audience)?;
+        state.serialize_field("meta", &self.metadata)?;
+        state.serialize_field("nonce", &self.nonce)?;
+        state.serialize_field("exp", &self.expiration)?;
+        state.serialize_field("nbf", &self.not_before)?;
+
         state.serialize_field("cmd", &self.delegated_ability.to_command())?;
+
         state.serialize_field(
             "args",
             &arguments::Named::from(self.delegated_ability.clone()),
@@ -77,16 +153,9 @@ where
                 .collect::<Vec<Ipld>>(),
         )?;
 
-        state.serialize_field("meta", &self.metadata)?;
-        state.serialize_field("nonce", &self.nonce)?;
-        state.serialize_field("exp", &self.expiration)?;
-        state.serialize_field("nbf", &self.not_before)?;
         state.end()
     }
 }
-
-// FIXME
-use crate::ability::command::ParseAbility;
 
 impl<
         'de,
@@ -106,7 +175,7 @@ impl<
 
         impl<
                 'de,
-                T: Deserialize<'de> + ParseAbility + ToCommand,
+                T: ParseAbility + ToCommand + Deserialize<'de>,
                 C: Condition + TryFrom<Ipld> + Deserialize<'de>,
             > Visitor<'de> for DelegationPayloadVisitor<T, C>
         {
@@ -214,11 +283,11 @@ impl<
                     issuer: issuer.ok_or(de::Error::missing_field("iss"))?,
                     subject: subject.ok_or(de::Error::missing_field("sub"))?,
                     audience: audience.ok_or(de::Error::missing_field("aud"))?,
-                    delegated_ability,
                     conditions: conditions.ok_or(de::Error::missing_field("cond"))?,
                     metadata: metadata.ok_or(de::Error::missing_field("meta"))?,
                     nonce: nonce.ok_or(de::Error::missing_field("nonce"))?,
                     expiration: expiration.ok_or(de::Error::missing_field("exp"))?,
+                    delegated_ability,
                     not_before,
                 })
             }
@@ -232,161 +301,117 @@ impl<
     }
 }
 
+impl<
+        T: ParseAbility + Command + for<'de> Deserialize<'de>,
+        C: Condition + for<'de> Deserialize<'de>,
+    > TryFrom<Ipld> for Payload<T, C>
+{
+    type Error = SerdeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(ipld)
+    }
+}
+
 impl<T, C: Condition> From<Payload<T, C>> for Ipld {
     fn from(payload: Payload<T, C>) -> Self {
         payload.into()
     }
 }
 
-impl<'a, T, C: Condition> Payload<T, C> {
-    pub fn check(
-        delegated: &'a Payload<T, C>, // FIXME promisory version
-        proofs: Vec<Payload<T, C>>,
+impl<T, C: Condition> Payload<T, C> {
+    pub fn check<'a>(
+        &'a self,
+        proofs: Vec<Payload<T::Hierarchy, C>>,
         now: SystemTime,
-    ) -> Result<(), DelegationError<<T as Prove>::Error>>
+    ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
-        T: Checkable + CheckSame + Clone + Prove + Into<arguments::Named<Ipld>>,
+        T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+        T: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
     {
-        let start: Acc<T> = Acc {
-            issuer: delegated.issuer.clone(),
-            subject: delegated.subject.clone(),
-            hierarchy: delegated.delegated_ability.clone(),
+        let start: Acc<T::Hierarchy> = Acc {
+            issuer: self.issuer.clone(),
+            subject: self.subject.clone(),
+            hierarchy: T::Hierarchy::from(self.delegated_ability.clone()),
         };
 
-        let args: arguments::Named<Ipld> = delegated.delegated_ability.clone().into();
+        let args: arguments::Named<Ipld> = self.delegated_ability.clone().into();
 
-        proofs
-            .into_iter()
-            .fold(Ok(start), |prev, proof| {
-                if let Ok(prev_) = prev {
-                    step(&prev_, &proof, &args, now).map(move |success| {
-                        match success {
-                            Success::ProvenByAny => Acc {
-                                issuer: proof.issuer.clone(),
-                                subject: proof.subject.clone(),
-                                hierarchy: prev_.hierarchy,
-                            },
-                            Success::Proven => Acc {
-                                issuer: proof.issuer.clone(),
-                                subject: proof.subject.clone(),
-                                hierarchy: proof.delegated_ability.clone(), // FIXME double check
-                            },
-                        }
-                    })
-                } else {
-                    prev
-                }
-            })
-            .map(|_| ())
+        proofs.into_iter().fold(Ok(start), |prev, proof| {
+            if let Ok(prev_) = prev {
+                prev_.step(&proof, &args, now).map(move |success| {
+                    match success {
+                        Success::ProvenByAny => Acc {
+                            issuer: proof.issuer.clone(),
+                            subject: proof.subject.clone(),
+                            hierarchy: prev_.hierarchy,
+                        },
+                        Success::Proven => Acc {
+                            issuer: proof.issuer.clone(),
+                            subject: proof.subject.clone(),
+                            hierarchy: proof.delegated_ability.clone(), // FIXME double check
+                        },
+                    }
+                })
+            } else {
+                prev
+            }
+        })?;
+
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
-struct Acc<T: Prove> {
+struct Acc<H: Prove> {
     issuer: Did,
     subject: Did,
-    hierarchy: T,
+    hierarchy: H,
 }
 
-// FIXME this should move to Delegatable?
-fn step<'a, T: Prove + Clone + Into<arguments::Named<Ipld>>, C: Condition>(
-    prev: &Acc<T>,
-    proof: &Payload<T, C>,
-    args: &arguments::Named<Ipld>,
-    now: SystemTime,
-) -> Result<Success, DelegationError<<T as Prove>::Error>> {
-    if let Err(_) = prev.issuer.check_same(&proof.audience) {
-        return Err(EnvelopeError::InvalidSubject.into());
-    }
-
-    if let Err(_) = prev.subject.check_same(&proof.subject) {
-        return Err(EnvelopeError::MisalignedIssAud.into());
-    }
-
-    if SystemTime::from(proof.expiration.clone()) > now {
-        return Err(EnvelopeError::Expired.into());
-    }
-
-    if let Some(nbf) = proof.not_before.clone() {
-        if SystemTime::from(nbf) > now {
-            return Err(EnvelopeError::NotYetValid.into());
-        }
-    }
-
-    // FIXME coudl be more efficient, but sets need Ord and we have floats
-    for c in proof.conditions.iter() {
-        // FIXME revisit
-        if !c.validate(&args) || !c.validate(&prev.hierarchy.clone().into()) {
-            return Err(DelegationError::FailedCondition);
-        }
-    }
-
-    prev.hierarchy
-        .check(&proof.delegated_ability.clone())
-        .map_err(DelegationError::SemanticError)
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct InternalDeserializer {
-    #[serde(rename = "iss")]
-    issuer: Did,
-    #[serde(rename = "sub")]
-    subject: Did,
-    #[serde(rename = "aud")]
-    audience: Did,
-
-    #[serde(rename = "cmd")]
-    command: String,
-    #[serde(rename = "args")]
-    arguments: arguments::Named<Ipld>,
-    #[serde(rename = "cond")]
-    conditions: Vec<Ipld>,
-
-    #[serde(rename = "nonce")]
-    nonce: Nonce,
-    #[serde(rename = "meta")]
-    metadata: BTreeMap<String, Ipld>,
-
-    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
-    not_before: Option<Timestamp>,
-    #[serde(rename = "exp")]
-    expiration: Timestamp,
-}
-
-impl<B: ToCommand + From<arguments::Named<Ipld>>, C: Condition + From<Ipld>>
-    TryFrom<InternalDeserializer> for Payload<B, C>
-{
-    type Error = (); // FIXME
-
-    fn try_from(d: InternalDeserializer) -> Result<Self, Self::Error> {
-        let p: Self = Payload {
-            issuer: d.issuer,
-            subject: d.subject,
-            audience: d.audience,
-
-            delegated_ability: d.arguments.try_into().map_err(|_| ())?, // d.command.into(),
-            conditions: d.conditions.into_iter().map(|c| c.into()).collect(),
-
-            metadata: d.metadata,
-            nonce: d.nonce,
-
-            not_before: d.not_before,
-            expiration: d.expiration,
-        };
-
-        if p.delegated_ability.to_command() != d.command {
-            return Err(());
+impl<H: Prove> Acc<H> {
+    // FIXME this should move to Delegatable?
+    fn step<'a, C: Condition>(
+        &self,
+        proof: &Payload<H, C>,
+        args: &arguments::Named<Ipld>,
+        now: SystemTime,
+    ) -> Result<Success, DelegationError<<H as Prove>::Error>>
+    where
+        H: Prove + Clone + Into<arguments::Named<Ipld>>,
+    {
+        if let Err(_) = self.issuer.check_same(&proof.audience) {
+            return Err(EnvelopeError::InvalidSubject.into());
         }
 
-        Ok(p)
-    }
-}
+        if let Err(_) = self.subject.check_same(&proof.subject) {
+            return Err(EnvelopeError::MisalignedIssAud.into());
+        }
 
-impl TryFrom<Ipld> for InternalDeserializer {
-    type Error = SerdeError;
+        if SystemTime::from(proof.expiration.clone()) > now {
+            return Err(EnvelopeError::Expired.into());
+        }
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        if let Some(nbf) = proof.not_before.clone() {
+            if SystemTime::from(nbf) > now {
+                return Err(EnvelopeError::NotYetValid.into());
+            }
+        }
+
+        // This could be more efficient (dedup) with sets, but floats don't Ord :(
+        for c in proof.conditions.iter() {
+            // Validate both current & proof integrity.
+            // This should have the same semantic guarantees as looking at subsets,
+            // but for all known conditions will run much faster on average.
+            // Plz let me know if I got this wrong.
+            // —@expede
+            if !c.validate(&args) || !c.validate(&self.hierarchy.clone().into()) {
+                return Err(DelegationError::FailedCondition);
+            }
+        }
+
+        self.hierarchy
+            .check(&proof.delegated_ability.clone())
+            .map_err(DelegationError::SemanticError)
     }
 }

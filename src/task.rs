@@ -1,4 +1,4 @@
-//! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup
+//! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup.
 
 use crate::{ability::arguments, did::Did, nonce::Nonce};
 use libipld_cbor::DagCborCodec;
