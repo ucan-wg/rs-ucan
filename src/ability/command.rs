@@ -83,7 +83,7 @@ where
             return Err(ParseAbilityError::UnknownCommand);
         }
 
-        Ipld::from(args.clone())
+        Ipld::Map(args.0.clone())
             .try_into()
             .map_err(ParseAbilityError::InvalidArgs)
     }

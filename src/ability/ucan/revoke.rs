@@ -25,7 +25,7 @@ impl<Arg> Command for Generic<Arg> {
 /// The fully resolved variant: ready to execute.
 pub type Ready = Generic<Cid>;
 
-impl NoParents for Ready {}
+impl NoParents for Builder {}
 
 impl Delegatable for Ready {
     type Builder = Builder;

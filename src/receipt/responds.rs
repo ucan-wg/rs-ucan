@@ -1,4 +1,5 @@
 use crate::{did::Did, nonce::Nonce, task, task::Task};
+use libipld_core::ipld::Ipld;
 
 /// Describe the relationship between an ability and the [`Receipt`]s.
 ///

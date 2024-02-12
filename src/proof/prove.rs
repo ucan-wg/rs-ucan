@@ -3,7 +3,7 @@
 use super::internal::Checker;
 
 /// An internal trait that checks based on the other traits for an ability type.
-pub trait Prove: Checker {
+pub(crate) trait Prove: Checker {
     type Error;
 
     fn check(&self, proof: &Self) -> Result<Success, Self::Error>;

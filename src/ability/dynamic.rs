@@ -17,6 +17,8 @@ use js_sys;
 
 // NOTE the lack of checking functions!
 
+// FIXME make a NOTE somewhere that Hierarchy is availavle on ability/js/...
+
 /// A "dynamic" ability with the bare minimum of statics
 ///
 /// <div class="warning">

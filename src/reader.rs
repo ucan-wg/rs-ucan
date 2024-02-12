@@ -205,10 +205,6 @@ impl<Env, T> From<Reader<Env, T>> for Reader<Env, Builder<T>> {
     }
 }
 
-impl<Env, T: ToCommand + Into<arguments::Named<Ipld>>> Delegatable for Reader<Env, T> {
-    type Builder = Reader<Env, Builder<T>>;
-}
-
 /// A helper newtype that marks a value as being a [`Resolvable::Promised`].
 ///
 /// The is often used as:
