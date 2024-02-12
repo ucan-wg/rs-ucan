@@ -29,6 +29,10 @@ pub trait Store<B: Checkable, C: Condition> {
         builder: &B,
         now: &SystemTime,
     ) -> Result<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>, Self::Error>;
+
+    fn can_delegate(&self, iss: &Did, aud: &Did, builder: &B, now: &SystemTime) -> bool {
+        self.get_chain(aud, iss, builder, now).is_ok()
+    }
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -164,8 +168,8 @@ impl<B: Checkable + Clone, C: Condition> Store<B, C> for MemoryStore<B::Hierarch
                         return ControlFlow::Continue(());
                     }
 
-                    if args.check(&d.payload.delegated_ability).is_ok() {
-                        args = &d.payload.delegated_ability;
+                    if args.check(&d.payload.ability_builder).is_ok() {
+                        args = &d.payload.ability_builder;
                     } else {
                         return ControlFlow::Continue(());
                     }

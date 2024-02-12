@@ -15,6 +15,7 @@ pub trait Store<T> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct MemoryStore<T> {
     store: BTreeMap<Cid, Invocation<T>>,
 }

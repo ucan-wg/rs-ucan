@@ -2,7 +2,7 @@
 
 use super::{prove::Prove, same::CheckSame};
 
-// FIXME mo ve to Delegatbel?
+// FIXME move to Delegatbel?
 
 /// Plug a type into the delegation checking pipeline
 pub trait Checkable: CheckSame + Sized {

@@ -30,6 +30,18 @@ pub enum Timestamp {
     Postel(SystemTime),
 }
 
+impl From<JsTime> for Timestamp {
+    fn from(js_time: JsTime) -> Self {
+        Timestamp::JsSafe(js_time)
+    }
+}
+
+impl From<SystemTime> for Timestamp {
+    fn from(sys_time: SystemTime) -> Self {
+        Timestamp::Postel(sys_time)
+    }
+}
+
 impl From<Timestamp> for Ipld {
     fn from(timestamp: Timestamp) -> Self {
         match timestamp {

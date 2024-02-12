@@ -37,31 +37,3 @@ impl<T: CheckParents, C: Condition> CheckParents for Delegation<T, C> {
         self.payload.check_parent(&proof.payload)
     }
 }
-
-// // FIXME relax the checkable constraint for this? Or make this an instance of checker?
-// impl<T: Checkable<Hierarchy = Parentful<U>>, C> Checkable for Delegation<T, C> {
-//     type Hierarchy = Parentful<Delegation<T::Hierarchy>, C>;
-// }
-
-// FIXME
-impl<T: Delegable, C: Condition> Delegation<T, C> {
-    // FIXME include cache
-    //pub fn check<S: IndexedStore<T, C, E>>(&self, store: &S) -> Result<(), ()> {
-    //    if let Ok(is_valid) = store.previously_checked(self) {
-    //        if is_valid {
-    //            return Ok(());
-    //        }
-    //    }
-
-    //    if let Ok(chains) = store.chains_for(self) {
-    //        for chain in chains {
-    //            todo!()
-    //            // if self.check_self(self).is_ok() {
-    //            //     return Ok(());
-    //            // }
-    //        }
-    //    }
-
-    //    Err(())
-    //}
-}

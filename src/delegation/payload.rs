@@ -60,9 +60,9 @@ pub struct Payload<D, C: Condition> {
     /// A delegatable ability chain.
     ///
     /// Note that this should be is some [Proof::Hierarchy]
-    pub delegated_ability: D,
+    pub ability_builder: D,
 
-    /// Any [`Condition`]s on the `delegated_ability`.
+    /// Any [`Condition`]s on the `ability_builder`.
     pub conditions: Vec<C>,
 
     /// Extensible, free-form fields.
@@ -93,7 +93,7 @@ impl<D, C: Condition> Payload<D, C> {
             issuer: self.issuer,
             subject: self.subject,
             audience: self.audience,
-            delegated_ability: f(self.delegated_ability),
+            ability_builder: f(self.ability_builder),
             conditions: self.conditions,
             metadata: self.metadata,
             nonce: self.nonce,
@@ -107,7 +107,7 @@ impl<D, C: Condition> Payload<D, C> {
             issuer: self.issuer,
             subject: self.subject,
             audience: self.audience,
-            delegated_ability: self.delegated_ability,
+            ability_builder: self.ability_builder,
             conditions: self.conditions.into_iter().map(f).collect(),
             metadata: self.metadata,
             nonce: self.nonce,
@@ -149,7 +149,7 @@ impl<T: CheckSame, C: Condition> CheckSame for Payload<T, C> {
     type Error = <T as CheckSame>::Error;
 
     fn check_same(&self, proof: &Payload<T, C>) -> Result<(), Self::Error> {
-        self.delegated_ability.check_same(&proof.delegated_ability)
+        self.ability_builder.check_same(&proof.ability_builder)
     }
 }
 
@@ -158,8 +158,7 @@ impl<T: CheckParents, C: Condition> CheckParents for Payload<T, C> {
     type ParentError = <T as CheckParents>::ParentError;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        self.delegated_ability
-            .check_parent(&proof.delegated_ability)
+        self.ability_builder.check_parent(&proof.ability_builder)
     }
 }
 
@@ -181,11 +180,11 @@ where
         state.serialize_field("exp", &self.expiration)?;
         state.serialize_field("nbf", &self.not_before)?;
 
-        state.serialize_field("cmd", &self.delegated_ability.to_command())?;
+        state.serialize_field("cmd", &self.ability_builder.to_command())?;
 
         state.serialize_field(
             "args",
-            &arguments::Named::from(self.delegated_ability.clone()),
+            &arguments::Named::from(self.ability_builder.clone()),
         )?;
 
         state.serialize_field(
@@ -312,8 +311,8 @@ impl<'de, T: ParseAbility + Deserialize<'de> + ToCommand, C: Condition + Deseria
                 let cmd: String = command.ok_or(de::Error::missing_field("cmd"))?;
                 let args = arguments.ok_or(de::Error::missing_field("args"))?;
 
-                let delegated_ability = <T as ParseAbility>::try_parse(cmd.as_str(), &args)
-                    .map_err(|e| {
+                let ability_builder =
+                    <T as ParseAbility>::try_parse(cmd.as_str(), &args).map_err(|e| {
                         de::Error::custom(format!(
                             "Unable to parse ability field for {} because {}",
                             cmd, e
@@ -328,7 +327,7 @@ impl<'de, T: ParseAbility + Deserialize<'de> + ToCommand, C: Condition + Deseria
                     metadata: metadata.ok_or(de::Error::missing_field("meta"))?,
                     nonce: nonce.ok_or(de::Error::missing_field("nonce"))?,
                     expiration: expiration.ok_or(de::Error::missing_field("exp"))?,
-                    delegated_ability,
+                    ability_builder,
                     not_before,
                 })
             }
@@ -373,10 +372,10 @@ impl<T, C: Condition> Payload<T, C> {
         let start: Acc<T::Hierarchy> = Acc {
             issuer: self.issuer.clone(),
             subject: self.subject.clone(),
-            hierarchy: T::Hierarchy::from(self.delegated_ability.clone()),
+            hierarchy: T::Hierarchy::from(self.ability_builder.clone()),
         };
 
-        let args: arguments::Named<Ipld> = self.delegated_ability.clone().into();
+        let args: arguments::Named<Ipld> = self.ability_builder.clone().into();
 
         proofs.into_iter().fold(Ok(start), |prev, proof| {
             if let Ok(prev_) = prev {
@@ -390,7 +389,7 @@ impl<T, C: Condition> Payload<T, C> {
                         Success::Proven => Acc {
                             issuer: proof.issuer.clone(),
                             subject: proof.subject.clone(),
-                            hierarchy: proof.delegated_ability.clone(), // FIXME double check
+                            hierarchy: proof.ability_builder.clone(), // FIXME double check
                         },
                     }
                 })
@@ -452,7 +451,7 @@ impl<H: Prove> Acc<H> {
         }
 
         self.hierarchy
-            .check(&proof.delegated_ability.clone())
+            .check(&proof.ability_builder.clone())
             .map_err(DelegationError::SemanticError)
     }
 }

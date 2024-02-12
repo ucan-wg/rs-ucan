@@ -72,7 +72,7 @@ impl<T: Delegable, C: Condition> From<Payload<T>> for delegation::Payload<T::Bui
             subject: payload.subject.clone(),
             audience: payload.audience.unwrap_or(payload.subject),
 
-            delegated_ability: T::Builder::from(payload.ability),
+            ability_builder: T::Builder::from(payload.ability),
             conditions: vec![],
 
             metadata: payload.metadata,

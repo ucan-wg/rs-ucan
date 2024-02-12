@@ -1,9 +1,7 @@
-use crate::{ability::arguments, proof::checkable::Checkable};
-use libipld_core::ipld::Ipld;
+use crate::proof::checkable::Checkable;
 
-// FIXME require checkable?
 pub trait Delegable: Sized {
     /// A delegation with some arguments filled
-    /// FIXME add more
+    /// FIXME add more text
     type Builder: TryInto<Self> + From<Self> + Checkable;
 }
