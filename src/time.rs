@@ -206,3 +206,13 @@ impl fmt::Display for OutOfRangeError {
         write!(f, "time out of JsTime (2⁵³) range: {:?}", self.tried)
     }
 }
+
+// FIXME move to time.rs
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Error)]
+pub enum TimeBoundError {
+    #[error("The UCAN delegation has expired")]
+    Expired,
+
+    #[error("The UCAN delegation is not yet valid")]
+    NotYetValid,
+}

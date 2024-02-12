@@ -6,13 +6,26 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// A container associating a `payload` with its signature over it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Envelope<T: Capsule> {
     /// The signture of the `payload`.
     pub signature: Signature,
 
     /// The payload that's being signed over.
     pub payload: T,
+}
+
+impl<T: Capsule> Envelope<T> {
+    // FIXME need key material
+    pub fn sign(payload: T) -> Envelope<T> {
+        // FIXME
+        todo!()
+    }
+
+    pub fn validate_signature(&self) -> Result<(), ()> {
+        // FIXME
+        todo!()
+    }
 }
 
 // FIXME consider kicking Batch down the road for spec reasons?

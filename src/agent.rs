@@ -100,6 +100,8 @@ impl<
         let signature = todo!(); // self.key.sign(payload);
         Delegation { payload, signature }
     }
+
+    pub fn recieve_delegation() {}
 }
 
 // impl<S> Agent<S> {

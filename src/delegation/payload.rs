@@ -16,7 +16,7 @@ use crate::{
         prove::{Prove, Success},
         same::CheckSame,
     },
-    time::Timestamp,
+    time::{TimeBoundError, Timestamp},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
@@ -25,7 +25,6 @@ use serde::{
     Deserialize, Serialize, Serializer,
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
-use thiserror::Error;
 use web_time::SystemTime;
 
 /// The payload portion of a [`Delegation`][super::Delegation].
@@ -129,16 +128,6 @@ impl<D, C: Condition> Payload<D, C> {
 
         Ok(())
     }
-}
-
-// FIXME move to time.rs
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Error)]
-pub enum TimeBoundError {
-    #[error("The UCAN delegation has expired")]
-    Expired,
-
-    #[error("The UCAN delegation is not yet valid")]
-    NotYetValid,
 }
 
 impl<D, C: Condition> Capsule for Payload<D, C> {

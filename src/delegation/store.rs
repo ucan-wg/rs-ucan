@@ -1,4 +1,4 @@
-use super::{condition::Condition, Delegable, Delegation};
+use super::{condition::Condition, Delegation};
 use crate::{
     did::Did,
     proof::{checkable::Checkable, prove::Prove},
@@ -7,20 +7,22 @@ use libipld_core::cid::Cid;
 use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
     ops::ControlFlow,
 };
-use thiserror::Error;
 use web_time::SystemTime;
 
 // NOTE the T here is the builder... FIXME add one layer up and call T::Builder? May be confusing?
 pub trait Store<B: Checkable, C: Condition> {
     type Error;
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<B::Hierarchy, C>, Self::Error>;
+    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C>>, Self::Error>;
 
-    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>);
+    // FIXME add a variant that calculated the CID from the capsulre header?
+    // FIXME that means changing the name to insert_by_cid or similar
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) -> Result<(), Self::Error>;
 
-    fn revoke(&mut self, cid: Cid);
+    fn revoke(&mut self, cid: Cid) -> Result<(), Self::Error>;
 
     fn get_chain(
         &self,
@@ -28,10 +30,17 @@ pub trait Store<B: Checkable, C: Condition> {
         subject: &Did,
         builder: &B,
         now: &SystemTime,
-    ) -> Result<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>, Self::Error>;
+    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>>, Self::Error>;
 
-    fn can_delegate(&self, iss: &Did, aud: &Did, builder: &B, now: &SystemTime) -> bool {
-        self.get_chain(aud, iss, builder, now).is_ok()
+    fn can_delegate(
+        &self,
+        iss: &Did,
+        aud: &Did,
+        builder: &B,
+        now: &SystemTime,
+    ) -> Result<bool, Self::Error> {
+        self.get_chain(aud, iss, builder, now)
+            .map(|chain| chain.is_some())
     }
 }
 
@@ -98,20 +107,18 @@ pub struct MemoryStore<H, C: Condition> {
     revocations: BTreeSet<Cid>,
 }
 
-// FIXME extract
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Error)]
-#[error("Delegation not found")]
-pub struct NotFound;
-
 // FIXME check that UCAN is valid
-impl<B: Checkable + Clone, C: Condition> Store<B, C> for MemoryStore<B::Hierarchy, C> {
-    type Error = NotFound;
+impl<B: Checkable + Clone, C: Condition + PartialEq> Store<B, C> for MemoryStore<B::Hierarchy, C>
+where
+    B::Hierarchy: PartialEq,
+{
+    type Error = Infallible;
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<B::Hierarchy, C>, Self::Error> {
-        self.ucans.get(cid).ok_or(NotFound)
+    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C>>, Self::Error> {
+        Ok(self.ucans.get(cid))
     }
 
-    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) {
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) -> Result<(), Self::Error> {
         self.index
             .entry(delegation.payload.subject.clone())
             .or_default()
@@ -125,10 +132,12 @@ impl<B: Checkable + Clone, C: Condition> Store<B, C> for MemoryStore<B::Hierarch
         };
 
         self.ucans.insert(cid.clone(), hierarchy);
+        Ok(())
     }
 
-    fn revoke(&mut self, cid: Cid) {
+    fn revoke(&mut self, cid: Cid) -> Result<(), Self::Error> {
         self.revocations.insert(cid);
+        Ok(())
     }
 
     fn get_chain(
@@ -137,65 +146,65 @@ impl<B: Checkable + Clone, C: Condition> Store<B, C> for MemoryStore<B::Hierarch
         subject: &Did,
         builder: &B,
         now: &SystemTime,
-    ) -> Result<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>, NotFound> {
-        #[derive(PartialEq)]
-        enum Status {
-            Complete,
-            Looking,
-            NoPath,
-        }
-
-        // FIXME move these into an Acc
-        let mut status = Status::Looking;
-        let mut target_aud = aud;
-        let mut chain = vec![];
-        let mut args: &B::Hierarchy = &builder.clone().into();
-
-        let delegation_subtree = self
-            .index
-            .get(subject)
-            .and_then(|aud_map| aud_map.get(aud))
-            .ok_or(NotFound)?;
-
-        while status == Status::Looking {
-            let found = delegation_subtree.iter().try_for_each(|cid| {
-                if let Some(d) = self.ucans.get(cid) {
-                    if self.revocations.contains(&cid) {
-                        return ControlFlow::Continue(());
-                    }
-
-                    if d.payload.check_time(*now).is_err() {
-                        return ControlFlow::Continue(());
-                    }
-
-                    if args.check(&d.payload.ability_builder).is_ok() {
-                        args = &d.payload.ability_builder;
-                    } else {
-                        return ControlFlow::Continue(());
-                    }
-
-                    chain.push((cid, d));
-
-                    if &d.payload.issuer == subject {
-                        status = Status::Complete;
-                    } else {
-                        target_aud = &d.payload.issuer;
-                    }
-
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
+    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>>, Self::Error> {
+        match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
+            None => Ok(None),
+            Some(delegation_subtree) => {
+                #[derive(PartialEq)]
+                enum Status {
+                    Complete,
+                    Looking,
+                    NoPath,
                 }
-            });
 
-            if found.is_continue() {
-                status = Status::NoPath;
+                let mut status = Status::Looking;
+                let mut target_aud = aud;
+                let mut args = &B::Hierarchy::from(builder.clone());
+                let mut chain = vec![];
+
+                while status == Status::Looking {
+                    let found = delegation_subtree.iter().try_for_each(|cid| {
+                        if let Some(d) = self.ucans.get(cid) {
+                            if self.revocations.contains(cid) {
+                                return ControlFlow::Continue(());
+                            }
+
+                            if d.payload.check_time(*now).is_err() {
+                                return ControlFlow::Continue(());
+                            }
+
+                            target_aud = &d.payload.audience;
+
+                            if args.check(&d.payload.ability_builder).is_ok() {
+                                args = &d.payload.ability_builder;
+                            } else {
+                                return ControlFlow::Continue(());
+                            }
+
+                            chain.push((cid, d));
+
+                            if &d.payload.issuer == subject {
+                                status = Status::Complete;
+                            } else {
+                                target_aud = &d.payload.issuer;
+                            }
+
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue(())
+                        }
+                    });
+
+                    if found.is_continue() {
+                        status = Status::NoPath;
+                    }
+                }
+
+                match status {
+                    Status::Complete => Ok(NonEmpty::from_vec(chain)),
+                    _ => Ok(None),
+                }
             }
-        }
-
-        match status {
-            Status::Complete => NonEmpty::from_vec(chain).ok_or(NotFound),
-            _ => Err(NotFound),
         }
     }
 }
