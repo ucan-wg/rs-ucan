@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Envelope<T: Capsule> {
     /// The signture of the `payload`.
-    pub sig: Signature,
+    pub signature: Signature,
 
     /// The payload that's being signed over.
     pub payload: T,
@@ -21,7 +21,7 @@ pub struct Envelope<T: Capsule> {
 pub enum Signature {
     One(Vec<u8>),
     Batch {
-        sig: Vec<u8>,
+        signature: Vec<u8>,
         merkle_proof: Vec<Vec<u8>>,
     },
 }
@@ -79,13 +79,16 @@ pub enum Signature {
 // }
 
 impl From<&Signature> for Ipld {
-    fn from(sig: &Signature) -> Self {
-        match sig {
+    fn from(signature: &Signature) -> Self {
+        match signature {
             Signature::One(sig) => sig.clone().into(),
-            Signature::Batch { sig, merkle_proof } => {
+            Signature::Batch {
+                signature,
+                merkle_proof,
+            } => {
                 let mut map = BTreeMap::new();
                 let proof: Vec<Ipld> = merkle_proof.into_iter().map(|p| p.clone().into()).collect();
-                map.insert("sig".into(), sig.clone().into());
+                map.insert("sig".into(), signature.clone().into());
                 map.insert("prf".into(), proof.into());
                 map.into()
             }
@@ -94,13 +97,16 @@ impl From<&Signature> for Ipld {
 }
 
 impl From<Signature> for Ipld {
-    fn from(sig: Signature) -> Self {
-        match sig {
+    fn from(signature: Signature) -> Self {
+        match signature {
             Signature::One(sig) => sig.into(),
-            Signature::Batch { sig, merkle_proof } => {
+            Signature::Batch {
+                signature,
+                merkle_proof,
+            } => {
                 let mut map = BTreeMap::new();
                 let proof: Vec<Ipld> = merkle_proof.into_iter().map(|p| p.into()).collect();
-                map.insert("sig".into(), sig.into());
+                map.insert("sig".into(), signature.into());
                 map.insert("prf".into(), proof.into());
                 map.into()
             }
@@ -110,12 +116,12 @@ impl From<Signature> for Ipld {
 
 // FIXME Store or BTreeMap? Also eliminate that Clone constraint
 impl<T: Capsule + Into<Ipld> + Clone> From<&Envelope<T>> for Ipld {
-    fn from(Envelope { sig, payload }: &Envelope<T>) -> Self {
+    fn from(Envelope { signature, payload }: &Envelope<T>) -> Self {
         let mut inner = BTreeMap::new();
         inner.insert(T::TAG.into(), payload.clone().into()); // FIXME should be a link
 
         let mut map = BTreeMap::new();
-        map.insert("sig".into(), sig.into());
+        map.insert("sig".into(), signature.into());
         map.insert("pld".into(), Ipld::Map(inner));
 
         Ipld::Map(map)
@@ -123,12 +129,12 @@ impl<T: Capsule + Into<Ipld> + Clone> From<&Envelope<T>> for Ipld {
 }
 
 impl<T: Capsule + Into<Ipld> + Clone> From<Envelope<T>> for Ipld {
-    fn from(Envelope { sig, payload }: Envelope<T>) -> Self {
+    fn from(Envelope { signature, payload }: Envelope<T>) -> Self {
         let mut inner = BTreeMap::new();
         inner.insert(T::TAG.into(), payload.clone().into()); // FIXME should be a link
 
         let mut map = BTreeMap::new();
-        map.insert("sig".into(), sig.into());
+        map.insert("sig".into(), signature.into());
         map.insert("pld".into(), Ipld::Map(inner));
 
         Ipld::Map(map)

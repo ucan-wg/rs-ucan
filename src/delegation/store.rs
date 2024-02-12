@@ -1,8 +1,10 @@
-use super::{condition::Condition, delegatable::Delegatable, Delegation};
-use crate::did::Did;
+use super::{condition::Condition, Delegable, Delegation};
+use crate::{
+    did::Did,
+    proof::{checkable::Checkable, prove::Prove},
+};
 use libipld_core::cid::Cid;
 use nonempty::NonEmpty;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::ControlFlow,
@@ -10,20 +12,23 @@ use std::{
 use thiserror::Error;
 use web_time::SystemTime;
 
-pub trait Store<T, C: Condition> {
+// NOTE the T here is the builder... FIXME add one layer up and call T::Builder? May be confusing?
+pub trait Store<B: Checkable, C: Condition> {
     type Error;
 
-    fn get_by_cid(&self, cid: &Cid) -> Result<&Delegation<T, C>, Self::Error>;
+    fn get(&self, cid: &Cid) -> Result<&Delegation<B::Hierarchy, C>, Self::Error>;
 
-    fn insert(&mut self, cid: &Cid, delegation: Delegation<T, C>);
-    fn revoke(&mut self, cid: &Cid);
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>);
+
+    fn revoke(&mut self, cid: Cid);
 
     fn get_chain(
         &self,
         aud: &Did,
         subject: &Did,
+        builder: &B,
         now: &SystemTime,
-    ) -> Result<NonEmpty<(&Cid, &Delegation<T, C>)>, Self::Error>;
+    ) -> Result<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>, Self::Error>;
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -83,45 +88,52 @@ pub trait Store<T, C: Condition> {
 /// linkStyle 1 stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<T, C: Condition> {
-    ucans: BTreeMap<Cid, Delegation<T, C>>,
+pub struct MemoryStore<H, C: Condition> {
+    ucans: BTreeMap<Cid, Delegation<H, C>>,
     index: BTreeMap<Did, BTreeMap<Did, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
+// FIXME extract
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Error)]
 #[error("Delegation not found")]
 pub struct NotFound;
 
 // FIXME check that UCAN is valid
-impl<T, C: Condition> Store<T, C> for MemoryStore<T, C> {
+impl<B: Checkable + Clone, C: Condition> Store<B, C> for MemoryStore<B::Hierarchy, C> {
     type Error = NotFound;
 
-    fn insert(&mut self, cid: &Cid, delegation: Delegation<T, C>) {
+    fn get(&self, cid: &Cid) -> Result<&Delegation<B::Hierarchy, C>, Self::Error> {
+        self.ucans.get(cid).ok_or(NotFound)
+    }
+
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) {
         self.index
             .entry(delegation.payload.subject.clone())
             .or_default()
             .entry(delegation.payload.audience.clone())
             .or_default()
-            .insert(cid.clone());
+            .insert(cid);
 
-        self.ucans.insert(cid.clone(), delegation);
+        let hierarchy: Delegation<B::Hierarchy, C> = Delegation {
+            signature: delegation.signature,
+            payload: delegation.payload.map_ability(Into::into),
+        };
+
+        self.ucans.insert(cid.clone(), hierarchy);
     }
 
-    fn revoke(&mut self, cid: &Cid) {
-        self.revocations.insert(cid.clone());
-    }
-
-    fn get_by_cid(&self, cid: &Cid) -> Result<&Delegation<T, C>, Self::Error> {
-        self.ucans.get(cid).ok_or(NotFound)
+    fn revoke(&mut self, cid: Cid) {
+        self.revocations.insert(cid);
     }
 
     fn get_chain(
         &self,
         aud: &Did,
         subject: &Did,
+        builder: &B,
         now: &SystemTime,
-    ) -> Result<NonEmpty<(&Cid, &Delegation<T, C>)>, NotFound> {
+    ) -> Result<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>, NotFound> {
         #[derive(PartialEq)]
         enum Status {
             Complete,
@@ -129,9 +141,11 @@ impl<T, C: Condition> Store<T, C> for MemoryStore<T, C> {
             NoPath,
         }
 
+        // FIXME move these into an Acc
         let mut status = Status::Looking;
         let mut target_aud = aud;
         let mut chain = vec![];
+        let mut args: &B::Hierarchy = &builder.clone().into();
 
         let delegation_subtree = self
             .index
@@ -141,19 +155,19 @@ impl<T, C: Condition> Store<T, C> for MemoryStore<T, C> {
 
         while status == Status::Looking {
             let found = delegation_subtree.iter().try_for_each(|cid| {
-                if self.revocations.contains(&cid) {
-                    return ControlFlow::Continue(());
-                }
-
                 if let Some(d) = self.ucans.get(cid) {
-                    if SystemTime::from(d.payload.expiration.clone()) < *now {
+                    if self.revocations.contains(&cid) {
                         return ControlFlow::Continue(());
                     }
 
-                    if let Some(nbf) = &d.payload.not_before {
-                        if SystemTime::from(nbf.clone()) > *now {
-                            return ControlFlow::Continue(());
-                        }
+                    if d.payload.check_time(*now).is_err() {
+                        return ControlFlow::Continue(());
+                    }
+
+                    if args.check(&d.payload.delegated_ability).is_ok() {
+                        args = &d.payload.delegated_ability;
+                    } else {
+                        return ControlFlow::Continue(());
                     }
 
                     chain.push((cid, d));

@@ -12,6 +12,7 @@ use crate::{
     nonce::Nonce,
     proof::{
         checkable::Checkable,
+        parents::CheckParents,
         prove::{Prove, Success},
         same::CheckSame,
     },
@@ -24,6 +25,7 @@ use serde::{
     Deserialize, Serialize, Serializer,
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
+use thiserror::Error;
 use web_time::SystemTime;
 
 /// The payload portion of a [`Delegation`][super::Delegation].
@@ -113,10 +115,52 @@ impl<D, C: Condition> Payload<D, C> {
             not_before: self.not_before,
         }
     }
+
+    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
+        if SystemTime::from(self.expiration.clone()) < now {
+            return Err(TimeBoundError::Expired);
+        }
+
+        if let Some(nbf) = self.not_before.clone() {
+            if SystemTime::from(nbf) > now {
+                return Err(TimeBoundError::NotYetValid);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// FIXME move to time.rs
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Error)]
+pub enum TimeBoundError {
+    #[error("The UCAN delegation has expired")]
+    Expired,
+
+    #[error("The UCAN delegation is not yet valid")]
+    NotYetValid,
 }
 
 impl<D, C: Condition> Capsule for Payload<D, C> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
+}
+
+impl<T: CheckSame, C: Condition> CheckSame for Payload<T, C> {
+    type Error = <T as CheckSame>::Error;
+
+    fn check_same(&self, proof: &Payload<T, C>) -> Result<(), Self::Error> {
+        self.delegated_ability.check_same(&proof.delegated_ability)
+    }
+}
+
+impl<T: CheckParents, C: Condition> CheckParents for Payload<T, C> {
+    type Parents = Payload<T::Parents, C>;
+    type ParentError = <T as CheckParents>::ParentError;
+
+    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+        self.delegated_ability
+            .check_parent(&proof.delegated_ability)
+    }
 }
 
 impl<D: Clone + ToCommand, C: Condition + Clone + Serialize> Serialize for Payload<D, C>
@@ -367,7 +411,7 @@ struct Acc<H: Prove> {
 }
 
 impl<H: Prove> Acc<H> {
-    // FIXME this should move to Delegatable?
+    // FIXME this should move to Delegable?
     fn step<'a, C: Condition>(
         &self,
         proof: &Payload<H, C>,

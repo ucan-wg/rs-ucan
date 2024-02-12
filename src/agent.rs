@@ -1,6 +1,6 @@
 use crate::{
     ability::command::ToCommand,
-    delegation::{condition::Condition, Delegatable, Delegation},
+    delegation::{condition::Condition, Delegable, Delegation},
     did::Did,
     invocation::Invocation,
     proof::parents::CheckParents,
@@ -18,41 +18,41 @@ impl<S> Agent<S> {
     //      signature::Envelope::new(payload, signature)
     //  }
 
-    pub fn invoke<T: Delegatable + CheckParents, C: Condition>(
-        &self,
-        delegation: Delegation<T, C>,
-        proof_chain: Vec<Delegation<T::Parents, C>>, // FIXME T must also accept Self and *
-    ) -> ()
-    where
-        T::Parents: Delegatable,
-    {
-        todo!()
-    }
+    // pub fn invoke<T: Delegable + CheckParents, C: Condition>(
+    //     &self,
+    //     delegation: Delegation<T, C>,
+    //     proof_chain: Vec<Delegation<T::Parents, C>>, // FIXME T must also accept Self and *
+    // ) -> ()
+    // where
+    //     T::Parents: Delegable,
+    // {
+    //     todo!()
+    // }
 
-    pub fn try_invoke<A: ToCommand>(&self, ability: A) {
-        todo!()
-    }
+    // pub fn try_invoke<A: ToCommand>(&self, ability: A) {
+    //     todo!()
+    // }
 
-    pub fn revoke<T: Delegatable + CheckParents, C: Condition>(
-        &self,
-        delegation: Delegation<T, C>,
-    ) -> ()
-//     where
-//         T::Parents: Delegatable,
-    {
-        todo!()
-    }
+    // pub fn revoke<T: Delegable + CheckParents, C: Condition>(
+    //     &self,
+    //     delegation: Delegation<T, C>,
+    // ) -> ()
+    //  //    where
+    //  //        T::Parents: Delegable,
+    // {
+    //     todo!()
+    // }
 
-    pub fn receive_delegation<T: Delegatable + CheckParents, C: Condition>(
-        &self,
-        delegation: Delegation<T, C>,
-    ) -> () {
-        todo!()
-    }
+    // pub fn receive_delegation<T: Delegable + CheckParents, C: Condition>(
+    //     &self,
+    //     delegation: Delegation<T, C>,
+    // ) -> () {
+    //     todo!()
+    // }
 
-    pub fn receive_invocation<T>(&self, invocation: Invocation<T>) -> () {
-        todo!()
-    }
+    // pub fn receive_invocation<T>(&self, invocation: Invocation<T>) -> () {
+    //     todo!()
+    // }
 
     //  pub fn check(&self, delegation: &Delegation) -> () // FIXME Includes cache
 }

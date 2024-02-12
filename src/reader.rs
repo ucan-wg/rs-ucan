@@ -5,7 +5,7 @@ use crate::{
         arguments,
         command::{ParseAbility, ParseAbilityError, ToCommand},
     },
-    delegation::Delegatable,
+    delegation::Delegable,
     invocation::Resolvable,
 };
 use libipld_core::ipld::Ipld;
@@ -177,7 +177,7 @@ impl<Env: Default, T: ParseAbility> ParseAbility for Reader<Env, T> {
     }
 }
 
-/// A helper newtype that marks a value as being a [`Delegatable::Builder`].
+/// A helper newtype that marks a value as being a [`Delegable::Builder`].
 ///
 /// The is often used as:
 ///

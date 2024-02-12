@@ -2,7 +2,7 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegatable,
+    delegation::Delegable,
     invocation::{promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url as url_newtype,
@@ -123,7 +123,7 @@ pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
 pub type Promised =
     Generic<promise::Resolves<Url>, promise::Resolves<Url>, promise::Resolves<String>>;
 
-impl Delegatable for Ready {
+impl Delegable for Ready {
     type Builder = Builder;
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegatable,
+    delegation::Delegable,
     invocation::Promise,
 };
 use libipld_core::ipld::Ipld;
@@ -26,7 +26,7 @@ impl<Args> Command for Generic<Args> {
     const COMMAND: &'static str = "ucan/proxy";
 }
 
-impl Delegatable for Ready {
+impl Delegable for Ready {
     type Builder = Builder;
 }
 

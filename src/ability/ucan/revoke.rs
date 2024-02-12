@@ -2,7 +2,7 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegatable,
+    delegation::Delegable,
     invocation::{promise, Resolvable},
     proof::{parentless::NoParents, same::CheckSame},
 };
@@ -27,7 +27,7 @@ pub type Ready = Generic<Cid>;
 
 impl NoParents for Builder {}
 
-impl Delegatable for Ready {
+impl Delegable for Ready {
     type Builder = Builder;
 }
 

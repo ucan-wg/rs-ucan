@@ -47,6 +47,7 @@ pub trait CheckSame {
     /// it has violated the delegation chain rules.
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error>;
 }
+
 impl CheckSame for Did {
     type Error = Unequal;
 

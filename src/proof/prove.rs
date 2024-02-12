@@ -6,6 +6,7 @@ use super::internal::Checker;
 pub(crate) trait Prove: Checker {
     type Error;
 
+    // FIXME make the same as the trait name (prove)
     fn check(&self, proof: &Self) -> Result<Success, Self::Error>;
 }
 

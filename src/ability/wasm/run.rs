@@ -3,7 +3,7 @@
 use super::module::Module;
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegatable,
+    delegation::Delegable,
     invocation::{promise, Resolvable},
     proof::{parentless::NoParents, same::CheckSame},
 };
@@ -31,7 +31,7 @@ impl<Mod, Fun, Args> Command for Generic<Mod, Fun, Args> {
 /// A variant with all of the required fields filled in
 pub type Ready = Generic<Module, String, Vec<Ipld>>;
 
-impl Delegatable for Ready {
+impl Delegable for Ready {
     type Builder = Builder;
 }
 

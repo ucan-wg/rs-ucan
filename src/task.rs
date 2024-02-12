@@ -68,7 +68,7 @@ impl From<Task> for Cid {
 }
 
 /// The unique identifier for a [`Task`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Id {
     /// The CID of the [`Task`].

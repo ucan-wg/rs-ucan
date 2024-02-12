@@ -1,8 +1,8 @@
 mod payload;
 mod resolvable;
-mod serializer;
 
 pub mod promise;
+pub mod store;
 
 pub use payload::{Payload, Promised};
 pub use resolvable::Resolvable;

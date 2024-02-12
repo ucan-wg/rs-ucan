@@ -6,7 +6,7 @@ use crate::{
     delegation::{
         condition::Condition,
         error::{DelegationError, EnvelopeError},
-        Delegatable,
+        Delegable,
     },
     did::Did,
     nonce::Nonce,
@@ -52,7 +52,7 @@ impl<T> Payload<T> {
         now: SystemTime,
     ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where
-        T: Delegatable,
+        T: Delegable,
         T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
         <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
     {
@@ -65,7 +65,7 @@ impl<T> Capsule for Payload<T> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T: Delegatable, C: Condition> From<Payload<T>> for delegation::Payload<T::Builder, C> {
+impl<T: Delegable, C: Condition> From<Payload<T>> for delegation::Payload<T::Builder, C> {
     fn from(payload: Payload<T>) -> Self {
         delegation::Payload {
             issuer: payload.issuer,

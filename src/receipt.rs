@@ -2,11 +2,11 @@
 
 mod payload;
 mod responds;
-mod store;
+
+pub mod store;
 
 pub use payload::Payload;
 pub use responds::Responds;
-pub use store::Store;
 
 use crate::signature;
 
