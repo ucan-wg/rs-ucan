@@ -2,6 +2,8 @@
 //!
 //! [wiki]: https://en.wikipedia.org/wiki/Decentralized_identifier
 
+pub mod key;
+
 use did_url::DID;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};

@@ -121,7 +121,7 @@ impl DidVerifier for DidKeyVerifier {
             MulticodecPubKey::P384Compressed => self
                 .verifier_map
                 .get(&TypeId::of::<p384::ecdsa::Signature>()),
-            #[cfg(feature = "es521")]
+            #[cfg(feature = "es512")]
             MulticodecPubKey::P521Compressed => self
                 .verifier_map
                 .get(&TypeId::of::<ecdsa::Signature<p521::NistP521>>()),
@@ -162,7 +162,7 @@ pub enum MulticodecPubKey {
     #[cfg(feature = "es384")]
     P384Compressed,
     /// p521 compressed public key
-    #[cfg(feature = "es521")]
+    #[cfg(feature = "es512")]
     P521Compressed,
     /// rsa pkcs1 public key
     #[cfg(feature = "rs256")]
@@ -219,7 +219,7 @@ impl MulticodecPubKey {
                     ));
                 }
             }
-            #[cfg(feature = "es521")]
+            #[cfg(feature = "es512")]
             MulticodecPubKey::P521Compressed => {
                 if pub_key.len() > 67 {
                     return Err(anyhow!(
@@ -261,7 +261,7 @@ impl TryFrom<u128> for MulticodecPubKey {
             0x1200 => Ok(MulticodecPubKey::P256Compressed),
             #[cfg(feature = "es384")]
             0x1201 => Ok(MulticodecPubKey::P384Compressed),
-            #[cfg(feature = "es521")]
+            #[cfg(feature = "es512")]
             0x1202 => Ok(MulticodecPubKey::P521Compressed),
             #[cfg(feature = "rs256")]
             0x1205 => Ok(MulticodecPubKey::RSAPKCS1),

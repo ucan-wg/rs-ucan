@@ -63,6 +63,7 @@ extern crate alloc;
 // }
 
 pub mod ability;
+pub mod crypto;
 // pub mod agent; FIXME put back?
 pub mod capsule;
 pub mod delegation;
