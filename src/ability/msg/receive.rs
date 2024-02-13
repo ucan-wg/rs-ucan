@@ -1,12 +1,13 @@
 //! The ability to receive messages
 
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
+    invocation::{promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    url,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The ability to receive messages
@@ -41,7 +42,7 @@ use url::Url;
 pub struct Receive {
     /// An *optional* URL (e.g. email, DID, socket) to receive messages from.
     /// This assumes that the `subject` has the authority to issue such a capability.
-    pub from: Option<Url>,
+    pub from: Option<url::Newtype>,
 }
 
 // FIXME needs promisory version
@@ -66,7 +67,8 @@ impl CheckParents for Receive {
     type ParentError = <super::Any as CheckSame>::Error;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        self.from.check_same(&proof.from).map_err(|_| ())
+        // self.from.check_same(&proof.from).map_err(|_| ())
+        todo!() // FIXME
     }
 }
 
@@ -81,5 +83,37 @@ impl TryFrom<Ipld> for Receive {
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         ipld_serde::from_ipld(ipld)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Promised {
+    pub from: promise::Resolves<Option<url::Newtype>>,
+}
+
+impl From<Promised> for arguments::Named<Ipld> {
+    fn from(promised: Promised) -> Self {
+        let mut args = arguments::Named::new();
+
+        match promised.from {
+            promise::Resolves::Ok(from) => {
+                args.insert("from".into(), from.into());
+            }
+            promise::Resolves::Err(from) => {
+                args.insert("from".into(), from.into());
+            }
+        }
+
+        args
+    }
+}
+
+impl Resolvable for Receive {
+    type Promised = Promised;
+
+    fn try_resolve(p: Promised) -> Result<Self, Self::Promised> {
+        promise::Resolves::try_resolve(p.from)
+            .map(|from| Receive { from })
+            .map_err(|from| Promised { from })
     }
 }

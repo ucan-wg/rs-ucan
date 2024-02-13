@@ -11,5 +11,5 @@ pub trait Checkable: CheckSame + Sized {
     /// The only options are [`Parentful`][super::parentful::Parentful]
     /// and [`Parentless`][super::parentless::Parentless],
     /// (which are the only instances of the unexported `Checker`)
-    type Hierarchy: CheckSame + Prove + From<Self>;
+    type Hierarchy: CheckSame + Prove + From<Self> + PartialEq;
 }

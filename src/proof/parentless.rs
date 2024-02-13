@@ -49,7 +49,7 @@ pub enum ParentlessError<T: CheckSame> {
 /// This behaves as an alias for `Checkable::<Hierarchy = Parentless<T>>`.
 pub trait NoParents {}
 
-impl<T: NoParents + CheckSame> Checkable for T {
+impl<T: PartialEq + NoParents + CheckSame> Checkable for T {
     type Hierarchy = Parentless<Self>;
 }
 

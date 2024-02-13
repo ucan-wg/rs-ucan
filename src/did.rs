@@ -37,7 +37,8 @@ use blst;
 pub trait Did:
     PartialEq + TryFrom<Newtype> + Into<Newtype> + signature::Verifier<Self::Signature>
 {
-    type Signature: signature::SignatureEncoding;
+    type Signature: signature::SignatureEncoding + PartialEq + fmt::Debug;
+    type Signer: signature::Signer<Self::Signature>;
 }
 
 // impl Did for ed25519_dalek::VerifyingKey {}

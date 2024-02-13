@@ -153,11 +153,11 @@ impl From<Builder> for arguments::Named<Ipld> {
 
 impl From<Promised> for arguments::Named<Ipld> {
     fn from(p: Promised) -> Self {
-        arguments::Named(BTreeMap::from_iter([
+        arguments::Named::from_iter([
             ("to".into(), p.to.map(url_newtype::Newtype).into()),
             ("from".into(), p.from.map(String::from).into()),
             ("message".into(), p.message.into()),
-        ]))
+        ])
     }
 }
 

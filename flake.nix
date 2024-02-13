@@ -76,7 +76,7 @@
           cargo-sort
           cargo-udeps
           cargo-watch
-          llvmPackages.bintools
+          # llvmPackages.bintools
           twiggy
           unstable.cargo-component
           wasm-bindgen-cli
@@ -88,10 +88,18 @@
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
         wasm-opt = "${pkgs.binaryen}/bin/wasm-opt";
       in rec {
+        formatter = pkgs.alejandra;
+
+        # NOTE: blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
+        # FIXME This explicitely does not get pulled in under devshell
+        # stdenv = pkgs.clangStdenv;
+
         devShells.default = pkgs.devshell.mkShell {
           name = "ucan";
 
-          imports = [./pre-commit.nix];
+          imports = [
+            ./pre-commit.nix
+          ];
 
           packages = with pkgs;
             [
@@ -104,7 +112,6 @@
               protobuf
               unstable.nodejs_20
               unstable.nodePackages.pnpm
-              unstable.wasmtime
             ]
             ++ format-pkgs
             ++ cargo-installs
@@ -248,12 +255,6 @@
               name = "watch:test:host";
               help = "Run all tests on save";
               category = "watch";
-              command = "${cargo} watch --clear --exec test";
-            }
-            {
-              name = "watch:test:docs:host";
-              help = "Run all tests on save";
-              category = "watch";
               command = "${cargo} watch --clear --exec 'test --features=mermaid_docs'";
             }
             {
@@ -261,12 +262,6 @@
               help = "Run all tests on save";
               category = "watch";
               command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown'";
-            }
-            {
-              name = "watch:test:docs:wasm";
-              help = "Run all tests on save";
-              category = "watch";
-              command = "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown --features=mermaid_docs'";
             }
             # Test
             {
@@ -358,11 +353,6 @@
           doCheck = false;
           cargoSha256 = "sha256-2aVCNz/Lw7364B5dgGaloVPcQHm2E+b/BOxF6Qlc8Hs=";
         };
-
-        formatter = pkgs.alejandra;
-
-        # NOTE: blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
-        stdenv = pkgs.clangStdenv;
       }
     );
 }

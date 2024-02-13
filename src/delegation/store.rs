@@ -8,6 +8,7 @@ use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::Infallible,
+    fmt,
     ops::ControlFlow,
 };
 use web_time::SystemTime;
@@ -110,8 +111,6 @@ pub struct MemoryStore<H, C: Condition, DID: Did + Ord> {
 // FIXME check that UCAN is valid
 impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Store<B, C, DID>
     for MemoryStore<B::Hierarchy, C, DID>
-where
-    B::Hierarchy: PartialEq,
 {
     type Error = Infallible;
 

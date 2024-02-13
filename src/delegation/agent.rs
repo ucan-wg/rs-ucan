@@ -8,19 +8,27 @@ use web_time::SystemTime;
 pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> {
     pub did: &'a DID,
     pub store: &'a mut S,
+
+    signer: &'a <DID as Did>::Signer,
     _marker: PhantomData<(B, C)>,
 }
 
 // FIXME show example of multiple hierarchies of "all things accepted"
 // delegating down to inner versions of this
 
-impl<'a, B: Checkable, C: Condition + Clone, DID: Did + ToString + Clone, S: Store<B, C, DID>>
-    Agent<'a, B, C, DID, S>
+impl<
+        'a,
+        B: Checkable + Clone,
+        C: Condition + Clone,
+        DID: Did + ToString + Clone,
+        S: Store<B, C, DID>,
+    > Agent<'a, B, C, DID, S>
 {
-    pub fn new(did: &'a DID, store: &'a mut S) -> Self {
+    pub fn new(did: &'a DID, signer: &'a <DID as Did>::Signer, store: &'a mut S) -> Self {
         Self {
             did,
             store,
+            signer,
             _marker: PhantomData,
         }
     }
@@ -51,8 +59,7 @@ impl<'a, B: Checkable, C: Condition + Clone, DID: Did + ToString + Clone, S: Sto
                 conditions: new_conditions,
             };
 
-            // FIXME add signer info
-            return Ok(Delegation::sign(payload));
+            return Ok(Delegation::try_sign::<DID>(self.signer, payload).expect("FIXME"));
         }
 
         let to_delegate = &self
@@ -79,8 +86,7 @@ impl<'a, B: Checkable, C: Condition + Clone, DID: Did + ToString + Clone, S: Sto
             not_before: not_before.map(Into::into),
         };
 
-        // FIXME add signing material
-        Ok(Delegation::sign(payload))
+        Ok(Delegation::try_sign::<DID>(self.signer, payload).expect("FIXME"))
     }
 
     pub fn recieve(
