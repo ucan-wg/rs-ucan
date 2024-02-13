@@ -57,9 +57,9 @@ pub enum Preset {
 /// # Examples
 ///
 /// ```rust
-/// # use ucan::did::Did;
+/// # use ucan::did;
 /// #
-/// let did = Did::try_from("did:example:123".to_string()).unwrap();
+/// let did = did::Newtype::try_from("did:example:123".to_string()).unwrap();
 /// assert_eq!(did.0.method(), "example");
 /// ```
 ///

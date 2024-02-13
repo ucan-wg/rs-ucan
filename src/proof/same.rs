@@ -9,22 +9,22 @@ use crate::did::Did;
 ///
 /// ```rust
 /// # use ucan::proof::same::CheckSame;
-/// # use ucan::did::Did;
+/// # use ucan::did;
 /// #
 /// struct HelloBuilder {
-///    wave_at: Option<Did>,
+///    wave_at: Option<did::Newtype>,
 /// }
 ///
 /// enum HelloError {
 ///   MissingWaveAt,
-///   WeDontTalkTo(Did)
+///   WeDontTalkTo(did::Newtype)
 /// }
 ///
 /// impl CheckSame for HelloBuilder {
 ///     type Error = HelloError;
 ///
 ///     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-///         if self.wave_at == Some(Did::try_from("did:example:mallory".to_string()).unwrap()) {
+///         if self.wave_at == Some(did::Newtype::try_from("did:example:mallory".to_string()).unwrap()) {
 ///             return Err(HelloError::WeDontTalkTo(self.wave_at.clone().unwrap()));
 ///         }
 ///

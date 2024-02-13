@@ -6,7 +6,7 @@ use super::responds::Responds;
 use crate::{ability::arguments, capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
-    de::{self, DeserializeOwned, MapAccess, Visitor},
+    de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
     Deserialize, Serialize, Serializer,
 };
