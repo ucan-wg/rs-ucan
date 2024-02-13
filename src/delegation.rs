@@ -11,6 +11,7 @@ pub use delegable::Delegable;
 pub use payload::Payload;
 
 use crate::{
+    ability,
     did::{self, Did},
     nonce::Nonce,
     proof::{checkable::Checkable, parents::CheckParents, same::CheckSame},
@@ -19,7 +20,7 @@ use crate::{
 };
 use condition::Condition;
 use libipld_core::ipld::Ipld;
-use std::{collections::BTreeMap, convert::AsRef};
+use std::collections::BTreeMap;
 use web_time::SystemTime;
 
 /// A [`Delegation`] is a signed delegation [`Payload`]
@@ -30,8 +31,7 @@ use web_time::SystemTime;
 /// FIXME
 pub type Delegation<T, C, D> = signature::Envelope<Payload<T, C, D>>;
 
-// FIXME attach common abilities, too
-pub type Preset<T> = Delegation<T, condition::Preset, did::Preset>;
+pub type Preset = Delegation<ability::preset::Builder, condition::Preset, did::Preset>;
 
 // FIXME checkable -> provable?
 

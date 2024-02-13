@@ -41,6 +41,8 @@ pub mod msg;
 pub mod ucan;
 pub mod wasm;
 
+pub mod preset;
+
 pub mod arguments;
 pub mod command;
 

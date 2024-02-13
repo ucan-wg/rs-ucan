@@ -16,7 +16,7 @@ use url::Url;
 ///
 /// This is not generally used directly, unless you want to abstract
 /// over all of the `msg/send` variants.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Generic<To, From, Message> {
     /// The recipient of the message

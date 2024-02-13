@@ -45,8 +45,16 @@ pub trait Did:
 //impl Did for key::Verifier {}
 //
 pub enum Preset {
-    // Key(key::Verifier),
+    Key(key::Verifier),
     // Dns(did_url::DID),
+}
+
+impl signature::Verifier<key::Signature> for Preset {
+    fn verify(&self, message: &[u8], signature: &key::Signature) -> Result<(), signature::Error> {
+        match self {
+            Preset::Key(verifier) => verifier.verify(message, signature),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

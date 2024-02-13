@@ -4,7 +4,7 @@ use blst::BLST_ERROR;
 use signature::{SignatureEncoding, Signer, Verifier};
 
 /// A BLS12-381 MinSig signature
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signature(pub blst::min_sig::Signature);
 
 impl DomainSeparator for Signature {

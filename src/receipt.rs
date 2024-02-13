@@ -8,7 +8,9 @@ pub mod store;
 pub use payload::Payload;
 pub use responds::Responds;
 
-use crate::signature;
+use crate::{ability, did, signature};
 
 /// The complete, signed receipt of an [`Invocation`][`crate::invocation::Invocation`].
 pub type Receipt<T, DID> = signature::Envelope<Payload<T, DID>>;
+
+pub type Preset = Receipt<ability::preset::Ready, did::Preset>;

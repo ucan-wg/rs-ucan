@@ -1,6 +1,6 @@
 //! Read from a resource.
 
-use super::{error::ProofError, parents::MutableParents};
+use super::{any as crud, error::ProofError, parents::MutableParents};
 use crate::{
     ability::{arguments, command::Command},
     invocation::{promise, promise::Resolves, Resolvable},
@@ -174,27 +174,15 @@ impl CheckSame for Builder {
 }
 
 impl CheckParents for Builder {
-    type Parents = MutableParents;
+    type Parents = crud::Any;
     type ParentError = (); // FIXME
 
-    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, other: &crud::Any) -> Result<(), Self::ParentError> {
         if let Some(self_path) = &self.path {
-            match other {
-                MutableParents::Any(any) => {
-                    // FIXME check the args, too!
-                    if let Some(proof_path) = &any.path {
-                        if self_path != proof_path {
-                            return Err(());
-                        }
-                    }
-                }
-                MutableParents::Mutate(mutate) => {
-                    // FIXME check the args, too!
-                    if let Some(proof_path) = &mutate.path {
-                        if self_path != proof_path {
-                            return Err(());
-                        }
-                    }
+            // FIXME check the args, too!
+            if let Some(proof_path) = &other.path {
+                if self_path != proof_path {
+                    return Err(());
                 }
             }
         }
@@ -231,19 +219,6 @@ impl From<Promised> for arguments::Named<Ipld> {
         named
     }
 }
-
-// impl From<arguments::Named<Ipld>> for Promised {
-//     fn from(source: arguments::Named<Ipld>) -> Self {
-//         let path = source
-//             .get("path")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//
-//         let args = source
-//             .get("args")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//         Promised { path, args }
-//     }
-// }
 
 impl From<Ready> for Promised {
     fn from(r: Ready) -> Promised {

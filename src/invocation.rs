@@ -4,11 +4,10 @@ mod resolvable;
 pub mod promise;
 pub mod store;
 
-use crate::did;
 pub use payload::{Payload, Promised};
 pub use resolvable::Resolvable;
 
-use crate::signature;
+use crate::{ability, did, signature};
 
 /// The complete, signed [`invocation::Payload`][Payload].
 ///
@@ -19,5 +18,9 @@ use crate::signature;
 /// `Invocation<Promised<T>>`.
 pub type Invocation<T, D> = signature::Envelope<payload::Payload<T, D>>;
 
+// FIXME rename
+pub type PromisedInvocation<T: Resolvable, D> = Invocation<T::Promised, D>;
+
 // FIXME use presnet ability, too
-pub type Preset<T> = Invocation<T, did::Preset>;
+pub type Preset = Invocation<ability::preset::Ready, did::Preset>;
+pub type PresetPromised = Invocation<ability::preset::Promised, did::Preset>;
