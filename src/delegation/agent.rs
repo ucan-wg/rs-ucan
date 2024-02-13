@@ -5,8 +5,8 @@ use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
 
-pub struct Agent<'a, B: Checkable, C: Condition, S: Store<B, C>> {
-    pub did: &'a Did,
+pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> {
+    pub did: &'a DID,
     pub store: &'a mut S,
     _marker: PhantomData<(B, C)>,
 }
@@ -14,8 +14,10 @@ pub struct Agent<'a, B: Checkable, C: Condition, S: Store<B, C>> {
 // FIXME show example of multiple hierarchies of "all things accepted"
 // delegating down to inner versions of this
 
-impl<'a, B: Checkable, C: Condition + Clone, S: Store<B, C>> Agent<'a, B, C, S> {
-    pub fn new(did: &'a Did, store: &'a mut S) -> Self {
+impl<'a, B: Checkable, C: Condition + Clone, DID: Did + ToString + Clone, S: Store<B, C, DID>>
+    Agent<'a, B, C, DID, S>
+{
+    pub fn new(did: &'a DID, store: &'a mut S) -> Self {
         Self {
             did,
             store,
@@ -25,19 +27,19 @@ impl<'a, B: Checkable, C: Condition + Clone, S: Store<B, C>> Agent<'a, B, C, S> 
 
     pub fn delegate(
         &self,
-        audience: Did,
-        subject: Did,
+        audience: DID,
+        subject: DID,
         ability_builder: B,
         new_conditions: Vec<C>,
         metadata: BTreeMap<String, Ipld>,
         expiration: JsTime,
         not_before: Option<JsTime>,
-    ) -> Result<Delegation<B, C>, DelegateError<<S as Store<B, C>>::Error>> {
+    ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_16(&mut salt);
 
         if subject == *self.did {
-            let payload = Payload {
+            let payload: Payload<B, C, DID> = Payload {
                 issuer: self.did.clone(),
                 audience,
                 subject,
@@ -65,7 +67,7 @@ impl<'a, B: Checkable, C: Condition + Clone, S: Store<B, C>> Agent<'a, B, C, S> 
         let mut conditions = to_delegate.conditions.clone();
         conditions.append(&mut new_conditions.clone());
 
-        let payload = Payload {
+        let payload: Payload<B, C, DID> = Payload {
             issuer: self.did.clone(),
             audience,
             subject,
@@ -84,8 +86,8 @@ impl<'a, B: Checkable, C: Condition + Clone, S: Store<B, C>> Agent<'a, B, C, S> 
     pub fn recieve(
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
-        delegation: Delegation<B, C>,
-    ) -> Result<(), ReceiveError<<S as Store<B, C>>::Error>> {
+        delegation: Delegation<B, C, DID>,
+    ) -> Result<(), ReceiveError<<S as Store<B, C, DID>>::Error, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());
         }
@@ -112,9 +114,9 @@ pub enum DelegateError<StoreErr> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Error)]
-pub enum ReceiveError<StoreErr> {
+pub enum ReceiveError<StoreErr, DID> {
     #[error("The current agent ({0}) is not the intended audience of the delegation.")]
-    WrongAudience(Did),
+    WrongAudience(DID),
 
     #[error("Signature for UCAN with CID {0} is invalid.")]
     InvalidSignature(Cid),

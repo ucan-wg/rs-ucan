@@ -16,14 +16,14 @@ use std::{collections::BTreeMap, fmt, fmt::Debug};
 ///
 /// [`Invocation`]: crate::invocation::Invocation
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T: Responds> {
+pub struct Payload<T: Responds, DID: Did> {
     /// The issuer of the [`Receipt`].
     ///
     /// This [`Did`] *must* match the signature on
     /// the outer layer of [`Receipt`].
     ///
     /// [`Receipt`]: super::Receipt
-    pub issuer: Did,
+    pub issuer: DID,
 
     /// The [`Cid`] of the [`Invocation`] that was run.
     ///
@@ -66,11 +66,11 @@ pub struct Payload<T: Responds> {
     pub issued_at: Option<Timestamp>,
 }
 
-impl<T: Responds> Capsule for Payload<T> {
+impl<T: Responds, DID: Did> Capsule for Payload<T, DID> {
     const TAG: &'static str = "ucan/r/1.0.0-rc.1";
 }
 
-impl<T: Responds> Serialize for Payload<T>
+impl<T: Responds, DID: Did + Clone> Serialize for Payload<T, DID>
 where
     T::Success: Serialize,
 {
@@ -79,7 +79,7 @@ where
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("receipt::Payload", 8)?;
-        state.serialize_field("iss", &self.issuer)?;
+        state.serialize_field("iss", &self.issuer.clone().into())?;
         state.serialize_field("ran", &self.ran)?;
         state.serialize_field("out", &self.out)?;
         state.serialize_field("next", &self.next)?;
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<'de, T: Responds> Deserialize<'de> for Payload<T>
+impl<'de, T: Responds, DID: Did + Deserialize<'de>> Deserialize<'de> for Payload<T, DID>
 where
     T::Success: Deserialize<'de>,
 {
@@ -100,16 +100,16 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        struct ReceiptPayloadVisitor<T>(std::marker::PhantomData<T>);
+        struct ReceiptPayloadVisitor<T, DID>(std::marker::PhantomData<(T, DID)>);
 
         const FIELDS: &'static [&'static str] =
             &["iss", "ran", "out", "next", "prf", "meta", "nonce", "iat"];
 
-        impl<'de, T: Responds> Visitor<'de> for ReceiptPayloadVisitor<T>
+        impl<'de, T: Responds, DID: Did + Deserialize<'de>> Visitor<'de> for ReceiptPayloadVisitor<T, DID>
         where
             T::Success: Deserialize<'de>,
         {
-            type Value = Payload<T>;
+            type Value = Payload<T, DID>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct delegation::Payload")
@@ -205,15 +205,15 @@ where
     }
 }
 
-impl<T: Responds> From<Payload<T>> for Ipld {
-    fn from(payload: Payload<T>) -> Self {
+impl<T: Responds, DID: Did> From<Payload<T, DID>> for Ipld {
+    fn from(payload: Payload<T, DID>) -> Self {
         payload.into()
     }
 }
 
-impl<T: Responds> TryFrom<Ipld> for Payload<T>
+impl<T: Responds, DID: Did> TryFrom<Ipld> for Payload<T, DID>
 where
-    T::Success: DeserializeOwned,
+    Payload<T, DID>: for<'de> Deserialize<'de>,
 {
     type Error = SerdeError;
 

@@ -11,7 +11,7 @@ pub use delegable::Delegable;
 pub use payload::Payload;
 
 use crate::{
-    did::Did,
+    did::{self, Did},
     nonce::Nonce,
     proof::{checkable::Checkable, parents::CheckParents, same::CheckSame},
     signature,
@@ -28,20 +28,23 @@ use web_time::SystemTime;
 ///
 /// # Examples
 /// FIXME
-pub type Delegation<T, C> = signature::Envelope<Payload<T, C>>;
+pub type Delegation<T, C, D> = signature::Envelope<Payload<T, C, D>>;
+
+// FIXME attach common abilities, too
+pub type Preset<T> = Delegation<T, condition::Preset, did::Preset>;
 
 // FIXME checkable -> provable?
 
-impl<B: Checkable, C: Condition> Delegation<B, C> {
-    pub fn issuer(&self) -> &Did {
+impl<B: Checkable, C: Condition, DID: Did> Delegation<B, C, DID> {
+    pub fn issuer(&self) -> &DID {
         &self.payload.issuer
     }
 
-    pub fn subject(&self) -> &Did {
+    pub fn subject(&self) -> &DID {
         &self.payload.subject
     }
 
-    pub fn audience(&self) -> &Did {
+    pub fn audience(&self) -> &DID {
         &self.payload.audience
     }
 
@@ -74,16 +77,16 @@ impl<B: Checkable, C: Condition> Delegation<B, C> {
     }
 }
 
-impl<T: CheckSame, C: Condition> CheckSame for Delegation<T, C> {
+impl<T: CheckSame, C: Condition, DID: Did> CheckSame for Delegation<T, C, DID> {
     type Error = <T as CheckSame>::Error;
 
-    fn check_same(&self, proof: &Delegation<T, C>) -> Result<(), Self::Error> {
+    fn check_same(&self, proof: &Delegation<T, C, DID>) -> Result<(), Self::Error> {
         self.payload.check_same(&proof.payload)
     }
 }
 
-impl<T: CheckParents, C: Condition> CheckParents for Delegation<T, C> {
-    type Parents = Delegation<T::Parents, C>;
+impl<T: CheckParents, C: Condition, DID: Did> CheckParents for Delegation<T, C, DID> {
+    type Parents = Delegation<T::Parents, C, DID>;
     type ParentError = <T as CheckParents>::ParentError;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {

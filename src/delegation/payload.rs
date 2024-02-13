@@ -8,6 +8,7 @@ use crate::{
         command::{Command, ParseAbility, ToCommand},
     },
     capsule::Capsule,
+    did,
     did::Did,
     nonce::Nonce,
     proof::{
@@ -32,7 +33,7 @@ use web_time::SystemTime;
 /// This contains the semantic information about the delegation, including the
 /// issuer, subject, audience, the delegated ability, time bounds, and so on.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<D, C: Condition> {
+pub struct Payload<D, C: Condition, DID: Did> {
     /// The subject of the [`Delegation`].
     ///
     /// This role *must* have issued the earlier (root)
@@ -43,7 +44,7 @@ pub struct Payload<D, C: Condition> {
     /// by the subject.
     ///
     /// [`Delegation`]: super::Delegation
-    pub subject: Did,
+    pub subject: DID,
 
     /// The issuer of the [`Delegation`].
     ///
@@ -51,10 +52,10 @@ pub struct Payload<D, C: Condition> {
     /// the outer layer of [`Delegation`].
     ///
     /// [`Delegation`]: super::Delegation
-    pub issuer: Did,
+    pub issuer: DID,
 
     /// The agent being delegated to.
-    pub audience: Did,
+    pub audience: DID,
 
     /// A delegatable ability chain.
     ///
@@ -86,8 +87,8 @@ pub struct Payload<D, C: Condition> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<D, C: Condition> Payload<D, C> {
-    pub fn map_ability<T>(self, f: impl FnOnce(D) -> T) -> Payload<T, C> {
+impl<D, C: Condition, DID: Did> Payload<D, C, DID> {
+    pub fn map_ability<T>(self, f: impl FnOnce(D) -> T) -> Payload<T, C, DID> {
         Payload {
             issuer: self.issuer,
             subject: self.subject,
@@ -101,7 +102,7 @@ impl<D, C: Condition> Payload<D, C> {
         }
     }
 
-    pub fn map_conditon<T: Condition>(self, f: impl FnMut(C) -> T) -> Payload<D, T> {
+    pub fn map_conditon<T: Condition>(self, f: impl FnMut(C) -> T) -> Payload<D, T, DID> {
         Payload {
             issuer: self.issuer,
             subject: self.subject,
@@ -130,20 +131,20 @@ impl<D, C: Condition> Payload<D, C> {
     }
 }
 
-impl<D, C: Condition> Capsule for Payload<D, C> {
+impl<D, C: Condition, DID: Did> Capsule for Payload<D, C, DID> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
 }
 
-impl<T: CheckSame, C: Condition> CheckSame for Payload<T, C> {
+impl<T: CheckSame, C: Condition, DID: Did> CheckSame for Payload<T, C, DID> {
     type Error = <T as CheckSame>::Error;
 
-    fn check_same(&self, proof: &Payload<T, C>) -> Result<(), Self::Error> {
+    fn check_same(&self, proof: &Payload<T, C, DID>) -> Result<(), Self::Error> {
         self.ability_builder.check_same(&proof.ability_builder)
     }
 }
 
-impl<T: CheckParents, C: Condition> CheckParents for Payload<T, C> {
-    type Parents = Payload<T::Parents, C>;
+impl<T: CheckParents, C: Condition, DID: Did> CheckParents for Payload<T, C, DID> {
+    type Parents = Payload<T::Parents, C, DID>;
     type ParentError = <T as CheckParents>::ParentError;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
@@ -151,7 +152,8 @@ impl<T: CheckParents, C: Condition> CheckParents for Payload<T, C> {
     }
 }
 
-impl<D: Clone + ToCommand, C: Condition + Clone + Serialize> Serialize for Payload<D, C>
+impl<D: Clone + ToCommand, C: Condition + Clone + Serialize, DID: Did + Clone> Serialize
+    for Payload<D, C, DID>
 where
     Ipld: From<C>,
     arguments::Named<Ipld>: From<D>,
@@ -161,9 +163,9 @@ where
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("delegation::Payload", 9)?;
-        state.serialize_field("iss", &self.issuer)?;
-        state.serialize_field("sub", &self.subject)?;
-        state.serialize_field("aud", &self.audience)?;
+        state.serialize_field("iss", &self.issuer.clone().into().to_string())?;
+        state.serialize_field("sub", &self.subject.clone().into().to_string())?;
+        state.serialize_field("aud", &self.audience.clone().into().to_string())?;
         state.serialize_field("meta", &self.metadata)?;
         state.serialize_field("nonce", &self.nonce)?;
         state.serialize_field("exp", &self.expiration)?;
@@ -189,14 +191,20 @@ where
     }
 }
 
-impl<'de, T: ParseAbility + Deserialize<'de> + ToCommand, C: Condition + Deserialize<'de>>
-    Deserialize<'de> for Payload<T, C>
+impl<
+        'de,
+        T: ParseAbility + Deserialize<'de> + ToCommand,
+        C: Condition + Deserialize<'de>,
+        DID: Did + Deserialize<'de>,
+    > Deserialize<'de> for Payload<T, C, DID>
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct DelegationPayloadVisitor<T, C: Condition>(std::marker::PhantomData<(T, C)>);
+        struct DelegationPayloadVisitor<T, C: Condition, DID>(
+            std::marker::PhantomData<(T, C, DID)>,
+        );
 
         const FIELDS: &'static [&'static str] = &[
             "iss", "sub", "aud", "cmd", "args", "cond", "meta", "nonce", "exp", "nbf",
@@ -206,9 +214,10 @@ impl<'de, T: ParseAbility + Deserialize<'de> + ToCommand, C: Condition + Deseria
                 'de,
                 T: ParseAbility + ToCommand + Deserialize<'de>,
                 C: Condition + Deserialize<'de>,
-            > Visitor<'de> for DelegationPayloadVisitor<T, C>
+                DID: Did + Deserialize<'de>,
+            > Visitor<'de> for DelegationPayloadVisitor<T, C, DID>
         {
-            type Value = Payload<T, C>;
+            type Value = Payload<T, C, DID>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct delegation::Payload")
@@ -333,7 +342,8 @@ impl<'de, T: ParseAbility + Deserialize<'de> + ToCommand, C: Condition + Deseria
 impl<
         T: ParseAbility + Command + for<'de> Deserialize<'de>,
         C: Condition + for<'de> Deserialize<'de>,
-    > TryFrom<Ipld> for Payload<T, C>
+        DID: Did + for<'de> Deserialize<'de>,
+    > TryFrom<Ipld> for Payload<T, C, DID>
 {
     type Error = SerdeError;
 
@@ -342,23 +352,23 @@ impl<
     }
 }
 
-impl<T, C: Condition> From<Payload<T, C>> for Ipld {
-    fn from(payload: Payload<T, C>) -> Self {
+impl<T, C: Condition, DID: Did> From<Payload<T, C, DID>> for Ipld {
+    fn from(payload: Payload<T, C, DID>) -> Self {
         payload.into()
     }
 }
 
-impl<T, C: Condition> Payload<T, C> {
+impl<T, C: Condition, DID: Did + Clone> Payload<T, C, DID> {
     pub fn check<'a>(
         &'a self,
-        proofs: Vec<Payload<T::Hierarchy, C>>,
+        proofs: Vec<Payload<T::Hierarchy, C, DID>>,
         now: SystemTime,
     ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
         T: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
     {
-        let start: Acc<T::Hierarchy> = Acc {
+        let start: Acc<T::Hierarchy, DID> = Acc {
             issuer: self.issuer.clone(),
             subject: self.subject.clone(),
             hierarchy: T::Hierarchy::from(self.ability_builder.clone()),
@@ -392,28 +402,28 @@ impl<T, C: Condition> Payload<T, C> {
 }
 
 #[derive(Debug, Clone)]
-struct Acc<H: Prove> {
-    issuer: Did,
-    subject: Did,
+struct Acc<H: Prove, DID: Did> {
+    issuer: DID,
+    subject: DID,
     hierarchy: H,
 }
 
-impl<H: Prove> Acc<H> {
+impl<H: Prove, DID: Did> Acc<H, DID> {
     // FIXME this should move to Delegable?
     fn step<'a, C: Condition>(
         &self,
-        proof: &Payload<H, C>,
+        proof: &Payload<H, C, DID>,
         args: &arguments::Named<Ipld>,
         now: SystemTime,
     ) -> Result<Success, DelegationError<<H as Prove>::Error>>
     where
         H: Prove + Clone + Into<arguments::Named<Ipld>>,
     {
-        if let Err(_) = self.issuer.check_same(&proof.audience) {
+        if self.issuer != proof.audience {
             return Err(EnvelopeError::InvalidSubject.into());
         }
 
-        if let Err(_) = self.subject.check_same(&proof.subject) {
+        if self.subject != proof.subject {
             return Err(EnvelopeError::MisalignedIssAud.into());
         }
 

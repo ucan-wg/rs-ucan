@@ -30,7 +30,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(missing_docs)]
-pub enum Common {
+pub enum Preset {
     ContainsAll(contains_all::ContainsAll),
     ContainsAny(contains_any::ContainsAny),
     ContainsKey(contains_key::ContainsKey),
@@ -43,13 +43,13 @@ pub enum Common {
     MatchesRegex(matches_regex::MatchesRegex),
 }
 
-impl From<Common> for Ipld {
-    fn from(common: Common) -> Self {
+impl From<Preset> for Ipld {
+    fn from(common: Preset) -> Self {
         common.into()
     }
 }
 
-impl TryFrom<Ipld> for Common {
+impl TryFrom<Ipld> for Preset {
     type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
@@ -57,19 +57,19 @@ impl TryFrom<Ipld> for Common {
     }
 }
 
-impl Condition for Common {
+impl Condition for Preset {
     fn validate(&self, args: &arguments::Named<Ipld>) -> bool {
         match self {
-            Common::ContainsAll(c) => c.validate(args),
-            Common::ContainsAny(c) => c.validate(args),
-            Common::ContainsKey(c) => c.validate(args),
-            Common::ExcludesKey(c) => c.validate(args),
-            Common::ExcludesAll(c) => c.validate(args),
-            Common::MinLength(c) => c.validate(args),
-            Common::MaxLength(c) => c.validate(args),
-            Common::MinNumber(c) => c.validate(args),
-            Common::MaxNumber(c) => c.validate(args),
-            Common::MatchesRegex(c) => c.validate(args),
+            Preset::ContainsAll(c) => c.validate(args),
+            Preset::ContainsAny(c) => c.validate(args),
+            Preset::ContainsKey(c) => c.validate(args),
+            Preset::ExcludesKey(c) => c.validate(args),
+            Preset::ExcludesAll(c) => c.validate(args),
+            Preset::MinLength(c) => c.validate(args),
+            Preset::MaxLength(c) => c.validate(args),
+            Preset::MinNumber(c) => c.validate(args),
+            Preset::MaxNumber(c) => c.validate(args),
+            Preset::MatchesRegex(c) => c.validate(args),
         }
     }
 }

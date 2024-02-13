@@ -16,4 +16,4 @@ use crate::signature;
 /// For a version that can include [`Promise`][promise::Promise]s,
 /// wrap your `T` in [`invocation::Promised`](Promised) to get
 /// `Invocation<Promised<T>>`.
-pub type Invocation<T> = signature::Envelope<payload::Payload<T>>;
+pub type Invocation<T, D> = signature::Envelope<payload::Payload<T, D>>;

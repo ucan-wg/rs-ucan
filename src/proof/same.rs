@@ -48,17 +48,17 @@ pub trait CheckSame {
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error>;
 }
 
-impl CheckSame for Did {
-    type Error = Unequal;
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if self.eq(proof) {
-            Ok(())
-        } else {
-            Err(Unequal {})
-        }
-    }
-}
+// impl CheckSame for Did {
+//     type Error = Unequal;
+//
+//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+//         if self.eq(proof) {
+//             Ok(())
+//         } else {
+//             Err(Unequal {})
+//         }
+//     }
+// }
 
 impl<T: PartialEq + Clone> CheckSame for Option<T> {
     type Error = OptionalFieldError;

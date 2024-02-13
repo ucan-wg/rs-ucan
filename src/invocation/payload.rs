@@ -2,31 +2,22 @@ use super::resolvable::Resolvable;
 use crate::{
     ability::{arguments, command::ToCommand},
     capsule::Capsule,
-    delegation,
-    delegation::{
-        condition::Condition,
-        error::{DelegationError, EnvelopeError},
-        Delegable,
-    },
-    did::Did,
+    delegation::{self, condition::Condition, error::DelegationError, Delegable},
+    did::{self, Did},
     nonce::Nonce,
-    proof::{
-        checkable::Checkable,
-        prove::{Prove, Success},
-        same::CheckSame,
-    },
+    proof::{checkable::Checkable, prove::Prove},
     time::Timestamp,
 };
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Serialize, Serializer};
-use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData};
+use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T> {
-    pub issuer: Did,
-    pub subject: Did,
-    pub audience: Option<Did>,
+pub struct Payload<T, DID: Did> {
+    pub issuer: DID,
+    pub subject: DID,
+    pub audience: Option<DID>,
 
     pub ability: T,
 
@@ -45,10 +36,10 @@ pub struct Payload<T> {
 //
 // This probably means putting the delegation T back to the upper level and bieng explicit about
 // the T::Builder in the type
-impl<T> Payload<T> {
+impl<T, DID: Did + Clone> Payload<T, DID> {
     pub fn check<C: Condition>(
         self,
-        proofs: Vec<delegation::Payload<<T::Builder as Checkable>::Hierarchy, C>>,
+        proofs: Vec<delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
         now: SystemTime,
     ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where
@@ -56,19 +47,21 @@ impl<T> Payload<T> {
         T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
         <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
     {
-        let builder_payload: delegation::Payload<T::Builder, C> = self.into();
+        let builder_payload: delegation::Payload<T::Builder, C, DID> = self.into();
         builder_payload.check(proofs, now)
     }
 }
 
-impl<T> Capsule for Payload<T> {
+impl<T, DID: Did> Capsule for Payload<T, DID> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T: Delegable, C: Condition> From<Payload<T>> for delegation::Payload<T::Builder, C> {
-    fn from(payload: Payload<T>) -> Self {
+impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
+    for delegation::Payload<T::Builder, C, DID>
+{
+    fn from(payload: Payload<T, DID>) -> Self {
         delegation::Payload {
-            issuer: payload.issuer,
+            issuer: payload.issuer.clone(),
             subject: payload.subject.clone(),
             audience: payload.audience.unwrap_or(payload.subject),
 
@@ -84,11 +77,11 @@ impl<T: Delegable, C: Condition> From<Payload<T>> for delegation::Payload<T::Bui
     }
 }
 
-impl<T: ToCommand + Into<Ipld>> From<Payload<T>> for arguments::Named<Ipld> {
-    fn from(payload: Payload<T>) -> Self {
+impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::Named<Ipld> {
+    fn from(payload: Payload<T, DID>) -> Self {
         let mut args = arguments::Named::from_iter([
-            ("iss".into(), payload.issuer.into()),
-            ("sub".into(), payload.subject.into()),
+            ("iss".into(), payload.issuer.into().to_string().into()),
+            ("sub".into(), payload.subject.into().to_string().into()),
             ("cmd".into(), payload.ability.to_command().into()),
             ("args".into(), payload.ability.into()),
             (
@@ -100,7 +93,7 @@ impl<T: ToCommand + Into<Ipld>> From<Payload<T>> for arguments::Named<Ipld> {
         ]);
 
         if let Some(audience) = payload.audience {
-            args.insert("aud".into(), audience.into());
+            args.insert("aud".into(), audience.into().to_string().into());
         }
 
         if let Some(not_before) = payload.not_before {
@@ -114,17 +107,17 @@ impl<T: ToCommand + Into<Ipld>> From<Payload<T>> for arguments::Named<Ipld> {
 /// A variant that accepts [`Promise`]s.
 ///
 /// [`Promise`]: crate::invocation::promise::Promise
-pub type Promised<T> = Payload<<T as Resolvable>::Promised>;
+pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
 
-impl<T: Resolvable> Resolvable for Payload<T>
+impl<T: Resolvable, DID: Did> Resolvable for Payload<T, DID>
 where
     arguments::Named<Ipld>: From<T::Promised>,
     Ipld: From<T::Promised>,
     T::Promised: ToCommand,
 {
-    type Promised = Promised<T>;
+    type Promised = Promised<T, DID>;
 
-    fn try_resolve(promised: Promised<T>) -> Result<Self, Self::Promised> {
+    fn try_resolve(promised: Promised<T, DID>) -> Result<Self, Self::Promised> {
         match <T as Resolvable>::try_resolve(promised.ability) {
             Ok(resolved_ability) => Ok(Payload {
                 issuer: promised.issuer,
@@ -149,10 +142,10 @@ where
     }
 }
 
-impl<T> Serialize for Payload<T>
+impl<T, DID: Did> Serialize for Payload<T, DID>
 where
-    Payload<T>: Clone,
-    InternalSerializer: From<Payload<T>>,
+    Payload<T, DID>: Clone,
+    InternalSerializer: From<Payload<T, DID>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -163,10 +156,10 @@ where
     }
 }
 
-impl<'de, T> serde::Deserialize<'de> for Payload<T>
+impl<'de, T, DID: Did> serde::Deserialize<'de> for Payload<T, DID>
 where
-    Payload<T>: TryFrom<InternalSerializer>,
-    <Payload<T> as TryFrom<InternalSerializer>>::Error: Debug,
+    Payload<T, DID>: TryFrom<InternalSerializer>,
+    <Payload<T, DID> as TryFrom<InternalSerializer>>::Error: Debug,
 {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -181,9 +174,9 @@ where
     }
 }
 
-impl<T> TryFrom<Ipld> for Payload<T>
+impl<T, DID: Did> TryFrom<Ipld> for Payload<T, DID>
 where
-    Payload<T>: TryFrom<InternalSerializer>,
+    Payload<T, DID>: TryFrom<InternalSerializer>,
 {
     type Error = (); // FIXME
 
@@ -193,8 +186,8 @@ where
     }
 }
 
-impl<T> From<Payload<T>> for Ipld {
-    fn from(payload: Payload<T>) -> Self {
+impl<T, DID: Did> From<Payload<T, DID>> for Ipld {
+    fn from(payload: Payload<T, DID>) -> Self {
         payload.into()
     }
 }
@@ -203,11 +196,11 @@ impl<T> From<Payload<T>> for Ipld {
 #[serde(deny_unknown_fields)]
 struct InternalSerializer {
     #[serde(rename = "iss")]
-    issuer: Did,
+    issuer: did::Newtype,
     #[serde(rename = "sub")]
-    subject: Did,
+    subject: did::Newtype,
     #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
-    audience: Option<Did>,
+    audience: Option<did::Newtype>,
 
     #[serde(rename = "cmd")]
     command: String,
@@ -292,12 +285,14 @@ impl TryFrom<Ipld> for InternalSerializer {
 //     }
 // }
 
-impl<T: ToCommand + Into<arguments::Named<Ipld>>> From<Payload<T>> for InternalSerializer {
-    fn from(payload: Payload<T>) -> Self {
+impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>>
+    for InternalSerializer
+{
+    fn from(payload: Payload<T, DID>) -> Self {
         InternalSerializer {
-            issuer: payload.issuer,
-            subject: payload.subject,
-            audience: payload.audience,
+            issuer: payload.issuer.into(),
+            subject: payload.subject.into(),
+            audience: payload.audience.map(Into::into),
 
             command: payload.ability.to_command(),
             arguments: payload.ability.into(),

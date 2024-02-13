@@ -13,29 +13,29 @@ use std::{
 use web_time::SystemTime;
 
 // NOTE the T here is the builder... FIXME add one layer up and call T::Builder? May be confusing?
-pub trait Store<B: Checkable, C: Condition> {
+pub trait Store<B: Checkable, C: Condition, DID: Did> {
     type Error;
 
-    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C>>, Self::Error>;
+    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C, DID>>, Self::Error>;
 
     // FIXME add a variant that calculated the CID from the capsulre header?
     // FIXME that means changing the name to insert_by_cid or similar
-    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) -> Result<(), Self::Error>;
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C, DID>) -> Result<(), Self::Error>;
 
     fn revoke(&mut self, cid: Cid) -> Result<(), Self::Error>;
 
     fn get_chain(
         &self,
-        aud: &Did,
-        subject: &Did,
+        aud: &DID,
+        subject: &DID,
         builder: &B,
         now: &SystemTime,
-    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>>, Self::Error>;
+    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error>;
 
     fn can_delegate(
         &self,
-        iss: &Did,
-        aud: &Did,
+        iss: &DID,
+        aud: &DID,
         builder: &B,
         now: &SystemTime,
     ) -> Result<bool, Self::Error> {
@@ -101,24 +101,25 @@ pub trait Store<B: Checkable, C: Condition> {
 /// linkStyle 1 stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<H, C: Condition> {
-    ucans: BTreeMap<Cid, Delegation<H, C>>,
-    index: BTreeMap<Did, BTreeMap<Did, BTreeSet<Cid>>>,
+pub struct MemoryStore<H, C: Condition, DID: Did + Ord> {
+    ucans: BTreeMap<Cid, Delegation<H, C, DID>>,
+    index: BTreeMap<DID, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
 // FIXME check that UCAN is valid
-impl<B: Checkable + Clone, C: Condition + PartialEq> Store<B, C> for MemoryStore<B::Hierarchy, C>
+impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Store<B, C, DID>
+    for MemoryStore<B::Hierarchy, C, DID>
 where
     B::Hierarchy: PartialEq,
 {
     type Error = Infallible;
 
-    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C>>, Self::Error> {
+    fn get(&self, cid: &Cid) -> Result<Option<&Delegation<B::Hierarchy, C, DID>>, Self::Error> {
         Ok(self.ucans.get(cid))
     }
 
-    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C>) -> Result<(), Self::Error> {
+    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C, DID>) -> Result<(), Self::Error> {
         self.index
             .entry(delegation.payload.subject.clone())
             .or_default()
@@ -126,7 +127,7 @@ where
             .or_default()
             .insert(cid);
 
-        let hierarchy: Delegation<B::Hierarchy, C> = Delegation {
+        let hierarchy: Delegation<B::Hierarchy, C, DID> = Delegation {
             signature: delegation.signature,
             payload: delegation.payload.map_ability(Into::into),
         };
@@ -142,11 +143,11 @@ where
 
     fn get_chain(
         &self,
-        aud: &Did,
-        subject: &Did,
+        aud: &DID,
+        subject: &DID,
         builder: &B,
         now: &SystemTime,
-    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C>)>>, Self::Error> {
+    ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error> {
         match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
             None => Ok(None),
             Some(delegation_subtree) => {

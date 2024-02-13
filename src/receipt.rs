@@ -11,4 +11,4 @@ pub use responds::Responds;
 use crate::signature;
 
 /// The complete, signed receipt of an [`Invocation`][`crate::invocation::Invocation`].
-pub type Receipt<T> = signature::Envelope<Payload<T>>;
+pub type Receipt<T, DID> = signature::Envelope<Payload<T, DID>>;

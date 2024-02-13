@@ -1,6 +1,6 @@
 //! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup.
 
-use crate::{ability::arguments, did::Did, nonce::Nonce};
+use crate::{ability::arguments, did, nonce::Nonce};
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
     cid::{Cid, CidGeneric},
@@ -22,7 +22,7 @@ const SHA2_256: u64 = 0x12;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
     /// The `subject`: root issuer, and arbiter of the semantics/namespace.
-    pub sub: Did,
+    pub sub: did::Newtype,
 
     /// A unique identifier for the particular task run.
     ///
