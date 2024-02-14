@@ -1,7 +1,6 @@
 //! Check the delegation proof against another instance of the same type
 
-use super::error::{OptionalFieldError, Unequal};
-use crate::did::Did;
+use super::error::OptionalFieldError;
 
 /// Trait for checking if a proof of the same type is equally or less restrictive.
 ///
@@ -39,7 +38,7 @@ use crate::did::Did;
 /// }
 pub trait CheckSame {
     /// Error type describing why a proof was insufficient.
-    type Error; // FIXME Rename CheckSameError?
+    type Error;
 
     /// Check if the proof is equally or less restrictive than the instance.
     ///
@@ -47,18 +46,6 @@ pub trait CheckSame {
     /// it has violated the delegation chain rules.
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error>;
 }
-
-// impl CheckSame for Did {
-//     type Error = Unequal;
-//
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         if self.eq(proof) {
-//             Ok(())
-//         } else {
-//             Err(Unequal {})
-//         }
-//     }
-// }
 
 impl<T: PartialEq + Clone> CheckSame for Option<T> {
     type Error = OptionalFieldError;

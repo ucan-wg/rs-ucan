@@ -3,7 +3,10 @@
 //! [`Invocation`]: crate::invocation::Invocation
 
 use super::responds::Responds;
-use crate::{ability::arguments, capsule::Capsule, did::Did, nonce::Nonce, time::Timestamp};
+use crate::{
+    ability::arguments, capsule::Capsule, did::Did, nonce::Nonce, signature::Verifiable,
+    time::Timestamp,
+};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
     de::{self, MapAccess, Visitor},
@@ -11,6 +14,12 @@ use serde::{
     Deserialize, Serialize, Serializer,
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
+
+impl<T: Responds, DID: Did> Verifiable<DID> for Payload<T, DID> {
+    fn verifier(&self) -> &DID {
+        &self.issuer
+    }
+}
 
 /// The payload (non-signature) portion of a response from an [`Invocation`].
 ///

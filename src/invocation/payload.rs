@@ -6,12 +6,19 @@ use crate::{
     did::{self, Did},
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
+    signature::Verifiable,
     time::Timestamp,
 };
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
+
+impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
+    fn verifier(&self) -> &DID {
+        &self.issuer
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<T, DID: Did> {

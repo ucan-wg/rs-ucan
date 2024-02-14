@@ -1,6 +1,7 @@
 mod payload;
 mod resolvable;
 
+pub mod agent;
 pub mod promise;
 pub mod store;
 
@@ -16,7 +17,7 @@ use crate::{ability, did, did::Did, signature};
 /// For a version that can include [`Promise`][promise::Promise]s,
 /// wrap your `T` in [`invocation::Promised`](Promised) to get
 /// `Invocation<Promised<T>>`.
-pub type Invocation<T, DID: Did> = signature::Envelope<payload::Payload<T, DID>, DID::Signature>;
+pub type Invocation<T, DID: Did> = signature::Envelope<payload::Payload<T, DID>, DID>;
 
 // FIXME rename
 pub type PromisedInvocation<T: Resolvable, D> = Invocation<T::Promised, D>;

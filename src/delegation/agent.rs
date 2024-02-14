@@ -59,12 +59,18 @@ impl<
                 conditions: new_conditions,
             };
 
-            return Ok(Delegation::try_sign::<DID>(self.signer, payload).expect("FIXME"));
+            return Ok(Delegation::try_sign(self.signer, payload).expect("FIXME"));
         }
 
         let to_delegate = &self
             .store
-            .get_chain(&self.did, &subject, &ability_builder, &SystemTime::now())
+            .get_chain(
+                &self.did,
+                &subject,
+                &ability_builder,
+                vec![],
+                &SystemTime::now(),
+            )
             .map_err(DelegateError::StoreError)?
             .ok_or(DelegateError::ProofsNotFound)?
             .first()
@@ -86,7 +92,7 @@ impl<
             not_before: not_before.map(Into::into),
         };
 
-        Ok(Delegation::try_sign::<DID>(self.signer, payload).expect("FIXME"))
+        Ok(Delegation::try_sign(self.signer, payload).expect("FIXME"))
     }
 
     pub fn recieve(

@@ -17,6 +17,7 @@ use crate::{
         prove::{Prove, Success},
         same::CheckSame,
     },
+    signature::Verifiable,
     time::{TimeBoundError, Timestamp},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -27,6 +28,12 @@ use serde::{
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
 use web_time::SystemTime;
+
+impl<DID: Did, C: Condition, D> Verifiable<DID> for Payload<D, C, DID> {
+    fn verifier(&self) -> &DID {
+        &self.issuer
+    }
+}
 
 /// The payload portion of a [`Delegation`][super::Delegation].
 ///

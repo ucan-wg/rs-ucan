@@ -1,9 +1,10 @@
 use super::{condition::Condition, Delegation};
 use crate::{
+    ability::arguments,
     did::Did,
     proof::{checkable::Checkable, prove::Prove},
 };
-use libipld_core::cid::Cid;
+use libipld_core::{cid::Cid, ipld::Ipld};
 use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -21,8 +22,12 @@ pub trait Store<B: Checkable, C: Condition, DID: Did> {
 
     // FIXME add a variant that calculated the CID from the capsulre header?
     // FIXME that means changing the name to insert_by_cid or similar
+    // FIXME rename put
     fn insert(&mut self, cid: Cid, delegation: Delegation<B, C, DID>) -> Result<(), Self::Error>;
 
+    // FIXME validate invocation
+    // sore invocation
+    // just... move to invocation
     fn revoke(&mut self, cid: Cid) -> Result<(), Self::Error>;
 
     fn get_chain(
@@ -30,6 +35,7 @@ pub trait Store<B: Checkable, C: Condition, DID: Did> {
         aud: &DID,
         subject: &DID,
         builder: &B,
+        conditions: Vec<C>,
         now: &SystemTime,
     ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error>;
 
@@ -38,9 +44,10 @@ pub trait Store<B: Checkable, C: Condition, DID: Did> {
         iss: &DID,
         aud: &DID,
         builder: &B,
+        conditions: Vec<C>,
         now: &SystemTime,
     ) -> Result<bool, Self::Error> {
-        self.get_chain(aud, iss, builder, now)
+        self.get_chain(aud, iss, builder, conditions, now)
             .map(|chain| chain.is_some())
     }
 }
@@ -111,6 +118,8 @@ pub struct MemoryStore<H, C: Condition, DID: Did + Ord> {
 // FIXME check that UCAN is valid
 impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Store<B, C, DID>
     for MemoryStore<B::Hierarchy, C, DID>
+where
+    B::Hierarchy: Into<arguments::Named<Ipld>>,
 {
     type Error = Infallible;
 
@@ -145,6 +154,7 @@ impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Sto
         aud: &DID,
         subject: &DID,
         builder: &B,
+        conditions: Vec<C>,
         now: &SystemTime,
     ) -> Result<Option<NonEmpty<(&Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error> {
         match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
@@ -179,6 +189,12 @@ impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Sto
                                 args = &d.payload.ability_builder;
                             } else {
                                 return ControlFlow::Continue(());
+                            }
+
+                            for condition in &conditions {
+                                if !condition.validate(&d.payload.ability_builder.into()) {
+                                    return ControlFlow::Continue(());
+                                }
                             }
 
                             chain.push((cid, d));

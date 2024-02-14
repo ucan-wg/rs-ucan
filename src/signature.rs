@@ -7,7 +7,7 @@ use libipld_core::{
     ipld::Ipld,
     multihash::{Code, MultihashGeneric},
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use signature::SignatureEncoding;
 use std::collections::BTreeMap;
 
@@ -15,35 +15,37 @@ use std::collections::BTreeMap;
 use libipld_cbor::DagCborCodec;
 use signature::Signer;
 
+pub trait Verifiable<DID: Did> {
+    fn verifier<'a>(&'a self) -> &'a DID;
+}
+
+impl<T: Verifiable<DID> + Capsule, DID: Did> Verifiable<DID> for Envelope<T, DID> {
+    fn verifier(&self) -> &DID {
+        &self.payload.verifier()
+    }
+}
+
 /// A container associating a `payload` with its signature over it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Envelope<T: Capsule, S: SignatureEncoding> {
+#[derive(Debug, Clone, PartialEq)] // , Serialize, Deserialize)]
+pub struct Envelope<T: Verifiable<DID> + Capsule, DID: Did> {
     /// The signture of the `payload`.
-    pub signature: Signature<S>,
+    pub signature: Signature<DID::Signature>,
 
     /// The payload that's being signed over.
     pub payload: T,
 }
 
-impl<T: Capsule + Clone + Into<Ipld>, S: SignatureEncoding> Envelope<T, S> {
-    pub fn try_sign<DID: Did>(
-        signer: &DID::Signer,
-        payload: T,
-    ) -> Result<Envelope<T, <DID as Did>::Signature>, ()> {
-        Self::try_sign_generic::<DagCborCodec, Code, DID>(
-            signer,
-            DagCborCodec,
-            Code::Sha2_256,
-            payload,
-        )
+impl<T: Capsule + Verifiable<DID> + Clone + Into<Ipld>, DID: Did> Envelope<T, DID> {
+    pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, ()> {
+        Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, Code::Sha2_256, payload)
     }
 
-    pub fn try_sign_generic<C: Codec, H: Into<u64>, DID: Did>(
+    pub fn try_sign_generic<C: Codec, H: Into<u64>>(
         signer: &DID::Signer,
         codec: C,
         hasher: H,
         payload: T,
-    ) -> Result<Envelope<T, DID::Signature>, ()>
+    ) -> Result<Envelope<T, DID>, ()>
     // FIXME err = ()
     where
         Ipld: Encode<C>,
@@ -64,42 +66,79 @@ impl<T: Capsule + Clone + Into<Ipld>, S: SignatureEncoding> Envelope<T, S> {
         let sig = signer.try_sign(&cid.to_bytes()).map_err(|_| ())?;
 
         Ok(Envelope {
-            signature: Signature::One(sig),
+            signature: Signature::Solo(sig),
             payload,
         })
     }
 
     pub fn validate_signature(&self) -> Result<(), ()> {
-        // FIXME
-        todo!()
-    }
-}
+        // FIXME need varsig
+        let codec = todo!();
+        let hasher = todo!();
 
-// FIXME consider kicking Batch down the road for spec reasons?
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Signature<S> {
-    One(S),
-    Batch {
-        signature: S,
-        merkle_proof: Vec<Vec<u8>>,
-    },
-}
+        let mut buffer = vec![];
+        let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), self.payload.clone().into())]).into();
+        ipld.encode(codec, &mut buffer)
+            .expect("FIXME not dag-cbor? DagCborCodec to encode any arbitrary `Ipld`");
 
-impl<S: Into<Ipld>> From<Signature<S>> for Ipld {
-    fn from(signature: Signature<S>) -> Self {
-        match signature {
-            Signature::One(sig) => sig.into(),
-            Signature::Batch {
-                signature,
-                merkle_proof,
-            } => Ipld::List(merkle_proof.into_iter().map(|p| p.into()).collect()),
+        let cid: Cid = CidGeneric::new_v1(
+            codec.into(),
+            MultihashGeneric::wrap(hasher.into(), buffer.as_slice())
+                .map_err(|_| ()) // FIXME
+                .expect("FIXME expect signing to work..."),
+        );
+
+        match self.signature {
+            Signature::Solo(sig) => self
+                .verifier()
+                .verify(&cid.to_bytes(), &sig)
+                .map_err(|_| ()),
         }
     }
 }
 
-impl<T: Capsule + Into<Ipld>, S: SignatureEncoding + Into<Ipld>> From<Envelope<T, S>> for Ipld {
-    fn from(Envelope { signature, payload }: Envelope<T, S>) -> Self {
+// FIXME consider kicking Batch down the road for spec reasons?
+#[derive(Debug, Clone, PartialEq)] // , Serialize, Deserialize)]
+                                   // #[serde(untagged)]
+pub enum Signature<S> {
+    Solo(S),
+    // Batch {
+    //     signature: S,
+    //     root: Vec<u8>,
+    //     merkle_proof: Vec<MerkleStep>,
+    // },
+}
+
+//#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+//pub enum MerkleStep {
+//    Node(Vec<u8>, Vec<u8>, Direction),
+//    Turn(Direction),
+//    End,
+//}
+//
+//#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+//pub enum Direction {
+//    Left = 0,
+//    Right = 1,
+//}
+
+impl<S: Into<Ipld>> From<Signature<S>> for Ipld {
+    fn from(signature: Signature<S>) -> Self {
+        match signature {
+            Signature::Solo(sig) => sig.into(),
+            // Signature::Batch {
+            //     signature,
+            //     merkle_proof,
+            // } => Ipld::List(merkle_proof.into_iter().map(|p| p.into()).collect()),
+        }
+    }
+}
+
+impl<T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> From<Envelope<T, DID>> for Ipld
+where
+    DID::Signature: Into<Ipld>,
+{
+    fn from(Envelope { signature, payload }: Envelope<T, DID>) -> Self {
         let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), payload.into())]).into();
 
         let codec = DagCborCodec; // FIXME get this from the payload
