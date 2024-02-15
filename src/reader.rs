@@ -245,22 +245,31 @@ impl<Env, T: ToCommand> From<Reader<Env, Promised<T>>> for Reader<Env, T> {
     }
 }
 
-impl<Env, T: Resolvable> Resolvable for Reader<Env, T>
-where
-    Reader<Env, T::Promised>: Into<arguments::Named<Ipld>>,
-{
-    type Promised = Reader<Env, T::Promised>;
-
-    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
-        match T::try_resolve(promised.val) {
-            Ok(val) => Ok(Reader {
-                env: promised.env,
-                val,
-            }),
-            Err(val) => Err(Reader {
-                env: promised.env,
-                val,
-            }),
-        }
-    }
-}
+// use crate::proof::{checkable::Checkable, same::CheckSame};
+//
+// impl<Env, T: Delegable> Delegable for Reader<Env, T>
+// where
+//     Reader<Env, T::Builder>: Checkable + CheckSame,
+// {
+//     type Builder = Reader<Env, T::Builder>;
+// }
+//
+// impl<Env, T: Resolvable> Resolvable for Reader<Env, T>
+// where
+//     Reader<Env, T::Promised>: Into<arguments::Named<Ipld>>,
+// {
+//     type Promised = Reader<Env, T::Promised>;
+//
+//     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
+//         match T::try_resolve(promised.val) {
+//             Ok(val) => Ok(Reader {
+//                 env: promised.env,
+//                 val,
+//             }),
+//             Err(val) => Err(Reader {
+//                 env: promised.env,
+//                 val,
+//             }),
+//         }
+//     }
+// }

@@ -1,7 +1,8 @@
 use super::{payload::Payload, store::Store, Invocation, Resolvable};
 use crate::{
+    ability::ucan,
     delegation,
-    delegation::{condition::Condition, Delegable, Delegation},
+    delegation::{condition::Condition, Delegable},
     did::Did,
     nonce::Nonce,
     signature::Verifiable,
@@ -23,9 +24,12 @@ pub struct Agent<
 > {
     pub did: &'a DID,
 
-    pub store: &'a mut S,
-    pub promised_store: &'a mut P,
     pub delegation_store: &'a D,
+    pub invocation_store: &'a mut S,
+    pub revocation_store: &'a mut S, // FIXME just a BTRee Set pointing into invocatuin store?
+
+    pub unresolved_promise_store: &'a mut P,
+    pub resolved_promise_store: &'a mut P,
 
     signer: &'a <DID as Did>::Signer,
     marker: PhantomData<(T, C)>,
@@ -35,7 +39,7 @@ impl<
         'a,
         T: Resolvable + Delegable + Clone,
         C: Condition,
-        DID: Did + ToString + Clone,
+        DID: Did + Clone,
         S: Store<T, DID>,
         P: Store<T::Promised, DID>,
         D: delegation::store::Store<T::Builder, C, DID>,
@@ -44,15 +48,19 @@ impl<
     pub fn new(
         did: &'a DID,
         signer: &'a <DID as Did>::Signer,
-        store: &'a mut S,
-        promised_store: &'a mut P,
+        invocation_store: &'a mut S,
         delegation_store: &'a mut D,
+        revocation_store: &'a mut D,
+        unresolved_promise_store: &'a mut P,
+        resolved_promise_store: &'a mut P,
     ) -> Self {
         Self {
             did,
-            store,
-            promised_store,
+            invocation_store,
             delegation_store,
+            revocation_store,
+            unresolved_promise_store,
+            resolved_promise_store,
             signer,
             marker: PhantomData,
         }
@@ -62,24 +70,19 @@ impl<
         &mut self,
         audience: Option<&DID>,
         subject: &DID,
-        ability: T::Promised,
+        ability: T::Promised, // FIXME Resolved needs Into<Builder>
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
-        expiration: JsTime,
+        expiration: Option<JsTime>,
         not_before: Option<JsTime>,
+        now: &SystemTime,
         // FIXME err type
     ) -> Result<Invocation<T, DID>, ()> {
         let proofs = self
             .delegation_store
-            .get_chain(
-                audience,
-                subject,
-                ability.into(),
-                vec![],
-                &SystemTime::now(),
-            )
+            .get_chain(self.did, subject, &ability.into(), vec![], now)
             .map_err(|_| ())?
-            .map(|chain| chain.map(|(cid, _)| *cid).into())
+            .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
 
         let mut seed = vec![];
@@ -93,26 +96,63 @@ impl<
             metadata,
             nonce: Nonce::generate_16(&mut seed),
             cause,
-            expiration,
-            not_before,
+            expiration: expiration.map(Into::into),
+            not_before: not_before.map(Into::into),
         };
 
         let invocation = Invocation::try_sign(self.signer, &payload).map_err(|_| ())?;
-        let cid: Cid = invocation.into();
-        self.store.put(cid, invocation);
+        let cid = Cid::from(invocation);
         Ok(invocation)
     }
 
     // FIXME err = ()
-    pub fn revoke(&mut self, cid: &Cid) -> Result<(), ()> {
-        todo!(); // FIXME create a revoke invocation
-        self.store.revoke(&cid)
-    }
+    // FIXME move to revocation agent wit own traits?
+    // pub fn revoke(
+    //     &mut self,
+    //     subject: &DID,
+    //     cause: Option<Cid>,
+    //     cid: Cid,
+    //     now: JsTime,
+    // ) -> Result<(), ()> {
+    //     let ability = ucan::revoke::Ready { ucan: cid };
+    //     let proofs = if subject == self.did {
+    //         vec![]
+    //     } else {
+    //         self.delegation_store
+    //             .get_chain(
+    //                 subject,
+    //                 self.did,
+    //                 &ability.into(),
+    //                 vec![],
+    //                 &SystemTime::now(),
+    //             )
+    //             .map_err(|_| ())?
+    //             .map(|chain| chain.map(|(cid, _)| *cid).into())
+    //             .unwrap_or(vec![])
+    //     };
+
+    //     let payload = Payload {
+    //         issuer: self.did.clone(),
+    //         subject: self.did.clone(),
+    //         audience: Some(self.did.clone()),
+    //         ability,
+    //         proofs,
+    //         cause: None,
+    //         metadata: BTreeMap::new(),
+    //         nonce: Nonce::generate_16(&mut vec![]),
+    //         expiration: None,
+    //         not_before: None,
+    //     };
+
+    //     let invocation = Invocation::try_sign(self.signer, &payload).map_err(|_| ())?;
+
+    //     self.invocation_store.revoke(&cid)?;
+    // }
 
     pub fn receive(
         &self,
         invocation: Invocation<T::Promised, DID>,
-        proofs: BTreeMap<Cid, Delegation<T::Builder, C, DID>>,
+        now: SystemTime,
         // FIXME return type
     ) -> Result<Recipient<T::Promised>, ()> {
         // FIXME needs varsig header
@@ -123,23 +163,30 @@ impl<
             .verify(&cid.to_bytes(), &invocation.signature.to_bytes())
             .map_err(|_| ())?;
 
-        // FIXME pull delegations out of the store and check them
-
-        match Resolvable::try_resolve(&invocation.payload) {
-            Ok(resolved) => {
-                // FIXME promised store
-                self.store.put(cid, resolved).map_err(|_| ())?;
+        let payload: Payload<T::Promised, DID> = invocation.payload;
+        let resolved_payload = match payload.ability.try_resolve() {
+            Ok(resolved_payload) => {
+                // NOTE Already resolved when it came over the wire
+                let resolved_invocation = invocation.map_ability(|_| resolved_payload);
+                self.store.put(cid, resolved_invocation).map_err(|_| ())?;
+                resolved_payload
             }
-            Err(unresolved) => self.promised_store.put(cid, unresolved).map_err(|_| ())?,
-        }
+            Err(_) => {
+                // FIXME check if any of the unresolved promises are in the store
+                self.promised_store.put(cid, invocation).map_err(|_| ())?;
+                todo!() // return Ok(Recipient::Other(promised)); // FIXME
+            }
+        };
 
-        // FIXME
-        // FIXME promised store
-        self.store.put(cid, invocation).map_err(|_| ())?;
+        let proof_payloads = self
+            .delegation_store
+            .get_many(&invocation.payload.proofs)
+            .map(|d| d.payload);
 
-        for (cid, deleg) in proofs {
-            self.delegation_store.insert(cid, deleg).map_err(|_| ())?;
-        }
+        resolved_payload
+            .into()
+            .check(&proof_payloads, now)
+            .map_err(|_| ())?;
 
         if invocation.payload.audience != Some(*self.did) {
             return Ok(Recipient::Other(invocation));

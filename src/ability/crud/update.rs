@@ -2,6 +2,7 @@
 use super::{error::ProofError, parents::MutableParents};
 use crate::{
     ability::{arguments, command::Command},
+    delegation::Delegable,
     invocation::{promise, promise::Resolves, Resolvable},
     ipld,
     proof::{
@@ -131,6 +132,19 @@ pub type Promised = Generic<promise::Resolves<PathBuf>, arguments::Promised>;
 impl<P, A> Command for Generic<P, A> {
     const COMMAND: &'static str = "crud/update";
 }
+
+impl Delegable for Ready {
+    type Builder = Builder;
+}
+
+// impl From<Promised> for Builder {
+//     fn from(promised: Promised) -> Self {
+//         Builder {
+//             path: promised.path.map(Into::into),
+//             args: promised.args.map(Into::into),
+//         }
+//     }
+// }
 
 impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {
     fn from(create: Generic<P, A>) -> Self {

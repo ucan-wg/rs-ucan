@@ -42,6 +42,7 @@ impl<
         metadata: BTreeMap<String, Ipld>,
         expiration: JsTime,
         not_before: Option<JsTime>,
+        now: &SystemTime,
     ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_16(&mut salt);
@@ -64,13 +65,7 @@ impl<
 
         let to_delegate = &self
             .store
-            .get_chain(
-                &self.did,
-                &subject,
-                &ability_builder,
-                vec![],
-                &SystemTime::now(),
-            )
+            .get_chain(&self.did, &subject, &ability_builder, vec![], now)
             .map_err(DelegateError::StoreError)?
             .ok_or(DelegateError::ProofsNotFound)?
             .first()
@@ -95,7 +90,7 @@ impl<
         Ok(Delegation::try_sign(self.signer, payload).expect("FIXME"))
     }
 
-    pub fn recieve(
+    pub fn receive(
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
         delegation: Delegation<B, C, DID>,

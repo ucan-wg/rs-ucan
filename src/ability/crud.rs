@@ -49,9 +49,14 @@ pub mod update;
 
 pub use any::Any;
 pub use mutate::Mutate;
-pub use parents::MutableParents;
+pub use parents::*;
 
-use crate::{ability::arguments, invocation::Resolvable, proof::same::CheckSame};
+use crate::{
+    ability::arguments,
+    delegation::Delegable,
+    invocation::Resolvable,
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+};
 use libipld_core::ipld::Ipld;
 
 #[cfg(target_arch = "wasm32")]
@@ -79,6 +84,42 @@ pub enum Promised {
     Read(read::Promised),
     Update(update::Promised),
     Destroy(destroy::Promised),
+}
+
+impl Delegable for Ready {
+    type Builder = Builder;
+}
+
+impl Checkable for Builder {
+    type Hierarchy = Parentful<Builder>;
+}
+
+// impl From<Promised> for Builder {
+//     fn from(promised: Promised) -> Self {
+//         match promised {
+//             Promised::Create(create) => create.into(),
+//             Promised::Read(read) => read.into(),
+//             Promised::Update(update) => update.into(),
+//             Promised::Destroy(destroy) => destroy.into(),
+//         }
+//     }
+// }
+
+impl CheckParents for Builder {
+    type Parents = MutableParents;
+    type ParentError = (); // FIXME
+
+    fn check_parent(&self, parents: &MutableParents) -> Result<(), Self::ParentError> {
+        match self {
+            Builder::Create(create) => create.check_parent(parents.into()).map_err(|_| ()),
+            Builder::Update(update) => update.check_parent(parents.into()).map_err(|_| ()),
+            Builder::Destroy(destroy) => destroy.check_parent(parents.into()).map_err(|_| ()),
+            Builder::Read(read) => match parents {
+                MutableParents::Any(crud_any) => read.check_parent(crud_any).map_err(|_| ()),
+                _ => Err(()),
+            },
+        }
+    }
 }
 
 impl From<Promised> for arguments::Named<Ipld> {

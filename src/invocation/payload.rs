@@ -34,7 +34,7 @@ pub struct Payload<T, DID: Did> {
     pub nonce: Nonce,
 
     pub not_before: Option<Timestamp>,
-    pub expiration: Timestamp,
+    pub expiration: Option<Timestamp>,
 }
 
 // FIXME cleanup traits
@@ -47,7 +47,7 @@ impl<T, DID: Did + Clone> Payload<T, DID> {
     pub fn check<C: Condition>(
         self,
         proofs: Vec<delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
-        now: SystemTime,
+        now: &SystemTime,
     ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where
         T: Delegable,
@@ -116,38 +116,38 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
 /// [`Promise`]: crate::invocation::promise::Promise
 pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
 
-impl<T: Resolvable, DID: Did> Resolvable for Payload<T, DID>
-where
-    arguments::Named<Ipld>: From<T::Promised>,
-    Ipld: From<T::Promised>,
-    T::Promised: ToCommand,
-{
-    type Promised = Promised<T, DID>;
-
-    fn try_resolve(promised: Promised<T, DID>) -> Result<Self, Self::Promised> {
-        match <T as Resolvable>::try_resolve(promised.ability) {
-            Ok(resolved_ability) => Ok(Payload {
-                issuer: promised.issuer,
-                subject: promised.subject,
-                audience: promised.audience,
-
-                ability: resolved_ability,
-
-                proofs: promised.proofs,
-                cause: promised.cause,
-                metadata: promised.metadata,
-                nonce: promised.nonce,
-
-                not_before: promised.not_before,
-                expiration: promised.expiration,
-            }),
-            Err(promised_ability) => Err(Payload {
-                ability: promised_ability,
-                ..promised
-            }),
-        }
-    }
-}
+// impl<T: Resolvable, DID: Did> Resolvable for Payload<T, DID>
+// where
+//     arguments::Named<Ipld>: From<T::Promised>,
+//     Ipld: From<T::Promised>,
+//     T::Promised: ToCommand,
+// {
+//     type Promised = Promised<T, DID>;
+//
+//     fn try_resolve(promised: Promised<T, DID>) -> Result<Self, Self::Promised> {
+//         match <T as Resolvable>::try_resolve(promised.ability) {
+//             Ok(resolved_ability) => Ok(Payload {
+//                 issuer: promised.issuer,
+//                 subject: promised.subject,
+//                 audience: promised.audience,
+//
+//                 ability: resolved_ability,
+//
+//                 proofs: promised.proofs,
+//                 cause: promised.cause,
+//                 metadata: promised.metadata,
+//                 nonce: promised.nonce,
+//
+//                 not_before: promised.not_before,
+//                 expiration: promised.expiration,
+//             }),
+//             Err(promised_ability) => Err(Payload {
+//                 ability: promised_ability,
+//                 ..promised
+//             }),
+//         }
+//     }
+// }
 
 impl<T, DID: Did> Serialize for Payload<T, DID>
 where

@@ -54,6 +54,16 @@ impl Resolvable for Ready {
     }
 }
 
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            module: promised.module.try_resolve().ok(),
+            function: promised.function.try_resolve().ok(),
+            args: promised.args.try_resolve().ok(),
+        }
+    }
+}
+
 /// A variant meant for delegation, where fields may be omitted
 pub type Builder = Generic<Option<Module>, Option<String>, Option<Vec<Ipld>>>;
 

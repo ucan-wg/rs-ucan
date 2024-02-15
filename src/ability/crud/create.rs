@@ -2,6 +2,7 @@
 use super::{error::ProofError, parents::MutableParents};
 use crate::{
     ability::{arguments, command::Command},
+    delegation::Delegable,
     invocation::{promise, promise::Resolves, Resolvable},
     ipld,
     proof::{
@@ -164,6 +165,10 @@ impl<P: TryFrom<Ipld>, A: TryFrom<Ipld>> TryFrom<Ipld> for Generic<P, A> {
     }
 }
 
+impl Delegable for Ready {
+    type Builder = Builder;
+}
+
 impl Checkable for Builder {
     type Hierarchy = Parentful<Builder>;
 }
@@ -263,6 +268,15 @@ impl From<Ready> for Promised {
         }
     }
 }
+
+// impl From<Promised> for Builder {
+//     fn from(promised: Promised) -> Self {
+//         Builder {
+//             path: promised.path.map(Into::into),
+//             args: promised.args.map(Into::into),
+//         }
+//     }
+// }
 
 impl Resolvable for Ready {
     type Promised = Promised;

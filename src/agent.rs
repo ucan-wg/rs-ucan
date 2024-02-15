@@ -63,7 +63,7 @@ impl<
         } else {
             let mut conds = self
                 .store
-                .get_chain(&self.did, &subject, &ability_builder, &SystemTime::now())
+                .get_chain(&self.did, &subject, &ability_builder, SystemTime::now())
                 .map_err(|_| ())? // FIXME
                 .first()
                 .1
@@ -101,7 +101,7 @@ impl<
         Delegation { payload, signature }
     }
 
-    pub fn recieve_delegation() {}
+    pub fn receive_delegation() {}
 }
 
 // impl<S> Agent<S> {

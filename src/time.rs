@@ -20,7 +20,7 @@ pub fn now() -> u64 {
 /// All timestamps that this library can handle.
 ///
 /// Strictly speaking, UCAN exclusively supports [`JsTime`] (for JavaScript interoperability).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Timestamp {
     /// An entry for [`JsTime`], which is compatible with JavaScript's 2⁵³ numeric range.
     JsSafe(JsTime),
@@ -112,7 +112,7 @@ impl TryFrom<Ipld> for Timestamp {
 /// and is thus sufficient for "nearly" all auth use cases.
 ///
 /// [IEEE-754]: https://en.wikipedia.org/wiki/IEEE_754
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct JsTime {
     time: SystemTime,

@@ -376,7 +376,7 @@ where
     }
 
     /// Return the `prf` field of the UCAN payload
-    pub fn proofs(&self) -> Option<Vec<&Cid>> {
+    pub fn proofs(&self) -> Option<Vec<Cid>> {
         self.payload
             .prf
             .as_ref()

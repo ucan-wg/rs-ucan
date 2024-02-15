@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
 pub enum Ready {
+    // FIXME UCAN
     Crud(crud::Ready),
     Msg(msg::Ready),
     Wasm(wasm::run::Ready),

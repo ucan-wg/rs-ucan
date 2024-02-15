@@ -6,9 +6,13 @@
 
 use super::error::ParentError;
 use crate::{
-    ability::command::{ParseAbility, ToCommand},
+    ability::{
+        arguments,
+        command::{ParseAbility, ParseAbilityError, ToCommand},
+    },
     proof::{parents::CheckParents, same::CheckSame},
 };
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -71,9 +75,6 @@ impl ToCommand for MutableParents {
         }
     }
 }
-
-use crate::ability::{arguments, command::ParseAbilityError};
-use libipld_core::ipld::Ipld;
 
 #[derive(Debug, Clone, Error)]
 pub enum ParseError {

@@ -21,7 +21,7 @@ where
     type Error;
 
     /// Read a token from the store
-    fn read<T>(&self, cid: &Cid) -> Result<Option<T>, Self::Error>
+    fn read<T>(&self, cid: Cid) -> Result<Option<T>, Self::Error>
     where
         T: Decode<C>;
 
@@ -42,7 +42,7 @@ where
     type Error;
 
     /// Read a token from the store
-    async fn read<T>(&self, cid: &Cid) -> Result<Option<T>, Self::Error>
+    async fn read<T>(&self, cid: Cid) -> Result<Option<T>, Self::Error>
     where
         T: Decode<C>;
 
@@ -66,7 +66,7 @@ pub struct InMemoryStore<C> {
 impl Store<RawCodec> for InMemoryStore<RawCodec> {
     type Error = anyhow::Error;
 
-    fn read<T>(&self, cid: &Cid) -> Result<Option<T>, Self::Error>
+    fn read<T>(&self, cid: Cid) -> Result<Option<T>, Self::Error>
     where
         T: Decode<RawCodec>,
     {

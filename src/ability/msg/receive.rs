@@ -2,6 +2,7 @@
 
 use crate::{
     ability::{arguments, command::Command},
+    delegation::Delegable,
     invocation::{promise, Resolvable},
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url,
@@ -45,11 +46,25 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
+pub type Builder = Receive;
+
 // FIXME needs promisory version
 
 impl Command for Receive {
     const COMMAND: &'static str = "msg/send";
 }
+
+impl Delegable for Receive {
+    type Builder = Receive;
+}
+
+// impl From<Promised> for Builder {
+//     fn from(promised: Promised) -> Self {
+//         Builder {
+//             from: promised.from.map(Into::into),
+//         }
+//     }
+// }
 
 impl Checkable for Receive {
     type Hierarchy = Parentful<Receive>;

@@ -10,8 +10,9 @@ pub use receive::Receive;
 
 use crate::{
     ability::arguments,
+    delegation::Delegable,
     invocation::Resolvable,
-    proof::{checkable::Checkable, parents::CheckParents, same::CheckSame},
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 
@@ -32,6 +33,10 @@ pub enum Builder {
 pub enum Promised {
     Send(send::Promised),
     Receive(receive::Promised), // FIXME
+}
+
+impl Delegable for Ready {
+    type Builder = Builder;
 }
 
 impl TryFrom<Builder> for Ready {
@@ -101,4 +106,8 @@ impl CheckParents for Builder {
             _ => Err(()),
         }
     }
+}
+
+impl Checkable for Builder {
+    type Hierarchy = Parentful<Builder>;
 }

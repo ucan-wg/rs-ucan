@@ -25,3 +25,14 @@ pub type PromisedInvocation<T: Resolvable, D> = Invocation<T::Promised, D>;
 // FIXME use presnet ability, too
 pub type Preset = Invocation<ability::preset::Ready, did::Preset>;
 pub type PresetPromised = Invocation<ability::preset::Promised, did::Preset>;
+
+impl<T, DID: Did> Invocation<T, DID> {
+    fn map_ability(self, f: impl FnOnce(T) -> T) -> Self {
+        let mut payload = self.payload;
+        payload.ability = f(payload.ability);
+        Self {
+            payload,
+            signature: self.signature,
+        }
+    }
+}

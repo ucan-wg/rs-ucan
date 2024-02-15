@@ -369,7 +369,7 @@ impl<T, C: Condition, DID: Did + Clone> Payload<T, C, DID> {
     pub fn check<'a>(
         &'a self,
         proofs: Vec<Payload<T::Hierarchy, C, DID>>,
-        now: SystemTime,
+        now: &SystemTime,
     ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
@@ -421,7 +421,7 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
         &self,
         proof: &Payload<H, C, DID>,
         args: &arguments::Named<Ipld>,
-        now: SystemTime,
+        now: &SystemTime,
     ) -> Result<Success, DelegationError<<H as Prove>::Error>>
     where
         H: Prove + Clone + Into<arguments::Named<Ipld>>,
@@ -434,12 +434,12 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
             return Err(EnvelopeError::MisalignedIssAud.into());
         }
 
-        if SystemTime::from(proof.expiration.clone()) > now {
+        if SystemTime::from(proof.expiration.clone()) > *now {
             return Err(EnvelopeError::Expired.into());
         }
 
         if let Some(nbf) = proof.not_before.clone() {
-            if SystemTime::from(nbf) > now {
+            if SystemTime::from(nbf) > *now {
                 return Err(EnvelopeError::NotYetValid.into());
             }
         }

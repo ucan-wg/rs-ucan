@@ -1,7 +1,7 @@
-use crate::ability::arguments;
+use crate::{ability::arguments, delegation::Delegable};
 use libipld_core::ipld::Ipld;
 
-pub trait Resolvable: Sized {
+pub trait Resolvable: Delegable {
     type Promised: Into<arguments::Named<Ipld>>;
 
     // FIXME indeed needed to get teh right err type
