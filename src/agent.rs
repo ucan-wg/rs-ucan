@@ -84,7 +84,7 @@ impl<
             ability_builder,
             conditions,
             metadata,
-            nonce: Nonce::generate_16(&mut salt),
+            nonce: Nonce::generate_12(&mut salt),
             expiration: expiration.into(),
             not_before: not_before.map(Into::into),
         };

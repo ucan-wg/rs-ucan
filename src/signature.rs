@@ -1,6 +1,7 @@
 //! Signatures and cryptographic envelopes.
 
 use crate::{capsule::Capsule, did::Did};
+use anyhow;
 use libipld_core::{
     cid::{Cid, CidGeneric},
     codec::{Codec, Encode},
@@ -35,7 +36,7 @@ pub struct Envelope<T: Verifiable<DID> + Capsule, DID: Did> {
     pub payload: T,
 }
 
-impl<T: Capsule + Verifiable<DID> + Clone + Into<Ipld>, DID: Did> Envelope<T, DID> {
+impl<T: Capsule + Verifiable<DID> + Into<Ipld>, DID: Did> Envelope<T, DID> {
     pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, ()> {
         Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, Code::Sha2_256, payload)
     }
@@ -50,20 +51,13 @@ impl<T: Capsule + Verifiable<DID> + Clone + Into<Ipld>, DID: Did> Envelope<T, DI
     where
         Ipld: Encode<C>,
     {
-        let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), payload.clone().into())]).into();
+        let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), payload.into())]).into();
 
         let mut buffer = vec![];
         ipld.encode(codec, &mut buffer)
             .expect("FIXME not dag-cbor? DagCborCodec to encode any arbitrary `Ipld`");
 
-        let cid: Cid = CidGeneric::new_v1(
-            codec.into(),
-            MultihashGeneric::wrap(hasher.into(), buffer.as_slice())
-                .map_err(|_| ()) // FIXME
-                .expect("FIXME expect signing to work..."),
-        );
-
-        let sig = signer.try_sign(&cid.to_bytes()).map_err(|_| ())?;
+        let sig = signer.try_sign(&buffer).map_err(|_| ())?;
 
         Ok(Envelope {
             signature: Signature::Solo(sig),
@@ -122,22 +116,28 @@ pub enum Signature<S> {
 //    Right = 1,
 //}
 
-impl<S: Into<Ipld>> From<Signature<S>> for Ipld {
-    fn from(signature: Signature<S>) -> Self {
-        match signature {
-            Signature::Solo(sig) => sig.into(),
-            // Signature::Batch {
-            //     signature,
-            //     merkle_proof,
-            // } => Ipld::List(merkle_proof.into_iter().map(|p| p.into()).collect()),
-        }
+impl<C: Codec, T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> Encode<C> for Envelope<T, DID>
+where
+    Ipld: Encode<C>,
+{
+    fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
+        Ipld::from(*self).encode(codec, writer)
     }
 }
 
-impl<T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> From<Envelope<T, DID>> for Ipld
-where
-    DID::Signature: Into<Ipld>,
-{
+// impl<S: Into<Ipld>> From<Signature<S>> for Ipld {
+//     fn from(signature: Signature<S>) -> Self {
+//         match signature {
+//             Signature::Solo(sig) => sig.into(),
+//             // Signature::Batch {
+//             //     signature,
+//             //     merkle_proof,
+//             // } => Ipld::List(merkle_proof.into_iter().map(|p| p.into()).collect()),
+//         }
+//     }
+// }
+
+impl<T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> From<Envelope<T, DID>> for Ipld {
     fn from(Envelope { signature, payload }: Envelope<T, DID>) -> Self {
         let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), payload.into())]).into();
 

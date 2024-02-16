@@ -16,19 +16,6 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 // FIXME deserialize instance
 
-/// A helper for creating lifecycle instances of `crud/create` with the correct shape.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Generic<Path, Args> {
-    /// An optional path to a sub-resource that is to be updated.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<Path>,
-
-    /// Optional arguments to be passed in the update.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<Args>,
-}
-
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/create` ability.
 ///
@@ -60,7 +47,17 @@ pub struct Generic<Path, Args> {
 ///
 ///     style updateready stroke:orange;
 /// ```
-pub type Ready = Generic<PathBuf, arguments::Named<Ipld>>;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Ready {
+    /// An optional path to a sub-resource that is to be updated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    path: Option<PathBuf>,
+
+    /// Optional arguments to be passed in the update.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    args: Option<arguments::Named<Ipld>>,
+}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The delegatable ability for updating existing agents.
@@ -93,7 +90,17 @@ pub type Ready = Generic<PathBuf, arguments::Named<Ipld>>;
 ///
 ///     style update stroke:orange;
 /// ```
-pub type Builder = Generic<PathBuf, arguments::Named<Ipld>>;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Builder {
+    /// An optional path to a sub-resource that is to be updated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    path: Option<PathBuf>,
+
+    /// Optional arguments to be passed in the update.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    args: Option<arguments::Named<Ipld>>,
+}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// An invoked `crud/update` ability (but possibly awaiting another
@@ -127,9 +134,19 @@ pub type Builder = Generic<PathBuf, arguments::Named<Ipld>>;
 ///
 ///     style updatepromise stroke:orange;
 /// ```
-pub type Promised = Generic<promise::Resolves<PathBuf>, arguments::Promised>;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Promised {
+    /// An optional path to a sub-resource that is to be updated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    path: Option<promise::Resolves<PathBuf>>,
 
-impl<P, A> Command for Generic<P, A> {
+    /// Optional arguments to be passed in the update.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    args: Option<arguments::Promised>,
+}
+
+impl Command for Ready {
     const COMMAND: &'static str = "crud/update";
 }
 
@@ -137,22 +154,43 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             path: promised.path.map(Into::into),
-//             args: promised.args.map(Into::into),
-//         }
-//     }
-// }
+impl From<Ready> for Builder {
+    fn from(r: Ready) -> Self {
+        Builder {
+            path: r.path,
+            args: r.args,
+        }
+    }
+}
 
-impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {
-    fn from(create: Generic<P, A>) -> Self {
+impl From<Builder> for Ready {
+    fn from(builder: Builder) -> Self {
+        Ready {
+            path: builder.path,
+            args: builder.args,
+        }
+    }
+}
+
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            path: promised.path.and_then(Into::into),
+            args: promised.args.and_then(|res| match res.try_resolve() {
+                Ok(args) => Some(args.into()),
+                Err(unresolved) => None,
+            }),
+        }
+    }
+}
+
+impl From<Ready> for Ipld {
+    fn from(create: Ready) -> Self {
         create.into()
     }
 }
 
-impl<P: TryFrom<Ipld>, A: TryFrom<Ipld>> TryFrom<Ipld> for Generic<P, A> {
+impl TryFrom<Ipld> for Ready {
     type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
@@ -161,15 +199,15 @@ impl<P: TryFrom<Ipld>, A: TryFrom<Ipld>> TryFrom<Ipld> for Generic<P, A> {
                 return Err(()); // FIXME
             }
 
-            Ok(Generic {
+            Ok(Ready {
                 path: map
-                    .remove("path")
-                    .map(|ipld| P::try_from(ipld).map_err(|_| ()))
+                    .get("path")
+                    .map(|ipld| (ipld::Newtype(*ipld)).try_into().map_err(|_| ()))
                     .transpose()?,
 
                 args: map
-                    .remove("args")
-                    .map(|ipld| A::try_from(ipld).map_err(|_| ()))
+                    .get("args")
+                    .map(|ipld| (*ipld).try_into().map_err(|_| ()))
                     .transpose()?,
             })
         } else {

@@ -45,7 +45,7 @@ impl<
         now: &SystemTime,
     ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
         let mut salt = self.did.clone().to_string().into_bytes();
-        let nonce = Nonce::generate_16(&mut salt);
+        let nonce = Nonce::generate_12(&mut salt);
 
         if subject == *self.did {
             let payload: Payload<B, C, DID> = Payload {

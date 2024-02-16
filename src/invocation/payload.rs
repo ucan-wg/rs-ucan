@@ -9,7 +9,15 @@ use crate::{
     signature::Verifiable,
     time::Timestamp,
 };
-use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use anyhow;
+use libipld_core::{
+    cid::{Cid, CidGeneric},
+    codec::{Codec, Encode},
+    error::SerdeError,
+    ipld::Ipld,
+    multihash::{Code, MultihashGeneric},
+    serde as ipld_serde,
+};
 use serde::{Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
@@ -44,6 +52,24 @@ pub struct Payload<T, DID: Did> {
 // This probably means putting the delegation T back to the upper level and bieng explicit about
 // the T::Builder in the type
 impl<T, DID: Did + Clone> Payload<T, DID> {
+    pub fn map_ability<F, U>(self, f: F) -> Payload<U, DID>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Payload {
+            issuer: self.issuer,
+            subject: self.subject,
+            audience: self.audience,
+            ability: f(self.ability),
+            proofs: self.proofs,
+            cause: self.cause,
+            metadata: self.metadata,
+            nonce: self.nonce,
+            not_before: self.not_before,
+            expiration: self.expiration,
+        }
+    }
+
     pub fn check<C: Condition>(
         self,
         proofs: Vec<delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
@@ -116,13 +142,46 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
 /// [`Promise`]: crate::invocation::promise::Promise
 pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
 
+// impl<T: Delegable, DID: Did> Delegable for Payload<T, DID> {
+//     type Builder = Payload<T::Builder, DID>;
+// }
+
+// use crate::proof::parentful::Parentful;
+//
+// impl<T: Delegable, DID: Did> Checkable for Payload<T::Builder, DID>
+// where
+//     T::Builder: Checkable<Hierarchy = Parentful<T::Builder>>,
+// {
+//     type Hierarchy = ();
+// }
+
+// impl<T: Delegable, DID: Did> TryFrom<Payload<T::Builder, DID>> for Payload<T, DID> {
+//     fn from(payload: Payload<T, DID>) -> Self {
+//         Payload {
+//             issuer: payload.issuer,
+//             subject: payload.subject,
+//             audience: payload.audience,
+//
+//             ability: T::from(payload.ability),
+//
+//             proofs: payload.proofs,
+//             cause: payload.cause,
+//             metadata: payload.metadata,
+//             nonce: payload.nonce,
+//
+//             not_before: payload.not_before,
+//             expiration: payload.expiration,
+//         }
+//     }
+// }
+
 // impl<T: Resolvable, DID: Did> Resolvable for Payload<T, DID>
 // where
 //     arguments::Named<Ipld>: From<T::Promised>,
 //     Ipld: From<T::Promised>,
 //     T::Promised: ToCommand,
 // {
-//     type Promised = Promised<T, DID>;
+//     type Promised = Promised<T::Promised, DID>;
 //
 //     fn try_resolve(promised: Promised<T, DID>) -> Result<Self, Self::Promised> {
 //         match <T as Resolvable>::try_resolve(promised.ability) {
@@ -313,5 +372,15 @@ impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>
             not_before: payload.not_before,
             expiration: payload.expiration,
         }
+    }
+}
+
+impl<C: Codec, T, DID: Did> Encode<C> for Payload<T, DID>
+where
+    Ipld: Encode<C>,
+{
+    fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
+        let ipld: Ipld = (*self).into();
+        ipld.encode(codec, writer)
     }
 }

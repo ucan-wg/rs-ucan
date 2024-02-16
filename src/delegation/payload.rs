@@ -461,3 +461,13 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
             .map_err(DelegationError::SemanticError)
     }
 }
+
+// use crate::proof::{parentful::Parentful, parentless::Parentless};
+//
+// impl<B: Checkable<Hierarchy = Parentless<B>>, C, DID: Did> Checkable for Payload<B, C, DID> {
+//     type Hierarchy = Parentless<Payload<B, C, DID>>;
+// }
+//
+// impl<B: Checkable<Hierarchy = Parentful<B>>, C, DID: Did> Checkable for Payload<B, C, DID> {
+//     type Hierarchy = Parentful<Payload<B, C, DID>>;
+// }

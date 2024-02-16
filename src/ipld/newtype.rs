@@ -55,6 +55,17 @@ impl From<PathBuf> for Newtype {
     }
 }
 
+impl TryFrom<Newtype> for PathBuf {
+    type Error = (); // FIXME
+
+    fn try_from(wrapped: Newtype) -> Result<Self, Self::Error> {
+        match wrapped.0 {
+            Ipld::String(s) => Ok(PathBuf::from(s)),
+            _ => Err(()),
+        }
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 impl Newtype {
     pub fn try_from_js<T: TryFrom<Ipld>>(js_val: JsValue) -> Result<T, JsError>

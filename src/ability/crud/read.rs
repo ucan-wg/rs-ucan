@@ -130,14 +130,14 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             path: promised.path.map(Into::into),
-//             args: promised.args.map(Into::into),
-//         }
-//     }
-// }
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            path: promised.path.map(Into::into),
+            args: promised.args.map(Into::into),
+        }
+    }
+}
 
 impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {
     fn from(read: Generic<P, A>) -> Self {

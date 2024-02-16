@@ -94,16 +94,16 @@ impl Checkable for Builder {
     type Hierarchy = Parentful<Builder>;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         match promised {
-//             Promised::Create(create) => create.into(),
-//             Promised::Read(read) => read.into(),
-//             Promised::Update(update) => update.into(),
-//             Promised::Destroy(destroy) => destroy.into(),
-//         }
-//     }
-// }
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        match promised {
+            Promised::Create(create) => Builder::Create(create.into()),
+            Promised::Read(read) => Builder::Read(read.into()),
+            Promised::Update(update) => Builder::Update(update.into()),
+            Promised::Destroy(destroy) => Builder::Destroy(destroy.into()),
+        }
+    }
+}
 
 impl CheckParents for Builder {
     type Parents = MutableParents;

@@ -1,5 +1,9 @@
-use super::enriched::Enriched;
-use crate::invocation::promise::{Promise, PromiseAny, PromiseErr, PromiseOk};
+use super::enriched::{Enriched, Item};
+use crate::ability::arguments;
+use crate::invocation::{
+    promise::{self, Promise, PromiseAny, PromiseErr, PromiseOk},
+    Resolvable, // FIXME this shoudl be under promise
+};
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 
@@ -7,16 +11,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Promised(pub Promise<Enriched<Promised>, Enriched<Promised>>);
-
-impl Promised {
-    // FIXME note that this is different from the failable version which is more like
-    // a try_reoslve... which has a note at the bottom on this module
-    pub fn serialize_as_ipld(&self) -> Ipld {
-        ipld_serde::to_ipld(self).unwrap() // FIXME at worst we can do this by hand
-    }
-}
-
-// Promise variants into Promised
 
 impl From<Promise<Enriched<Promised>, Enriched<Promised>>> for Promised {
     fn from(promise: Promise<Enriched<Promised>, Enriched<Promised>>) -> Self {
@@ -51,6 +45,7 @@ impl From<Ipld> for Promised {
 }
 
 //  FIXME THIS is a great example of a try_resolve
+//  FIXME is this recursive? Will this blow the stack?
 impl TryFrom<Promised> for Ipld {
     type Error = Promised;
 
@@ -84,3 +79,56 @@ impl TryFrom<Promised> for Ipld {
         }
     }
 }
+
+// FIXME surely the other version in this module can't be right if this also works?
+// FIXME this is more iterative right?
+// impl TryFrom<Promised> for Ipld {
+//     // impl Resolvable for Ipld {
+//     type Error = Self;
+//     // type Promised = Promised;
+//
+//     fn try_from(promised: Promised) -> Result<Self, Self::Error> {
+//         fn handle(enriched: super::Enriched<Promised>) -> Result<Ipld, ()> {
+//             enriched
+//                 .into_iter()
+//                 .try_fold(vec![], |mut acc, next| {
+//                     match next {
+//                         Item::Inner(promised) => {
+//                             let inner: Ipld = Resolvable::try_resolve(*promised).map_err(|_| ())?;
+//
+//                             acc.push(inner);
+//                         }
+//                         Item::Node(node) => {
+//                             let _ = Ipld::try_from(*node).map_err(|_| ())?;
+//                         }
+//                     }
+//                     Ok(acc)
+//                 })
+//                 .map(|vec| vec.first().expect("FIXME").clone())
+//         }
+//
+//         match promised.0 {
+//             Promise::Ok(promise_ok) => match promise_ok {
+//                 PromiseOk::Fulfilled(enriched) => {
+//                     handle(enriched).map_err(|_| PromiseOk::Fulfilled(enriched).into())
+//                 }
+//                 PromiseOk::Pending(_) => Err(promised),
+//             },
+//             Promise::Err(promise_err) => match promise_err {
+//                 PromiseErr::Rejected(enriched) => {
+//                     handle(enriched).map_err(|_| PromiseErr::Rejected(enriched).into())
+//                 }
+//                 PromiseErr::Pending(_) => Err(promised),
+//             },
+//             Promise::Any(promise_any) => match promise_any {
+//                 PromiseAny::Fulfilled(enriched) => {
+//                     handle(enriched).map_err(|_| PromiseAny::Fulfilled(enriched).into())
+//                 }
+//                 PromiseAny::Rejected(enriched) => {
+//                     handle(enriched).map_err(|_| PromiseAny::Rejected(enriched).into())
+//                 }
+//                 PromiseAny::Pending(_) => Err(promised),
+//             },
+//         }
+//     }
+// }

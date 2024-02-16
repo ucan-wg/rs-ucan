@@ -1,14 +1,21 @@
 use super::{payload::Payload, store::Store, Invocation, Resolvable};
 use crate::{
-    ability::ucan,
+    ability::{arguments, ucan},
     delegation,
     delegation::{condition::Condition, Delegable},
     did::Did,
     nonce::Nonce,
-    signature::Verifiable,
+    proof::{checkable::Checkable, prove::Prove},
+    signature::{Signature, Verifiable},
     time::JsTime,
 };
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_cbor::DagCborCodec;
+use libipld_core::{
+    cid::{Cid, CidGeneric},
+    codec::Encode,
+    ipld::Ipld,
+    multihash::{Code, MultihashGeneric},
+};
 use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
@@ -26,8 +33,6 @@ pub struct Agent<
 
     pub delegation_store: &'a D,
     pub invocation_store: &'a mut S,
-    pub revocation_store: &'a mut S, // FIXME just a BTRee Set pointing into invocatuin store?
-
     pub unresolved_promise_store: &'a mut P,
     pub resolved_promise_store: &'a mut P,
 
@@ -70,14 +75,14 @@ impl<
         &mut self,
         audience: Option<&DID>,
         subject: &DID,
-        ability: T::Promised, // FIXME Resolved needs Into<Builder>
+        ability: T::Promised, // FIXME give them an enum for promised or not probs doens't matter?
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
         expiration: Option<JsTime>,
         not_before: Option<JsTime>,
         now: &SystemTime,
         // FIXME err type
-    ) -> Result<Invocation<T, DID>, ()> {
+    ) -> Result<Invocation<T::Promised, DID>, ()> {
         let proofs = self
             .delegation_store
             .get_chain(self.did, subject, &ability.into(), vec![], now)
@@ -94,105 +99,135 @@ impl<
             ability,
             proofs,
             metadata,
-            nonce: Nonce::generate_16(&mut seed),
+            nonce: Nonce::generate_12(&mut seed),
             cause,
             expiration: expiration.map(Into::into),
             not_before: not_before.map(Into::into),
         };
 
-        let invocation = Invocation::try_sign(self.signer, &payload).map_err(|_| ())?;
-        let cid = Cid::from(invocation);
-        Ok(invocation)
+        Ok(Invocation::try_sign(self.signer, payload).map_err(|_| ())?)
     }
-
-    // FIXME err = ()
-    // FIXME move to revocation agent wit own traits?
-    // pub fn revoke(
-    //     &mut self,
-    //     subject: &DID,
-    //     cause: Option<Cid>,
-    //     cid: Cid,
-    //     now: JsTime,
-    // ) -> Result<(), ()> {
-    //     let ability = ucan::revoke::Ready { ucan: cid };
-    //     let proofs = if subject == self.did {
-    //         vec![]
-    //     } else {
-    //         self.delegation_store
-    //             .get_chain(
-    //                 subject,
-    //                 self.did,
-    //                 &ability.into(),
-    //                 vec![],
-    //                 &SystemTime::now(),
-    //             )
-    //             .map_err(|_| ())?
-    //             .map(|chain| chain.map(|(cid, _)| *cid).into())
-    //             .unwrap_or(vec![])
-    //     };
-
-    //     let payload = Payload {
-    //         issuer: self.did.clone(),
-    //         subject: self.did.clone(),
-    //         audience: Some(self.did.clone()),
-    //         ability,
-    //         proofs,
-    //         cause: None,
-    //         metadata: BTreeMap::new(),
-    //         nonce: Nonce::generate_16(&mut vec![]),
-    //         expiration: None,
-    //         not_before: None,
-    //     };
-
-    //     let invocation = Invocation::try_sign(self.signer, &payload).map_err(|_| ())?;
-
-    //     self.invocation_store.revoke(&cid)?;
-    // }
 
     pub fn receive(
         &self,
-        invocation: Invocation<T::Promised, DID>,
-        now: SystemTime,
+        promised: Invocation<T::Promised, DID>,
+        now: &SystemTime,
         // FIXME return type
-    ) -> Result<Recipient<T::Promised>, ()> {
+    ) -> Result<Recipient<Payload<T, DID>>, ()>
+    where
+        <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+        T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
+    {
         // FIXME needs varsig header
-        let cid = Cid::from(invocation);
+        let mut buffer = vec![];
+        Ipld::from(promised)
+            .encode(DagCborCodec, &mut buffer)
+            .expect("FIXME not dag-cbor? DagCborCodec to encode any arbitrary `Ipld`");
 
-        invocation
+        let cid: Cid = CidGeneric::new_v1(
+            DagCborCodec.into(),
+            MultihashGeneric::wrap(Code::Sha2_256.into(), buffer.as_slice())
+                .map_err(|_| ()) // FIXME
+                .expect("FIXME expect signing to work..."),
+        );
+
+        let mut encoded = vec![];
+        promised
+            .payload
+            // FIXME use the varsig headre to get the codec
+            .encode(DagCborCodec, &mut encoded)
+            .expect("FIXME");
+
+        promised
             .verifier()
-            .verify(&cid.to_bytes(), &invocation.signature.to_bytes())
+            .verify(
+                &encoded,
+                &match promised.signature {
+                    Signature::Solo(sig) => sig,
+                },
+            )
             .map_err(|_| ())?;
 
-        let payload: Payload<T::Promised, DID> = invocation.payload;
-        let resolved_payload = match payload.ability.try_resolve() {
-            Ok(resolved_payload) => {
-                // NOTE Already resolved when it came over the wire
-                let resolved_invocation = invocation.map_ability(|_| resolved_payload);
-                self.store.put(cid, resolved_invocation).map_err(|_| ())?;
-                resolved_payload
-            }
+        let resolved_ability: T = match Resolvable::try_resolve(promised.payload.ability) {
+            Ok(resolved) => resolved,
             Err(_) => {
                 // FIXME check if any of the unresolved promises are in the store
-                self.promised_store.put(cid, invocation).map_err(|_| ())?;
-                todo!() // return Ok(Recipient::Other(promised)); // FIXME
+                // FIXME check if it's actually unresolved
+                self.unresolved_promise_store
+                    .put(cid, promised)
+                    .map_err(|_| ())?;
+
+                todo!()
+                // return Ok(Recipient::Other(promised)); // FIXME
             }
         };
 
         let proof_payloads = self
             .delegation_store
-            .get_many(&invocation.payload.proofs)
-            .map(|d| d.payload);
+            .get_many(&promised.payload.proofs)
+            .map_err(|_| ())?
+            .into_iter()
+            .map(|d| d.payload)
+            .collect();
 
-        resolved_payload
-            .into()
-            .check(&proof_payloads, now)
+        let resolved_payload = promised.payload.map_ability(|_| resolved_ability);
+
+        delegation::Payload::<T::Builder, C, DID>::from(resolved_payload)
+            .check(proof_payloads, now)
             .map_err(|_| ())?;
 
-        if invocation.payload.audience != Some(*self.did) {
-            return Ok(Recipient::Other(invocation));
+        if promised.payload.audience != Some(*self.did) {
+            return Ok(Recipient::Other(resolved_payload));
         }
 
-        Ok(Recipient::You(invocation))
+        Ok(Recipient::You(resolved_payload))
+    }
+
+    pub fn revoke(
+        &mut self,
+        subject: &DID,
+        cause: Option<Cid>,
+        cid: Cid,
+        now: &JsTime,
+        // FIXME return type
+    ) -> Result<Invocation<T, DID>, ()>
+    where
+        T: From<ucan::revoke::Ready>,
+    {
+        let ability: T = ucan::revoke::Ready { ucan: cid.clone() }.into();
+        let proofs = if subject == self.did {
+            vec![]
+        } else {
+            self.delegation_store
+                .get_chain(
+                    subject,
+                    self.did,
+                    &ability.into(),
+                    vec![],
+                    &SystemTime::now(),
+                )
+                .map_err(|_| ())?
+                .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
+                .unwrap_or(vec![])
+        };
+
+        let payload = Payload {
+            issuer: self.did.clone(),
+            subject: self.did.clone(),
+            audience: Some(self.did.clone()),
+            ability,
+            proofs,
+            cause: None,
+            metadata: BTreeMap::new(),
+            nonce: Nonce::generate_12(&mut vec![]),
+            expiration: None,
+            not_before: None,
+        };
+
+        let invocation = Invocation::try_sign(self.signer, payload).map_err(|_| ())?;
+
+        self.delegation_store.revoke(cid).map_err(|_| ())?;
+        Ok(invocation)
     }
 }
 
@@ -200,3 +235,8 @@ pub enum Recipient<T> {
     You(T),
     Other(T),
 }
+
+// impl<T> Agent {
+// FIXME err = ()
+// FIXME move to revocation agent wit own traits?
+// }

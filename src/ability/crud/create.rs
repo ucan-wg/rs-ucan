@@ -269,14 +269,17 @@ impl From<Ready> for Promised {
     }
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             path: promised.path.map(Into::into),
-//             args: promised.args.map(Into::into),
-//         }
-//     }
-// }
+// FIXME may want to name this something other than a TryFrom
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            path: promised.path.and_then(|x| x.try_resolve().ok()),
+            args: promised
+                .args
+                .and_then(|x| x.try_resolve().ok()?.try_into().ok()),
+        }
+    }
+}
 
 impl Resolvable for Ready {
     type Promised = Promised;
