@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
 
+#[derive(Debug)]
 pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> {
     pub did: &'a DID,
     pub store: &'a mut S,
@@ -21,7 +22,7 @@ impl<
         B: Checkable + Clone,
         C: Condition + Clone,
         DID: Did + ToString + Clone,
-        S: Store<B, C, DID>,
+        S: Store<B, C, DID> + Clone,
     > Agent<'a, B, C, DID, S>
 {
     pub fn new(did: &'a DID, signer: &'a <DID as Did>::Signer, store: &'a mut S) -> Self {

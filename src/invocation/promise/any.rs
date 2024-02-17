@@ -185,7 +185,7 @@ impl<T, E> TryFrom<PromiseAny<T, E>> for PromiseOk<T> {
     fn try_from(p_any: PromiseAny<T, E>) -> Result<PromiseOk<T>, Self::Error> {
         match p_any {
             PromiseAny::Fulfilled(val) => Ok(PromiseOk::Fulfilled(val)),
-            PromiseAny::Rejected(err) => Err(()),
+            PromiseAny::Rejected(_err) => Err(()),
             PromiseAny::Pending(cid) => Ok(PromiseOk::Pending(cid)),
         }
     }
@@ -196,7 +196,7 @@ impl<T, E> TryFrom<PromiseAny<T, E>> for PromiseErr<E> {
 
     fn try_from(p_any: PromiseAny<T, E>) -> Result<PromiseErr<E>, Self::Error> {
         match p_any {
-            PromiseAny::Fulfilled(val) => Err(()),
+            PromiseAny::Fulfilled(_val) => Err(()),
             PromiseAny::Rejected(err) => Ok(PromiseErr::Rejected(err)),
             PromiseAny::Pending(cid) => Ok(PromiseErr::Pending(cid)),
         }

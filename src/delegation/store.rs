@@ -8,8 +8,6 @@ use libipld_core::{cid::Cid, ipld::Ipld};
 use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    convert::Infallible,
-    fmt,
     ops::ControlFlow,
 };
 use web_time::SystemTime;

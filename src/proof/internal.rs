@@ -1,2 +1,3 @@
 // NOTE: Must not get exported
-pub(crate) trait Checker {}
+// FIXME either mark downstream as ok to be provate, OOOOOR just leave this in an internal modukle
+pub trait Checker {}

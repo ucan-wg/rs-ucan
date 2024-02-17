@@ -6,8 +6,8 @@ use super::{
     prove::{Prove, Success},
     same::CheckSame,
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
 
 /// The possible cases for an [ability][crate::ability]'s
 /// [Delegation][crate::delegation::Delegation] chain when

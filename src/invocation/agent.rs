@@ -17,9 +17,9 @@ use libipld_core::{
     multihash::{Code, MultihashGeneric},
 };
 use std::{collections::BTreeMap, marker::PhantomData};
-use thiserror::Error;
 use web_time::SystemTime;
 
+#[derive(Debug)]
 pub struct Agent<
     'a,
     T: Resolvable + Delegable,
@@ -190,7 +190,7 @@ where
         subject: &DID,
         cause: Option<Cid>,
         cid: Cid,
-        now: &JsTime,
+        now: JsTime,
         // FIXME return type
     ) -> Result<Invocation<T, DID>, ()>
     where
@@ -206,7 +206,7 @@ where
                     self.did,
                     &ability.clone().into(),
                     vec![],
-                    &SystemTime::now(),
+                    &now.into(),
                 )
                 .map_err(|_| ())?
                 .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
@@ -219,7 +219,7 @@ where
             audience: Some(self.did.clone()),
             ability,
             proofs,
-            cause: None,
+            cause,
             metadata: BTreeMap::new(),
             nonce: Nonce::generate_12(&mut vec![]),
             expiration: None,
@@ -233,6 +233,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub enum Recipient<T> {
     You(T),
     Other(T),

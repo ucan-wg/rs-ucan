@@ -36,13 +36,12 @@ pub struct Envelope<T: Verifiable<DID> + Capsule, DID: Did> {
 
 impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DID> {
     pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, ()> {
-        Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, Code::Sha2_256, payload)
+        Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, payload)
     }
 
     pub fn try_sign_generic<C: Codec, H: Into<u64>>(
         signer: &DID::Signer,
         codec: C,
-        hasher: H,
         payload: T,
     ) -> Result<Envelope<T, DID>, ()>
     // FIXME err = ()

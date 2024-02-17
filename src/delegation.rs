@@ -29,7 +29,7 @@ use web_time::SystemTime;
 ///
 /// # Examples
 /// FIXME
-pub type Delegation<T, C, DID: Did> = signature::Envelope<Payload<T, C, DID>, DID>;
+pub type Delegation<T, C, DID> = signature::Envelope<Payload<T, C, DID>, DID>;
 
 pub type Preset = Delegation<ability::preset::Builder, condition::Preset, did::Preset>;
 

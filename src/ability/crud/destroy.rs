@@ -1,18 +1,15 @@
 //! Destroy a resource.
-use super::{error::ProofError, parents::MutableParents};
+use super::parents::MutableParents;
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, promise::Resolves, Resolvable},
+    invocation::{promise, Resolvable},
     ipld,
-    proof::{
-        checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
-        parents::CheckParents, same::CheckSame, util::check_optional,
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::BTreeMap, path::PathBuf};
+use libipld_core::ipld::Ipld;
+use serde::Serialize;
+use std::path::PathBuf;
 
 // FIXME deserialize instance
 

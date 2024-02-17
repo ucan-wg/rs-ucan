@@ -60,8 +60,6 @@ pub struct Any {
     pub path: Option<PathBuf>,
 }
 
-use crate::ability::command::ParseAbility;
-
 impl Command for Any {
     const COMMAND: &'static str = "crud/*";
 }

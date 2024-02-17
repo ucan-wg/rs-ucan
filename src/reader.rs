@@ -1,12 +1,8 @@
 //! Configure & attach an ambient environment to a value.
 
-use crate::{
-    ability::{
-        arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
-    },
-    delegation::Delegable,
-    invocation::Resolvable,
+use crate::ability::{
+    arguments,
+    command::{ParseAbility, ParseAbilityError, ToCommand},
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -244,32 +240,3 @@ impl<Env, T: ToCommand> From<Reader<Env, Promised<T>>> for Reader<Env, T> {
         reader.map(|p| p.0)
     }
 }
-
-// use crate::proof::{checkable::Checkable, same::CheckSame};
-//
-// impl<Env, T: Delegable> Delegable for Reader<Env, T>
-// where
-//     Reader<Env, T::Builder>: Checkable + CheckSame,
-// {
-//     type Builder = Reader<Env, T::Builder>;
-// }
-//
-// impl<Env, T: Resolvable> Resolvable for Reader<Env, T>
-// where
-//     Reader<Env, T::Promised>: Into<arguments::Named<Ipld>>,
-// {
-//     type Promised = Reader<Env, T::Promised>;
-//
-//     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
-//         match T::try_resolve(promised.val) {
-//             Ok(val) => Ok(Reader {
-//                 env: promised.env,
-//                 val,
-//             }),
-//             Err(val) => Err(Reader {
-//                 env: promised.env,
-//                 val,
-//             }),
-//         }
-//     }
-// }

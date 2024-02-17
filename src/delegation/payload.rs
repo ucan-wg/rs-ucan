@@ -8,7 +8,6 @@ use crate::{
         command::{Command, ParseAbility, ToCommand},
     },
     capsule::Capsule,
-    did,
     did::Did,
     nonce::Nonce,
     proof::{
@@ -365,15 +364,16 @@ impl<T, C: Condition, DID: Did> From<Payload<T, C, DID>> for Ipld {
     }
 }
 
-impl<T, C: Condition, DID: Did + Clone> Payload<T, C, DID> {
-    pub fn check<'a>(
-        &'a self,
+impl<T: Checkable + Clone + Into<arguments::Named<Ipld>>, C: Condition, DID: Did + Clone>
+    Payload<T, C, DID>
+{
+    pub fn check(
+        &self,
         proofs: Vec<Payload<T::Hierarchy, C, DID>>,
         now: &SystemTime,
     ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
-        T: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
     {
         let start: Acc<T::Hierarchy, DID> = Acc {
             issuer: self.issuer.clone(),

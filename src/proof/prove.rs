@@ -2,14 +2,17 @@
 
 use super::internal::Checker;
 
+// FIXME move to internal?
+
 /// An internal trait that checks based on the other traits for an ability type.
-pub(crate) trait Prove: Checker {
+pub trait Prove: Checker {
     type Error;
 
     // FIXME make the same as the trait name (prove)
     fn check(&self, proof: &Self) -> Result<Success, Self::Error>;
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Success {
     /// Success
     Proven,
@@ -18,6 +21,7 @@ pub enum Success {
     ProvenByAny,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Failure<ArgErr, ChainErr, ParentErr> {
     /// An error in the command chain.
     CommandEscelation,

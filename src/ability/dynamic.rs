@@ -4,10 +4,10 @@ use super::{
     arguments,
     command::{ParseAbility, ToCommand},
 };
-use crate::{ipld, proof::same::CheckSame};
+use crate::proof::same::CheckSame;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, convert::Infallible, fmt::Debug};
+use std::{convert::Infallible, fmt::Debug};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

@@ -11,11 +11,10 @@ use crate::{
 };
 use anyhow;
 use libipld_core::{
-    cid::{Cid, CidGeneric},
+    cid::Cid,
     codec::{Codec, Encode},
     error::SerdeError,
     ipld::Ipld,
-    multihash::{Code, MultihashGeneric},
     serde as ipld_serde,
 };
 use serde::{Serialize, Serializer};

@@ -82,8 +82,15 @@ impl CheckParents for Receive {
     type ParentError = <super::Any as CheckSame>::Error;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        // self.from.check_same(&proof.from).map_err(|_| ())
-        todo!() // FIXME
+        if let Some(from) = &self.from {
+            if let Some(proof_from) = &proof.from {
+                if from != &url::Newtype(proof_from.clone()) {
+                    return Err(());
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -131,11 +138,11 @@ impl Resolvable for Receive {
     fn try_resolve(p: Promised) -> Result<Self, Self::Promised> {
         match &p.from {
             None => Ok(Receive { from: None }),
-            Some(promise::Resolves::Ok(promiseOk)) => match promiseOk.clone().try_resolve() {
+            Some(promise::Resolves::Ok(promise_ok)) => match promise_ok.clone().try_resolve() {
                 Ok(from) => Ok(Receive { from }),
                 Err(_from) => Err(Promised { from: p.from }),
             },
-            Some(promise::Resolves::Err(promiseErr)) => match promiseErr.clone().try_resolve() {
+            Some(promise::Resolves::Err(promise_err)) => match promise_err.clone().try_resolve() {
                 Ok(from) => Ok(Receive { from }),
                 Err(_from) => Err(Promised { from: p.from }),
             },

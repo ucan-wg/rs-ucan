@@ -1,4 +1,3 @@
-use crate::invocation::Resolvable;
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

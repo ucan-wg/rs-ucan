@@ -7,7 +7,7 @@ mod err;
 mod ok;
 mod resolves;
 
-pub mod js;
+// FIXME pub mod js;
 
 pub use any::PromiseAny;
 pub use err::PromiseErr;

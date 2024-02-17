@@ -1,10 +1,7 @@
 use super::Invocation;
 use crate::{did::Did, invocation::Resolvable};
-use libipld_core::{cid::Cid, link::Link};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::ControlFlow,
-};
+use libipld_core::cid::Cid;
+use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub trait Store<T, DID: Did> {
@@ -58,6 +55,7 @@ pub trait PromiseIndex<T: Resolvable, DID: Did> {
     ) -> Result<BTreeSet<Cid>, Self::PromiseIndexError>;
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct MemoryPromiseIndex {
     pub index: BTreeMap<Cid, BTreeSet<Cid>>,
 }
@@ -84,7 +82,7 @@ impl<T: Resolvable, DID: Did> PromiseIndex<T, DID> for MemoryPromiseIndex {
             None => BTreeSet::new(),
             Some(first) => waiting_on
                 .iter()
-                .try_fold(BTreeSet::from_iter([first]), |mut acc, cid| {
+                .try_fold(BTreeSet::from_iter([first]), |acc, cid| {
                     let next = self.index.get(cid).ok_or(())?;
 
                     let reduced: BTreeSet<Cid> = acc.intersection(&next).cloned().collect();

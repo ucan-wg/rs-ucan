@@ -1,17 +1,14 @@
 //! Update existing resources.
-use super::{error::ProofError, parents::MutableParents};
+use super::parents::MutableParents;
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
     invocation::{promise, promise::Resolves, Resolvable},
     ipld,
-    proof::{
-        checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
-        parents::CheckParents, same::CheckSame, util::check_optional,
-    },
+    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use libipld_core::ipld::Ipld;
+use serde::Serialize;
 use std::{collections::BTreeMap, path::PathBuf};
 
 // FIXME deserialize instance
@@ -182,7 +179,7 @@ impl TryFrom<Ipld> for Ready {
     type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        if let Ipld::Map(mut map) = ipld {
+        if let Ipld::Map(map) = ipld {
             if map.len() > 2 {
                 return Err(()); // FIXME
             }

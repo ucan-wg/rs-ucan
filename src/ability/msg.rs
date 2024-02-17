@@ -108,10 +108,10 @@ impl CheckParents for Builder {
     type Parents = Any;
     type ParentError = ();
 
-    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+    fn check_parent(&self, proof: &Any) -> Result<(), Self::ParentError> {
         match (self, proof) {
-            (Builder::Send(this), Any) => this.check_parent(&Any),
-            (Builder::Receive(this), Any) => this.check_parent(&Any),
+            (Builder::Send(this), any) => this.check_parent(&any),
+            (Builder::Receive(this), any) => this.check_parent(&any),
         }
     }
 }

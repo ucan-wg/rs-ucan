@@ -118,6 +118,12 @@ pub struct JsTime {
     time: SystemTime,
 }
 
+impl From<JsTime> for SystemTime {
+    fn from(js_time: JsTime) -> Self {
+        js_time.time
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl JsTime {

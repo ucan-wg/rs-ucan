@@ -1,3 +1,5 @@
+// FIXME rename this is not for the sign envelope
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnvelopeError {
     InvalidSubject,
     MisalignedIssAud,
@@ -6,24 +8,13 @@ pub enum EnvelopeError {
 }
 
 // FIXME Error, etc
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DelegationError<Semantic> {
     Envelope(EnvelopeError),
 
     FailedCondition, // FIXME add context?
 
-    SemanticError(Semantic), // // FIXME these are duplicated in Outcome
-                             // //
-                             // /// An error in the command chain.
-                             // CommandEscelation,
-
-                             // /// An error in the argument chain.
-                             // ArgumentEscelation(ArgErr),
-
-                             // /// An error in the proof chain.
-                             // InvalidProofChain(ChainErr),
-
-                             // /// An error in the parents.
-                             // InvalidParents(ParentErr),
+    SemanticError(Semantic),
 }
 
 impl<S> From<EnvelopeError> for DelegationError<S> {
