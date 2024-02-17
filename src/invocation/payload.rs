@@ -40,7 +40,7 @@ pub struct Payload<T, DID: Did> {
     pub metadata: BTreeMap<String, Ipld>,
     pub nonce: Nonce,
 
-    pub not_before: Option<Timestamp>,
+    pub issued_at: Option<Timestamp>,
     pub expiration: Option<Timestamp>, // FIXME this field may not make sense
 }
 
@@ -64,8 +64,8 @@ impl<T, DID: Did + Clone> Payload<T, DID> {
             cause: self.cause,
             metadata: self.metadata,
             nonce: self.nonce,
-            not_before: self.not_before,
-            expiration: None,
+            issued_at: self.issued_at,
+            expiration: self.expiration,
         }
     }
 
@@ -91,20 +91,22 @@ impl<T, DID: Did> Capsule for Payload<T, DID> {
 impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
     for delegation::Payload<T::Builder, C, DID>
 {
-    fn from(payload: Payload<T, DID>) -> Self {
+    fn from(inv_payload: Payload<T, DID>) -> Self {
         delegation::Payload {
-            issuer: payload.issuer.clone(),
-            subject: payload.subject.clone(),
-            audience: payload.audience.unwrap_or(payload.subject),
+            issuer: inv_payload.issuer.clone(),
+            subject: inv_payload.subject.clone(),
+            audience: inv_payload.audience.unwrap_or(inv_payload.subject),
 
-            ability_builder: T::Builder::from(payload.ability),
+            ability_builder: T::Builder::from(inv_payload.ability),
             conditions: vec![],
 
-            metadata: payload.metadata,
-            nonce: payload.nonce,
+            metadata: inv_payload.metadata,
+            nonce: inv_payload.nonce,
 
-            not_before: payload.not_before,
-            expiration: Timestamp::postel(SystemTime::now()), // FIXME
+            not_before: None,
+            expiration: inv_payload
+                .expiration
+                .unwrap_or(Timestamp::postel(SystemTime::now())),
         }
     }
 }
@@ -123,16 +125,16 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
             ("nonce".into(), payload.nonce.into()),
         ]);
 
-        if let Some(audience) = payload.audience {
-            args.insert("aud".into(), audience.into().to_string().into());
+        if let Some(aud) = payload.audience {
+            args.insert("aud".into(), aud.into().to_string().into());
         }
 
-        if let Some(not_before) = payload.not_before {
-            args.insert("nbf".into(), not_before.into());
+        if let Some(iat) = payload.issued_at {
+            args.insert("iat".into(), iat.into());
         }
 
-        if let Some(expiration) = payload.expiration {
-            args.insert("exp".into(), expiration.into());
+        if let Some(exp) = payload.expiration {
+            args.insert("exp".into(), exp.into());
         }
 
         args
@@ -152,7 +154,7 @@ where
         if self.audience.is_some() {
             field_count += 1
         };
-        if self.not_before.is_some() {
+        if self.issued_at.is_some() {
             field_count += 1
         };
         if self.expiration.is_some() {
@@ -176,8 +178,8 @@ where
             state.serialize_field("aud", aud)?;
         }
 
-        if let Some(nbf) = &self.not_before {
-            state.serialize_field("nbf", nbf)?;
+        if let Some(iat) = &self.issued_at {
+            state.serialize_field("iat", iat)?;
         }
 
         if let Some(exp) = &self.expiration {
@@ -198,7 +200,7 @@ impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
         struct InvocationPayloadVisitor<T, DID>(std::marker::PhantomData<(T, DID)>);
 
         const FIELDS: &'static [&'static str] = &[
-            "iss", "sub", "aud", "cmd", "args", "prf", "nonce", "cause", "meta", "nbf", "exp",
+            "iss", "sub", "aud", "cmd", "args", "prf", "nonce", "cause", "meta", "iat", "exp",
         ];
 
         impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Visitor<'de>
@@ -220,7 +222,7 @@ impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
                 let mut nonce = None;
                 let mut cause = None;
                 let mut metadata = None;
-                let mut not_before = None;
+                let mut issued_at = None;
                 let mut expiration = None;
 
                 while let Some(key) = map.next_key()? {
@@ -279,11 +281,11 @@ impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
                             }
                             metadata = Some(map.next_value()?);
                         }
-                        "nbf" => {
-                            if not_before.is_some() {
-                                return Err(de::Error::duplicate_field("nbf"));
+                        "issued_at" => {
+                            if issued_at.is_some() {
+                                return Err(de::Error::duplicate_field("iat"));
                             }
-                            not_before = map.next_value()?;
+                            issued_at = map.next_value()?;
                         }
                         "exp" => {
                             if expiration.is_some() {
@@ -316,7 +318,7 @@ impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
                     audience,
                     ability,
                     cause,
-                    not_before,
+                    issued_at,
                     expiration,
                 })
             }

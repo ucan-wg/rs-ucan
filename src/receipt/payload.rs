@@ -50,7 +50,7 @@ pub struct Payload<T: Responds, DID: Did> {
     /// requested to be queued next.
     ///
     /// [`Invocation`]: crate::invocation::Invocation
-    pub next: Vec<Cid>, // FIXME rename here or in spec?
+    pub next: Vec<Cid>,
 
     /// An optional proof chain authorizing a different [`Did`] to
     /// be the receipt `iss` than the audience (or subject) of the
@@ -194,13 +194,13 @@ where
                 }
 
                 Ok(Payload {
-                    issuer: issuer.ok_or_else(|| de::Error::missing_field("iss"))?,
-                    ran: ran.ok_or_else(|| de::Error::missing_field("ran"))?,
-                    out: out.ok_or_else(|| de::Error::missing_field("out"))?,
-                    next: next.ok_or_else(|| de::Error::missing_field("next"))?,
-                    proofs: proofs.ok_or_else(|| de::Error::missing_field("prf"))?,
-                    metadata: metadata.ok_or_else(|| de::Error::missing_field("meta"))?,
-                    nonce: nonce.ok_or_else(|| de::Error::missing_field("nonce"))?,
+                    issuer: issuer.ok_or(de::Error::missing_field("iss"))?,
+                    ran: ran.ok_or(de::Error::missing_field("ran"))?,
+                    out: out.ok_or(de::Error::missing_field("out"))?,
+                    next: next.ok_or(de::Error::missing_field("next"))?,
+                    proofs: proofs.ok_or(de::Error::missing_field("prf"))?,
+                    metadata: metadata.ok_or(de::Error::missing_field("meta"))?,
+                    nonce: nonce.ok_or(de::Error::missing_field("nonce"))?,
                     issued_at,
                 })
             }

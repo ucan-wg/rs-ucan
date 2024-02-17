@@ -81,7 +81,7 @@ where
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
         expiration: Option<Timestamp>,
-        not_before: Option<Timestamp>,
+        issued_at: Option<Timestamp>,
         now: &SystemTime,
         // FIXME err type
     ) -> Result<Invocation<T::Promised, DID>, ()> {
@@ -104,7 +104,7 @@ where
             nonce: Nonce::generate_12(&mut seed),
             cause,
             expiration,
-            not_before,
+            issued_at,
         };
 
         Ok(Invocation::try_sign(self.signer, payload).map_err(|_| ())?)
@@ -134,7 +134,7 @@ where
         );
 
         let mut encoded = vec![];
-        Ipld::from(promised.payload.clone())
+        Ipld::from(promised.payload().clone())
             // FIXME use the varsig headre to get the codec
             .encode(DagCborCodec, &mut encoded)
             .expect("FIXME");
@@ -143,13 +143,13 @@ where
             .verifier()
             .verify(
                 &encoded,
-                &match promised.signature {
+                &match promised.signature() {
                     Witness::Signature(ref sig) => sig.clone(),
                 },
             )
             .map_err(|_| ())?;
 
-        let resolved_ability: T = match Resolvable::try_resolve(promised.payload.ability.clone()) {
+        let resolved_ability: T = match Resolvable::try_resolve(promised.ability().clone()) {
             Ok(resolved) => resolved,
             Err(_) => {
                 // FIXME check if any of the unresolved promises are in the store
@@ -165,19 +165,19 @@ where
 
         let proof_payloads = self
             .delegation_store
-            .get_many(&promised.payload.proofs)
+            .get_many(&promised.proofs())
             .map_err(|_| ())?
             .into_iter()
             .map(|d| d.payload.clone())
             .collect();
 
-        let resolved_payload = promised.payload.clone().map_ability(|_| resolved_ability);
+        let resolved_payload = promised.payload().clone().map_ability(|_| resolved_ability);
 
         delegation::Payload::<T::Builder, C, DID>::from(resolved_payload.clone())
             .check(proof_payloads, now)
             .map_err(|_| ())?;
 
-        if promised.payload.audience != Some(self.did.clone()) {
+        if promised.audience() != &Some(self.did.clone()) {
             return Ok(Recipient::Other(resolved_payload));
         }
 
@@ -222,7 +222,7 @@ where
             metadata: BTreeMap::new(),
             nonce: Nonce::generate_12(&mut vec![]),
             expiration: None,
-            not_before: None,
+            issued_at: None,
         };
 
         let invocation = Invocation::try_sign(self.signer, payload).map_err(|_| ())?;

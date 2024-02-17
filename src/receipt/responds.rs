@@ -1,4 +1,5 @@
 use crate::{nonce::Nonce, task, task::Task};
+use std::fmt;
 
 /// Describe the relationship between an ability and the [`Receipt`]s.
 ///
@@ -8,7 +9,7 @@ use crate::{nonce::Nonce, task, task::Task};
 /// [`Receipt`]: crate::receipt::Receipt
 pub trait Responds {
     /// The successful return type for running `Self`.
-    type Success;
+    type Success: Clone + fmt::Debug + PartialEq;
 
     /// Convert an Ability (`Self`) into a [`Task`].
     ///
