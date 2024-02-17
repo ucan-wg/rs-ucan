@@ -1,8 +1,9 @@
-//! RS512 signature support
+//! RS512 signature support (4096-bit RSA PKCS #1 v1.5).
 
 use rsa;
 use signature::{SignatureEncoding, Signer, Verifier};
 
+/// The verifying/public key for RS512.
 #[derive(Debug, Clone)] // FIXME , Serialize, Deserialize)]
 pub struct VerifyingKey(pub rsa::pkcs1v15::VerifyingKey<rsa::sha2::Sha512>);
 
@@ -20,6 +21,7 @@ impl Verifier<Signature> for VerifyingKey {
     }
 }
 
+/// The signing/secret key for RS512.
 #[derive(Debug, Clone)] // FIXME , Serialize, Deserialize)]
 pub struct SigningKey(pub rsa::pkcs1v15::SigningKey<rsa::sha2::Sha512>);
 
@@ -29,6 +31,7 @@ impl Signer<Signature> for SigningKey {
     }
 }
 
+/// The signature for RS512.
 #[derive(Debug, Clone, PartialEq, Eq)] // FIXME , Serialize, Deserialize)]
 pub struct Signature(pub rsa::pkcs1v15::Signature);
 

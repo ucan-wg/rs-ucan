@@ -1,4 +1,4 @@
-use crate::crypto::{bls12381, p521, rs256, rs512};
+use crate::crypto::{bls12381, es512, rs256, rs512};
 use ::p521 as ext_p521;
 use ed25519_dalek;
 use k256;
@@ -44,7 +44,7 @@ impl DidKey for p384::ecdsa::VerifyingKey {
     type Signature = p384::ecdsa::Signature;
 }
 
-impl DidKey for p521::VerifyingKey {
+impl DidKey for es512::VerifyingKey {
     const BASE58_PREFIX: &'static str = "2J9";
 
     type Signer = ext_p521::ecdsa::SigningKey;

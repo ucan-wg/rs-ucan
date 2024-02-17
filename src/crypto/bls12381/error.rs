@@ -1,26 +1,35 @@
 use blst::BLST_ERROR;
+use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, Eq, Clone, Copy)]
+/// Errors that can occur during BLS verification.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error, EnumAsInner)]
 pub enum VerificationError {
+    /// Signature mismatch.
     #[error("signature mismatch")]
     VerifyMsgFail,
 
+    /// Bad encoding.
     #[error("bad encoding")]
     BadEncoding,
 
+    /// Point not on curve.
     #[error("point not on curve")]
     PointNotOnCurve,
 
+    /// Point not in group.
     #[error("bad point not in group")]
     PointNotInGroup,
 
+    /// Aggregate type mismatch.
     #[error("aggregate type mismatch")]
     AggrTypeMismatch,
 
+    /// Public key is infinity.
     #[error("public key is infinity")]
     PkIsInfinity,
 
+    /// Bad scalar.
     #[error("bad scalar")]
     BadScalar,
 }

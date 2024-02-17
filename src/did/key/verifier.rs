@@ -15,7 +15,7 @@ use k256;
 use p384;
 
 #[cfg(feature = "es512")]
-use crate::crypto::p521;
+use crate::crypto::es512;
 
 #[cfg(feature = "rs256")]
 use crate::crypto::rs256;
@@ -47,7 +47,7 @@ pub enum Verifier {
 
     /// `P-521` verifying key.
     #[cfg(feature = "es512")]
-    P521(p521::VerifyingKey),
+    P521(es512::VerifyingKey),
 
     /// `RS256` verifying key.
     #[cfg(feature = "rs256")]
