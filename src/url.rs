@@ -1,7 +1,8 @@
 //! URL utilities.
 
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use url::Url;
 
 /// A wrapper around [`Url`] that has additional trait implementations
@@ -39,9 +40,23 @@ impl From<Newtype> for Ipld {
 }
 
 impl TryFrom<Ipld> for Newtype {
-    type Error = SerdeError;
+    type Error = FromIpldError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        match ipld {
+            Ipld::String(s) => Url::parse(&s)
+                .map(Newtype)
+                .map_err(FromIpldError::UrlParseError),
+            _ => Err(FromIpldError::NotAString),
+        }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum FromIpldError {
+    #[error("Not an IPLD string")]
+    NotAString,
+
+    #[error(transparent)]
+    UrlParseError(#[from] url::ParseError),
 }
