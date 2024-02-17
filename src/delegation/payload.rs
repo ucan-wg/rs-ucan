@@ -168,14 +168,16 @@ where
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("delegation::Payload", 9)?;
+        let count_nbf = if self.not_before.is_some() { 1 } else { 0 };
+
+        let mut state = serializer.serialize_struct("delegation::Payload", 8 + count_nbf)?;
+
         state.serialize_field("iss", &self.issuer.clone().into().to_string())?;
         state.serialize_field("sub", &self.subject.clone().into().to_string())?;
         state.serialize_field("aud", &self.audience.clone().into().to_string())?;
         state.serialize_field("meta", &self.metadata)?;
         state.serialize_field("nonce", &self.nonce)?;
         state.serialize_field("exp", &self.expiration)?;
-        state.serialize_field("nbf", &self.not_before)?;
 
         state.serialize_field("cmd", &self.ability_builder.to_command())?;
 
@@ -192,6 +194,10 @@ where
                 .map(|c| Ipld::from(c.clone()))
                 .collect::<Vec<Ipld>>(),
         )?;
+
+        if let Some(nbf) = self.not_before {
+            state.serialize_field("nbf", &nbf)?;
+        }
 
         state.end()
     }
@@ -218,7 +224,7 @@ impl<
 
         impl<
                 'de,
-                T: ParseAbility + ToCommand + Deserialize<'de>,
+                T: ParseAbility + Deserialize<'de>,
                 C: Condition + Deserialize<'de>,
                 DID: Did + Deserialize<'de>,
             > Visitor<'de> for DelegationPayloadVisitor<T, C, DID>
@@ -229,10 +235,7 @@ impl<
                 formatter.write_str("struct delegation::Payload")
             }
 
-            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-            where
-                M: MapAccess<'de>,
-            {
+            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
                 let mut issuer = None;
                 let mut subject = None;
                 let mut audience = None;
@@ -318,7 +321,7 @@ impl<
                 let ability_builder =
                     <T as ParseAbility>::try_parse(cmd.as_str(), &args).map_err(|e| {
                         de::Error::custom(format!(
-                            "Unable to parse ability field for {} because {}",
+                            "Unable to parse ability field for {:?} because {:?}",
                             cmd, e
                         ))
                     })?;

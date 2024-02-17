@@ -57,14 +57,14 @@ pub trait Command {
 
 // FIXME definitely needs a better name
 pub trait ParseAbility: Sized {
-    type Error: fmt::Display;
+    type Error: fmt::Debug;
 
     // FIXME rename this trait to Ability?
     fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error>;
 }
 
 #[derive(Debug, Clone, Error)]
-pub enum ParseAbilityError<E: fmt::Display> {
+pub enum ParseAbilityError<E> {
     #[error("Unknown command")]
     UnknownCommand,
 
@@ -74,7 +74,7 @@ pub enum ParseAbilityError<E: fmt::Display> {
 
 impl<T: Command + TryFrom<Ipld>> ParseAbility for T
 where
-    <T as TryFrom<Ipld>>::Error: fmt::Display,
+    <T as TryFrom<Ipld>>::Error: fmt::Debug,
 {
     type Error = ParseAbilityError<<T as TryFrom<Ipld>>::Error>;
 

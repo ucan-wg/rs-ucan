@@ -1,17 +1,24 @@
 use super::resolvable::Resolvable;
 use crate::{
-    ability::{arguments, command::ToCommand},
+    ability::{
+        arguments,
+        command::{ParseAbility, ToCommand},
+    },
     capsule::Capsule,
     delegation::{self, condition::Condition, error::DelegationError, Delegable},
-    did::{self, Did},
+    did::Did,
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
     signature::Verifiable,
     time::Timestamp,
 };
 // use anyhow;
-use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{Serialize, Serializer};
+use libipld_core::{cid::Cid, ipld::Ipld};
+use serde::{
+    de::{self, MapAccess, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Serialize, Serializer,
+};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
@@ -133,241 +140,204 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
     }
 }
 
-/// A variant that accepts [`Promise`]s.
-///
-/// [`Promise`]: crate::invocation::promise::Promise
-pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
-
-// impl<T: Delegable, DID: Did> Delegable for Payload<T, DID> {
-//     type Builder = Payload<T::Builder, DID>;
-// }
-
-// use crate::proof::parentful::Parentful;
-//
-// impl<T: Delegable, DID: Did> Checkable for Payload<T::Builder, DID>
-// where
-//     T::Builder: Checkable<Hierarchy = Parentful<T::Builder>>,
-// {
-//     type Hierarchy = ();
-// }
-
-// impl<T: Delegable, DID: Did> TryFrom<Payload<T::Builder, DID>> for Payload<T, DID> {
-//     fn from(payload: Payload<T, DID>) -> Self {
-//         Payload {
-//             issuer: payload.issuer,
-//             subject: payload.subject,
-//             audience: payload.audience,
-//
-//             ability: T::from(payload.ability),
-//
-//             proofs: payload.proofs,
-//             cause: payload.cause,
-//             metadata: payload.metadata,
-//             nonce: payload.nonce,
-//
-//             not_before: payload.not_before,
-//             expiration: payload.expiration,
-//         }
-//     }
-// }
-
-// impl<T: Resolvable, DID: Did> Resolvable for Payload<T, DID>
-// where
-//     arguments::Named<Ipld>: From<T::Promised>,
-//     Ipld: From<T::Promised>,
-//     T::Promised: ToCommand,
-// {
-//     type Promised = Promised<T::Promised, DID>;
-//
-//     fn try_resolve(promised: Promised<T, DID>) -> Result<Self, Self::Promised> {
-//         match <T as Resolvable>::try_resolve(promised.ability) {
-//             Ok(resolved_ability) => Ok(Payload {
-//                 issuer: promised.issuer,
-//                 subject: promised.subject,
-//                 audience: promised.audience,
-//
-//                 ability: resolved_ability,
-//
-//                 proofs: promised.proofs,
-//                 cause: promised.cause,
-//                 metadata: promised.metadata,
-//                 nonce: promised.nonce,
-//
-//                 not_before: promised.not_before,
-//                 expiration: promised.expiration,
-//             }),
-//             Err(promised_ability) => Err(Payload {
-//                 ability: promised_ability,
-//                 ..promised
-//             }),
-//         }
-//     }
-// }
-
-impl<T, DID: Did> Serialize for Payload<T, DID>
+impl<T, DID> Serialize for Payload<T, DID>
 where
-    Payload<T, DID>: Clone,
-    InternalSerializer: From<Payload<T, DID>>,
+    T: ToCommand + Into<Ipld> + Serialize,
+    DID: Did + Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let s = InternalSerializer::from(self.clone());
-        serde::Serialize::serialize(&s, serializer)
-    }
-}
+        let mut field_count = 9;
+        if self.audience.is_some() {
+            field_count += 1
+        };
+        if self.not_before.is_some() {
+            field_count += 1
+        };
+        if self.expiration.is_some() {
+            field_count += 1
+        };
 
-impl<'de, T, DID: Did> serde::Deserialize<'de> for Payload<T, DID>
-where
-    Payload<T, DID>: TryFrom<InternalSerializer>,
-    <Payload<T, DID> as TryFrom<InternalSerializer>>::Error: Debug,
-{
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        match InternalSerializer::deserialize(d) {
-            Err(e) => Err(e),
-            Ok(s) => s
-                .try_into()
-                .map_err(|e| serde::de::Error::custom(format!("{:?}", e))), // FIXME better error
+        let mut state = serializer.serialize_struct("invocation::Payload", field_count)?;
+
+        state.serialize_field("iss", &self.issuer)?;
+        state.serialize_field("sub", &self.subject)?;
+
+        state.serialize_field("cmd", &self.ability.to_command())?;
+        state.serialize_field("args", &self.ability)?;
+
+        state.serialize_field("prf", &self.proofs)?;
+        state.serialize_field("nonce", &self.nonce)?;
+        state.serialize_field("cause", &self.cause)?;
+        state.serialize_field("meta", &self.metadata)?;
+
+        if let Some(aud) = &self.audience {
+            state.serialize_field("aud", aud)?;
         }
+
+        if let Some(nbf) = &self.not_before {
+            state.serialize_field("nbf", nbf)?;
+        }
+
+        if let Some(exp) = &self.expiration {
+            state.serialize_field("exp", &exp)?;
+        }
+
+        state.end()
     }
 }
 
-impl<T, DID: Did> TryFrom<Ipld> for Payload<T, DID>
-where
-    Payload<T, DID>: TryFrom<InternalSerializer>,
+impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deserialize<'de>
+    for Payload<T, DID>
 {
-    type Error = (); // FIXME
+    fn deserialize<D>(deserializer: D) -> Result<Payload<T, DID>, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        struct InvocationPayloadVisitor<T, DID>(std::marker::PhantomData<(T, DID)>);
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        let s: InternalSerializer = ipld_serde::from_ipld(ipld).map_err(|_| ())?;
-        s.try_into().map_err(|_| ()) // FIXME
+        const FIELDS: &'static [&'static str] = &[
+            "iss", "sub", "aud", "cmd", "args", "prf", "nonce", "cause", "meta", "nbf", "exp",
+        ];
+
+        impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Visitor<'de>
+            for InvocationPayloadVisitor<T, DID>
+        {
+            type Value = Payload<T, DID>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct invocation::Payload")
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
+                let mut issuer = None;
+                let mut subject = None;
+                let mut audience = None;
+                let mut command = None;
+                let mut arguments = None;
+                let mut proofs = None;
+                let mut nonce = None;
+                let mut cause = None;
+                let mut metadata = None;
+                let mut not_before = None;
+                let mut expiration = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "iss" => {
+                            if issuer.is_some() {
+                                return Err(de::Error::duplicate_field("iss"));
+                            }
+                            issuer = Some(map.next_value()?);
+                        }
+                        "sub" => {
+                            if subject.is_some() {
+                                return Err(de::Error::duplicate_field("sub"));
+                            }
+                            subject = Some(map.next_value()?);
+                        }
+                        "aud" => {
+                            if audience.is_some() {
+                                return Err(de::Error::duplicate_field("aud"));
+                            }
+                            audience = map.next_value()?;
+                        }
+                        "cmd" => {
+                            if command.is_some() {
+                                return Err(de::Error::duplicate_field("cmd"));
+                            }
+                            command = Some(map.next_value()?);
+                        }
+                        "args" => {
+                            if arguments.is_some() {
+                                return Err(de::Error::duplicate_field("args"));
+                            }
+                            arguments = Some(map.next_value()?);
+                        }
+                        "prf" => {
+                            if proofs.is_some() {
+                                return Err(de::Error::duplicate_field("prf"));
+                            }
+                            proofs = Some(map.next_value()?);
+                        }
+                        "nonce" => {
+                            if nonce.is_some() {
+                                return Err(de::Error::duplicate_field("nonce"));
+                            }
+                            nonce = Some(map.next_value()?);
+                        }
+                        "cause" => {
+                            if cause.is_some() {
+                                return Err(de::Error::duplicate_field("cause"));
+                            }
+                            cause = map.next_value()?;
+                        }
+                        "meta" => {
+                            if metadata.is_some() {
+                                return Err(de::Error::duplicate_field("meta"));
+                            }
+                            metadata = Some(map.next_value()?);
+                        }
+                        "nbf" => {
+                            if not_before.is_some() {
+                                return Err(de::Error::duplicate_field("nbf"));
+                            }
+                            not_before = map.next_value()?;
+                        }
+                        "exp" => {
+                            if expiration.is_some() {
+                                return Err(de::Error::duplicate_field("exp"));
+                            }
+                            expiration = map.next_value()?;
+                        }
+                        other => {
+                            return Err(de::Error::unknown_field(other, FIELDS));
+                        }
+                    }
+                }
+
+                let cmd: String = command.ok_or(de::Error::missing_field("cmd"))?;
+                let args = arguments.ok_or(de::Error::missing_field("args"))?;
+
+                let ability = <T as ParseAbility>::try_parse(cmd.as_str(), &args).map_err(|e| {
+                    de::Error::custom(format!(
+                        "Unable to parse ability field for {:?} becuase {:?}",
+                        cmd, e
+                    ))
+                })?;
+
+                Ok(Payload {
+                    issuer: issuer.ok_or(de::Error::missing_field("iss"))?,
+                    subject: subject.ok_or(de::Error::missing_field("sub"))?,
+                    proofs: proofs.ok_or(de::Error::missing_field("prf"))?,
+                    metadata: metadata.ok_or(de::Error::missing_field("meta"))?,
+                    nonce: nonce.ok_or(de::Error::missing_field("nonce"))?,
+                    audience,
+                    ability,
+                    cause,
+                    not_before,
+                    expiration,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "invocation::Payload",
+            FIELDS,
+            InvocationPayloadVisitor(Default::default()),
+        )
     }
 }
+
+/// A variant that accepts [`Promise`]s.
+///
+/// [`Promise`]: crate::invocation::promise::Promise
+pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
 
 impl<T, DID: Did> From<Payload<T, DID>> for Ipld {
     fn from(payload: Payload<T, DID>) -> Self {
         payload.into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct InternalSerializer {
-    #[serde(rename = "iss")]
-    issuer: did::Newtype,
-    #[serde(rename = "sub")]
-    subject: did::Newtype,
-    #[serde(rename = "aud", skip_serializing_if = "Option::is_none")]
-    audience: Option<did::Newtype>,
-
-    #[serde(rename = "cmd")]
-    command: String,
-    #[serde(rename = "args")]
-    arguments: arguments::Named<Ipld>,
-
-    #[serde(rename = "prf")]
-    proofs: Vec<Cid>,
-    #[serde(rename = "nonce")]
-    nonce: Nonce,
-
-    #[serde(rename = "cause")]
-    cause: Option<Cid>,
-    #[serde(rename = "meta")]
-    metadata: BTreeMap<String, Ipld>,
-
-    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
-    not_before: Option<Timestamp>,
-
-    #[serde(rename = "exp", skip_serializing_if = "Option::is_none")]
-    expiration: Option<Timestamp>,
-}
-
-impl From<InternalSerializer> for Ipld {
-    fn from(serializer: InternalSerializer) -> Self {
-        serializer.into()
-    }
-}
-
-impl TryFrom<Ipld> for InternalSerializer {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
-    }
-}
-
-// FIXME
-// impl From<InternalSerializer> for Payload<dynamic::Dynamic> {
-//     fn from(s: InternalSerializer) -> Self {
-//         Payload {
-//             issuer: s.issuer,
-//             subject: s.subject,
-//             audience: s.audience,
-//
-//             ability: dynamic::Dynamic {
-//                 cmd: s.command,
-//                 args: s.arguments.into(),
-//             },
-//
-//             proofs: s.proofs,
-//             cause: s.cause,
-//             metadata: s.metadata,
-//
-//             nonce: s.nonce,
-//
-//             not_before: s.not_before,
-//             expiration: s.expiration,
-//         }
-//     }
-// }
-
-// FIXME
-// impl From<Payload<dynamic::Dynamic>> for InternalSerializer {
-//     fn from(p: Payload<dynamic::Dynamic>) -> Self {
-//         InternalSerializer {
-//             issuer: p.issuer,
-//             subject: p.subject,
-//             audience: p.audience,
-//
-//             command: p.ability.cmd,
-//             arguments: p.ability.args,
-//
-//             proofs: p.proofs,
-//             cause: p.cause,
-//             metadata: p.metadata,
-//
-//             nonce: p.nonce,
-//
-//             not_before: p.not_before,
-//             expiration: p.expiration,
-//         }
-//     }
-// }
-
-impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>>
-    for InternalSerializer
-{
-    fn from(payload: Payload<T, DID>) -> Self {
-        InternalSerializer {
-            issuer: payload.issuer.into(),
-            subject: payload.subject.into(),
-            audience: payload.audience.map(Into::into),
-
-            command: payload.ability.to_command(),
-            arguments: payload.ability.into(),
-
-            proofs: payload.proofs,
-            cause: payload.cause,
-            metadata: payload.metadata,
-
-            nonce: payload.nonce,
-
-            not_before: payload.not_before,
-            expiration: None,
-        }
     }
 }
