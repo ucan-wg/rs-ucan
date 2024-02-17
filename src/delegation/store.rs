@@ -130,7 +130,7 @@ pub struct MemoryStore<H, C: Condition, DID: Did + Ord> {
 impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Store<B, C, DID>
     for MemoryStore<B::Hierarchy, C, DID>
 where
-    B::Hierarchy: Into<arguments::Named<Ipld>>,
+    B::Hierarchy: Into<arguments::Named<Ipld>> + Clone,
 {
     type Error = (); // FIXME misisng
 
@@ -203,7 +203,7 @@ where
                             }
 
                             for condition in &conditions {
-                                if !condition.validate(&d.payload.ability_builder.into()) {
+                                if !condition.validate(&d.payload.ability_builder.clone().into()) {
                                     return ControlFlow::Continue(());
                                 }
                             }

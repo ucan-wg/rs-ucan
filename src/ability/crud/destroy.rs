@@ -133,14 +133,6 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             path: promised.path.map(Into::into),
-//         }
-//     }
-// }
-
 impl<P: Into<Ipld>> From<Generic<P>> for Ipld {
     fn from(destroy: Generic<P>) -> Self {
         destroy.into()
@@ -227,19 +219,6 @@ impl From<Promised> for arguments::Named<Ipld> {
     }
 }
 
-// impl From<arguments::Named<Ipld>> for Promised {
-//     fn from(source: arguments::Named<Ipld>) -> Self {
-//         let path = source
-//             .get("path")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//
-//         let args = source
-//             .get("args")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//         Promised { path, args }
-//     }
-// }
-
 impl From<Ready> for Promised {
     fn from(r: Ready) -> Promised {
         Promised {
@@ -267,5 +246,16 @@ impl Resolvable for Ready {
         .transpose()?;
 
         Ok(Ready { path })
+    }
+}
+
+impl From<Promised> for Ready {
+    fn from(p: Promised) -> Ready {
+        Ready {
+            path: p
+                .path
+                .map(|inner_path| inner_path.try_resolve().ok())
+                .flatten(),
+        }
     }
 }

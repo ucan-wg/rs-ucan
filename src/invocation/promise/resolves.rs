@@ -24,6 +24,13 @@ impl<T> Resolves<Option<T>> {
             },
         }
     }
+
+    pub fn try_resolve_option(self) -> Option<T> {
+        match self {
+            Resolves::Ok(p_ok) => p_ok.try_resolve().ok()?,
+            Resolves::Err(p_err) => p_err.try_resolve().ok()?,
+        }
+    }
 }
 
 impl<T> Resolves<T> {

@@ -42,6 +42,7 @@ pub struct PostOrderIpldIter<'a, T> {
     outbound: Vec<Item<'a, T>>,
 }
 
+// FIXME not sure if &'a worth it because nbow I'm cloning everywhere
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item<'a, T> {
     Node(&'a Enriched<T>),
@@ -59,7 +60,7 @@ impl<'a, T> PostOrderIpldIter<'a, T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a Enriched<T> {
+impl<'a, T: Clone> IntoIterator for &'a Enriched<T> {
     type Item = Item<'a, T>;
     type IntoIter = PostOrderIpldIter<'a, T>;
 
@@ -68,9 +69,9 @@ impl<'a, T> IntoIterator for &'a Enriched<T> {
     }
 }
 
-impl<'a, T: Clone> FromIterator<Item<'a, T>> for &'a Enriched<T> {
+impl<'a, T: Clone> FromIterator<Item<'a, T>> for Enriched<T> {
     fn from_iter<I: IntoIterator<Item = Item<'a, T>>>(it: I) -> Self {
-        &it.into_iter().fold(Enriched::Null, |acc, x| match x {
+        it.into_iter().fold(Enriched::Null, |acc, x| match x {
             Item::Node(Enriched::Null) => Enriched::Null,
             Item::Node(Enriched::Bool(b)) => Enriched::Bool(*b),
             Item::Node(Enriched::Integer(i)) => Enriched::Integer(*i),
@@ -97,29 +98,29 @@ impl<'a, T: Clone> FromIterator<Item<'a, T>> for &'a Enriched<T> {
     }
 }
 
-impl<'a, T> From<&'a Enriched<T>> for PostOrderIpldIter<'a, T> {
+impl<'a, T: Clone> From<&'a Enriched<T>> for PostOrderIpldIter<'a, T> {
     fn from(enriched: &'a Enriched<T>) -> Self {
         PostOrderIpldIter::new(enriched)
     }
 }
 
-impl<'a, T> Iterator for PostOrderIpldIter<'a, T> {
+impl<'a, T: Clone> Iterator for PostOrderIpldIter<'a, T> {
     type Item = Item<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
-                Some(map @ Item::Node(Enriched::Map(btree))) => {
-                    self.outbound.push(map);
+                Some(ref map @ Item::Node(Enriched::Map(ref btree))) => {
+                    self.outbound.push(map.clone());
 
                     for node in btree.values() {
                         self.inbound.push(Item::Inner(node));
                     }
                 }
 
-                Some(list @ Item::Node(Enriched::List(vector))) => {
-                    self.outbound.push(list);
+                Some(ref list @ Item::Node(Enriched::List(ref vector))) => {
+                    self.outbound.push(list.clone());
 
                     for node in vector {
                         self.inbound.push(Item::Inner(node));

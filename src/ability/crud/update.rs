@@ -172,18 +172,6 @@ impl From<Builder> for Ready {
     }
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        Builder {
-            path: promised.path.and_then(Into::into),
-            args: promised.args.and_then(|res| match res.try_resolve() {
-                Ok(args) => Some(args.into()),
-                Err(unresolved) => None,
-            }),
-        }
-    }
-}
-
 impl From<Ready> for Ipld {
     fn from(create: Ready) -> Self {
         create.into()
@@ -202,12 +190,12 @@ impl TryFrom<Ipld> for Ready {
             Ok(Ready {
                 path: map
                     .get("path")
-                    .map(|ipld| (ipld::Newtype(*ipld)).try_into().map_err(|_| ()))
+                    .map(|ipld| (ipld::Newtype(ipld.clone())).try_into().map_err(|_| ()))
                     .transpose()?,
 
                 args: map
                     .get("args")
-                    .map(|ipld| (*ipld).try_into().map_err(|_| ()))
+                    .map(|ipld| ipld.clone().try_into().map_err(|_| ()))
                     .transpose()?,
             })
         } else {
@@ -277,12 +265,14 @@ impl From<Promised> for arguments::Named<Ipld> {
             named.insert(
                 "args".to_string(),
                 args_res
-                    .map(|a| {
-                        // FIXME extract
-                        a.iter()
-                            .map(|(k, v)| (k.to_string(), v.clone().serialize_as_ipld()))
-                            .collect::<BTreeMap<String, Ipld>>()
+                    .try_resolve()
+                    .expect("FIXME")
+                    .iter()
+                    .try_fold(BTreeMap::new(), |mut map, (k, v)| {
+                        map.insert(k.clone(), Ipld::try_from(v.clone()).ok()?); // FIXME double check
+                        Some(map)
                     })
+                    .expect("FIXME")
                     .into(),
             );
         }
@@ -290,19 +280,6 @@ impl From<Promised> for arguments::Named<Ipld> {
         named
     }
 }
-
-// impl From<arguments::Named<Ipld>> for Promised {
-//     fn from(source: arguments::Named<Ipld>) -> Self {
-//         let path = source
-//             .get("path")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//
-//         let args = source
-//             .get("args")
-//             .map(|ipld| ipld.clone().try_into().unwrap());
-//         Promised { path, args }
-//     }
-// }
 
 impl From<Ready> for Promised {
     fn from(r: Ready) -> Promised {
@@ -350,5 +327,14 @@ impl Resolvable for Ready {
         .transpose()?;
 
         Ok(Ready { path, args })
+    }
+}
+
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            path: promised.path.and_then(|p| p.try_resolve().ok()),
+            args: promised.args.and_then(|a| a.try_resolve_option()),
+        }
     }
 }

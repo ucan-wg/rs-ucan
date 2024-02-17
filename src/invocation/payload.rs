@@ -42,7 +42,7 @@ pub struct Payload<T, DID: Did> {
     pub nonce: Nonce,
 
     pub not_before: Option<Timestamp>,
-    pub expiration: Option<Timestamp>,
+    pub expiration: Option<Timestamp>, // FIXME this field may not make sense
 }
 
 // FIXME cleanup traits
@@ -66,7 +66,7 @@ impl<T, DID: Did + Clone> Payload<T, DID> {
             metadata: self.metadata,
             nonce: self.nonce,
             not_before: self.not_before,
-            expiration: self.expiration,
+            expiration: None,
         }
     }
 
@@ -105,7 +105,7 @@ impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
             nonce: payload.nonce,
 
             not_before: payload.not_before,
-            expiration: payload.expiration,
+            expiration: SystemTime::now().into(), // FIXME
         }
     }
 }
@@ -122,7 +122,6 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
                 Ipld::List(payload.proofs.iter().map(Into::into).collect()),
             ),
             ("nonce".into(), payload.nonce.into()),
-            ("exp".into(), payload.expiration.into()),
         ]);
 
         if let Some(audience) = payload.audience {
@@ -131,6 +130,10 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
 
         if let Some(not_before) = payload.not_before {
             args.insert("nbf".into(), not_before.into());
+        }
+
+        if let Some(expiration) = payload.expiration {
+            args.insert("exp".into(), expiration.into());
         }
 
         args
@@ -285,8 +288,9 @@ struct InternalSerializer {
 
     #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
     not_before: Option<Timestamp>,
-    #[serde(rename = "exp")]
-    expiration: Timestamp,
+
+    #[serde(rename = "exp", skip_serializing_if = "Option::is_none")]
+    expiration: Option<Timestamp>,
 }
 
 impl From<InternalSerializer> for Ipld {
@@ -370,7 +374,7 @@ impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>
             nonce: payload.nonce,
 
             not_before: payload.not_before,
-            expiration: payload.expiration,
+            expiration: None,
         }
     }
 }
@@ -378,9 +382,10 @@ impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>
 impl<C: Codec, T, DID: Did> Encode<C> for Payload<T, DID>
 where
     Ipld: Encode<C>,
+    Payload<T, DID>: Clone, // FIXME
 {
     fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
-        let ipld: Ipld = (*self).into();
+        let ipld = Ipld::from(self.clone());
         ipld.encode(codec, writer)
     }
 }

@@ -133,11 +133,13 @@ impl Delegable for Ready {
 impl From<Promised> for Builder {
     fn from(promised: Promised) -> Self {
         Builder {
-            path: promised.path.map(Into::into),
-            args: promised.args.map(Into::into),
+            path: promised.path.and_then(|p| p.try_resolve().ok()),
+            args: promised.args.and_then(|p| p.try_resolve_option()), // FIXME this needs to read better
         }
     }
 }
+
+// FIXME resolves vs resolvable is confusing
 
 impl<P: Into<Ipld>, A: Into<Ipld>> From<Generic<P, A>> for Ipld {
     fn from(read: Generic<P, A>) -> Self {
@@ -216,19 +218,23 @@ impl From<Promised> for arguments::Named<Ipld> {
             );
         }
 
-        if let Some(args_res) = promised.args {
-            named.insert(
-                "args".to_string(),
-                args_res
-                    .map(|a| {
-                        // FIXME extract
-                        a.iter()
-                            .map(|(k, v)| (k.to_string(), v.clone().serialize_as_ipld()))
-                            .collect::<BTreeMap<String, Ipld>>()
-                    })
-                    .into(),
-            );
-        }
+        // FIXME
+        // if let Some(args_res) = promised.args {
+        //     let v = args_res.map(|a| {
+        //         // FIXME extract
+        //         a.iter().try_fold(BTreeMap::new(), |mut acc, (k, v)| {
+        //             acc.insert(*k, (*v).try_into().ok()?);
+        //             Some(acc)
+        //         })
+        //     });
+
+        //     // match v {
+        //     //
+        //     // }
+        //     // named.insert(
+        //     //     "args".to_string(),
+        //     // );
+        // }
 
         named
     }

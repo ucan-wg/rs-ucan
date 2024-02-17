@@ -46,7 +46,7 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
-pub type Builder = Receive;
+pub(super) type Builder = Receive;
 
 // FIXME needs promisory version
 
@@ -58,13 +58,13 @@ impl Delegable for Receive {
     type Builder = Receive;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             from: promised.from.map(Into::into),
-//         }
-//     }
-// }
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            from: promised.from.and_then(|x| x.try_resolve_option()),
+        }
+    }
+}
 
 impl Checkable for Receive {
     type Hierarchy = Parentful<Receive>;
@@ -103,19 +103,21 @@ impl TryFrom<Ipld> for Receive {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Promised {
-    pub from: promise::Resolves<Option<url::Newtype>>,
+    pub from: Option<promise::Resolves<Option<url::Newtype>>>,
 }
 
 impl From<Promised> for arguments::Named<Ipld> {
     fn from(promised: Promised) -> Self {
         let mut args = arguments::Named::new();
 
-        match promised.from {
-            promise::Resolves::Ok(from) => {
-                args.insert("from".into(), from.into());
-            }
-            promise::Resolves::Err(from) => {
-                args.insert("from".into(), from.into());
+        if let Some(from) = promised.from {
+            match from {
+                promise::Resolves::Ok(from) => {
+                    args.insert("from".into(), from.into());
+                }
+                promise::Resolves::Err(from) => {
+                    args.insert("from".into(), from.into());
+                }
             }
         }
 
@@ -127,8 +129,16 @@ impl Resolvable for Receive {
     type Promised = Promised;
 
     fn try_resolve(p: Promised) -> Result<Self, Self::Promised> {
-        promise::Resolves::try_resolve(p.from)
-            .map(|from| Receive { from })
-            .map_err(|from| Promised { from })
+        match &p.from {
+            None => Ok(Receive { from: None }),
+            Some(promise::Resolves::Ok(promiseOk)) => match promiseOk.clone().try_resolve() {
+                Ok(from) => Ok(Receive { from }),
+                Err(_from) => Err(Promised { from: p.from }),
+            },
+            Some(promise::Resolves::Err(promiseErr)) => match promiseErr.clone().try_resolve() {
+                Ok(from) => Ok(Receive { from }),
+                Err(_from) => Err(Promised { from: p.from }),
+            },
+        }
     }
 }

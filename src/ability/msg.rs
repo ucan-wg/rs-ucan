@@ -83,6 +83,15 @@ impl Resolvable for Ready {
     }
 }
 
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        match promised {
+            Promised::Send(send) => Builder::Send(send.into()),
+            Promised::Receive(receive) => Builder::Receive(receive.into()),
+        }
+    }
+}
+
 impl CheckSame for Builder {
     type Error = (); // FIXME
 
@@ -103,7 +112,6 @@ impl CheckParents for Builder {
         match (self, proof) {
             (Builder::Send(this), Any) => this.check_parent(&Any),
             (Builder::Receive(this), Any) => this.check_parent(&Any),
-            _ => Err(()),
         }
     }
 }

@@ -52,7 +52,10 @@ pub trait PromiseIndex<T: Resolvable, DID: Did> {
         invocation: Cid,
     ) -> Result<(), Self::PromiseIndexError>;
 
-    fn get_waiting(&self, waiting_on: Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseIndexError>;
+    fn get_waiting(
+        &self,
+        waiting_on: &mut Vec<Cid>,
+    ) -> Result<BTreeSet<Cid>, Self::PromiseIndexError>;
 }
 
 pub struct MemoryPromiseIndex {
@@ -73,15 +76,18 @@ impl<T: Resolvable, DID: Did> PromiseIndex<T, DID> for MemoryPromiseIndex {
         Ok(())
     }
 
-    fn get_waiting(&self, waiting_on: Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseIndexError> {
+    fn get_waiting(
+        &self,
+        waiting_on: &mut Vec<Cid>,
+    ) -> Result<BTreeSet<Cid>, Self::PromiseIndexError> {
         Ok(match waiting_on.pop() {
             None => BTreeSet::new(),
             Some(first) => waiting_on
                 .iter()
                 .try_fold(BTreeSet::from_iter([first]), |mut acc, cid| {
-                    let next = self.index.get(cid).ok_or(NotFound)?;
+                    let next = self.index.get(cid).ok_or(())?;
 
-                    let reduced = acc.intersection(*next.into()).collect();
+                    let reduced: BTreeSet<Cid> = acc.intersection(&next).cloned().collect();
                     if reduced.is_empty() {
                         return Err(());
                     }

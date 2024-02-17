@@ -31,7 +31,7 @@ pub struct Agent<
 > {
     pub did: &'a DID,
 
-    pub delegation_store: &'a D,
+    pub delegation_store: &'a mut D,
     pub invocation_store: &'a mut S,
     pub unresolved_promise_store: &'a mut P,
     pub resolved_promise_store: &'a mut P,
@@ -49,13 +49,16 @@ impl<
         P: Store<T::Promised, DID>,
         D: delegation::store::Store<T::Builder, C, DID>,
     > Agent<'a, T, C, DID, S, P, D>
+where
+    T::Promised: Clone,
+    // Payload<<T::Builder as Checkable>::Hierarchy, DID>: Clone, // FIXME
+    delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>: Clone,
 {
     pub fn new(
         did: &'a DID,
         signer: &'a <DID as Did>::Signer,
         invocation_store: &'a mut S,
         delegation_store: &'a mut D,
-        revocation_store: &'a mut D,
         unresolved_promise_store: &'a mut P,
         resolved_promise_store: &'a mut P,
     ) -> Self {
@@ -63,7 +66,6 @@ impl<
             did,
             invocation_store,
             delegation_store,
-            revocation_store,
             unresolved_promise_store,
             resolved_promise_store,
             signer,
@@ -85,7 +87,7 @@ impl<
     ) -> Result<Invocation<T::Promised, DID>, ()> {
         let proofs = self
             .delegation_store
-            .get_chain(self.did, subject, &ability.into(), vec![], now)
+            .get_chain(self.did, subject, &ability.clone().into(), vec![], now)
             .map_err(|_| ())?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
@@ -109,7 +111,7 @@ impl<
     }
 
     pub fn receive(
-        &self,
+        &mut self,
         promised: Invocation<T::Promised, DID>,
         now: &SystemTime,
         // FIXME return type
@@ -120,7 +122,7 @@ impl<
     {
         // FIXME needs varsig header
         let mut buffer = vec![];
-        Ipld::from(promised)
+        Ipld::from(promised.clone())
             .encode(DagCborCodec, &mut buffer)
             .expect("FIXME not dag-cbor? DagCborCodec to encode any arbitrary `Ipld`");
 
@@ -143,12 +145,12 @@ impl<
             .verify(
                 &encoded,
                 &match promised.signature {
-                    Signature::Solo(sig) => sig,
+                    Signature::Solo(ref sig) => sig.clone(),
                 },
             )
             .map_err(|_| ())?;
 
-        let resolved_ability: T = match Resolvable::try_resolve(promised.payload.ability) {
+        let resolved_ability: T = match Resolvable::try_resolve(promised.payload.ability.clone()) {
             Ok(resolved) => resolved,
             Err(_) => {
                 // FIXME check if any of the unresolved promises are in the store
@@ -167,16 +169,16 @@ impl<
             .get_many(&promised.payload.proofs)
             .map_err(|_| ())?
             .into_iter()
-            .map(|d| d.payload)
+            .map(|d| d.payload.clone())
             .collect();
 
-        let resolved_payload = promised.payload.map_ability(|_| resolved_ability);
+        let resolved_payload = promised.payload.clone().map_ability(|_| resolved_ability);
 
-        delegation::Payload::<T::Builder, C, DID>::from(resolved_payload)
+        delegation::Payload::<T::Builder, C, DID>::from(resolved_payload.clone())
             .check(proof_payloads, now)
             .map_err(|_| ())?;
 
-        if promised.payload.audience != Some(*self.did) {
+        if promised.payload.audience != Some(self.did.clone()) {
             return Ok(Recipient::Other(resolved_payload));
         }
 
@@ -202,7 +204,7 @@ impl<
                 .get_chain(
                     subject,
                     self.did,
-                    &ability.into(),
+                    &ability.clone().into(),
                     vec![],
                     &SystemTime::now(),
                 )

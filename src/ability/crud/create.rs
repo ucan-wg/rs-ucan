@@ -226,18 +226,29 @@ impl From<Promised> for arguments::Named<Ipld> {
             );
         }
 
+        // FIXME gross code
         if let Some(args_res) = promised.args {
-            named.insert(
-                "args".to_string(),
-                args_res
-                    .map(|a| {
-                        // FIXME extract
-                        a.iter()
-                            .map(|(k, v)| (k.to_string(), v.clone().serialize_as_ipld()))
-                            .collect::<BTreeMap<String, Ipld>>()
-                    })
-                    .into(),
-            );
+            match args_res.try_resolve() {
+                Ok(named_promises) => {
+                    let value = named_promises.iter().try_fold(
+                        arguments::Named::<Ipld>::new(),
+                        |mut acc, (k, v)| {
+                            // FIXME extract
+                            acc.insert(k.into(), v.clone().try_into().ok()?);
+                            Some(acc)
+                        },
+                    );
+
+                    match value {
+                        Some(v) => {
+                            named.insert("args".to_string(), v.into());
+                        }
+                        None => {}
+                    }
+                }
+
+                Err(_unresolved) => {}
+            }
         }
 
         named

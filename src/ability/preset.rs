@@ -152,3 +152,13 @@ impl Resolvable for Ready {
         }
     }
 }
+
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        match promised {
+            Promised::Crud(promised) => Builder::Crud(promised.into()),
+            Promised::Msg(promised) => Builder::Msg(promised.into()),
+            Promised::Wasm(promised) => Builder::Wasm(promised.into()),
+        }
+    }
+}

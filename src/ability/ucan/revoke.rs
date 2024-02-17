@@ -31,13 +31,13 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-// impl From<Promised> for Builder {
-//     fn from(promised: Promised) -> Self {
-//         Builder {
-//             ucan: promised.ucan.map(Into::into),
-//         }
-//     }
-// }
+impl From<Promised> for Builder {
+    fn from(promised: Promised) -> Self {
+        Builder {
+            ucan: promised.ucan.try_resolve().ok(),
+        }
+    }
+}
 
 impl Resolvable for Ready {
     type Promised = Promised;
