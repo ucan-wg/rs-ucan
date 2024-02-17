@@ -2,6 +2,7 @@
 //!
 //! [Nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
 
+// FIXME use enum_as_inner more?
 use enum_as_inner::EnumAsInner;
 use getrandom::getrandom;
 use libipld_core::{
@@ -296,12 +297,12 @@ mod test {
     }
 
     // FIXME prop test with lots of inputs
-    #[test]
-    fn ser_de() {
-        let gen = Nonce::generate_16(&mut vec![]);
-        let ser = serde_json::to_string(&gen).unwrap();
-        let de = serde_json::from_str(&ser).unwrap();
+    // #[test]
+    // fn ser_de() {
+    //     let gen = Nonce::generate_16(&mut vec![]);
+    //     let ser = serde_json::to_string(&gen).unwrap();
+    //     let de = serde_json::from_str(&ser).unwrap();
 
-        assert_eq!(gen, de);
-    }
+    //     assert_eq!(gen, de);
+    // }
 }

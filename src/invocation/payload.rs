@@ -9,14 +9,8 @@ use crate::{
     signature::Verifiable,
     time::Timestamp,
 };
-use anyhow;
-use libipld_core::{
-    cid::Cid,
-    codec::{Codec, Encode},
-    error::SerdeError,
-    ipld::Ipld,
-    serde as ipld_serde,
-};
+// use anyhow;
+use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
@@ -375,16 +369,5 @@ impl<T: ToCommand + Into<arguments::Named<Ipld>>, DID: Did> From<Payload<T, DID>
             not_before: payload.not_before,
             expiration: None,
         }
-    }
-}
-
-impl<C: Codec, T, DID: Did> Encode<C> for Payload<T, DID>
-where
-    Ipld: Encode<C>,
-    Payload<T, DID>: Clone, // FIXME
-{
-    fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
-        let ipld = Ipld::from(self.clone());
-        ipld.encode(codec, writer)
     }
 }

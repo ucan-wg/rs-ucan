@@ -134,8 +134,7 @@ where
         );
 
         let mut encoded = vec![];
-        promised
-            .payload
+        Ipld::from(promised.payload.clone())
             // FIXME use the varsig headre to get the codec
             .encode(DagCborCodec, &mut encoded)
             .expect("FIXME");

@@ -1,7 +1,7 @@
 //! Signatures and cryptographic envelopes.
 
 use crate::{capsule::Capsule, did::Did};
-use anyhow;
+// use anyhow;
 use libipld_core::{
     cid::{Cid, CidGeneric},
     codec::{Codec, Encode},
@@ -113,15 +113,15 @@ pub enum Signature<S> {
 //    Right = 1,
 //}
 
-impl<C: Codec, T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> Encode<C> for Envelope<T, DID>
-where
-    Ipld: Encode<C>,
-    Envelope<T, DID>: Clone, // FIXME?
-{
-    fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
-        Ipld::from((*self).clone()).encode(codec, writer)
-    }
-}
+// impl<C: Codec, T: Verifiable<DID> + Capsule + Into<Ipld>, DID: Did> Encode<C> for Envelope<T, DID>
+// where
+//     Ipld: Encode<C>,
+//     Envelope<T, DID>: Clone, // FIXME?
+// {
+//     fn encode<W: std::io::Write>(&self, codec: C, writer: &mut W) -> Result<(), anyhow::Error> {
+//         Ipld::from((*self).clone()).encode(codec, writer)
+//     }
+// }
 
 impl<S: SignatureEncoding> From<Signature<S>> for Ipld {
     fn from(signature: Signature<S>) -> Self {
