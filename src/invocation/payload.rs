@@ -27,12 +27,12 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Payload<T, DID: Did> {
+pub struct Payload<A, DID: Did> {
     pub issuer: DID,
     pub subject: DID,
     pub audience: Option<DID>,
 
-    pub ability: T,
+    pub ability: A,
 
     pub proofs: Vec<Cid>,
     pub cause: Option<Cid>,
@@ -49,10 +49,10 @@ pub struct Payload<T, DID: Did> {
 //
 // This probably means putting the delegation T back to the upper level and bieng explicit about
 // the T::Builder in the type
-impl<T, DID: Did + Clone> Payload<T, DID> {
-    pub fn map_ability<F, U>(self, f: F) -> Payload<U, DID>
+impl<A, DID: Did> Payload<A, DID> {
+    pub fn map_ability<F, Z>(self, f: F) -> Payload<Z, DID>
     where
-        F: FnOnce(T) -> U,
+        F: FnOnce(A) -> Z,
     {
         Payload {
             issuer: self.issuer,
@@ -83,33 +83,34 @@ impl<T, DID: Did + Clone> Payload<T, DID> {
 
     pub fn check<C: Condition>(
         self,
-        proofs: Vec<&delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
+        proofs: Vec<&delegation::Payload<<A::Builder as Checkable>::Hierarchy, C, DID>>,
         now: &SystemTime,
-    ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
+    ) -> Result<(), DelegationError<<<A::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where
-        T: Delegable,
-        T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
-        <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+        A: Delegable,
+        A::Builder: Clone + Into<arguments::Named<Ipld>>,
+        <A::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+        DID: Clone,
     {
-        let builder_payload: delegation::Payload<T::Builder, C, DID> = self.into();
+        let builder_payload: delegation::Payload<A::Builder, C, DID> = self.into();
         builder_payload.check(proofs, now)
     }
 }
 
-impl<T, DID: Did> Capsule for Payload<T, DID> {
+impl<A, DID: Did> Capsule for Payload<A, DID> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
 
-impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
-    for delegation::Payload<T::Builder, C, DID>
+impl<A: Delegable, C: Condition, DID: Did + Clone> From<Payload<A, DID>>
+    for delegation::Payload<A::Builder, C, DID>
 {
-    fn from(inv_payload: Payload<T, DID>) -> Self {
+    fn from(inv_payload: Payload<A, DID>) -> Self {
         delegation::Payload {
-            issuer: inv_payload.issuer.clone(),
+            issuer: inv_payload.issuer,
             subject: inv_payload.subject.clone(),
             audience: inv_payload.audience.unwrap_or(inv_payload.subject),
 
-            ability_builder: T::Builder::from(inv_payload.ability),
+            ability_builder: A::Builder::from(inv_payload.ability),
             conditions: vec![],
 
             metadata: inv_payload.metadata,
@@ -123,8 +124,8 @@ impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
     }
 }
 
-impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::Named<Ipld> {
-    fn from(payload: Payload<T, DID>) -> Self {
+impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld> {
+    fn from(payload: Payload<A, DID>) -> Self {
         let mut args = arguments::Named::from_iter([
             ("iss".into(), payload.issuer.into().to_string().into()),
             ("sub".into(), payload.subject.into().to_string().into()),
@@ -153,9 +154,9 @@ impl<T: ToCommand + Into<Ipld>, DID: Did> From<Payload<T, DID>> for arguments::N
     }
 }
 
-impl<T, DID> Serialize for Payload<T, DID>
+impl<A, DID> Serialize for Payload<A, DID>
 where
-    T: ToCommand + Into<Ipld> + Serialize,
+    A: ToCommand + Into<Ipld> + Serialize,
     DID: Did + Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -202,14 +203,14 @@ where
     }
 }
 
-impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deserialize<'de>
-    for Payload<T, DID>
+impl<'de, A: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deserialize<'de>
+    for Payload<A, DID>
 {
-    fn deserialize<D>(deserializer: D) -> Result<Payload<T, DID>, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Payload<A, DID>, D::Error>
     where
         D: de::Deserializer<'de>,
     {
-        struct InvocationPayloadVisitor<T, DID>(std::marker::PhantomData<(T, DID)>);
+        struct InvocationPayloadVisitor<A, DID>(std::marker::PhantomData<(A, DID)>);
 
         const FIELDS: &'static [&'static str] = &[
             "iss", "sub", "aud", "cmd", "args", "prf", "nonce", "cause", "meta", "iat", "exp",
@@ -347,10 +348,10 @@ impl<'de, T: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
 /// A variant that accepts [`Promise`]s.
 ///
 /// [`Promise`]: crate::invocation::promise::Promise
-pub type Promised<T, DID> = Payload<<T as Resolvable>::Promised, DID>;
+pub type Promised<A, DID> = Payload<<A as Resolvable>::Promised, DID>;
 
-impl<T, DID: Did> From<Payload<T, DID>> for Ipld {
-    fn from(payload: Payload<T, DID>) -> Self {
+impl<A, DID: Did> From<Payload<A, DID>> for Ipld {
+    fn from(payload: Payload<A, DID>) -> Self {
         payload.into()
     }
 }

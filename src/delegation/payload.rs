@@ -368,15 +368,15 @@ impl<T, C: Condition, DID: Did> From<Payload<T, C, DID>> for Ipld {
     }
 }
 
-impl<T: Checkable + Clone + Into<arguments::Named<Ipld>>, C: Condition, DID: Did + Clone>
-    Payload<T, C, DID>
-{
+impl<T: Checkable + Into<arguments::Named<Ipld>>, C: Condition, DID: Did> Payload<T, C, DID> {
     pub fn check(
         &self,
         proofs: Vec<&Payload<T::Hierarchy, C, DID>>,
         now: &SystemTime,
     ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
+        T: Clone,
+        DID: Clone,
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
     {
         let start: Acc<T::Hierarchy, DID> = Acc {

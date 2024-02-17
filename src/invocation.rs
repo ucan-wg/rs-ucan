@@ -22,17 +22,17 @@ use web_time::SystemTime;
 /// # Promises
 ///
 /// For a version that can include [`Promise`][promise::Promise]s,
-/// wrap your `T` in [`invocation::Promised`](Promised) to get
-/// `Invocation<Promised<T>>`.
+/// wrap your `A` in [`invocation::Promised`](Promised) to get
+/// `Invocation<Promised<A>>`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Invocation<T, DID: did::Did>(pub signature::Envelope<payload::Payload<T, DID>, DID>);
+pub struct Invocation<A, DID: did::Did>(pub signature::Envelope<payload::Payload<A, DID>, DID>);
 
 // FIXME use presnet ability, too
 pub type Preset = Invocation<ability::preset::Ready, did::preset::Verifier>;
 pub type PresetPromised = Invocation<ability::preset::Promised, did::preset::Verifier>;
 
-impl<T: Clone, DID: Did + Clone> Invocation<T, DID> {
-    pub fn payload(&self) -> &Payload<T, DID> {
+impl<A, DID: Did> Invocation<A, DID> {
+    pub fn payload(&self) -> &Payload<A, DID> {
         &self.0.payload
     }
 
@@ -52,8 +52,18 @@ impl<T: Clone, DID: Did + Clone> Invocation<T, DID> {
         &self.0.payload.subject
     }
 
-    pub fn ability(&self) -> &T {
+    pub fn ability(&self) -> &A {
         &self.0.payload.ability
+    }
+
+    pub fn map_ability<F, Z>(self, f: F) -> Invocation<Z, DID>
+    where
+        F: FnOnce(A) -> Z,
+    {
+        Invocation(signature::Envelope {
+            payload: self.0.payload.map_ability(f),
+            signature: self.0.signature,
+        })
     }
 
     pub fn proofs(&self) -> &Vec<Cid> {
@@ -64,35 +74,36 @@ impl<T: Clone, DID: Did + Clone> Invocation<T, DID> {
         &self.0.payload.issued_at
     }
 
-    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
+    pub fn expiration(&self) -> &Option<Timestamp> {
+        &self.0.payload.expiration
+    }
+
+    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError>
+    where
+        A: Clone,
+    {
         self.0.payload.check_time(now)
     }
 
     pub fn try_sign(
         signer: &DID::Signer,
-        payload: Payload<T, DID>,
-    ) -> Result<Invocation<T, DID>, signature::SignError> {
+        payload: Payload<A, DID>,
+    ) -> Result<Invocation<A, DID>, signature::SignError>
+    where
+        Payload<A, DID>: Clone,
+    {
         let envelope = signature::Envelope::try_sign(signer, payload)?;
         Ok(Invocation(envelope))
     }
 }
 
-impl<T, DID: Did> did::Verifiable<DID> for Invocation<T, DID> {
+impl<A, DID: Did> did::Verifiable<DID> for Invocation<A, DID> {
     fn verifier(&self) -> &DID {
         &self.0.verifier()
     }
 }
 
-impl<T, DID: Did> Invocation<T, DID> {
-    pub fn map_ability(self, f: impl FnOnce(T) -> T) -> Self {
-        let mut payload = self.0.payload;
-        payload.ability = f(payload.ability);
-        Invocation(signature::Envelope {
-            payload,
-            signature: self.0.signature,
-        })
-    }
-}
+impl<T, DID: Did> Invocation<T, DID> {}
 
 impl<T, DID: Did> From<Invocation<T, DID>> for Ipld {
     fn from(invocation: Invocation<T, DID>) -> Self {
