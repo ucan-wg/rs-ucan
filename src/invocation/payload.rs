@@ -9,9 +9,8 @@ use crate::{
     did::{Did, Verifiable},
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
-    time::Timestamp,
+    time::{TimeBoundError, Timestamp},
 };
-// use anyhow;
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{
     de::{self, MapAccess, Visitor},
@@ -69,9 +68,22 @@ impl<T, DID: Did + Clone> Payload<T, DID> {
         }
     }
 
+    // FIXME err type
+    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
+        let ts_now = &Timestamp::postel(now);
+
+        if let Some(ref exp) = self.expiration {
+            if exp < ts_now {
+                panic!("FIXME")
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn check<C: Condition>(
         self,
-        proofs: Vec<delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
+        proofs: Vec<&delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>>,
         now: &SystemTime,
     ) -> Result<(), DelegationError<<<T::Builder as Checkable>::Hierarchy as Prove>::Error>>
     where

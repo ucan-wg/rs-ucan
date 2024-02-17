@@ -32,7 +32,7 @@ impl<T: Verifiable<DID> + Capsule, DID: Did> Verifiable<DID> for Envelope<T, DID
     }
 }
 
-impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DID> {
+impl<T: Capsule + Verifiable<DID> + Into<Ipld>, DID: Did> Envelope<T, DID> {
     /// Attempt to sign some payload with a given signer.
     ///
     /// # Arguments
@@ -47,7 +47,10 @@ impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DI
     /// # Example
     ///
     /// FIXME
-    pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, SignError> {
+    pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, SignError>
+    where
+        T: Clone,
+    {
         Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, payload)
     }
 
@@ -72,6 +75,7 @@ impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DI
         payload: T,
     ) -> Result<Envelope<T, DID>, SignError>
     where
+        T: Clone,
         Ipld: Encode<C>,
     {
         let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), payload.clone().into())]).into();
@@ -103,7 +107,10 @@ impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DI
     /// # Exmaples
     ///
     /// FIXME
-    pub fn validate_signature(&self) -> Result<(), ValidateError> {
+    pub fn validate_signature(&self) -> Result<(), ValidateError>
+    where
+        T: Clone,
+    {
         // FIXME need varsig
         let codec = DagCborCodec;
 

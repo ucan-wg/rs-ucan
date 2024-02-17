@@ -19,7 +19,7 @@ use web_time::{Duration, SystemTime, UNIX_EPOCH};
 /// the public API.
 ///
 /// [IEEE-754]: https://en.wikipedia.org/wiki/IEEE_754
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct Timestamp {
     time: SystemTime,

@@ -34,7 +34,7 @@ pub trait Store<B: Checkable, C: Condition, DID: Did> {
         subject: &DID,
         builder: &B,
         conditions: Vec<C>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error>;
 
     fn can_delegate(
@@ -43,7 +43,7 @@ pub trait Store<B: Checkable, C: Condition, DID: Did> {
         audience: &DID,
         builder: &B,
         conditions: Vec<C>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<bool, Self::Error> {
         self.get_chain(audience, issuer, builder, conditions, now)
             .map(|chain| chain.is_some())
@@ -138,16 +138,14 @@ where
 
     fn insert(&mut self, cid: Cid, delegation: Delegation<B, C, DID>) -> Result<(), Self::Error> {
         self.index
-            .entry(delegation.payload.subject.clone())
+            .entry(delegation.subject().clone())
             .or_default()
-            .entry(delegation.payload.audience.clone())
+            .entry(delegation.audience().clone())
             .or_default()
             .insert(cid);
 
-        let hierarchy: Delegation<B::Hierarchy, C, DID> = Delegation {
-            signature: delegation.signature,
-            payload: delegation.payload.map_ability(Into::into),
-        };
+        let hierarchy: Delegation<B::Hierarchy, C, DID> =
+            delegation.map_ability_builder(Into::into);
 
         self.ucans.insert(cid.clone(), hierarchy);
         Ok(())
@@ -164,7 +162,7 @@ where
         subject: &DID,
         builder: &B,
         conditions: Vec<C>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error> {
         match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
             None => Ok(None),
@@ -188,30 +186,30 @@ where
                                 return ControlFlow::Continue(());
                             }
 
-                            if d.payload.check_time(*now).is_err() {
+                            if d.check_time(now).is_err() {
                                 return ControlFlow::Continue(());
                             }
 
-                            target_aud = &d.payload.audience;
+                            target_aud = &d.audience();
 
-                            if args.check(&d.payload.ability_builder).is_ok() {
-                                args = &d.payload.ability_builder;
+                            if args.check(&d.ability_builder()).is_ok() {
+                                args = &d.ability_builder();
                             } else {
                                 return ControlFlow::Continue(());
                             }
 
                             for condition in &conditions {
-                                if !condition.validate(&d.payload.ability_builder.clone().into()) {
+                                if !condition.validate(&d.ability_builder().clone().into()) {
                                     return ControlFlow::Continue(());
                                 }
                             }
 
                             chain.push((*cid, d));
 
-                            if &d.payload.issuer == subject {
+                            if d.issuer() == subject {
                                 status = Status::Complete;
                             } else {
-                                target_aud = &d.payload.issuer;
+                                target_aud = &d.issuer();
                             }
 
                             ControlFlow::Break(())

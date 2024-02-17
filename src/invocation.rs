@@ -8,8 +8,14 @@ pub mod store;
 pub use payload::{Payload, Promised};
 pub use resolvable::Resolvable;
 
-use crate::{ability, did, did::Did, signature, time::Timestamp};
+use crate::{
+    ability, did,
+    did::Did,
+    signature,
+    time::{TimeBoundError, Timestamp},
+};
 use libipld_core::{cid::Cid, ipld::Ipld};
+use web_time::SystemTime;
 
 /// The complete, signed [`invocation::Payload`][Payload].
 ///
@@ -56,6 +62,10 @@ impl<T: Clone, DID: Did + Clone> Invocation<T, DID> {
 
     pub fn issued_at(&self) -> &Option<Timestamp> {
         &self.0.payload.issued_at
+    }
+
+    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
+        self.0.payload.check_time(now)
     }
 
     pub fn try_sign(

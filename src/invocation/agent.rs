@@ -82,7 +82,7 @@ where
         cause: Option<Cid>,
         expiration: Option<Timestamp>,
         issued_at: Option<Timestamp>,
-        now: &SystemTime,
+        now: SystemTime,
         // FIXME err type
     ) -> Result<Invocation<T::Promised, DID>, ()> {
         let proofs = self
@@ -168,7 +168,7 @@ where
             .get_many(&promised.proofs())
             .map_err(|_| ())?
             .into_iter()
-            .map(|d| d.payload.clone())
+            .map(|d| d.payload())
             .collect();
 
         let resolved_payload = promised.payload().clone().map_ability(|_| resolved_ability);
@@ -205,7 +205,7 @@ where
                     self.did,
                     &ability.clone().into(),
                     vec![],
-                    &now.into(),
+                    now.into(),
                 )
                 .map_err(|_| ())?
                 .map(|chain| chain.map(|(index_cid, _)| index_cid).into())

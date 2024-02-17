@@ -14,7 +14,7 @@ use crate::{
     ability,
     did::{self, Did},
     nonce::Nonce,
-    proof::{checkable::Checkable, parents::CheckParents, same::CheckSame},
+    proof::{parents::CheckParents, same::CheckSame},
     signature,
     time::{TimeBoundError, Timestamp},
 };
@@ -30,69 +30,104 @@ use web_time::SystemTime;
 /// # Examples
 /// FIXME
 /// FIXME wrap in struct to make the docs & error messages better?
-pub type Delegation<T, C, DID> = signature::Envelope<Payload<T, C, DID>, DID>;
+#[derive(Clone, Debug, PartialEq)]
+pub struct Delegation<D, C: Condition, DID: Did>(pub signature::Envelope<Payload<D, C, DID>, DID>);
 
 pub type Preset = Delegation<ability::preset::Builder, condition::Preset, did::preset::Verifier>;
 
 // FIXME checkable -> provable?
 
-impl<B: Checkable, C: Condition, DID: Did> Delegation<B, C, DID> {
+impl<B, C: Condition, DID: Did> Delegation<B, C, DID> {
     /// Retrive the `issuer` of a [`Delegation`]
     pub fn issuer(&self) -> &DID {
-        &self.payload.issuer
+        &self.0.payload.issuer
     }
 
     /// Retrive the `subject` of a [`Delegation`]
     pub fn subject(&self) -> &DID {
-        &self.payload.subject
+        &self.0.payload.subject
     }
 
     /// Retrive the `audience` of a [`Delegation`]
     pub fn audience(&self) -> &DID {
-        &self.payload.audience
+        &self.0.payload.audience
     }
 
     /// Retrive the `ability_builder` of a [`Delegation`]
     pub fn ability_builder(&self) -> &B {
-        &self.payload.ability_builder
+        &self.0.payload.ability_builder
+    }
+
+    pub fn map_ability_builder<F, T>(self, f: F) -> Delegation<T, C, DID>
+    where
+        F: FnOnce(B) -> T,
+    {
+        Delegation(signature::Envelope {
+            payload: self.0.payload.map_ability(f),
+            signature: self.0.signature,
+        })
     }
 
     /// Retrive the `condition` of a [`Delegation`]
     pub fn conditions(&self) -> &[C] {
-        &self.payload.conditions
+        &self.0.payload.conditions
     }
 
     /// Retrive the `metadata` of a [`Delegation`]
     pub fn metadata(&self) -> &BTreeMap<String, Ipld> {
-        &self.payload.metadata
+        &self.0.payload.metadata
     }
 
     /// Retrive the `nonce` of a [`Delegation`]
     pub fn nonce(&self) -> &Nonce {
-        &self.payload.nonce
+        &self.0.payload.nonce
     }
 
     /// Retrive the `not_before` of a [`Delegation`]
     pub fn not_before(&self) -> Option<&Timestamp> {
-        self.payload.not_before.as_ref()
+        self.0.payload.not_before.as_ref()
     }
 
     /// Retrive the `expiration` of a [`Delegation`]
     pub fn expiration(&self) -> &Timestamp {
-        &self.payload.expiration
+        &self.0.payload.expiration
     }
 
-    /// Retrive the `signature` of a [`Delegation`]
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
-        self.payload.check_time(now)
+        self.0.payload.check_time(now)
+    }
+
+    pub fn payload(&self) -> &Payload<B, C, DID> {
+        &self.0.payload
+    }
+
+    pub fn signature(&self) -> &signature::Witness<DID::Signature> {
+        &self.0.signature
+    }
+
+    pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
+    where
+        Payload<B, C, DID>: Clone,
+    {
+        self.0.validate_signature()
+    }
+
+    pub fn try_sign(
+        signer: &DID::Signer,
+        payload: Payload<B, C, DID>,
+    ) -> Result<Self, signature::SignError>
+    where
+        Payload<B, C, DID>: Clone,
+    {
+        signature::Envelope::try_sign(signer, payload).map(Delegation)
     }
 }
 
-impl<T: CheckSame, C: Condition, DID: Did> CheckSame for Delegation<T, C, DID> {
-    type Error = <T as CheckSame>::Error;
+impl<B: CheckSame, C: Condition, DID: Did> CheckSame for Delegation<B, C, DID> {
+    type Error = <B as CheckSame>::Error;
 
-    fn check_same(&self, proof: &Delegation<T, C, DID>) -> Result<(), Self::Error> {
-        self.payload.check_same(&proof.payload)
+    fn check_same(&self, proof: &Delegation<B, C, DID>) -> Result<(), Self::Error> {
+        self.0.payload.check_same(&proof.payload())
     }
 }
 
@@ -101,6 +136,6 @@ impl<T: CheckParents, C: Condition, DID: Did> CheckParents for Delegation<T, C, 
     type ParentError = <T as CheckParents>::ParentError;
 
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        self.payload.check_parent(&proof.payload)
+        self.payload().check_parent(&proof.payload())
     }
 }

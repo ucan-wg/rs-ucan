@@ -43,7 +43,7 @@ impl<
         metadata: BTreeMap<String, Ipld>,
         expiration: Timestamp,
         not_before: Option<Timestamp>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
@@ -71,7 +71,7 @@ impl<
             .ok_or(DelegateError::ProofsNotFound)?
             .first()
             .1
-            .payload;
+            .payload();
 
         let mut conditions = to_delegate.conditions.clone();
         conditions.append(&mut new_conditions.clone());

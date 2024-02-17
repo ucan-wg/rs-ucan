@@ -122,12 +122,14 @@ impl<D, C: Condition, DID: Did> Payload<D, C, DID> {
     }
 
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
-        if SystemTime::from(self.expiration.clone()) < now {
+        let ts_now = &Timestamp::postel(now);
+
+        if &self.expiration < ts_now {
             return Err(TimeBoundError::Expired);
         }
 
-        if let Some(nbf) = self.not_before.clone() {
-            if SystemTime::from(nbf) > now {
+        if let Some(ref nbf) = self.not_before {
+            if nbf > ts_now {
                 return Err(TimeBoundError::NotYetValid);
             }
         }
@@ -371,7 +373,7 @@ impl<T: Checkable + Clone + Into<arguments::Named<Ipld>>, C: Condition, DID: Did
 {
     pub fn check(
         &self,
-        proofs: Vec<Payload<T::Hierarchy, C, DID>>,
+        proofs: Vec<&Payload<T::Hierarchy, C, DID>>,
         now: &SystemTime,
     ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
     where
