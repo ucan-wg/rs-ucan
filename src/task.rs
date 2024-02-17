@@ -1,5 +1,9 @@
 //! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup.
 
+mod id;
+
+pub use id::Id;
+
 use crate::{ability::arguments, did, nonce::Nonce};
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
@@ -64,30 +68,6 @@ impl From<Task> for Cid {
             MultihashGeneric::wrap(SHA2_256, buffer.as_slice())
                 .expect("DagCborCodec + Sha2_256 should always successfully encode Ipld to a Cid"),
         )
-    }
-}
-
-/// The unique identifier for a [`Task`].
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Id {
-    /// The CID of the [`Task`].
-    ///
-    /// This acts as a unique identifier for the task.
-    pub cid: Cid,
-}
-
-impl TryFrom<Ipld> for Id {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
-    }
-}
-
-impl From<Id> for Ipld {
-    fn from(id: Id) -> Self {
-        id.cid.into()
     }
 }
 

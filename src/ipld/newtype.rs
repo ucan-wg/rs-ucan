@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 use js_sys::{Array, Map, Object, Uint8Array};
 
 // FIXME push into the submodules
-/// A wrapper around [`Ipld`] that has additional trait implementations
+/// A newtype wrapper around [`Ipld`] that has additional trait implementations.
 ///
 /// Usage is very simple: wrap a [`Newtype`] to gain access to additional traits and methods.
 ///
@@ -79,7 +79,7 @@ impl Newtype {
     }
 }
 
-// TODO testme
+// FIXME testme
 #[cfg(target_arch = "wasm32")]
 impl From<Newtype> for JsValue {
     fn from(wrapped: Newtype) -> Self {
@@ -115,7 +115,7 @@ impl From<Newtype> for JsValue {
     }
 }
 
-// TODO testme
+// FIXME testme
 #[cfg(target_arch = "wasm32")]
 impl TryFrom<JsValue> for Newtype {
     type Error = (); // FIXME

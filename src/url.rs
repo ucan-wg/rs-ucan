@@ -52,11 +52,14 @@ impl TryFrom<Ipld> for Newtype {
     }
 }
 
+/// Possible errors when trying to convert from [`Ipld`].
 #[derive(Debug, Error)]
 pub enum FromIpldError {
+    /// Not an IPLD string.
     #[error("Not an IPLD string")]
     NotAString,
 
+    /// Failed to parse the URL.
     #[error(transparent)]
     UrlParseError(#[from] url::ParseError),
 }

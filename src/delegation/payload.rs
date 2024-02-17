@@ -8,7 +8,7 @@ use crate::{
         command::{Command, ParseAbility, ToCommand},
     },
     capsule::Capsule,
-    did::Did,
+    did::{Did, Verifiable},
     nonce::Nonce,
     proof::{
         checkable::Checkable,
@@ -16,7 +16,6 @@ use crate::{
         prove::{Prove, Success},
         same::CheckSame,
     },
-    signature::Verifiable,
     time::{TimeBoundError, Timestamp},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};

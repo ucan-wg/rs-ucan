@@ -4,7 +4,10 @@
 
 use super::responds::Responds;
 use crate::{
-    ability::arguments, capsule::Capsule, did::Did, nonce::Nonce, signature::Verifiable,
+    ability::arguments,
+    capsule::Capsule,
+    did::{Did, Verifiable},
+    nonce::Nonce,
     time::Timestamp,
 };
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -26,9 +29,7 @@ impl<T: Responds, DID: Did> Verifiable<DID> for Payload<T, DID> {
 /// [`Invocation`]: crate::invocation::Invocation
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<T: Responds, DID: Did> {
-    /// The issuer of the [`Receipt`].
-    ///
-    /// This [`Did`] *must* match the signature on
+    /// The issuer of the [`Receipt`]. This [`Did`] *must* match the signature on
     /// the outer layer of [`Receipt`].
     ///
     /// [`Receipt`]: super::Receipt
@@ -39,9 +40,8 @@ pub struct Payload<T: Responds, DID: Did> {
     /// [`Invocation`]: crate::invocation::Invocation
     pub ran: Cid,
 
-    /// The output of the [`Invocation`].
-    ///
-    /// This is always of the form `{"ok": ...}` or `{"err": ...}`.
+    /// The output of the [`Invocation`]. This is always of
+    /// the form `{"ok": ...}` or `{"err": ...}`.
     ///
     /// [`Invocation`]: crate::invocation::Invocation
     pub out: Result<T::Success, arguments::Named<Ipld>>,

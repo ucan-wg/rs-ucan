@@ -104,9 +104,13 @@ default = [
   "rs256",
   "rs512",
   "eddsa",
-  "bls"
+  "bls",
+
+  "ability-preset"
 ]
+
 test_utils = ["proptest"]
+
 eddsa = ["dep:ed25519-dalek"]
 es256 = ["dep:p256"]
 es256k = ["dep:k256"]
@@ -116,6 +120,12 @@ ps256 = ["dep:rsa"]
 rs256 = ["dep:rsa"]
 rs512 = ["dep:rsa"]
 bls = ["dep:blst"]
+
+ability-preset = ["ability-crud", "ability-msg", "ability-wasm"]
+ability-crud = []
+ability-msg = []
+ability-wasm = []
+
 mermaid_docs = ["aquamarine"]
 
 [package.metadata.docs.rs]

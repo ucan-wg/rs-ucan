@@ -3,10 +3,10 @@ use crate::{
     ability::{arguments, ucan},
     delegation,
     delegation::{condition::Condition, Delegable},
-    did::Did,
+    did::{Did, Verifiable},
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
-    signature::{Signature, Verifiable},
+    signature::Witness,
     time::JsTime,
 };
 use libipld_cbor::DagCborCodec;
@@ -144,7 +144,7 @@ where
             .verify(
                 &encoded,
                 &match promised.signature {
-                    Signature::Solo(ref sig) => sig.clone(),
+                    Witness::Signature(ref sig) => sig.clone(),
                 },
             )
             .map_err(|_| ())?;

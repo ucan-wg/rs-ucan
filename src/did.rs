@@ -2,37 +2,17 @@
 //!
 //! [wiki]: https://en.wikipedia.org/wiki/Decentralized_identifier
 
+mod verifiable;
+
 pub mod key;
+
+pub use verifiable::Verifiable;
 
 use did_url::DID;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::{fmt, string::ToString};
 use thiserror::Error;
-
-// #[cfg(feature = "eddsa")]
-// use ed25519_dalek;
-//
-// #[cfg(feature = "es256")]
-// use p256;
-//
-// #[cfg(feature = "es256k")]
-// use k256;
-//
-// #[cfg(feature = "es384")]
-// use p384;
-//
-// #[cfg(feature = "es512")]
-// use crate::crypto::p521;
-//
-// #[cfg(feature = "rs256")]
-// use crate::crypto::rs256;
-//
-// #[cfg(feature = "rs512")]
-// use crate::crypto::rs512;
-//
-// #[cfg(feature = "bls")]
-// use blst;
 
 pub trait Did:
     PartialEq + TryFrom<Newtype> + Into<Newtype> + signature::Verifier<Self::Signature>
@@ -41,10 +21,6 @@ pub trait Did:
     type Signer: signature::Signer<Self::Signature> + fmt::Debug;
 }
 
-// impl Did for ed25519_dalek::VerifyingKey {}
-//
-//impl Did for key::Verifier {}
-//
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Preset {
     Key(key::Verifier),

@@ -36,11 +36,19 @@
 // FIXME feature flag each?
 // FIXME ability implementers guide (e.g. serde deny fields)
 //
-pub mod crud;
-pub mod msg;
+
 pub mod ucan;
+
+#[cfg(feature = "ability-crud")]
+pub mod crud;
+
+#[cfg(feature = "ability-msg")]
+pub mod msg;
+
+#[cfg(feature = "ability-wasm")]
 pub mod wasm;
 
+#[cfg(feature = "ability-preset")]
 pub mod preset;
 
 pub mod arguments;

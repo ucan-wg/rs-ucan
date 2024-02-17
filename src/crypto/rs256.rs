@@ -8,8 +8,7 @@ pub struct VerifyingKey(pub rsa::pkcs1v15::VerifyingKey<rsa::sha2::Sha256>);
 
 impl PartialEq for VerifyingKey {
     fn eq(&self, other: &Self) -> bool {
-        // FIXME yikes that clone
-        rsa::RsaPublicKey::from(self.0.clone()) == rsa::RsaPublicKey::from(other.0.clone())
+        self.0.as_ref() == other.0.as_ref()
     }
 }
 

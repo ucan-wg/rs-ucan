@@ -1,7 +1,16 @@
+//! A generalized version of [`Ipld`][libipld_core::ipld::Ipld]
+//! that can contain non-IPLD leaves.
+
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// A generalized version of [`Ipld`][libipld_core::ipld::Ipld]
+/// that can contain non-IPLD leaves.
+///
+/// This is helpful especially when building (mutually) recursive
+/// data strutcures that are reducable to [`Ipld`], such as
+/// [`ipld::Promised`][crate::ipld::Promised].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Enriched<T> {
     /// Lifted [`Ipld::Null`]
@@ -22,14 +31,14 @@ pub enum Enriched<T> {
     /// Lifted [`Ipld::Bytes`] (byte array)
     Bytes(Vec<u8>),
 
-    /// [`Ipld::List`], but where the values are [`PromiseIpld`].
-    List(Vec<T>),
-
-    /// [`Ipld::Map`], but where the values are [`PromiseIpld`].
-    Map(BTreeMap<String, T>),
-
     /// Lifted [`Ipld::Link`]
     Link(Cid),
+
+    /// [`Ipld::List`], but where the values are the provided [`T`].
+    List(Vec<T>),
+
+    /// [`Ipld::Map`], but where the values are the provided [`T`].
+    Map(BTreeMap<String, T>),
 }
 
 /// A post-order [`Ipld`] iterator

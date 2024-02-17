@@ -6,10 +6,9 @@ use crate::{
     },
     capsule::Capsule,
     delegation::{self, condition::Condition, error::DelegationError, Delegable},
-    did::Did,
+    did::{Did, Verifiable},
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
-    signature::Verifiable,
     time::Timestamp,
 };
 // use anyhow;
