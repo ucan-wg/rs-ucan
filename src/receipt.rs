@@ -21,4 +21,4 @@ pub type Receipt<T, DID> = signature::Envelope<Payload<T, DID>, DID>;
 
 /// An alias for the [`Receipt`] type with the library preset
 /// [`Did`](crate::did)s and [Abilities](crate::ability).
-pub type Preset = Receipt<ability::preset::Ready, did::Preset>;
+pub type Preset = Receipt<ability::preset::Ready, did::preset::Verifier>;

@@ -1,11 +1,12 @@
 //! Signatures and related cryptographic witnesses.
 
+use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use signature::SignatureEncoding;
 
 /// Asymmetric cryptographic witnesses.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Witness<S> {
     /// A single cryptographic signature.

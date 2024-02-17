@@ -20,8 +20,8 @@ use crate::{ability, did, did::Did, signature};
 pub type Invocation<T, DID> = signature::Envelope<payload::Payload<T, DID>, DID>;
 
 // FIXME use presnet ability, too
-pub type Preset = Invocation<ability::preset::Ready, did::Preset>;
-pub type PresetPromised = Invocation<ability::preset::Promised, did::Preset>;
+pub type Preset = Invocation<ability::preset::Ready, did::preset::Verifier>;
+pub type PresetPromised = Invocation<ability::preset::Promised, did::preset::Verifier>;
 
 impl<T, DID: Did> Invocation<T, DID> {
     pub fn map_ability(self, f: impl FnOnce(T) -> T) -> Self {

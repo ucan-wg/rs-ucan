@@ -1,6 +1,6 @@
 //! A min number [`Condition`].
 use super::traits::Condition;
-use crate::{ability::arguments, number::Number};
+use crate::{ability::arguments, ipld::Number};
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 

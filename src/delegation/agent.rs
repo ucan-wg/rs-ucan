@@ -1,5 +1,5 @@
 use super::{condition::Condition, payload::Payload, store::Store, Delegation};
-use crate::{did::Did, nonce::Nonce, proof::checkable::Checkable, time::JsTime};
+use crate::{did::Did, nonce::Nonce, proof::checkable::Checkable, time::Timestamp};
 use libipld_core::{cid::Cid, ipld::Ipld};
 use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
@@ -41,8 +41,8 @@ impl<
         ability_builder: B,
         new_conditions: Vec<C>,
         metadata: BTreeMap<String, Ipld>,
-        expiration: JsTime,
-        not_before: Option<JsTime>,
+        expiration: Timestamp,
+        not_before: Option<Timestamp>,
         now: &SystemTime,
     ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
         let mut salt = self.did.clone().to_string().into_bytes();

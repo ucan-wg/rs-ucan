@@ -8,10 +8,12 @@
 
 mod enriched;
 mod newtype;
+mod number;
 mod promised;
 
 pub mod cid;
 
 pub use enriched::Enriched;
 pub use newtype::Newtype;
+pub use number::Number;
 pub use promised::Promised;

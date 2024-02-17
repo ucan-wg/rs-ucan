@@ -104,7 +104,7 @@ impl<T: Delegable, C: Condition, DID: Did + Clone> From<Payload<T, DID>>
             nonce: payload.nonce,
 
             not_before: payload.not_before,
-            expiration: SystemTime::now().into(), // FIXME
+            expiration: Timestamp::postel(SystemTime::now()), // FIXME
         }
     }
 }

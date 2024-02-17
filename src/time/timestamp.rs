@@ -1,55 +1,110 @@
-use super::JsTime;
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+//! A JavaScript-wrapper for [`Timestamp`][crate::time::Timestamp].
+
+use super::OutOfRangeError;
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 
-/// All timestamps that this library can handle.
+/// A [`Timestamp`][super::Timestamp] with safe JavaScript interop.
 ///
-/// Strictly speaking, UCAN exclusively supports [`JsTime`] (for JavaScript interoperability).
-/// While this library only allows creation of [`JsTime`]s, it will parse the broader
-/// [`SystemTime`] range to be liberal in what it accepts. Large numbers are only a problem in
-/// langauges that lack 64-bit integers (like JavaScript).
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Timestamp {
-    /// An entry for [`JsTime`], which is compatible with JavaScript's 2⁵³ numeric range.
-    JsSafe(JsTime),
-
-    /// Following [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle),
-    /// received timestamps may be parsed as regular [`SystemTime`].
-    Postel(SystemTime),
+/// Per the UCAN spec, timestamps MUST respect [IEEE-754]
+/// (64-bit double precision = 53-bit truncated integer) for
+/// JavaScript interoperability.
+///
+/// This range can represent millions of years into the future,
+/// and is thus sufficient for "nearly" all auth use cases.
+///
+/// This type internally deserializes permissively from any [`SystemTime`],
+/// but checks that any time created is in the 53-bit bound when created via
+/// the public API.
+///
+/// [IEEE-754]: https://en.wikipedia.org/wiki/IEEE_754
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub struct Timestamp {
+    time: SystemTime,
 }
 
 impl Timestamp {
-    /// Get the current time in seconds since [`UNIX_EPOCH`] as a [`Timestamp`].
+    /// Create a [`Timestamp`] from a [`SystemTime`].
     ///
-    /// This will always return the [`JsSafe`][Timestamp::JsSafe] variant.
+    /// # Arguments
+    ///
+    /// * `time` — The time to convert
+    ///
+    /// # Errors
+    ///
+    /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
+    pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
+        if time.duration_since(UNIX_EPOCH).expect("FIXME").as_secs() > 0x1FFFFFFFFFFFFF {
+            Err(OutOfRangeError { tried: time })
+        } else {
+            Ok(Timestamp { time })
+        }
+    }
+
+    /// Get the current time in seconds since [`UNIX_EPOCH`] as a [`Timestamp`].
     pub fn now() -> Timestamp {
-        Timestamp::JsSafe(JsTime::now())
+        Self::new(SystemTime::now())
+            .expect("the current time to be somtime in the 3rd millenium CE")
+    }
+
+    /// Convert a [`Timestamp`] to a [Unix timestamp].
+    ///
+    /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
+    pub fn to_unix(&self) -> u64 {
+        self.time
+            .duration_since(UNIX_EPOCH)
+            .expect("System time to be after the Unix epoch")
+            .as_secs()
+    }
+
+    /// An intentionally permissive variant of `new` for
+    /// deseriazation. See the note on the struct.
+    pub(crate) fn postel(time: SystemTime) -> Self {
+        Timestamp { time }
     }
 }
 
-impl From<JsTime> for Timestamp {
-    fn from(js_time: JsTime) -> Self {
-        Timestamp::JsSafe(js_time)
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl Timestamp {
+    /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`]
+    pub fn from_date(date_time: js_sys::Date) -> Result<Timestamp, JsError> {
+        let millis = date_time.get_time() as u64;
+        let secs: u64 = (millis / 1000) as u64;
+        let duration = Duration::new(secs, 0); // Just round off the nanos
+        Timestamp::new(UNIX_EPOCH + duration).map_err(Into::into)
+    }
+
+    /// Lower the [`Timestamp`] to a [`js_sys::Date`]
+    pub fn to_date(&self) -> js_sys::Date {
+        js_sys::Date::new(&JsValue::from(
+            self.time
+                .duration_since(UNIX_EPOCH)
+                .expect("time should be in range since it's getting a JS Date")
+                .as_millis(),
+        ))
     }
 }
 
-impl From<SystemTime> for Timestamp {
-    fn from(sys_time: SystemTime) -> Self {
-        Timestamp::Postel(sys_time)
+impl TryFrom<SystemTime> for Timestamp {
+    type Error = OutOfRangeError;
+
+    fn try_from(sys_time: SystemTime) -> Result<Timestamp, Self::Error> {
+        Timestamp::new(sys_time)
+    }
+}
+
+impl From<Timestamp> for SystemTime {
+    fn from(js_time: Timestamp) -> Self {
+        js_time.time
     }
 }
 
 impl From<Timestamp> for Ipld {
     fn from(timestamp: Timestamp) -> Self {
-        match timestamp {
-            Timestamp::JsSafe(js_time) => js_time.into(),
-            Timestamp::Postel(sys_time) => sys_time
-                .duration_since(UNIX_EPOCH)
-                .expect("FIXME")
-                .as_secs()
-                .into(),
-        }
+        timestamp.to_unix().into()
     }
 }
 
@@ -58,10 +113,7 @@ impl Serialize for Timestamp {
     where
         S: Serializer,
     {
-        match self {
-            Timestamp::JsSafe(js_time) => js_time.serialize(serializer),
-            Timestamp::Postel(sys_time) => sys_time.serialize(serializer),
-        }
+        self.to_unix().serialize(serializer)
     }
 }
 
@@ -70,33 +122,7 @@ impl<'de> Deserialize<'de> for Timestamp {
     where
         D: Deserializer<'de>,
     {
-        if let Ok(secs) = u64::deserialize(deserializer) {
-            match UNIX_EPOCH.checked_add(Duration::new(secs, 0)) {
-                None => return Err(serde::de::Error::custom("time out of range for SystemTime")),
-                Some(sys_time) => match JsTime::new(sys_time) {
-                    Ok(js_time) => Ok(Timestamp::JsSafe(js_time)),
-                    Err(_) => Ok(Timestamp::Postel(sys_time)),
-                },
-            }
-        } else {
-            Err(serde::de::Error::custom("not a Timestamp"))
-        }
-    }
-}
-
-impl From<Timestamp> for SystemTime {
-    fn from(timestamp: Timestamp) -> Self {
-        match timestamp {
-            Timestamp::JsSafe(js_time) => js_time.time,
-            Timestamp::Postel(sys_time) => sys_time,
-        }
-    }
-}
-
-impl TryFrom<Ipld> for Timestamp {
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        let seconds = u64::deserialize(deserializer)?;
+        Ok(Timestamp::postel(UNIX_EPOCH + Duration::from_secs(seconds)))
     }
 }

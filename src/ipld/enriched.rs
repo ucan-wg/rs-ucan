@@ -1,6 +1,7 @@
 //! A generalized version of [`Ipld`][libipld_core::ipld::Ipld]
 //! that can contain non-IPLD leaves.
 
+use enum_as_inner::EnumAsInner;
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,7 +12,7 @@ use std::collections::BTreeMap;
 /// This is helpful especially when building (mutually) recursive
 /// data strutcures that are reducable to [`Ipld`], such as
 /// [`ipld::Promised`][crate::ipld::Promised].
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, EnumAsInner, Serialize, Deserialize)]
 pub enum Enriched<T> {
     /// Lifted [`Ipld::Null`]
     Null,
@@ -39,33 +40,6 @@ pub enum Enriched<T> {
 
     /// [`Ipld::Map`], but where the values are the provided [`T`].
     Map(BTreeMap<String, T>),
-}
-
-/// A post-order [`Ipld`] iterator
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
-#[allow(clippy::module_name_repetitions)]
-pub struct PostOrderIpldIter<'a, T> {
-    inbound: Vec<Item<'a, T>>,
-    outbound: Vec<Item<'a, T>>,
-}
-
-// FIXME not sure if &'a worth it because nbow I'm cloning everywhere
-#[derive(Clone, Debug, PartialEq)]
-pub enum Item<'a, T> {
-    Node(&'a Enriched<T>),
-    Inner(&'a T),
-}
-
-impl<'a, T> PostOrderIpldIter<'a, T> {
-    /// Initialize a new [`PostOrderIpldIter`]
-    #[must_use]
-    pub fn new(enriched: &'a Enriched<T>) -> Self {
-        PostOrderIpldIter {
-            inbound: vec![Item::Node(enriched)],
-            outbound: vec![],
-        }
-    }
 }
 
 impl<'a, T: Clone> IntoIterator for &'a Enriched<T> {
@@ -111,35 +85,6 @@ impl<'a, T: Clone> From<&'a Enriched<T>> for PostOrderIpldIter<'a, T> {
         PostOrderIpldIter::new(enriched)
     }
 }
-
-impl<'a, T: Clone> Iterator for PostOrderIpldIter<'a, T> {
-    type Item = Item<'a, T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match self.inbound.pop() {
-                None => return self.outbound.pop(),
-                Some(ref map @ Item::Node(Enriched::Map(ref btree))) => {
-                    self.outbound.push(map.clone());
-
-                    for node in btree.values() {
-                        self.inbound.push(Item::Inner(node));
-                    }
-                }
-
-                Some(ref list @ Item::Node(Enriched::List(ref vector))) => {
-                    self.outbound.push(list.clone());
-
-                    for node in vector {
-                        self.inbound.push(Item::Inner(node));
-                    }
-                }
-                Some(node) => self.outbound.push(node),
-            }
-        }
-    }
-}
-
 impl<T: From<Ipld>> From<Ipld> for Enriched<T> {
     fn from(ipld: Ipld) -> Self {
         match ipld {
@@ -193,6 +138,64 @@ impl<T: Clone + TryInto<Ipld>> TryFrom<Enriched<T>> for Ipld {
             Enriched::String(s) => Ok(s.into()),
             Enriched::Bytes(b) => Ok(b.into()),
             Enriched::Link(l) => Ok(l.into()),
+        }
+    }
+}
+
+/***************************
+| POST ORDER IPLD ITERATOR |
+***************************/
+
+/// A post-order [`Ipld`] iterator
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
+#[allow(clippy::module_name_repetitions)]
+pub struct PostOrderIpldIter<'a, T> {
+    inbound: Vec<Item<'a, T>>,
+    outbound: Vec<Item<'a, T>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Item<'a, T> {
+    Node(&'a Enriched<T>),
+    Inner(&'a T),
+}
+
+impl<'a, T> PostOrderIpldIter<'a, T> {
+    /// Initialize a new [`PostOrderIpldIter`]
+    #[must_use]
+    pub fn new(enriched: &'a Enriched<T>) -> Self {
+        PostOrderIpldIter {
+            inbound: vec![Item::Node(enriched)],
+            outbound: vec![],
+        }
+    }
+}
+
+impl<'a, T: Clone> Iterator for PostOrderIpldIter<'a, T> {
+    type Item = Item<'a, T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inbound.pop() {
+                None => return self.outbound.pop(),
+                Some(ref map @ Item::Node(Enriched::Map(ref btree))) => {
+                    self.outbound.push(map.clone());
+
+                    for node in btree.values() {
+                        self.inbound.push(Item::Inner(node));
+                    }
+                }
+
+                Some(ref list @ Item::Node(Enriched::List(ref vector))) => {
+                    self.outbound.push(list.clone());
+
+                    for node in vector {
+                        self.inbound.push(Item::Inner(node));
+                    }
+                }
+                Some(node) => self.outbound.push(node),
+            }
         }
     }
 }

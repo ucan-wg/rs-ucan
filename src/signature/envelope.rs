@@ -33,10 +33,39 @@ impl<T: Verifiable<DID> + Capsule, DID: Did> Verifiable<DID> for Envelope<T, DID
 }
 
 impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DID> {
+    /// Attempt to sign some payload with a given signer.
+    ///
+    /// # Arguments
+    ///
+    /// * `signer` - The signer to use to sign the payload.
+    /// * `payload` - The payload to sign.
+    ///
+    /// # Errors
+    ///
+    /// * [`SignError`] - the payload can't be encoded or the signature fails.
+    ///
+    /// # Example
+    ///
+    /// FIXME
     pub fn try_sign(signer: &DID::Signer, payload: T) -> Result<Envelope<T, DID>, SignError> {
         Self::try_sign_generic::<DagCborCodec, Code>(signer, DagCborCodec, payload)
     }
 
+    /// Attempt to sign some payload with a given signer and specific codec.
+    ///
+    /// # Arguments
+    ///
+    /// * `signer` - The signer to use to sign the payload.
+    /// * `codec` - The codec to use to encode the payload.
+    /// * `payload` - The payload to sign.
+    ///
+    /// # Errors
+    ///
+    /// * [`SignError`] - the payload can't be encoded or the signature fails.
+    ///
+    /// # Example
+    ///
+    /// FIXME
     pub fn try_sign_generic<C: Codec, H: Into<u64>>(
         signer: &DID::Signer,
         codec: C,
@@ -61,6 +90,19 @@ impl<T: Capsule + Verifiable<DID> + Into<Ipld> + Clone, DID: Did> Envelope<T, DI
         })
     }
 
+    /// Attempt to validate a signature.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The envelope to validate.
+    ///
+    /// # Errors
+    ///
+    /// * [`ValidateError`] - the payload can't be encoded or the signature fails.
+    ///
+    /// # Exmaples
+    ///
+    /// FIXME
     pub fn validate_signature(&self) -> Result<(), ValidateError> {
         // FIXME need varsig
         let codec = DagCborCodec;

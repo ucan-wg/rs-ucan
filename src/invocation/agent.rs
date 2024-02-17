@@ -7,7 +7,7 @@ use crate::{
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
     signature::Witness,
-    time::JsTime,
+    time::Timestamp,
 };
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
@@ -80,8 +80,8 @@ where
         ability: T::Promised, // FIXME give them an enum for promised or not probs doens't matter?
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
-        expiration: Option<JsTime>,
-        not_before: Option<JsTime>,
+        expiration: Option<Timestamp>,
+        not_before: Option<Timestamp>,
         now: &SystemTime,
         // FIXME err type
     ) -> Result<Invocation<T::Promised, DID>, ()> {
@@ -103,8 +103,8 @@ where
             metadata,
             nonce: Nonce::generate_12(&mut seed),
             cause,
-            expiration: expiration.map(Into::into),
-            not_before: not_before.map(Into::into),
+            expiration,
+            not_before,
         };
 
         Ok(Invocation::try_sign(self.signer, payload).map_err(|_| ())?)
@@ -189,7 +189,7 @@ where
         subject: &DID,
         cause: Option<Cid>,
         cid: Cid,
-        now: JsTime,
+        now: Timestamp,
         // FIXME return type
     ) -> Result<Invocation<T, DID>, ()>
     where

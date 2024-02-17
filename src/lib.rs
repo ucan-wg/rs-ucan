@@ -23,7 +23,6 @@ pub mod did;
 pub mod invocation;
 pub mod ipld;
 pub mod nonce;
-pub mod number;
 pub mod proof;
 pub mod reader;
 pub mod receipt;
