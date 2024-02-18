@@ -22,9 +22,9 @@ pub use agent::Agent;
 pub use payload::{Payload, Promised};
 
 use crate::{
-    ability, did,
-    did::Did,
-    signature,
+    ability,
+    crypto::signature,
+    did::{self, Did},
     time::{Expired, Timestamp},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};

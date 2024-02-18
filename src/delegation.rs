@@ -25,10 +25,9 @@ pub use payload::{Payload, ValidationError};
 
 use crate::{
     ability,
+    crypto::{signature, Nonce},
     did::{self, Did},
-    nonce::Nonce,
     proof::{parents::CheckParents, same::CheckSame},
-    signature,
     time::{TimeBoundError, Timestamp},
 };
 use condition::Condition;

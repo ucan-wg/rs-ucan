@@ -5,9 +5,9 @@ use crate::{
         command::{ParseAbility, ToCommand},
     },
     capsule::Capsule,
+    crypto::Nonce,
     delegation::{self, condition::Condition, Delegable, ValidationError},
     did::{Did, Verifiable},
-    nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
     time::{Expired, Timestamp},
 };

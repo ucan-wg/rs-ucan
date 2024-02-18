@@ -70,7 +70,6 @@ impl From<Vec<u8>> for Nonce {
 }
 
 impl Nonce {
-    // NOTE salt = domain-separator
     /// Generate a 96-bit, 12-byte nonce.
     /// This is the minimum nonce size typically recommended.
     ///
@@ -81,7 +80,7 @@ impl Nonce {
     /// # Example
     ///
     /// ```rust
-    /// # use ucan::nonce::Nonce;
+    /// # use ucan::crypto::Nonce;
     /// # use ucan::did::Did;
     /// #
     /// let mut salt = "did:example:123".as_bytes().to_vec();
@@ -118,7 +117,7 @@ impl Nonce {
     /// # Example
     ///
     /// ```rust
-    /// # use ucan::nonce::Nonce;
+    /// # use ucan::crypto::Nonce;
     /// # use ucan::did::Did;
     /// #
     /// let mut salt = "did:example:123".as_bytes().to_vec();

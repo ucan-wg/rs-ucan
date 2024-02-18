@@ -1,8 +1,12 @@
 //! Cryptographic signature utilities
 
 mod domain_separator;
+mod nonce;
+
+pub mod signature;
 
 pub use domain_separator::DomainSeparator;
+pub use nonce::*;
 
 #[cfg(feature = "bls")]
 pub mod bls12381;

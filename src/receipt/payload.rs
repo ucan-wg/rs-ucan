@@ -6,8 +6,8 @@ use super::responds::Responds;
 use crate::{
     ability::arguments,
     capsule::Capsule,
+    crypto::Nonce,
     did::{Did, Verifiable},
-    nonce::Nonce,
     time::Timestamp,
 };
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};

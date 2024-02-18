@@ -14,7 +14,7 @@ pub use payload::Payload;
 pub use responds::Responds;
 pub use store::Store;
 
-use crate::{ability, did, signature};
+use crate::{ability, crypto::signature, did};
 
 /// The complete, signed receipt of an [`Invocation`][`crate::invocation::Invocation`].
 #[derive(Clone, Debug, PartialEq)]

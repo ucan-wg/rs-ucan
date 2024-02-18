@@ -5,8 +5,8 @@ use crate::{
         command::{Command, ParseAbility, ToCommand},
     },
     capsule::Capsule,
+    crypto::Nonce,
     did::{Did, Verifiable},
-    nonce::Nonce,
     proof::{
         checkable::Checkable,
         parents::CheckParents,

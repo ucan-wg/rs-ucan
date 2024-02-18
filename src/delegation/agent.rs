@@ -1,5 +1,5 @@
 use super::{condition::Condition, payload::Payload, store::Store, Delegation};
-use crate::{did::Did, nonce::Nonce, proof::checkable::Checkable, time::Timestamp};
+use crate::{crypto::Nonce, did::Did, proof::checkable::Checkable, time::Timestamp};
 use libipld_core::{cid::Cid, ipld::Ipld};
 use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;

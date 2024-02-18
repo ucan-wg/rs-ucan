@@ -4,7 +4,7 @@ mod id;
 
 pub use id::Id;
 
-use crate::{ability::arguments, did, nonce::Nonce};
+use crate::{ability::arguments, crypto::Nonce, did};
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
     cid::{Cid, CidGeneric},

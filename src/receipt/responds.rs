@@ -1,4 +1,4 @@
-use crate::{nonce::Nonce, task, task::Task};
+use crate::{crypto::Nonce, task, task::Task};
 use std::fmt;
 
 /// Describe the relationship between an ability and the [`Receipt`]s.
