@@ -11,13 +11,14 @@ use libipld_core::{
     codec::Encode,
     error::SerdeError,
     ipld::Ipld,
-    multihash::MultihashGeneric,
+    multihash::{Code, MultihashGeneric},
     serde as ipld_serde,
 };
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-const SHA2_256: u64 = 0x12;
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
 
 /// The fields required to uniquely identify a [`Task`], potentially across multiple executors.
 ///
@@ -65,7 +66,7 @@ impl From<Task> for Cid {
 
         CidGeneric::new_v1(
             DagCborCodec.into(),
-            MultihashGeneric::wrap(SHA2_256, buffer.as_slice())
+            MultihashGeneric::wrap(Code::Sha2_256.into(), buffer.as_slice())
                 .expect("DagCborCodec + Sha2_256 should always successfully encode Ipld to a Cid"),
         )
     }
@@ -78,3 +79,25 @@ impl From<Task> for Id {
         }
     }
 }
+
+// #[cfg(feature = "test_utils")]
+// impl Arbitrary for Task {
+//     type Parameters = ();
+//     type Strategy = BoxedStrategy<Self>;
+//
+//     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+//         (
+//             any::<did::Newtype>(),
+//             any::<Nonce>(),
+//             any::<String>(),
+//             any::<arguments::Named<Ipld>>(),
+//         )
+//             .prop_map(|(sub, nonce, cmd, args)| Task {
+//                 sub,
+//                 nonce,
+//                 cmd,
+//                 args,
+//             })
+//             .boxed()
+//     }
+// }

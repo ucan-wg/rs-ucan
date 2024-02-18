@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
-/// A wrapper around [`Url`] that has additional trait implementations
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+/// A wrapper around [`Url`] that has additional trait implementations.
 ///
 /// Usage is very simple: wrap a [`Newtype`] to gain access to additional traits and methods.
 ///
@@ -62,4 +65,19 @@ pub enum FromIpldError {
     /// Failed to parse the URL.
     #[error(transparent)]
     UrlParseError(#[from] url::ParseError),
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Newtype {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let url_regex: &str = &"\\w+:(\\/?\\/?)[^\\s]+";
+        url_regex
+            .prop_map(|s| {
+                Newtype(Url::parse(&s).expect("the regex generator to create valid URLs"))
+            })
+            .boxed()
+    }
 }

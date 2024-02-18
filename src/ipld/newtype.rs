@@ -8,6 +8,12 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Map, Object, Uint8Array};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use super::cid;
+
 // FIXME push into the submodules
 /// A newtype wrapper around [`Ipld`] that has additional trait implementations.
 ///
@@ -215,5 +221,39 @@ impl TryFrom<JsValue> for Newtype {
         // NOTE fails on `undefined` and `function`
 
         Err(())
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Newtype {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let leaf = prop_oneof![
+            Just(Ipld::Null),
+            any::<bool>().prop_map(Ipld::Bool),
+            any::<Vec<u8>>().prop_map(Ipld::Bytes),
+            any::<i128>().prop_map(move |i| {
+                Ipld::Integer((i % (2 ^ 53)).into()) // NOTE Because DAG-JSON
+            }),
+            any::<f64>().prop_map(Ipld::Float),
+            ".*".prop_map(Ipld::String),
+            any::<cid::Newtype>().prop_map(|newtype_cid| { Ipld::Link(newtype_cid.cid) })
+        ];
+
+        let coll = leaf.clone().prop_recursive(16, 1024, 128, |inner| {
+            prop_oneof![
+                prop::collection::vec(inner.clone(), 0..128).prop_map(Ipld::List),
+                prop::collection::btree_map(".*", inner, 0..128).prop_map(Ipld::Map),
+            ]
+        });
+
+        prop_oneof![
+            1 => leaf,
+            9 => coll
+        ]
+        .prop_map(Newtype)
+        .boxed()
     }
 }

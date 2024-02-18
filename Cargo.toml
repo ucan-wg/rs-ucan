@@ -59,6 +59,7 @@ url = { version = "2.5", features = ["serde"] }
 web-time = "0.2.3"
 
 # Interplanetary Stack
+libipld = { version = "0.16", optional = true }
 libipld-core = { version = "0.16", features = ["serde-codec"] }
 libipld-cbor = "0.16"
 multihash = { version = "0.18" }
@@ -106,10 +107,13 @@ default = [
   "eddsa",
   "bls",
 
-  "ability-preset"
+  "ability-preset",
+
+  # FIXME temp while developing
+  "test_utils",
 ]
 
-test_utils = ["proptest"]
+test_utils = ["dep:proptest", "dep:libipld"]
 
 eddsa = ["dep:ed25519-dalek"]
 es256 = ["dep:p256"]

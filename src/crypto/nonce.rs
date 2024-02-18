@@ -16,6 +16,9 @@ use std::fmt;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// Known [`Nonce`] types
 #[derive(Clone, Debug, PartialEq, EnumAsInner, Serialize, Deserialize)]
 pub enum Nonce {
@@ -194,6 +197,22 @@ impl TryFrom<Ipld> for Nonce {
     }
 }
 
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Nonce {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<[u8; 12]>().prop_map(Nonce::Nonce12),
+            any::<[u8; 16]>().prop_map(Nonce::Nonce16),
+            any::<Vec<u8>>().prop_map(Nonce::Custom)
+        ]
+        .boxed()
+    }
+}
+
+// FIXME move module?
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[wasm_bindgen]

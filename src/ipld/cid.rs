@@ -1,7 +1,7 @@
 //! Utilities for [`Cid`]s
 
 use crate::ipld;
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::{cid::Cid, ipld::Ipld, multihash::MultihashGeneric};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -10,6 +10,15 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_derive::TryFromJsValue;
+
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use crate::test_utils::SomeCodec;
+
+#[cfg(feature = "test_utils")]
+use crate::test_utils::SomeMultihash;
 
 /// A newtype wrapper around a [`Cid`]
 ///
@@ -111,3 +120,22 @@ impl TryFrom<&Ipld> for Newtype {
 #[derive(Debug, PartialEq, Clone, Error, Serialize, Deserialize)]
 #[error("Not a CID: {0:?}")]
 pub struct NotACid(pub ipld::Newtype);
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Newtype {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        // Very much faking it
+        any::<([u8; 32], SomeMultihash, SomeCodec)>()
+            .prop_map(|(hash_bytes, hasher, codec)| {
+                let multihash = MultihashGeneric::wrap(hasher.0.into(), &hash_bytes.as_slice())
+                    .expect("Sha2_256 should always successfully encode a hash");
+
+                let cid = Cid::new_v1(codec.0.into(), multihash);
+                Newtype { cid }
+            })
+            .boxed()
+    }
+}

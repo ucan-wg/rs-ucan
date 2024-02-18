@@ -10,6 +10,9 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Map, Object, Reflect};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// Named arguments
 ///
 /// Being such a common pattern, but with so few trait implementations,
@@ -327,4 +330,16 @@ pub enum NamedError {
     /// The value at the named field didn't match the expected value.
     #[error("arguments::Named field {0}: value doesn't match")]
     FieldValueMismatch(String),
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + 'static> Arbitrary for Named<T> {
+    type Parameters = T::Parameters;
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(t_args: Self::Parameters) -> Self::Strategy {
+        prop::collection::btree_map(".*", T::arbitrary_with(t_args), 0..256)
+            .prop_map(Named)
+            .boxed()
+    }
 }

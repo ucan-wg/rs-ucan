@@ -5,6 +5,9 @@ use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// A [`Timestamp`][super::Timestamp] with safe JavaScript interop.
 ///
 /// Per the UCAN spec, timestamps MUST respect [IEEE-754]
@@ -124,5 +127,15 @@ impl<'de> Deserialize<'de> for Timestamp {
     {
         let seconds = u64::deserialize(deserializer)?;
         Ok(Timestamp::postel(UNIX_EPOCH + Duration::from_secs(seconds)))
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Timestamp {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any::<SystemTime>().prop_map(Timestamp::postel).boxed()
     }
 }

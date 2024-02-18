@@ -29,6 +29,9 @@ pub mod task;
 pub mod time;
 pub mod url;
 
+#[cfg(feature = "test_utils")]
+pub mod test_utils;
+
 pub use delegation::Delegation;
 pub use invocation::Invocation;
 pub use receipt::Receipt;
