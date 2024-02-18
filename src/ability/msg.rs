@@ -11,7 +11,7 @@ pub use receive::Receive;
 use crate::{
     ability::arguments,
     delegation::Delegable,
-    invocation::Resolvable,
+    invocation::promise::Resolvable,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;

@@ -1,4 +1,4 @@
-use super::{payload::Payload, store::Store, Invocation, Resolvable};
+use super::{payload::Payload, promise::Resolvable, store::Store, Invocation};
 use crate::{
     ability::{arguments, ucan},
     delegation,
@@ -16,7 +16,7 @@ use libipld_core::{
     ipld::Ipld,
     multihash::{Code, MultihashGeneric},
 };
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::{collections::BTreeMap, fmt, marker::PhantomData};
 use web_time::SystemTime;
 
 #[derive(Debug)]
@@ -51,7 +51,6 @@ impl<
     > Agent<'a, T, C, DID, S, P, D>
 where
     T::Promised: Clone,
-    // Payload<<T::Builder as Checkable>::Hierarchy, DID>: Clone, // FIXME
     delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>: Clone,
 {
     pub fn new(
@@ -117,6 +116,7 @@ where
         // FIXME return type
     ) -> Result<Recipient<Payload<T, DID>>, ()>
     where
+        C: fmt::Debug + Clone,
         <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
         T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
     {
@@ -237,8 +237,3 @@ pub enum Recipient<T> {
     You(T),
     Other(T),
 }
-
-// impl<T> Agent {
-// FIXME err = ()
-// FIXME move to revocation agent wit own traits?
-// }

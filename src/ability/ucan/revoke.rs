@@ -1,31 +1,27 @@
-//! UCAN [Revocations](https://github.com/ucan-wg/revocation)
+//! This is an ability for revoking [`Delegation`][crate::delegation::Delegation]s by their [`Cid`].
+//!
+//! For more, see the [UCAN Revocation spec](https://github.com/ucan-wg/revocation).
 
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, Resolvable},
-    proof::{parentless::NoParents, same::CheckSame},
+    invocation::promise,
+    proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
-/// An ability for revoking previously issued UCANs by [`Cid`]
+/// The fully resolved variant: ready to execute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Generic<Arg> {
-    // FIXME check spec
+pub struct Ready {
     /// The UCAN to revoke
-    pub ucan: Arg,
+    pub ucan: Cid,
 }
 
-impl<Arg> Command for Generic<Arg> {
+impl Command for Ready {
     const COMMAND: &'static str = "ucan/revoke";
 }
-
-/// The fully resolved variant: ready to execute.
-pub type Ready = Generic<Cid>;
-
-impl NoParents for Builder {}
 
 impl Delegable for Ready {
     type Builder = Builder;
@@ -39,7 +35,7 @@ impl From<Promised> for Builder {
     }
 }
 
-impl Resolvable for Ready {
+impl promise::Resolvable for Ready {
     type Promised = Promised;
 
     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
@@ -51,13 +47,18 @@ impl Resolvable for Ready {
 }
 
 /// A variant with some fields waiting to be set.
-pub type Builder = Generic<Option<Cid>>;
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Builder {
+    pub ucan: Option<Cid>,
+}
+
+impl NoParents for Builder {}
 
 impl CheckSame for Builder {
-    type Error = (); // FIXME
+    type Error = OptionalFieldError;
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.ucan.check_same(&proof.ucan).map_err(|_| ())
+        self.ucan.check_same(&proof.ucan)
     }
 }
 
@@ -89,8 +90,11 @@ impl From<Builder> for arguments::Named<Ipld> {
     }
 }
 
-/// A variant where arguments may be [`Promise`]s.
-pub type Promised = Generic<promise::Resolves<Cid>>;
+/// A variant where arguments may be [`Promise`][crate::invocation::promise]s.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Promised {
+    pub ucan: promise::Resolves<Cid>,
+}
 
 impl From<Ready> for Promised {
     fn from(r: Ready) -> Promised {

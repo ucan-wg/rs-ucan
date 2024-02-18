@@ -5,9 +5,15 @@ use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
 
+/// A stateful agent capable of delegatint to others, and being delegated to.
+///
+/// This is helpful for sessions where more than one delegation will be made.
 #[derive(Debug)]
 pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> {
+    /// The [`Did`][Did] of the agent.
     pub did: &'a DID,
+
+    /// The attached [`deleagtion::Store`][super::store::Store].
     pub store: &'a mut S,
 
     signer: &'a <DID as Did>::Signer,

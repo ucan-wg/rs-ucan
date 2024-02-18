@@ -1,18 +1,22 @@
-//! [UCAN Promise](https://github.com/ucan-wg/promise)
+//! [UCAN Promise](https://github.com/ucan-wg/promise)s: selectors, wrappers, and traits.
 
 // FIXME put entire module behind feature flag
 
 mod any;
 mod err;
 mod ok;
+mod resolvable;
 mod resolves;
 
+pub mod store;
 // FIXME pub mod js;
 
 pub use any::PromiseAny;
 pub use err::PromiseErr;
 pub use ok::PromiseOk;
+pub use resolvable::Resolvable;
 pub use resolves::Resolves;
+pub use store::Store;
 
 use serde::{Deserialize, Serialize};
 

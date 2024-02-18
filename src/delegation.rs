@@ -1,5 +1,18 @@
+//! An [`Delegation`] is the way to grant someone else the use of [`Ability`][crate::ability].
+//!
+//! ## Data
+//!
+//! - [`Delegation`] is the top-level, signed data struture.
+//! - [`Payload`] is the fields unique to an invocation.
+//! - [`Preset`] is an [`Delegation`] preloaded with this library's [preset abilities](crate::ability::preset::Ready).
+//! - [`Condition`]s are syntactically-driven validation rules for [`Delegation`]s.
+//!
+//! ## Stateful Helpers
+//!
+//! - [`Agent`] is a high-level interface for sessions that will involve more than one invoctaion.
+//! - [`store`] is an interface for caching [`Delegation`]s.
+
 pub mod condition;
-pub mod error;
 pub mod store;
 
 mod agent;
@@ -8,7 +21,7 @@ mod payload;
 
 pub use agent::Agent;
 pub use delegable::Delegable;
-pub use payload::Payload;
+pub use payload::{Payload, ValidationError};
 
 use crate::{
     ability,
@@ -29,10 +42,10 @@ use web_time::SystemTime;
 ///
 /// # Examples
 /// FIXME
-/// FIXME wrap in struct to make the docs & error messages better?
 #[derive(Clone, Debug, PartialEq)]
 pub struct Delegation<D, C: Condition, DID: Did>(pub signature::Envelope<Payload<D, C, DID>, DID>);
 
+/// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
 pub type Preset = Delegation<ability::preset::Builder, condition::Preset, did::preset::Verifier>;
 
 // FIXME checkable -> provable?

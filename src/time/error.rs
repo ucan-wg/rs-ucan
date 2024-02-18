@@ -14,11 +14,16 @@ pub struct OutOfRangeError {
 /// An error expressing when a time is not within the bounds of a UCAN.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Error)]
 pub enum TimeBoundError {
-    /// The UCAN delegation has expired
+    /// The UCAN has expired.
     #[error("Expired")]
     Expired,
 
-    /// Not yet valid
+    /// The UCAN is not yet valid, but will be in the future.
     #[error("Not yet valid")]
     NotYetValid,
 }
+
+/// The UCAN has expired.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+#[error("Expired")]
+pub struct Expired;

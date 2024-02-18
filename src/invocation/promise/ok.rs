@@ -3,6 +3,12 @@ use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde}
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// A promise that only selects the `{"ok": value}` branch of a result.
+///
+/// On resolution, the value is unwrapped from the `{"ok": value}`,
+/// leaving just the `value` (much like [`Result::unwrap`]).
+///
+/// FIXME exmaple
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum PromiseOk<T> {

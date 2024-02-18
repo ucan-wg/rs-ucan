@@ -7,6 +7,14 @@ use serde::{
 };
 use std::fmt;
 
+/// A promise that unwraps the same value from either the `{"ok": T}` or `{"err": T}` branches.
+///
+/// Unlike [`Resolves`][super::Resolves]:
+///
+/// 1. The branches may be of different types
+/// 2. The underlying value is _left wrapped_ in `{"ok": T}` or `{"err": T}` capsules
+///
+/// FIXME example
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum PromiseAny<T, E> {

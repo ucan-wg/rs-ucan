@@ -3,6 +3,12 @@ use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde}
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// A promise that only selects the `{"err": error}` branch of a result.
+///
+/// On resolution, the value is unwrapped from the `{"err": error}`,
+/// leaving just the `error` (much like [`Result::unwrap_err`]).
+///
+/// FIXME exmaple
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PromiseErr<E> {

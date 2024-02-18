@@ -3,7 +3,7 @@
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, Resolvable},
+    invocation::promise,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url,
 };
@@ -132,7 +132,7 @@ impl From<Promised> for arguments::Named<Ipld> {
     }
 }
 
-impl Resolvable for Receive {
+impl promise::Resolvable for Receive {
     type Promised = Promised;
 
     fn try_resolve(p: Promised) -> Result<Self, Self::Promised> {

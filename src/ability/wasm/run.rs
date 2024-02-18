@@ -4,7 +4,7 @@ use super::module::Module;
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, Resolvable},
+    invocation::promise,
     proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
@@ -35,7 +35,7 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-impl Resolvable for Ready {
+impl promise::Resolvable for Ready {
     type Promised = Promised;
 
     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {

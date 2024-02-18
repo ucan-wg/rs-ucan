@@ -1,4 +1,4 @@
-//! Storage interface for [`Delegation`][super::Delegation]s.
+//! Storage of resolved and unresolved promises.
 
 mod memory;
 mod traits;

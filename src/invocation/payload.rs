@@ -1,15 +1,15 @@
-use super::resolvable::Resolvable;
+use super::promise::Resolvable;
 use crate::{
     ability::{
         arguments,
         command::{ParseAbility, ToCommand},
     },
     capsule::Capsule,
-    delegation::{self, condition::Condition, error::DelegationError, Delegable},
+    delegation::{self, condition::Condition, Delegable, ValidationError},
     did::{Did, Verifiable},
     nonce::Nonce,
     proof::{checkable::Checkable, prove::Prove},
-    time::{TimeBoundError, Timestamp},
+    time::{Expired, Timestamp},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{
@@ -20,35 +20,81 @@ use serde::{
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
-impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
-    fn verifier(&self) -> &DID {
-        &self.issuer
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<A, DID: Did> {
-    pub issuer: DID,
+    /// The subject of the [`Invocation`].
+    ///
+    /// This is typically also the `audience`, hence the [`audence`]
+    /// field is optional.
+    ///
+    /// This role *must* have issued the earlier (root)
+    /// delegation in the chain. This makes the chains
+    /// self-certifying.
+    ///
+    /// The semantics of the delegation are established
+    /// by the subject.
+    ///
+    /// [`Invocation`]: super::Invocation
     pub subject: DID,
+
+    /// The issuer of the [`Invocation`].
+    ///
+    /// This [`Did`] *must* match the signature on
+    /// the outer layer of [`Invocation`].
+    ///
+    /// [`Invocation`]: super::Invocation
+    pub issuer: DID,
+
+    /// The agent being delegated to.
+    ///
+    /// Note that if this is the same as the [`subject`],
+    /// this field may be omitted.
     pub audience: Option<DID>,
 
+    /// The [Ability] being invoked.
+    ///
+    /// The specific shape and semantics of this ability
+    /// are established by the [`subject`] and the `A` type.
+    ///
+    /// [Ability]: crate::ability
     pub ability: A,
 
+    /// [`Cid`] links to the proofs that authorize this [`Invocation`].
+    ///
+    /// These must be given in order starting from one where the [`issuer`]
+    /// of this invocation matches the [`audience`] of that [`Delegation`] proof.
+    ///
+    /// [`Invocation`]: super::Invocation
+    /// [`Delegation`]: crate::delegation::Delegation
     pub proofs: Vec<Cid>,
+
+    /// An optional [`Cid`] of the [`Receipt`] that requested this be invoked.
+    ///
+    /// This is helpful for provenance of calls.
+    ///
+    /// [`Receipt`]: crate::receipt::Receipt
     pub cause: Option<Cid>,
+
+    /// Extensible, free-form fields.
     pub metadata: BTreeMap<String, Ipld>,
+
+    /// A [cryptographic nonce] to ensure that the UCAN's [`Cid`] is unique.
+    ///
+    /// [cryptographic nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
     pub nonce: Nonce,
 
+    /// An optional [Unix timestamp] (wall-clock time) at which this [`Invocation`]
+    /// was created.
     pub issued_at: Option<Timestamp>,
-    pub expiration: Option<Timestamp>, // FIXME this field may not make sense
+
+    /// An optional [Unix timestamp] (wall-clock time) at which this [`Invocation`]
+    /// should no longer be executed.
+    ///
+    /// One way of thinking about this is as a `timeout`. It also guards against
+    /// certain types of denial-of-service attacks.
+    pub expiration: Option<Timestamp>,
 }
 
-// FIXME cleanup traits
-// one idea, because they keep comingup together: put hierarchy and builder on the same
-// trair (as associated tyeps) to klet us skip the ::bulder::hierarchy indirection.
-//
-// This probably means putting the delegation T back to the upper level and bieng explicit about
-// the T::Builder in the type
 impl<A, DID: Did> Payload<A, DID> {
     pub fn map_ability<F, Z>(self, f: F) -> Payload<Z, DID>
     where
@@ -68,24 +114,23 @@ impl<A, DID: Did> Payload<A, DID> {
         }
     }
 
-    // FIXME err type
-    pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
+    pub fn check_time(&self, now: SystemTime) -> Result<(), Expired> {
         let ts_now = &Timestamp::postel(now);
 
         if let Some(ref exp) = self.expiration {
             if exp < ts_now {
-                panic!("FIXME")
+                return Err(Expired);
             }
         }
 
         Ok(())
     }
 
-    pub fn check<C: Condition>(
+    pub fn check<C: Condition + Debug + Clone>(
         self,
         proofs: Vec<&delegation::Payload<<A::Builder as Checkable>::Hierarchy, C, DID>>,
         now: &SystemTime,
-    ) -> Result<(), DelegationError<<<A::Builder as Checkable>::Hierarchy as Prove>::Error>>
+    ) -> Result<(), ValidationError<<<A::Builder as Checkable>::Hierarchy as Prove>::Error, C>>
     where
         A: Delegable,
         A::Builder: Clone + Into<arguments::Named<Ipld>>,
@@ -342,6 +387,12 @@ impl<'de, A: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
             FIELDS,
             InvocationPayloadVisitor(Default::default()),
         )
+    }
+}
+
+impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
+    fn verifier(&self) -> &DID {
+        &self.issuer
     }
 }
 

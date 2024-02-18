@@ -2,7 +2,7 @@ use super::{crud, msg, wasm};
 use crate::{
     ability::{arguments, command::ParseAbility},
     delegation::Delegable,
-    invocation::Resolvable,
+    invocation::promise::Resolvable,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;

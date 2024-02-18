@@ -4,7 +4,7 @@ use super::any as crud;
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, promise::Resolves, Resolvable},
+    invocation::{promise, promise::Resolves},
     ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
@@ -249,7 +249,7 @@ impl From<Ready> for Promised {
     }
 }
 
-impl Resolvable for Ready {
+impl promise::Resolvable for Ready {
     type Promised = Promised;
 
     fn try_resolve(p: Promised) -> Result<Ready, Promised> {

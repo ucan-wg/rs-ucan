@@ -3,7 +3,7 @@
 use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, Resolvable},
+    invocation::promise,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url as url_newtype,
 };
@@ -127,7 +127,7 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
-impl Resolvable for Ready {
+impl promise::Resolvable for Ready {
     type Promised = Promised;
 
     fn try_resolve(p: Promised) -> Result<Self, Promised> {

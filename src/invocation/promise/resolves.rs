@@ -3,6 +3,14 @@ use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+/// A promise that unwraps the same value from either the `{"ok": T}` or `{"err": T}` branches.
+///
+/// Unlike [`PromiseAny`][super::PromiseAny]:
+///
+/// 1. Both branches of this promise resolve to the same type
+/// 2. The underlying value is unwrapped from the `{"ok": T}` or `{"err": T}` capsules
+///
+/// FIXME example
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Resolves<T> {

@@ -5,5 +5,5 @@
 mod error;
 mod timestamp;
 
-pub use error::{OutOfRangeError, TimeBoundError};
+pub use error::*;
 pub use timestamp::Timestamp;

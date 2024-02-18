@@ -1,7 +1,4 @@
-use super::{
-    condition::Condition,
-    error::{DelegationError, EnvelopeError},
-};
+use super::condition::Condition;
 use crate::{
     ability::{
         arguments,
@@ -25,6 +22,7 @@ use serde::{
     Deserialize, Serialize, Serializer,
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
+use thiserror::Error;
 use web_time::SystemTime;
 
 impl<DID: Did, C: Condition, D> Verifiable<DID> for Payload<D, C, DID> {
@@ -373,9 +371,10 @@ impl<T: Checkable + Into<arguments::Named<Ipld>>, C: Condition, DID: Did> Payloa
         &self,
         proofs: Vec<&Payload<T::Hierarchy, C, DID>>,
         now: &SystemTime,
-    ) -> Result<(), DelegationError<<T::Hierarchy as Prove>::Error>>
+    ) -> Result<(), ValidationError<<T::Hierarchy as Prove>::Error, C>>
     where
         T: Clone,
+        C: fmt::Debug + Clone,
         DID: Clone,
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
     {
@@ -426,25 +425,26 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
         proof: &Payload<H, C, DID>,
         args: &arguments::Named<Ipld>,
         now: &SystemTime,
-    ) -> Result<Success, DelegationError<<H as Prove>::Error>>
+    ) -> Result<Success, ValidationError<<H as Prove>::Error, C>>
     where
+        C: fmt::Debug + Clone,
         H: Prove + Clone + Into<arguments::Named<Ipld>>,
     {
         if self.issuer != proof.audience {
-            return Err(EnvelopeError::InvalidSubject.into());
+            return Err(ValidationError::InvalidSubject.into());
         }
 
         if self.subject != proof.subject {
-            return Err(EnvelopeError::MisalignedIssAud.into());
+            return Err(ValidationError::MisalignedIssAud.into());
         }
 
         if SystemTime::from(proof.expiration.clone()) > *now {
-            return Err(EnvelopeError::Expired.into());
+            return Err(ValidationError::Expired.into());
         }
 
         if let Some(nbf) = proof.not_before.clone() {
             if SystemTime::from(nbf) > *now {
-                return Err(EnvelopeError::NotYetValid.into());
+                return Err(ValidationError::NotYetValid.into());
             }
         }
 
@@ -456,22 +456,34 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
             // Plz let me know if I got this wrong.
             // —@expede
             if !c.validate(&args) || !c.validate(&self.hierarchy.clone().into()) {
-                return Err(DelegationError::FailedCondition);
+                return Err(ValidationError::FailedCondition(c.clone()));
             }
         }
 
         self.hierarchy
             .check(&proof.ability_builder.clone())
-            .map_err(DelegationError::SemanticError)
+            .map_err(ValidationError::AbilityError)
     }
 }
 
-// use crate::proof::{parentful::Parentful, parentless::Parentless};
-//
-// impl<B: Checkable<Hierarchy = Parentless<B>>, C, DID: Did> Checkable for Payload<B, C, DID> {
-//     type Hierarchy = Parentless<Payload<B, C, DID>>;
-// }
-//
-// impl<B: Checkable<Hierarchy = Parentful<B>>, C, DID: Did> Checkable for Payload<B, C, DID> {
-//     type Hierarchy = Parentful<Payload<B, C, DID>>;
-// }
+/// Delegation validation errors.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ValidationError<AbilityError, C: fmt::Debug> {
+    #[error("The subject of the delegation is invalid")]
+    InvalidSubject,
+
+    #[error("The issuer and audience of the delegation are misaligned")]
+    MisalignedIssAud,
+
+    #[error("The delegation has expired")]
+    Expired,
+
+    #[error("The delegation is not yet valid")]
+    NotYetValid,
+
+    #[error("The delegation failed a condition: {0:?}")]
+    FailedCondition(C), // FIXME add context?
+
+    #[error(transparent)]
+    AbilityError(AbilityError),
+}
