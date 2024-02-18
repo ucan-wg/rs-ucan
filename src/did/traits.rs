@@ -1,9 +1,8 @@
-use super::Newtype;
+// use super::Newtype;
+use did_url::DID;
 use std::fmt;
 
-pub trait Did:
-    PartialEq + TryFrom<Newtype> + Into<Newtype> + signature::Verifier<Self::Signature>
-{
+pub trait Did: PartialEq + TryFrom<DID> + Into<DID> + signature::Verifier<Self::Signature> {
     type Signature: signature::SignatureEncoding + PartialEq + fmt::Debug;
     type Signer: signature::Signer<Self::Signature> + fmt::Debug;
 }

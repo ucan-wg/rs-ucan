@@ -2,6 +2,12 @@ use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde}
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld::cid;
+
 /// The unique identifier for a [`Task`][super::Task].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -23,5 +29,19 @@ impl TryFrom<Ipld> for Id {
 impl From<Id> for Ipld {
     fn from(id: Id) -> Self {
         id.cid.into()
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Id {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any::<cid::Newtype>()
+            .prop_map(|cid_newtype| Id {
+                cid: cid_newtype.cid,
+            })
+            .boxed()
     }
 }

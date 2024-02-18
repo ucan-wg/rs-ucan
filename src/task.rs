@@ -80,24 +80,24 @@ impl From<Task> for Id {
     }
 }
 
-// #[cfg(feature = "test_utils")]
-// impl Arbitrary for Task {
-//     type Parameters = ();
-//     type Strategy = BoxedStrategy<Self>;
-//
-//     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-//         (
-//             any::<did::Newtype>(),
-//             any::<Nonce>(),
-//             any::<String>(),
-//             any::<arguments::Named<Ipld>>(),
-//         )
-//             .prop_map(|(sub, nonce, cmd, args)| Task {
-//                 sub,
-//                 nonce,
-//                 cmd,
-//                 args,
-//             })
-//             .boxed()
-//     }
-// }
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Task {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        (
+            any::<did::Newtype>(),
+            any::<Option<Nonce>>(),
+            any::<String>(),
+            any::<arguments::Named<Ipld>>(),
+        )
+            .prop_map(|(sub, nonce, cmd, args)| Task {
+                sub,
+                nonce,
+                cmd,
+                args,
+            })
+            .boxed()
+    }
+}

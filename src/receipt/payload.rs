@@ -87,8 +87,11 @@ where
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("receipt::Payload", 8)?;
-        state.serialize_field("iss", &self.issuer.clone().into())?;
+        let field_count = 7 + self.issued_at.is_some() as usize;
+
+        let mut state = serializer.serialize_struct("receipt::Payload", field_count)?;
+
+        state.serialize_field("iss", &self.issuer.clone().into().as_str())?;
         state.serialize_field("ran", &self.ran)?;
         state.serialize_field("out", &self.out)?;
         state.serialize_field("next", &self.next)?;

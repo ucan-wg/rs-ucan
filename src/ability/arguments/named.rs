@@ -333,13 +333,20 @@ pub enum NamedError {
 }
 
 #[cfg(feature = "test_utils")]
-impl<T: Arbitrary + 'static> Arbitrary for Named<T> {
-    type Parameters = T::Parameters;
+impl Arbitrary for Named<Ipld> {
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
-    fn arbitrary_with(t_args: Self::Parameters) -> Self::Strategy {
-        prop::collection::btree_map(".*", T::arbitrary_with(t_args), 0..256)
-            .prop_map(Named)
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..256)
+            .prop_map(|newtype_map| {
+                newtype_map
+                    .into_iter()
+                    .fold(Named::new(), |mut named, (k, v)| {
+                        named.insert(k, v.0);
+                        named
+                    })
+            })
             .boxed()
     }
 }
