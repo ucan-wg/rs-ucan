@@ -208,16 +208,10 @@ where
     where
         S: Serializer,
     {
-        let mut field_count = 9;
-        if self.audience.is_some() {
-            field_count += 1
-        };
-        if self.issued_at.is_some() {
-            field_count += 1
-        };
-        if self.expiration.is_some() {
-            field_count += 1
-        };
+        let field_count = 9
+            + self.audience.is_some() as usize
+            + self.issued_at.is_some() as usize
+            + self.expiration.is_some() as usize;
 
         let mut state = serializer.serialize_struct("invocation::Payload", field_count)?;
 

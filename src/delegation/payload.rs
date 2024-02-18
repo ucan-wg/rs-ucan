@@ -167,8 +167,7 @@ where
     where
         S: Serializer,
     {
-        let count_nbf = if self.not_before.is_some() { 1 } else { 0 };
-
+        let count_nbf = self.not_before.is_some() as usize;
         let mut state = serializer.serialize_struct("delegation::Payload", 8 + count_nbf)?;
 
         state.serialize_field("iss", &self.issuer.clone().into().to_string())?;

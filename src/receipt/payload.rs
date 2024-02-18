@@ -18,6 +18,15 @@ use serde::{
 };
 use std::{collections::BTreeMap, fmt, fmt::Debug};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld::cid;
+
 impl<T: Responds, DID: Did> Verifiable<DID> for Payload<T, DID> {
     fn verifier(&self) -> &DID {
         &self.issuer
@@ -231,5 +240,46 @@ where
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         ipld_serde::from_ipld(ipld)
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Responds + Debug, DID: Arbitrary + Did + 'static> Arbitrary for Payload<T, DID>
+where
+    T::Success: Arbitrary + 'static,
+{
+    type Parameters = (<T::Success as Arbitrary>::Parameters, DID::Parameters);
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with((t_params, did_params): Self::Parameters) -> Self::Strategy {
+        (
+            DID::arbitrary_with(did_params),
+            cid::Newtype::arbitrary(),
+            prop_oneof![
+                T::Success::arbitrary_with(t_params).prop_map(Result::Ok),
+                arguments::Named::arbitrary().prop_map(Result::Err),
+            ],
+            prop::collection::vec(cid::Newtype::arbitrary(), 0..25),
+            prop::collection::vec(cid::Newtype::arbitrary(), 0..25),
+            prop::collection::hash_map(".*", ipld::Newtype::arbitrary(), 0..50),
+            Nonce::arbitrary(),
+            prop::option::of(Timestamp::arbitrary()),
+        )
+            .prop_map(
+                |(issuer, ran, out, next, proofs, newtype_metadata, nonce, issued_at)| Payload {
+                    issuer,
+                    ran: ran.cid,
+                    out,
+                    next: next.into_iter().map(|nt| nt.cid).collect(),
+                    proofs: proofs.into_iter().map(|nt| nt.cid).collect(),
+                    metadata: newtype_metadata
+                        .into_iter()
+                        .map(|(k, v)| (k, v.0))
+                        .collect(),
+                    nonce,
+                    issued_at,
+                },
+            )
+            .boxed()
     }
 }
