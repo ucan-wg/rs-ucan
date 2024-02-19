@@ -35,7 +35,7 @@ use blst;
 pub enum Verifier {
     /// `EdDSA` verifying key.
     #[cfg(feature = "eddsa")]
-    EdDSA(ed25519_dalek::VerifyingKey),
+    EdDsa(ed25519_dalek::VerifyingKey),
 
     /// `ES256K` (`secp256k1`) verifying key.
     #[cfg(feature = "es256k")]
@@ -73,7 +73,7 @@ pub enum Verifier {
 impl signature::Verifier<Signature> for Verifier {
     fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), signature::Error> {
         match (self, signature) {
-            (Verifier::EdDSA(vk), Signature::EdDSA(sig)) => {
+            (Verifier::EdDsa(vk), Signature::EdDsa(sig)) => {
                 vk.verify(msg, sig).map_err(signature::Error::from_source)
             }
             (Verifier::Es256k(vk), Signature::Es256k(sig)) => {
@@ -110,7 +110,7 @@ impl signature::Verifier<Signature> for Verifier {
 impl Display for Verifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Verifier::EdDSA(ed25519_pk) => write!(
+            Verifier::EdDsa(ed25519_pk) => write!(
                 f,
                 "did:key:z6Mk{}",
                 bs58::encode(ed25519_pk.to_bytes()).into_string()
@@ -194,7 +194,7 @@ impl FromStr for Verifier {
                     let vk = ed25519_dalek::VerifyingKey::try_from(&bytes[1..33])
                         .map_err(|e| e.to_string())?;
 
-                    return Ok(Verifier::EdDSA(vk));
+                    return Ok(Verifier::EdDsa(vk));
                 }
                 ([0xe7, _], _) => {
                     let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&bytes[1..])

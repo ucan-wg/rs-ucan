@@ -1,6 +1,15 @@
 use super::{condition::Condition, payload::Payload, store::Store, Delegation};
-use crate::{crypto::Nonce, did::Did, proof::checkable::Checkable, time::Timestamp};
-use libipld_core::{cid::Cid, ipld::Ipld};
+use crate::{
+    crypto::{varsig, Nonce},
+    did::Did,
+    proof::checkable::Checkable,
+    time::Timestamp,
+};
+use libipld_core::{
+    cid::Cid,
+    codec::{Codec, Encode},
+    ipld::Ipld,
+};
 use std::{collections::BTreeMap, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
@@ -9,7 +18,15 @@ use web_time::SystemTime;
 ///
 /// This is helpful for sessions where more than one delegation will be made.
 #[derive(Debug)]
-pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> {
+pub struct Agent<
+    'a,
+    B: Checkable,
+    C: Condition,
+    DID: Did,
+    S: Store<B, C, DID, V, Enc>,
+    V: varsig::Header<Enc>,
+    Enc: Codec + TryFrom<u32> + Into<u32>,
+> {
     /// The [`Did`][Did] of the agent.
     pub did: &'a DID,
 
@@ -17,7 +34,7 @@ pub struct Agent<'a, B: Checkable, C: Condition, DID: Did, S: Store<B, C, DID>> 
     pub store: &'a mut S,
 
     signer: &'a <DID as Did>::Signer,
-    _marker: PhantomData<(B, C)>,
+    _marker: PhantomData<(B, C, V, Enc)>,
 }
 
 // FIXME show example of multiple hierarchies of "all things accepted"
@@ -28,8 +45,12 @@ impl<
         B: Checkable + Clone,
         C: Condition + Clone,
         DID: Did + ToString + Clone,
-        S: Store<B, C, DID> + Clone,
-    > Agent<'a, B, C, DID, S>
+        S: Store<B, C, DID, V, Enc> + Clone,
+        V: varsig::Header<Enc>,
+        Enc: Codec + TryFrom<u32> + Into<u32>,
+    > Agent<'a, B, C, DID, S, V, Enc>
+where
+    Ipld: Encode<Enc>,
 {
     pub fn new(did: &'a DID, signer: &'a <DID as Did>::Signer, store: &'a mut S) -> Self {
         Self {
@@ -50,7 +71,8 @@ impl<
         expiration: Timestamp,
         not_before: Option<Timestamp>,
         now: SystemTime,
-    ) -> Result<Delegation<B, C, DID>, DelegateError<<S as Store<B, C, DID>>::Error>> {
+        varsig_header: V,
+    ) -> Result<Delegation<B, C, DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
@@ -67,7 +89,7 @@ impl<
                 conditions: new_conditions,
             };
 
-            return Ok(Delegation::try_sign(self.signer, payload).expect("FIXME"));
+            return Ok(Delegation::try_sign(self.signer, varsig_header, payload).expect("FIXME"));
         }
 
         let to_delegate = &self
@@ -94,14 +116,14 @@ impl<
             not_before: not_before.map(Into::into),
         };
 
-        Ok(Delegation::try_sign(self.signer, payload).expect("FIXME"))
+        Ok(Delegation::try_sign(self.signer, varsig_header, payload).expect("FIXME"))
     }
 
     pub fn receive(
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
-        delegation: Delegation<B, C, DID>,
-    ) -> Result<(), ReceiveError<<S as Store<B, C, DID>>::Error, DID>> {
+        delegation: Delegation<B, C, DID, V, Enc>,
+    ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());
         }

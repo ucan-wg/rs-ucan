@@ -4,6 +4,7 @@ mod domain_separator;
 mod nonce;
 
 pub mod signature;
+pub mod varsig;
 
 pub use domain_separator::DomainSeparator;
 pub use nonce::*;

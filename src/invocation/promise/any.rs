@@ -7,6 +7,9 @@ use serde::{
 };
 use std::fmt;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// A promise that unwraps the same value from either the `{"ok": T}` or `{"err": T}` branches.
 ///
 /// Unlike [`Resolves`][super::Resolves]:
@@ -208,5 +211,27 @@ impl<T, E> TryFrom<PromiseAny<T, E>> for PromiseErr<E> {
             PromiseAny::Rejected(err) => Ok(PromiseErr::Rejected(err)),
             PromiseAny::Pending(cid) => Ok(PromiseErr::Pending(cid)),
         }
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + fmt::Debug + 'static, E: Arbitrary + fmt::Debug + 'static> Arbitrary
+    for PromiseAny<T, E>
+where
+    T::Strategy: 'static,
+    T::Parameters: 'static,
+    E::Strategy: 'static,
+    E::Parameters: 'static,
+{
+    type Parameters = (T::Parameters, E::Parameters);
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with((t_args, e_args): Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            T::arbitrary_with(t_args).prop_map(PromiseAny::Fulfilled),
+            E::arbitrary_with(e_args).prop_map(PromiseAny::Rejected),
+            cid::Newtype::arbitrary().prop_map(|nt| PromiseAny::Pending(nt.cid)),
+        ]
+        .boxed()
     }
 }

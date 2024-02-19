@@ -244,9 +244,11 @@ where
 }
 
 #[cfg(feature = "test_utils")]
-impl<T: Responds + Debug, DID: Arbitrary + Did + 'static> Arbitrary for Payload<T, DID>
+impl<T: Responds + Debug, DID: Arbitrary + Did> Arbitrary for Payload<T, DID>
 where
     T::Success: Arbitrary + 'static,
+    DID::Parameters: Clone,
+    DID::Strategy: 'static,
 {
     type Parameters = (<T::Success as Arbitrary>::Parameters, DID::Parameters);
     type Strategy = BoxedStrategy<Self>;
@@ -261,7 +263,7 @@ where
             ],
             prop::collection::vec(cid::Newtype::arbitrary(), 0..25),
             prop::collection::vec(cid::Newtype::arbitrary(), 0..25),
-            prop::collection::hash_map(".*", ipld::Newtype::arbitrary(), 0..50),
+            prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..50),
             Nonce::arbitrary(),
             prop::option::of(Timestamp::arbitrary()),
         )

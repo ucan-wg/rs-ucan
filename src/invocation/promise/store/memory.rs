@@ -12,20 +12,20 @@ pub struct MemoryStore {
 }
 
 impl<T: Resolvable, DID: Did> Store<T, DID> for MemoryStore {
-    type PromiseIndexError = Infallible;
+    type PromiseStoreError = Infallible;
 
     fn put(
         &mut self,
-        waiting_on: Vec<Cid>,
         invocation: Cid,
-    ) -> Result<(), Self::PromiseIndexError> {
+        waiting_on: Vec<Cid>,
+    ) -> Result<(), Self::PromiseStoreError> {
         self.index
             .insert(invocation, BTreeSet::from_iter(waiting_on));
 
         Ok(())
     }
 
-    fn get(&self, waiting_on: &mut Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseIndexError> {
+    fn get(&self, waiting_on: &mut Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseStoreError> {
         Ok(match waiting_on.pop() {
             None => BTreeSet::new(),
             Some(first) => waiting_on

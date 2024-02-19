@@ -3,6 +3,9 @@ use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde}
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// A promise that only selects the `{"err": error}` branch of a result.
 ///
 /// On resolution, the value is unwrapped from the `{"err": error}`,
@@ -88,5 +91,23 @@ impl<E: TryFrom<Ipld>> TryFrom<arguments::Named<Ipld>> for PromiseErr<E> {
         }
 
         E::try_from(Ipld::from(args)).map(PromiseErr::Rejected)
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + Debug + 'static> Arbitrary for PromiseErr<T>
+where
+    T::Strategy: 'static,
+    T::Parameters: 'static,
+{
+    type Parameters = T::Parameters;
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(t_args: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            T::arbitrary_with(t_args).prop_map(PromiseErr::Rejected),
+            cid::Newtype::arbitrary().prop_map(|nt| PromiseErr::Pending(nt.cid)),
+        ]
+        .boxed()
     }
 }

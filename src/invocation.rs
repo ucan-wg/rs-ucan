@@ -23,11 +23,15 @@ pub use payload::{Payload, Promised};
 
 use crate::{
     ability,
-    crypto::signature,
+    crypto::{signature, varsig},
     did::{self, Did},
     time::{Expired, Timestamp},
 };
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::{
+    cid::Cid,
+    codec::{Codec, Encode},
+    ipld::Ipld,
+};
 use web_time::SystemTime;
 
 /// The complete, signed [`invocation::Payload`][Payload].
@@ -43,23 +47,46 @@ use web_time::SystemTime;
 /// This is a best practice in message-passing distributed systems because the network is
 /// [unreliable](https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Invocation<A, DID: did::Did>(pub signature::Envelope<payload::Payload<A, DID>, DID>);
+pub struct Invocation<
+    A,
+    DID: did::Did,
+    V: varsig::Header<Enc>,
+    Enc: Codec + TryFrom<u32> + Into<u32>,
+>(pub signature::Envelope<payload::Payload<A, DID>, DID, V, Enc>);
 
 /// A variant of [`Invocation`] that has the abilties and DIDs from this library pre-filled.
-pub type Preset = Invocation<ability::preset::Ready, did::preset::Verifier>;
+pub type Preset = Invocation<
+    ability::preset::Ready,
+    did::preset::Verifier,
+    varsig::header::Preset,
+    varsig::encoding::Preset,
+>;
 
-pub type PresetPromised = Invocation<ability::preset::Promised, did::preset::Verifier>;
+pub type PresetPromised = Invocation<
+    ability::preset::Promised,
+    did::preset::Verifier,
+    varsig::header::Preset,
+    varsig::encoding::Preset,
+>;
 
-impl<A, DID: Did> Invocation<A, DID> {
-    pub fn new(payload: Payload<A, DID>, signature: signature::Witness<DID::Signature>) -> Self {
-        Invocation(signature::Envelope { payload, signature })
+impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    Invocation<A, DID, V, Enc>
+where
+    Ipld: Encode<Enc>,
+{
+    pub fn new(payload: Payload<A, DID>, varsig_header: V, signature: DID::Signature) -> Self {
+        Invocation(signature::Envelope::new(varsig_header, signature, payload))
     }
 
     pub fn payload(&self) -> &Payload<A, DID> {
         &self.0.payload
     }
 
-    pub fn signature(&self) -> &signature::Witness<DID::Signature> {
+    pub fn varsig_header(&self) -> &V {
+        &self.0.varsig_header
+    }
+
+    pub fn signature(&self) -> &DID::Signature {
         &self.0.signature
     }
 
@@ -79,57 +106,63 @@ impl<A, DID: Did> Invocation<A, DID> {
         &self.0.payload.ability
     }
 
-    pub fn map_ability<F, Z>(self, f: F) -> Invocation<Z, DID>
+    pub fn map_ability<F, Z>(self, f: F) -> Invocation<Z, DID, V, Enc>
     where
         F: FnOnce(A) -> Z,
     {
-        Invocation(signature::Envelope {
-            payload: self.0.payload.map_ability(f),
-            signature: self.0.signature,
-        })
+        Invocation(signature::Envelope::new(
+            self.0.varsig_header,
+            self.0.signature,
+            self.0.payload.map_ability(f),
+        ))
     }
 
     pub fn proofs(&self) -> &Vec<Cid> {
-        &self.0.payload.proofs
+        &self.payload().proofs
     }
 
     pub fn issued_at(&self) -> &Option<Timestamp> {
-        &self.0.payload.issued_at
+        &self.payload().issued_at
     }
 
     pub fn expiration(&self) -> &Option<Timestamp> {
-        &self.0.payload.expiration
+        &self.payload().expiration
     }
 
-    pub fn check_time(&self, now: SystemTime) -> Result<(), Expired>
-    where
-        A: Clone,
-    {
-        self.0.payload.check_time(now)
+    pub fn check_time(&self, now: SystemTime) -> Result<(), Expired> {
+        self.payload().check_time(now)
     }
 
     pub fn try_sign(
         signer: &DID::Signer,
+        varsig_header: V,
         payload: Payload<A, DID>,
-    ) -> Result<Invocation<A, DID>, signature::SignError>
+    ) -> Result<Invocation<A, DID, V, Enc>, signature::SignError>
     where
         Payload<A, DID>: Clone,
     {
-        let envelope = signature::Envelope::try_sign(signer, payload)?;
+        let envelope = signature::Envelope::try_sign(signer, varsig_header, payload)?;
         Ok(Invocation(envelope))
     }
 }
 
-impl<A, DID: Did> did::Verifiable<DID> for Invocation<A, DID> {
+impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    did::Verifiable<DID> for Invocation<A, DID, V, Enc>
+{
     fn verifier(&self) -> &DID {
         &self.0.verifier()
     }
 }
 
-impl<T, DID: Did> Invocation<T, DID> {}
+impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    Invocation<T, DID, V, Enc>
+{
+}
 
-impl<T, DID: Did> From<Invocation<T, DID>> for Ipld {
-    fn from(invocation: Invocation<T, DID>) -> Self {
+impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    From<Invocation<T, DID, V, Enc>> for Ipld
+{
+    fn from(invocation: Invocation<T, DID, V, Enc>) -> Self {
         invocation.0.into()
     }
 }

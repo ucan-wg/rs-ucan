@@ -1,11 +1,12 @@
 use super::Store;
 use crate::{
     ability::arguments,
+    crypto::varsig,
     delegation::{condition::Condition, Delegation},
     did::Did,
     proof::{checkable::Checkable, prove::Prove},
 };
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::{cid::Cid, codec::Codec, ipld::Ipld};
 use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -70,25 +71,43 @@ use web_time::SystemTime;
 /// linkStyle 1 stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<H, C: Condition, DID: Did + Ord> {
-    ucans: BTreeMap<Cid, Delegation<H, C, DID>>,
+pub struct MemoryStore<
+    H,
+    C: Condition,
+    DID: Did + Ord,
+    V: varsig::Header<Enc>,
+    Enc: Codec + TryFrom<u32> + Into<u32>,
+> {
+    ucans: BTreeMap<Cid, Delegation<H, C, DID, V, Enc>>,
     index: BTreeMap<DID, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
 // FIXME check that UCAN is valid
-impl<B: Checkable + Clone, C: Condition + PartialEq, DID: Did + Ord + Clone> Store<B, C, DID>
-    for MemoryStore<B::Hierarchy, C, DID>
+impl<
+        B: Checkable + Clone,
+        C: Condition + PartialEq,
+        DID: Did + Ord + Clone,
+        V: varsig::Header<Enc>,
+        Enc: Codec + TryFrom<u32> + Into<u32>,
+    > Store<B, C, DID, V, Enc> for MemoryStore<B::Hierarchy, C, DID, V, Enc>
 where
     B::Hierarchy: Into<arguments::Named<Ipld>> + Clone,
 {
-    type Error = (); // FIXME misisng
+    type DelegationStoreError = (); // FIXME misisng
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<B::Hierarchy, C, DID>, Self::Error> {
+    fn get(
+        &self,
+        cid: &Cid,
+    ) -> Result<&Delegation<B::Hierarchy, C, DID, V, Enc>, Self::DelegationStoreError> {
         self.ucans.get(cid).ok_or(())
     }
 
-    fn insert(&mut self, cid: Cid, delegation: Delegation<B, C, DID>) -> Result<(), Self::Error> {
+    fn insert(
+        &mut self,
+        cid: Cid,
+        delegation: Delegation<B, C, DID, V, Enc>,
+    ) -> Result<(), Self::DelegationStoreError> {
         self.index
             .entry(delegation.subject().clone())
             .or_default()
@@ -96,14 +115,14 @@ where
             .or_default()
             .insert(cid);
 
-        let hierarchy: Delegation<B::Hierarchy, C, DID> =
+        let hierarchy: Delegation<B::Hierarchy, C, DID, V, Enc> =
             delegation.map_ability_builder(Into::into);
 
         self.ucans.insert(cid.clone(), hierarchy);
         Ok(())
     }
 
-    fn revoke(&mut self, cid: Cid) -> Result<(), Self::Error> {
+    fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
         self.revocations.insert(cid);
         Ok(())
     }
@@ -115,7 +134,10 @@ where
         builder: &B,
         conditions: Vec<C>,
         now: SystemTime,
-    ) -> Result<Option<NonEmpty<(Cid, &Delegation<B::Hierarchy, C, DID>)>>, Self::Error> {
+    ) -> Result<
+        Option<NonEmpty<(Cid, &Delegation<B::Hierarchy, C, DID, V, Enc>)>>,
+        Self::DelegationStoreError,
+    > {
         match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
             None => Ok(None),
             Some(delegation_subtree) => {

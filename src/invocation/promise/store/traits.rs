@@ -3,12 +3,12 @@ use libipld_core::cid::Cid;
 use std::collections::BTreeSet;
 
 pub trait Store<T: Resolvable, DID: Did> {
-    type PromiseIndexError;
+    type PromiseStoreError;
 
     // NOTE put_waiting
-    fn put(&mut self, waiting_on: Vec<Cid>, invocation: Cid)
-        -> Result<(), Self::PromiseIndexError>;
+    fn put(&mut self, invocation: Cid, waiting_on: Vec<Cid>)
+        -> Result<(), Self::PromiseStoreError>;
 
     // NOTE get waiting
-    fn get(&self, waiting_on: &mut Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseIndexError>;
+    fn get(&self, waiting_on: &mut Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseStoreError>;
 }

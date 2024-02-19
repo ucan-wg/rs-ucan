@@ -25,11 +25,11 @@ use std::{collections::BTreeMap, fmt, fmt::Debug};
 use thiserror::Error;
 use web_time::SystemTime;
 
-impl<DID: Did, C: Condition, D> Verifiable<DID> for Payload<D, C, DID> {
-    fn verifier(&self) -> &DID {
-        &self.issuer
-    }
-}
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld;
 
 /// The payload portion of a [`Delegation`][super::Delegation].
 ///
@@ -138,6 +138,12 @@ impl<D, C: Condition, DID: Did> Payload<D, C, DID> {
 
 impl<D, C: Condition, DID: Did> Capsule for Payload<D, C, DID> {
     const TAG: &'static str = "ucan/d/1.0.0-rc.1";
+}
+
+impl<DID: Did, C: Condition, D> Verifiable<DID> for Payload<D, C, DID> {
+    fn verifier(&self) -> &DID {
+        &self.issuer
+    }
 }
 
 impl<T: CheckSame, C: Condition, DID: Did> CheckSame for Payload<T, C, DID> {
@@ -481,8 +487,65 @@ pub enum ValidationError<AbilityError, C: fmt::Debug> {
     NotYetValid,
 
     #[error("The delegation failed a condition: {0:?}")]
-    FailedCondition(C), // FIXME add context?
+    FailedCondition(C),
 
     #[error(transparent)]
     AbilityError(AbilityError),
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + Debug, DID: Did + Arbitrary + 'static, C: Condition + Arbitrary> Arbitrary
+    for Payload<T, C, DID>
+where
+    T::Strategy: 'static,
+    C::Strategy: 'static,
+    DID::Parameters: Clone,
+    C::Parameters: Clone,
+{
+    type Parameters = (T::Parameters, DID::Parameters, C::Parameters);
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with((t_args, did_args, c_args): Self::Parameters) -> Self::Strategy {
+        (
+            T::arbitrary_with(t_args),
+            DID::arbitrary_with(did_args.clone()),
+            DID::arbitrary_with(did_args.clone()),
+            DID::arbitrary_with(did_args),
+            Nonce::arbitrary(),
+            Timestamp::arbitrary(),
+            Option::<Timestamp>::arbitrary(),
+            prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..50).prop_map(|m| {
+                m.into_iter()
+                    .map(|(k, v)| (k, v.0))
+                    .collect::<BTreeMap<String, Ipld>>()
+            }),
+            prop::collection::vec(C::arbitrary_with(c_args), 0..10),
+        )
+            .prop_map(
+                |(
+                    ability_builder,
+                    issuer,
+                    audience,
+                    subject,
+                    nonce,
+                    expiration,
+                    not_before,
+                    metadata,
+                    conditions,
+                )| {
+                    Payload {
+                        issuer,
+                        subject,
+                        audience,
+                        ability_builder,
+                        conditions,
+                        metadata,
+                        nonce,
+                        expiration,
+                        not_before,
+                    }
+                },
+            )
+            .boxed()
+    }
 }

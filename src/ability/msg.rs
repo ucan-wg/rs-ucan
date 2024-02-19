@@ -32,7 +32,7 @@ pub enum Builder {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Promised {
     Send(send::Promised),
-    Receive(receive::Promised), // FIXME
+    Receive(receive::Promised),
 }
 
 impl Delegable for Ready {

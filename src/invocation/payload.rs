@@ -20,6 +20,15 @@ use serde::{
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld;
+
+#[cfg(feature = "test_utils")]
+use crate::ipld::cid;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Payload<A, DID: Did> {
     /// The subject of the [`Invocation`].
@@ -398,5 +407,62 @@ pub type Promised<A, DID> = Payload<<A as Resolvable>::Promised, DID>;
 impl<A, DID: Did> From<Payload<A, DID>> for Ipld {
     fn from(payload: Payload<A, DID>) -> Self {
         payload.into()
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + Debug, DID: Did + Arbitrary + 'static> Arbitrary for Payload<T, DID>
+where
+    T::Strategy: 'static,
+    DID::Parameters: Clone,
+{
+    type Parameters = (T::Parameters, DID::Parameters);
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with((t_args, did_args): Self::Parameters) -> Self::Strategy {
+        (
+            T::arbitrary_with(t_args),
+            DID::arbitrary_with(did_args.clone()),
+            DID::arbitrary_with(did_args.clone()),
+            Option::<DID>::arbitrary_with((0.5.into(), did_args)),
+            Nonce::arbitrary(),
+            prop::collection::vec(cid::Newtype::arbitrary().prop_map(|nt| nt.cid), 0..25),
+            Option::<cid::Newtype>::arbitrary().prop_map(|opt_nt| opt_nt.map(|nt| nt.cid)),
+            Option::<Timestamp>::arbitrary(),
+            Option::<Timestamp>::arbitrary(),
+            prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..50).prop_map(|m| {
+                m.into_iter()
+                    .map(|(k, v)| (k, v.0))
+                    .collect::<BTreeMap<String, Ipld>>()
+            }),
+        )
+            .prop_map(
+                |(
+                    ability,
+                    issuer,
+                    subject,
+                    audience,
+                    nonce,
+                    proofs,
+                    cause,
+                    expiration,
+                    issued_at,
+                    metadata,
+                )| {
+                    Payload {
+                        issuer,
+                        subject,
+                        audience,
+                        ability,
+                        proofs,
+                        cause,
+                        nonce,
+                        metadata,
+                        issued_at,
+                        expiration,
+                    }
+                },
+            )
+            .boxed()
     }
 }

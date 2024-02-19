@@ -43,17 +43,21 @@ pub enum ParentfulError<ArgErr, PrfErr, ParErr> {
     /// The `cmd` field was more powerful than the proof.
     ///
     /// i.e. it behaves like moving "down" the delegation chain not "up"
+    #[error("The `cmd` field was more powerful than the proof")]
     CommandEscelation,
 
     /// The `args` field was more powerful than the proof.
+    #[error("The `args` field was more powerful than the proof: {0}")]
     ArgumentEscelation(ArgErr),
 
     /// The parents do not prove the ability.
+    #[error("The parents do not prove the ability: {0}")]
     InvalidProofChain(PrfErr),
 
     /// Comparing parents in a delegation chain failed.
     ///
     /// The specific comparison error is captured in the `ParErr`.
+    #[error("Comparing parents in a delegation chain failed: {0}")]
     InvalidParents(ParErr), // FIXME seems kinda broken -- better naming at least
 }
 

@@ -30,7 +30,7 @@ use crate::crypto::bls12381;
 pub enum Signature {
     /// `EdDSA` signature.
     #[cfg(feature = "eddsa")]
-    EdDSA(ed25519_dalek::Signature),
+    EdDsa(ed25519_dalek::Signature),
 
     /// `ES256K` (`secp256k1`) signature.
     #[cfg(feature = "es256k")]
@@ -63,4 +63,55 @@ pub enum Signature {
     /// `BLS 12-381` signature for the "min sig" variant.
     #[cfg(feature = "bls")]
     BlsMinSig(bls12381::min_sig::Signature),
+
+    /// An unknown signature type.
+    ///
+    /// This is primarily for parsing, where reification is delayed
+    /// until the DID method is known.
+    Unknown(Vec<u8>),
+}
+
+impl signature::SignatureEncoding for Signature {
+    type Repr = Vec<u8>;
+}
+
+impl From<Signature> for Vec<u8> {
+    fn from(sig: Signature) -> Vec<u8> {
+        match sig {
+            #[cfg(feature = "eddsa")]
+            Signature::EdDsa(sig) => sig.to_vec(),
+
+            #[cfg(feature = "es256k")]
+            Signature::Es256k(sig) => sig.to_vec(),
+
+            #[cfg(feature = "es256")]
+            Signature::P256(sig) => sig.to_vec(),
+
+            #[cfg(feature = "es384")]
+            Signature::P384(sig) => sig.to_vec(),
+
+            #[cfg(feature = "es512")]
+            Signature::P521(sig) => sig.to_vec(),
+
+            #[cfg(feature = "rs256")]
+            Signature::Rs256(sig) => <[u8; 256]>::from(sig).into(),
+
+            #[cfg(feature = "rs512")]
+            Signature::Rs512(sig) => <[u8; 512]>::from(sig).into(),
+
+            #[cfg(feature = "bls")]
+            Signature::BlsMinPk(sig) => <[u8; 96]>::from(sig).into(),
+
+            #[cfg(feature = "bls")]
+            Signature::BlsMinSig(sig) => <[u8; 48]>::from(sig).into(),
+
+            Signature::Unknown(vec) => vec,
+        }
+    }
+}
+
+impl From<&[u8]> for Signature {
+    fn from(arr: &[u8]) -> Signature {
+        Signature::Unknown(arr.to_vec())
+    }
 }

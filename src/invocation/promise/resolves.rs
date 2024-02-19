@@ -3,6 +3,9 @@ use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 /// A promise that unwraps the same value from either the `{"ok": T}` or `{"err": T}` branches.
 ///
 /// Unlike [`PromiseAny`][super::PromiseAny]:
@@ -308,5 +311,23 @@ impl<T> From<Resolves<T>> for PromiseAny<T, T> {
                 PromiseErr::Pending(cid) => PromiseAny::Pending(cid),
             },
         }
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<T: Arbitrary + fmt::Debug + 'static> Arbitrary for Resolves<T>
+where
+    T::Strategy: 'static,
+    T::Parameters: 'static,
+{
+    type Parameters = (T::Parameters, T::Parameters);
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with((ok_args, err_args): Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            PromiseOk::<T>::arbitrary_with(ok_args).prop_map(Resolves::Ok),
+            PromiseErr::<T>::arbitrary_with(err_args).prop_map(Resolves::Err),
+        ]
+        .boxed()
     }
 }
