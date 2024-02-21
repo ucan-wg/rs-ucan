@@ -8,9 +8,13 @@ pub mod send;
 pub use any::Any;
 
 use crate::{
-    ability::arguments,
+    ability::{
+        arguments,
+        command::{ParseAbility, ParseAbilityError, ToCommand},
+    },
     delegation::Delegable,
     invocation::promise::Resolvable,
+    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
@@ -36,6 +40,79 @@ pub enum Promised {
 
 impl Delegable for Ready {
     type Builder = Builder;
+}
+
+impl ToCommand for Ready {
+    fn to_command(&self) -> String {
+        match self {
+            Ready::Send(send) => send.to_command(),
+            Ready::Receive(receive) => receive.to_command(),
+        }
+    }
+}
+
+impl ToCommand for Builder {
+    fn to_command(&self) -> String {
+        match self {
+            Builder::Send(send) => send.to_command(),
+            Builder::Receive(receive) => receive.to_command(),
+        }
+    }
+}
+
+impl ToCommand for Promised {
+    fn to_command(&self) -> String {
+        match self {
+            Promised::Send(send) => send.to_command(),
+            Promised::Receive(receive) => receive.to_command(),
+        }
+    }
+}
+
+// impl ParseAbility for Ready {
+//     type ArgsErr = ();
+//
+//     fn try_parse(
+//         cmd: &str,
+//         args: arguments::Named<Ipld>,
+//     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+//         match send::Ready::try_parse(cmd, args.clone()) {
+//             Ok(send) => return Ok(Ready::Send(send)),
+//             Err(ParseAbilityError::InvalidArgs(args)) => {
+//                 return Err(ParseAbilityError::InvalidArgs(()))
+//             }
+//             Err(ParseAbilityError::UnknownCommand(_)) => {}
+//         }
+//
+//         match receive::Receive::try_parse(cmd, args) {
+//             Ok(receive) => return Ok(Ready::Receive(receive)),
+//             Err(ParseAbilityError::InvalidArgs(args)) => {
+//                 return Err(ParseAbilityError::InvalidArgs(()))
+//             }
+//             Err(ParseAbilityError::UnknownCommand(cmd)) => {}
+//         }
+//
+//         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
+//     }
+// }
+
+impl ParseAbility for Builder {
+    type ArgsErr = ();
+
+    fn try_parse(
+        cmd: &str,
+        args: arguments::Named<Ipld>,
+    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+        if let Ok(send) = send::Builder::try_parse(cmd, args.clone()) {
+            return Ok(Builder::Send(send));
+        }
+
+        if let Ok(receive) = receive::Receive::try_parse(cmd, args) {
+            return Ok(Builder::Receive(receive));
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
+    }
 }
 
 impl TryFrom<Builder> for Ready {
@@ -69,26 +146,6 @@ impl From<Promised> for arguments::Named<Ipld> {
 
 impl Resolvable for Ready {
     type Promised = Promised;
-
-    fn try_resolve(promised: Promised) -> Result<Self, Self::Promised> {
-        match promised {
-            Promised::Send(send) => Resolvable::try_resolve(send)
-                .map(Ready::Send)
-                .map_err(Promised::Send),
-            Promised::Receive(receive) => Resolvable::try_resolve(receive)
-                .map(Ready::Receive)
-                .map_err(Promised::Receive),
-        }
-    }
-}
-
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        match promised {
-            Promised::Send(send) => Builder::Send(send.into()),
-            Promised::Receive(receive) => Builder::Receive(receive.into()),
-        }
-    }
 }
 
 impl CheckSame for Builder {
@@ -124,6 +181,15 @@ impl From<Builder> for arguments::Named<Ipld> {
         match builder {
             Builder::Send(send) => send.into(),
             Builder::Receive(receive) => receive.into(),
+        }
+    }
+}
+
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
+        match promised {
+            Promised::Send(send) => send.into(),
+            Promised::Receive(receive) => receive.into(),
         }
     }
 }

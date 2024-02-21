@@ -1,4 +1,4 @@
-use super::{PromiseAny, PromiseErr, PromiseOk};
+use super::{Promise, PromiseAny, PromiseErr, PromiseOk};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -274,6 +274,15 @@ impl<T> From<PromiseOk<T>> for Resolves<T> {
 impl<T> From<PromiseErr<T>> for Resolves<T> {
     fn from(err: PromiseErr<T>) -> Self {
         Resolves::Err(err)
+    }
+}
+
+impl<T> From<Resolves<T>> for Promise<T, T> {
+    fn from(resolves: Resolves<T>) -> Promise<T, T> {
+        match resolves {
+            Resolves::Ok(p_ok) => p_ok.into(),
+            Resolves::Err(p_err) => p_err.into(),
+        }
     }
 }
 

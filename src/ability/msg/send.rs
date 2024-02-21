@@ -4,6 +4,7 @@ use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
     invocation::promise,
+    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url as url_newtype,
 };
@@ -11,28 +12,6 @@ use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::BTreeMap;
 use url::Url;
-
-/// Helper for creating instances of `msg/send` with the correct shape.
-///
-/// This is not generally used directly, unless you want to abstract
-/// over all of the `msg/send` variants.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Generic<To, From, Message> {
-    /// The recipient of the message
-    pub to: To,
-
-    /// FIXME Builder needs to omit option fields from Serde
-
-    /// The sender address of the message
-    ///
-    /// This *may* be a URL (such as an email address).
-    /// If provided, the `subject` must have the right to send from this address.
-    pub from: From,
-
-    /// The main body of the message
-    pub message: Message,
-}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `msg/send` ability.
@@ -61,7 +40,21 @@ pub struct Generic<To, From, Message> {
 ///
 ///     style sendrun stroke:orange;
 /// ```
-pub type Ready = Generic<Url, Url, String>;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Ready {
+    /// The recipient of the message
+    pub to: Url,
+
+    /// The sender address of the message
+    ///
+    /// This *may* be a URL (such as an email address).
+    /// If provided, the `subject` must have the right to send from this address.
+    pub from: Url,
+
+    /// The main body of the message
+    pub message: String,
+}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The delegatable variant of the `msg/send` ability.
@@ -89,7 +82,21 @@ pub type Ready = Generic<Url, Url, String>;
 ///
 ///     style send stroke:orange;
 /// ```
-pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Builder {
+    /// The recipient of the message
+    pub to: Option<Url>,
+
+    /// The sender address of the message
+    ///
+    /// This *may* be a URL (such as an email address).
+    /// If provided, the `subject` must have the right to send from this address.
+    pub from: Option<Url>,
+
+    /// The main body of the message
+    pub message: Option<String>,
+}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The invoked variant of the `msg/send` ability
@@ -120,8 +127,21 @@ pub type Builder = Generic<Option<Url>, Option<Url>, Option<String>>;
 ///
 ///     style sendpromise stroke:orange;
 /// ```
-pub type Promised =
-    Generic<promise::Resolves<Url>, promise::Resolves<Url>, promise::Resolves<String>>;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Promised {
+    /// The recipient of the message
+    pub to: promise::Resolves<Url>,
+
+    /// The sender address of the message
+    ///
+    /// This *may* be a URL (such as an email address).
+    /// If provided, the `subject` must have the right to send from this address.
+    pub from: promise::Resolves<Url>,
+
+    /// The main body of the message
+    pub message: promise::Resolves<String>,
+}
 
 impl Delegable for Ready {
     type Builder = Builder;
@@ -129,13 +149,6 @@ impl Delegable for Ready {
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
-
-    fn try_resolve(p: Promised) -> Result<Self, Promised> {
-        match promise::Resolves::try_resolve_3(p.to, p.from, p.message) {
-            Ok((to, from, message)) => Ok(Ready { to, from, message }),
-            Err((to, from, message)) => Err(Promised { to, from, message }),
-        }
-    }
 }
 
 impl From<Builder> for arguments::Named<Ipld> {
@@ -171,8 +184,18 @@ impl From<Promised> for Builder {
     }
 }
 
-impl<T, F, M> Command for Generic<T, F, M> {
-    const COMMAND: &'static str = "msg/send";
+const COMMAND: &'static str = "msg/send";
+
+impl Command for Ready {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Builder {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Checkable for Builder {
@@ -198,9 +221,49 @@ impl CheckParents for Builder {
     }
 }
 
+impl TryFrom<arguments::Named<Ipld>> for Builder {
+    type Error = ();
+
+    fn try_from(args: arguments::Named<Ipld>) -> Result<Builder, Self::Error> {
+        let mut to = None;
+        let mut from = None;
+        let mut message = None;
+
+        for (key, ipld) in args.0 {
+            match key.as_str() {
+                "to" => {
+                    // FIXME extract this common pattern
+                    if let Ipld::String(s) = ipld {
+                        to = Some(Url::parse(s.as_str()).map_err(|_| ())?);
+                    } else {
+                        return Err(());
+                    }
+                }
+                "from" => {
+                    if let Ipld::String(s) = ipld {
+                        from = Some(Url::parse(s.as_str()).map_err(|_| ())?);
+                    } else {
+                        return Err(());
+                    }
+                }
+                "message" => {
+                    if let Ipld::String(s) = ipld {
+                        message = Some(s);
+                    } else {
+                        return Err(());
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Builder { to, from, message })
+    }
+}
+
 impl From<Ready> for Builder {
     fn from(resolved: Ready) -> Self {
-        Generic {
+        Builder {
             to: resolved.to.into(),
             from: resolved.from.into(),
             message: resolved.message.into(),
@@ -247,21 +310,12 @@ impl TryFrom<Builder> for Ready {
     }
 }
 
-impl<T, F, M> From<Generic<T, F, M>> for Ipld
-where
-    Ipld: From<T> + From<F> + From<M>,
-{
-    fn from(send: Generic<T, F, M>) -> Self {
-        send.into()
-    }
-}
-
-impl<T: DeserializeOwned, F: DeserializeOwned, M: DeserializeOwned> TryFrom<Ipld>
-    for Generic<T, F, M>
-{
-    type Error = SerdeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(p: Promised) -> Self {
+        arguments::Named::from_iter([
+            ("to".into(), p.to.into()),
+            ("from".into(), p.from.into()),
+            ("message".into(), p.message.into()),
+        ])
     }
 }

@@ -164,13 +164,15 @@ impl<Env: ToCommand, T> ToCommand for Reader<Env, T> {
     }
 }
 
-impl<Env: Default, T: ParseAbility> ParseAbility for Reader<Env, T> {
-    type Error = ParseAbilityError<<T as ParseAbility>::Error>;
+impl<Env: Default, T: TryFrom<arguments::Named<Ipld>>> TryFrom<arguments::Named<Ipld>>
+    for Reader<Env, T>
+{
+    type Error = ParseAbilityError<<T as TryFrom<arguments::Named<Ipld>>>::Error>;
 
-    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+    fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
         Ok(Reader {
             env: Default::default(),
-            val: T::try_parse(cmd, args).map_err(ParseAbilityError::InvalidArgs)?,
+            val: T::try_from(args).map_err(ParseAbilityError::InvalidArgs)?,
         })
     }
 }

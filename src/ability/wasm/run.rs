@@ -2,70 +2,119 @@
 
 use super::module::Module;
 use crate::{
-    ability::{arguments, command::Command},
+    ability::{
+        arguments,
+        command::{Command, ParseAbility},
+    },
     delegation::Delegable,
     invocation::promise,
+    ipld,
     proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+const COMMAND: &'static str = "wasm/run";
+
+impl Command for Ready {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Builder {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
+}
+
 /// The ability to run a Wasm module on the subject's machine
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Generic<Mod, Fun, Args> {
+pub struct Ready {
     /// The Wasm module to run
-    pub module: Mod,
+    pub module: Module,
 
     /// The function from the module to run
-    pub function: Fun,
+    pub function: String,
 
     /// Arguments to pass to the function
-    pub args: Args,
+    pub args: Vec<Ipld>,
 }
-
-impl<Mod, Fun, Args> Command for Generic<Mod, Fun, Args> {
-    const COMMAND: &'static str = "wasm/run";
-}
-
-/// A variant with all of the required fields filled in
-pub type Ready = Generic<Module, String, Vec<Ipld>>;
 
 impl Delegable for Ready {
     type Builder = Builder;
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl TryFrom<arguments::Named<Ipld>> for Builder {
+    type Error = ();
 
-    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
-        match promise::Resolves::try_resolve_3(promised.module, promised.function, promised.args) {
-            Ok((module, function, args)) => Ok(Ready {
-                module,
-                function,
-                args,
-            }),
-            Err((module, function, args)) => Err(Promised {
-                module,
-                function,
-                args,
-            }),
+    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut module = None;
+        let mut function = None;
+        let mut args = None;
+
+        for (key, ipld) in named {
+            match key.as_str() {
+                "mod" => {
+                    module = Some(ipld.try_into().map_err(|_| ())?);
+                }
+                "fun" => {
+                    if let Ipld::String(s) = ipld {
+                        function = Some(s);
+                    } else {
+                        return Err(());
+                    }
+                }
+                "args" => {
+                    if let Ipld::List(list) = ipld {
+                        args = Some(list);
+                    } else {
+                        return Err(());
+                    }
+                }
+                _ => return Err(()),
+            }
         }
+
+        Ok(Builder {
+            module,
+            function,
+            args,
+        })
     }
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        Builder {
-            module: promised.module.try_resolve().ok(),
-            function: promised.function.try_resolve().ok(),
-            args: promised.args.try_resolve().ok(),
-        }
-    }
+// impl TryFrom<arguments::Named<Ipld>> for Builder {
+//     type Error = ();
+//
+//     fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+//         let ready = Ready::try_from(args)?;
+//
+//         Ok(Builder {
+//             module: Some(ready.module),
+//             function: Some(ready.function),
+//             args: Some(ready.args),
+//         })
+//     }
+// }
+
+impl promise::Resolvable for Ready {
+    type Promised = Promised;
 }
 
 /// A variant meant for delegation, where fields may be omitted
-pub type Builder = Generic<Option<Module>, Option<String>, Option<Vec<Ipld>>>;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Builder {
+    /// The Wasm module to run
+    pub module: Option<Module>,
+
+    /// The function from the module to run
+    pub function: Option<String>,
+
+    /// Arguments to pass to the function
+    pub args: Option<Vec<Ipld>>,
+}
 
 impl NoParents for Builder {}
 
@@ -137,32 +186,36 @@ impl CheckSame for Builder {
 }
 
 /// A variant meant for linking together invocations with promises
-pub type Promised =
-    Generic<promise::Resolves<Module>, promise::Resolves<String>, promise::Resolves<Vec<Ipld>>>;
-
-impl From<Ready> for Promised {
-    fn from(ready: Ready) -> Self {
-        Promised {
-            module: promise::Resolves::from(Ok(ready.module)),
-            function: promise::Resolves::from(Ok(ready.function)),
-            args: promise::Resolves::from(Ok(ready.args)),
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Promised {
+    pub module: promise::Resolves<Module>,
+    pub function: promise::Resolves<String>,
+    pub args: promise::Resolves<Vec<ipld::Promised>>,
 }
 
-impl TryFrom<Promised> for Ready {
-    type Error = (); // FIXME
+// impl From<Ready> for Promised {
+//     fn from(ready: Ready) -> Self {
+//         Promised {
+//             module: promise::Resolves::from(Ok(ready.module)),
+//             function: promise::Resolves::from(Ok(ready.function)),
+//             args: promise::Resolves::from(Ok(ready.args)),
+//         }
+//     }
+// }
 
-    fn try_from(promised: Promised) -> Result<Self, Self::Error> {
-        Ok(Ready {
-            module: promised.module.try_resolve().map_err(|_| ())?,
-            function: promised.function.try_resolve().map_err(|_| ())?,
-            args: promised.args.try_resolve().map_err(|_| ())?,
-        })
-    }
-}
+// impl TryFrom<Promised> for Ready {
+//     type Error = (); // FIXME
+//
+//     fn try_from(promised: Promised) -> Result<Self, Self::Error> {
+//         Ok(Ready {
+//             module: promised.module.try_from().map_err(|_| ())?,
+//             function: promised.function.try_from().map_err(|_| ())?,
+//             args: promised.args.try_from().map_err(|_| ())?,
+//         })
+//     }
+// }
 
-impl From<Promised> for arguments::Named<Ipld> {
+impl From<Promised> for arguments::Named<ipld::Promised> {
     fn from(promised: Promised) -> Self {
         arguments::Named::from_iter([
             ("module".into(), promised.module.into()),

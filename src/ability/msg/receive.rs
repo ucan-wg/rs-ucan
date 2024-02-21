@@ -4,6 +4,7 @@ use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
     invocation::promise,
+    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url,
 };
@@ -46,23 +47,50 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
-pub type Builder = Receive;
-
 // FIXME needs promisory version
 
+const COMMAND: &'static str = "msg/send";
+
 impl Command for Receive {
-    const COMMAND: &'static str = "msg/send";
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Delegable for Receive {
     type Builder = Receive;
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        Builder {
-            from: promised.from.and_then(|x| x.try_resolve_option()),
+impl TryFrom<arguments::Named<Ipld>> for Receive {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut from = None;
+
+        for (key, ipld) in arguments {
+            match key.as_str() {
+                "from" => {
+                    from = Some(url::Newtype::try_from(ipld).map_err(|_| ())?);
+                }
+                _ => return Err(()),
+            }
         }
+
+        Ok(Receive { from })
+    }
+}
+
+impl From<Receive> for arguments::Named<Ipld> {
+    fn from(receive: Receive) -> Self {
+        let mut args = arguments::Named::new();
+
+        if let Some(from) = receive.from {
+            args.insert("from".into(), from.into());
+        }
+
+        args
     }
 }
 
@@ -134,28 +162,16 @@ impl From<Promised> for arguments::Named<Ipld> {
 
 impl promise::Resolvable for Receive {
     type Promised = Promised;
-
-    fn try_resolve(p: Promised) -> Result<Self, Self::Promised> {
-        match &p.from {
-            None => Ok(Receive { from: None }),
-            Some(promise::Resolves::Ok(promise_ok)) => match promise_ok.clone().try_resolve() {
-                Ok(from) => Ok(Receive { from }),
-                Err(_from) => Err(Promised { from: p.from }),
-            },
-            Some(promise::Resolves::Err(promise_err)) => match promise_err.clone().try_resolve() {
-                Ok(from) => Ok(Receive { from }),
-                Err(_from) => Err(Promised { from: p.from }),
-            },
-        }
-    }
 }
 
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
         let mut args = arguments::Named::new();
 
-        if let Some(from) = builder.from {
-            args.insert("from".into(), from.into());
+        if let Some(from) = promised.from {
+            let _ = ipld::Promised::from(from).with_resolved(|ipld| {
+                args.insert("from".into(), ipld.into());
+            });
         }
 
         args

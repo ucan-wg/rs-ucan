@@ -78,28 +78,41 @@ impl ToCommand for MutableParents {
 
 #[derive(Debug, Clone, Error)]
 pub enum ParseError {
-    #[error("Invalid `crud/*` arguments: {0}")]
-    InvalidAnyArgs(#[source] <super::Any as ParseAbility>::Error),
+    #[error("Invalid `crud/*` arguments: {0:?}")]
+    InvalidAnyArgs(<super::Any as TryFrom<arguments::Named<Ipld>>>::Error),
 
-    #[error("Invalid `crud/mutate` arguments: {0}")]
-    InvalidMutateArgs(#[source] <super::Mutate as ParseAbility>::Error),
+    #[error("Invalid `crud/mutate` arguments: {0:?}")]
+    InvalidMutateArgs(<super::Mutate as TryFrom<arguments::Named<Ipld>>>::Error),
 }
 
 impl ParseAbility for MutableParents {
-    type Error = ParseAbilityError<ParseError>;
+    type ArgsErr = ParseError;
 
-    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
-        super::Any::try_parse(cmd, args)
-            .map(MutableParents::Any)
-            .map_err(ParseError::InvalidAnyArgs)
-            .map_err(ParseAbilityError::InvalidArgs)?;
+    fn try_parse(
+        cmd: &str,
+        args: arguments::Named<Ipld>,
+    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+        match super::Any::try_parse(cmd, args.clone()) {
+            Ok(any) => return Ok(MutableParents::Any(any)),
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(ParseError::InvalidAnyArgs(
+                    e,
+                )))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => {}
+        }
 
-        super::Mutate::try_parse(cmd, args)
-            .map(MutableParents::Mutate)
-            .map_err(ParseError::InvalidMutateArgs)
-            .map_err(ParseAbilityError::InvalidArgs)?;
+        match super::Any::try_parse(cmd, args.clone()) {
+            Ok(any) => return Ok(MutableParents::Any(any)),
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(
+                    ParseError::InvalidMutateArgs(e),
+                ))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => {}
+        }
 
-        Err(ParseAbilityError::UnknownCommand)
+        Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 

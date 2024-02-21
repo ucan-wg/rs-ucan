@@ -143,12 +143,61 @@ pub struct Promised {
     args: Option<arguments::Promised>,
 }
 
+const COMMAND: &'static str = "crud/update";
+
 impl Command for Ready {
-    const COMMAND: &'static str = "crud/update";
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Builder {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Delegable for Ready {
     type Builder = Builder;
+}
+
+impl TryFrom<arguments::Named<Ipld>> for Ready {
+    type Error = ();
+
+    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        Self::try_from_named(named).map_err(|_| ())
+    }
+}
+
+impl TryFrom<arguments::Named<Ipld>> for Builder {
+    type Error = ();
+
+    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut path = None;
+        let mut args = None;
+
+        for (key, ipld) in named {
+            match key.as_str() {
+                "path" => {
+                    if let Ipld::String(s) = ipld {
+                        path = Some(PathBuf::from(s));
+                    } else {
+                        return Err(());
+                    }
+                }
+                "args" => {
+                    if let Ipld::Map(map) = ipld {
+                        args = Some(arguments::Named(map));
+                    } else {
+                        return Err(());
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Builder { path, args })
+    }
 }
 
 impl From<Ready> for Builder {
@@ -292,39 +341,6 @@ impl From<Ready> for Promised {
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
-
-    fn try_resolve(p: Promised) -> Result<Ready, Promised> {
-        // FIXME extract & cleanup
-        let path = match p.path {
-            Some(ref res_path) => match res_path.clone().try_resolve() {
-                Ok(path) => Some(Ok(path)),
-                Err(unresolved) => Some(Err(Promised {
-                    path: Some(unresolved),
-                    args: p.args.clone(),
-                })),
-            },
-            None => None,
-        }
-        .transpose()?;
-
-        // FIXME extract & cleanup
-        let args = match p.args {
-            Some(ref res_args) => match res_args.clone().try_resolve() {
-                Ok(args) => {
-                    let ipld = args.try_into().map_err(|_| p.clone())?;
-                    Some(Ok(ipld))
-                }
-                Err(unresolved) => Some(Err(Promised {
-                    path: path.clone().map(|p| Resolves::new(p)),
-                    args: Some(unresolved),
-                })),
-            },
-            None => None,
-        }
-        .transpose()?;
-
-        Ok(Ready { path, args })
-    }
 }
 
 impl From<Promised> for Builder {
@@ -351,6 +367,22 @@ impl From<Builder> for arguments::Named<Ipld> {
         }
 
         if let Some(args) = builder.args {
+            named.insert("args".to_string(), args.into());
+        }
+
+        named
+    }
+}
+
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
+        let mut named = arguments::Named::new();
+
+        if let Some(path) = promised.path {
+            named.insert("path".to_string(), path.into());
+        }
+
+        if let Some(args) = promised.args {
             named.insert("args".to_string(), args.into());
         }
 

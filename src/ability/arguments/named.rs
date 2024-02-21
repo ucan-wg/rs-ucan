@@ -81,6 +81,10 @@ impl<T> Named<T> {
         self.0.is_empty()
     }
 
+    pub fn values(&self) -> impl Iterator<Item = &T> {
+        self.0.values()
+    }
+
     pub fn contains(&self, other: &Named<T>) -> Result<(), NamedError>
     where
         T: PartialEq,
@@ -145,6 +149,12 @@ impl<T: TryFrom<Ipld>> TryFrom<Ipld> for Named<T> {
         }
     }
 }
+
+// impl From<BTreeMap<String, Ipld>> for Named<Ipld> {
+//     fn from(map: BTreeMap<String, Ipld>) -> Self {
+//         Named(map)
+//     }
+// }
 
 impl<T: Into<Ipld>> From<Named<T>> for Ipld {
     fn from(arguments: Named<T>) -> Self {

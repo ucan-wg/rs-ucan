@@ -79,6 +79,20 @@ impl TryFrom<Ipld> for Mutate {
     }
 }
 
+impl TryFrom<arguments::Named<Ipld>> for Mutate {
+    type Error = ();
+
+    fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        if let Some(Ipld::String(s)) = args.get("path") {
+            return Ok(Mutate {
+                path: Some(PathBuf::from(s)),
+            });
+        };
+
+        Ok(Mutate { path: None })
+    }
+}
+
 impl Checkable for Mutate {
     type Hierarchy = Parentful<Mutate>;
 }
@@ -89,6 +103,7 @@ impl CheckSame for Mutate {
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         if let Some(path) = &self.path {
             let proof_path = proof.path.as_ref().ok_or(OptionalFieldError::Missing)?;
+
             if path != proof_path {
                 return Err(OptionalFieldError::Unequal);
             }
@@ -105,6 +120,7 @@ impl CheckParents for Mutate {
     fn check_parent(&self, crud_any: &Self::Parents) -> Result<(), Self::ParentError> {
         if let Some(path) = &self.path {
             let proof_path = crud_any.path.as_ref().ok_or(OptionalFieldError::Missing)?;
+
             if path != proof_path {
                 return Err(OptionalFieldError::Unequal);
             }

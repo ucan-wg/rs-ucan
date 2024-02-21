@@ -91,7 +91,13 @@ where
     ) -> Result<Invocation<T::Promised, DID, V, Enc>, ()> {
         let proofs = self
             .delegation_store
-            .get_chain(self.did, subject, &ability.clone().into(), vec![], now)
+            .get_chain(
+                self.did,
+                subject,
+                &<T as Resolvable>::try_to_builder(ability.clone()).map_err(|_| ())?,
+                vec![],
+                now,
+            )
             .map_err(|_| ())?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);

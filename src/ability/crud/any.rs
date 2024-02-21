@@ -1,7 +1,10 @@
 //! "Any" CRUD ability (superclass of all CRUD abilities)
 
 use crate::{
-    ability::{arguments, command::Command},
+    ability::{
+        arguments,
+        command::{Command, ParseAbility, ParseAbilityError},
+    },
     proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -64,7 +67,48 @@ impl Command for Any {
     const COMMAND: &'static str = "crud/*";
 }
 
+impl TryFrom<arguments::Named<Ipld>> for Any {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut path = None;
+
+        for (key, value) in arguments.iter() {
+            match key.as_str() {
+                "path" => {
+                    let some_path = match value {
+                        Ipld::String(s) => Ok(PathBuf::from(s)),
+                        _ => Err(()),
+                    }?;
+
+                    path = Some(some_path);
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Any { path })
+    }
+}
+
+// FIXME pipe example
+
 impl NoParents for Any {}
+
+// impl ParseAbility for Any {
+//     type ArgsErr = ();
+//
+//     fn try_parse(
+//         cmd: &str,
+//         args: arguments::Named<Ipld>,
+//     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+//         if cmd != Self::COMMAND {
+//             return Err(ParseAbilityError::CommandMismatch);
+//         }
+//
+//         Self::try_from(args).map_err(|_| ParseAbilityError::Args(Self::COMMAND))
+//     }
+// }
 
 impl CheckSame for Any {
     type Error = OptionalFieldError;
@@ -72,6 +116,7 @@ impl CheckSame for Any {
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
         if let Some(path) = &self.path {
             let proof_path = proof.path.as_ref().ok_or(OptionalFieldError::Missing)?;
+
             if path != proof_path {
                 return Err(OptionalFieldError::Unequal);
             }

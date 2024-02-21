@@ -6,11 +6,15 @@ use crate::{
     ability::{arguments, command::Command},
     delegation::Delegable,
     invocation::promise,
+    ipld,
     proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 
 /// The fully resolved variant: ready to execute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -19,12 +23,46 @@ pub struct Ready {
     pub ucan: Cid,
 }
 
+const COMMAND: &'static str = "ucan/revoke";
+
 impl Command for Ready {
-    const COMMAND: &'static str = "ucan/revoke";
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Builder {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Delegable for Ready {
     type Builder = Builder;
+}
+
+impl TryFrom<arguments::Named<Ipld>> for Ready {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let ipld: Ipld = arguments.get("ucan").ok_or(())?.clone();
+        let nt: ipld::cid::Newtype = ipld.try_into().map_err(|_| ())?;
+
+        Ok(Ready { ucan: nt.cid })
+    }
+}
+
+impl TryFrom<arguments::Named<Ipld>> for Builder {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        if let Some(ipld) = arguments.get("ucan") {
+            let nt: ipld::cid::Newtype = ipld.try_into().map_err(|_| ())?;
+            Ok(Builder { ucan: Some(nt.cid) })
+        } else {
+            Ok(Builder { ucan: None })
+        }
+    }
 }
 
 impl From<Promised> for Builder {
@@ -37,12 +75,11 @@ impl From<Promised> for Builder {
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
+}
 
-    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
-        match promised.ucan.try_resolve() {
-            Ok(ucan) => Ok(Ready { ucan }),
-            Err(ucan) => Err(Promised { ucan }),
-        }
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
+        arguments::Named::from_iter([("ucan".into(), promised.ucan.into())])
     }
 }
 

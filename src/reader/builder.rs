@@ -1,5 +1,5 @@
 use super::Reader;
-use crate::{ability::arguments, delegation::Delegable, proof::checkable::Checkable};
+use crate::ability::arguments;
 use serde::{Deserialize, Serialize};
 
 /// A helper newtype that marks a value as being a [`Delegable::Builder`].
@@ -17,13 +17,6 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Builder<T>(pub T);
-
-impl<Env, T> Delegable for Reader<Env, T>
-where
-    Reader<Env, Builder<T>>: Checkable,
-{
-    type Builder = Reader<Env, Builder<T>>;
-}
 
 impl<A, T: Into<arguments::Named<A>>> From<Builder<T>> for arguments::Named<A> {
     fn from(builder: Builder<T>) -> Self {

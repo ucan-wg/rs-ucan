@@ -2,7 +2,7 @@
 
 use super::{
     arguments,
-    command::{ParseAbility, ToCommand},
+    command::{ParseAbility, ParseAbilityError, ToCommand},
 };
 use crate::proof::same::CheckSame;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -45,12 +45,15 @@ pub struct Dynamic {
 }
 
 impl ParseAbility for Dynamic {
-    type Error = Infallible;
+    type ArgsErr = ();
 
-    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+    fn try_parse(
+        cmd: &str,
+        args: arguments::Named<Ipld>,
+    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
         Ok(Dynamic {
             cmd: cmd.to_string(),
-            args: args.clone(),
+            args,
         })
     }
 }

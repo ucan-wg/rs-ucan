@@ -1,10 +1,9 @@
 //! [UCAN Promise](https://github.com/ucan-wg/promise)s: selectors, wrappers, and traits.
 
-// FIXME put entire module behind feature flag
-
 mod any;
 mod err;
 mod ok;
+mod pending;
 mod resolvable;
 mod resolves;
 
@@ -14,14 +13,16 @@ pub mod store;
 pub use any::PromiseAny;
 pub use err::PromiseErr;
 pub use ok::PromiseOk;
+pub use pending::Pending;
 pub use resolvable::Resolvable;
 pub use resolves::Resolves;
 pub use store::Store;
 
+use enum_as_inner::EnumAsInner;
 use serde::{Deserialize, Serialize};
 
 /// Top-level union of all UCAN Promise options
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
 #[serde(untagged)]
 pub enum Promise<T, E> {
     /// The `await/ok` promise

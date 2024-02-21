@@ -1,8 +1,12 @@
 use super::{crud, msg, wasm};
 use crate::{
-    ability::{arguments, command::ParseAbility},
+    ability::{
+        arguments,
+        command::{ParseAbility, ParseAbilityError, ToCommand},
+    },
     delegation::Delegable,
     invocation::promise::Resolvable,
+    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
@@ -42,24 +46,28 @@ impl CheckSame for Parents {
     }
 }
 
-impl ParseAbility for Parents {
-    type Error = String; // FIXME
+impl Delegable for Ready {
+    type Builder = Builder;
+}
 
-    fn try_parse(cmd: &str, args: &arguments::Named<Ipld>) -> Result<Self, Self::Error> {
-        if let Ok(crud) = crud::MutableParents::try_parse(cmd, args) {
-            return Ok(Parents::Crud(crud));
+impl ToCommand for Ready {
+    fn to_command(&self) -> String {
+        match self {
+            Ready::Crud(ready) => ready.to_command(),
+            Ready::Msg(ready) => ready.to_command(),
+            Ready::Wasm(ready) => ready.to_command(),
         }
-
-        if let Ok(msg) = msg::Any::try_parse(cmd, args) {
-            return Ok(Parents::Msg(msg));
-        }
-
-        Err("Nope".into())
     }
 }
 
-impl Delegable for Ready {
-    type Builder = Builder;
+impl ToCommand for Builder {
+    fn to_command(&self) -> String {
+        match self {
+            Builder::Crud(builder) => builder.to_command(),
+            Builder::Msg(builder) => builder.to_command(),
+            Builder::Wasm(builder) => builder.to_command(),
+        }
+    }
 }
 
 impl CheckSame for Builder {
@@ -118,41 +126,46 @@ pub enum Promised {
     Wasm(wasm::run::Promised),
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(promised: Promised) -> Self {
-        match promised {
-            Promised::Crud(promised) => promised.into(),
-            Promised::Msg(promised) => promised.into(),
-            Promised::Wasm(promised) => promised.into(),
-        }
-    }
-}
-
 impl Resolvable for Ready {
     type Promised = Promised;
+}
 
-    fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised> {
-        match promised {
-            Promised::Crud(promised) => Resolvable::try_resolve(promised)
-                .map(Ready::Crud)
-                .map_err(Promised::Crud),
-            Promised::Msg(promised) => Resolvable::try_resolve(promised)
-                .map(Ready::Msg)
-                .map_err(Promised::Msg),
-            Promised::Wasm(promised) => Resolvable::try_resolve(promised)
-                .map(Ready::Wasm)
-                .map_err(Promised::Wasm),
+impl ToCommand for Promised {
+    fn to_command(&self) -> String {
+        match self {
+            Promised::Crud(promised) => promised.to_command(),
+            Promised::Msg(promised) => promised.to_command(),
+            Promised::Wasm(promised) => promised.to_command(),
         }
     }
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        match promised {
-            Promised::Crud(promised) => Builder::Crud(promised.into()),
-            Promised::Msg(promised) => Builder::Msg(promised.into()),
-            Promised::Wasm(promised) => Builder::Wasm(promised.into()),
+impl ParseAbility for Builder {
+    type ArgsErr = ();
+
+    fn try_parse(
+        cmd: &str,
+        args: arguments::Named<Ipld>,
+    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+        match msg::Builder::try_parse(cmd, args.clone()) {
+            Ok(builder) => return Ok(Builder::Msg(builder)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
+
+        match crud::Builder::try_parse(cmd, args.clone()) {
+            Ok(builder) => return Ok(Builder::Crud(builder)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match wasm::run::Builder::try_parse(cmd, args) {
+            Ok(builder) => return Ok(Builder::Wasm(builder)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 
@@ -171,6 +184,16 @@ impl From<Parents> for arguments::Named<Ipld> {
         match parents {
             Parents::Crud(parents) => parents.into(),
             Parents::Msg(parents) => parents.into(),
+        }
+    }
+}
+
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
+        match promised {
+            Promised::Crud(promised) => promised.into(),
+            Promised::Msg(promised) => promised.into(),
+            Promised::Wasm(promised) => promised.into(),
         }
     }
 }

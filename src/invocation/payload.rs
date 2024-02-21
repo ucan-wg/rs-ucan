@@ -363,7 +363,7 @@ impl<'de, A: ParseAbility + Deserialize<'de>, DID: Did + Deserialize<'de>> Deser
                 let cmd: String = command.ok_or(de::Error::missing_field("cmd"))?;
                 let args = arguments.ok_or(de::Error::missing_field("args"))?;
 
-                let ability = <T as ParseAbility>::try_parse(cmd.as_str(), &args).map_err(|e| {
+                let ability = <T as ParseAbility>::try_parse(cmd.as_str(), args).map_err(|e| {
                     de::Error::custom(format!(
                         "Unable to parse ability field for {:?} becuase {:?}",
                         cmd, e

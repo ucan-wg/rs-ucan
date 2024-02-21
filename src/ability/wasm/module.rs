@@ -1,5 +1,6 @@
 //! Wasm module representations
 
+use crate::{ability::arguments, ipld};
 use base64::{display::Base64Display, engine::general_purpose::STANDARD, Engine as _};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, link::Link, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -71,5 +72,11 @@ impl<'de> Deserialize<'de> for Module {
             let cid = Cid::try_from(s).map_err(serde::de::Error::custom)?;
             Ok(Module::Remote(Link::new(cid)))
         }
+    }
+}
+
+impl From<Module> for ipld::Promised {
+    fn from(module: Module) -> Self {
+        module.into()
     }
 }

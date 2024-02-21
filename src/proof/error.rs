@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 pub struct Unequal();
 
 /// A generic error for when two fields are unequal.
-#[derive(Copy, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub enum OptionalFieldError {
     /// A required field is missing.

@@ -52,9 +52,13 @@ pub use mutate::Mutate;
 pub use parents::*;
 
 use crate::{
-    ability::arguments,
+    ability::{
+        arguments,
+        command::{ParseAbility, ParseAbilityError, ToCommand},
+    },
     delegation::Delegable,
     invocation::promise::Resolvable,
+    ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
@@ -72,10 +76,10 @@ pub enum Ready {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Builder {
-    Create(create::Builder),
-    Read(read::Builder),
+    Create(create::Ready),
+    Read(read::Ready),
     Update(update::Builder),
-    Destroy(destroy::Builder),
+    Destroy(destroy::Ready),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,17 +94,82 @@ impl Delegable for Ready {
     type Builder = Builder;
 }
 
+impl ParseAbility for Builder {
+    type ArgsErr = ();
+
+    fn try_parse(
+        cmd: &str,
+        args: arguments::Named<Ipld>,
+    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
+        match create::Ready::try_parse(cmd, args.clone()) {
+            Ok(create) => return Ok(Builder::Create(create)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()));
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match read::Ready::try_parse(cmd, args.clone()) {
+            Ok(read) => return Ok(Builder::Read(read)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()));
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match update::Builder::try_parse(cmd, args.clone()) {
+            Ok(update) => return Ok(Builder::Update(update)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()));
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match destroy::Ready::try_parse(cmd, args) {
+            Ok(destroy) => return Ok(Builder::Destroy(destroy)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()));
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.into()))
+    }
+}
+
 impl Checkable for Builder {
     type Hierarchy = Parentful<Builder>;
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        match promised {
-            Promised::Create(create) => Builder::Create(create.into()),
-            Promised::Read(read) => Builder::Read(read.into()),
-            Promised::Update(update) => Builder::Update(update.into()),
-            Promised::Destroy(destroy) => Builder::Destroy(destroy.into()),
+impl ToCommand for Ready {
+    fn to_command(&self) -> String {
+        match self {
+            Ready::Create(create) => create.to_command(),
+            Ready::Read(read) => read.to_command(),
+            Ready::Update(update) => update.to_command(),
+            Ready::Destroy(destroy) => destroy.to_command(),
+        }
+    }
+}
+
+impl ToCommand for Promised {
+    fn to_command(&self) -> String {
+        match self {
+            Promised::Create(create) => create.to_command(),
+            Promised::Read(read) => read.to_command(),
+            Promised::Update(update) => update.to_command(),
+            Promised::Destroy(destroy) => destroy.to_command(),
+        }
+    }
+}
+
+impl ToCommand for Builder {
+    fn to_command(&self) -> String {
+        match self {
+            Builder::Create(create) => create.to_command(),
+            Builder::Read(read) => read.to_command(),
+            Builder::Update(update) => update.to_command(),
+            Builder::Destroy(destroy) => destroy.to_command(),
         }
     }
 }
@@ -133,16 +202,16 @@ impl From<Builder> for arguments::Named<Ipld> {
     }
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(promised: Promised) -> Self {
-        match promised {
-            Promised::Create(create) => create.into(),
-            Promised::Read(read) => read.into(),
-            Promised::Update(update) => update.into(),
-            Promised::Destroy(destroy) => destroy.into(),
-        }
-    }
-}
+// impl From<Promised> for arguments::Named<Ipld> {
+//     fn from(promised: Promised) -> Self {
+//         match promised {
+//             Promised::Create(create) => create.into(),
+//             Promised::Read(read) => read.into(),
+//             Promised::Update(update) => update.into(),
+//             Promised::Destroy(destroy) => destroy.into(),
+//         }
+//     }
+// }
 
 impl From<Ready> for Builder {
     fn from(ready: Ready) -> Self {
@@ -184,21 +253,15 @@ impl CheckSame for Builder {
 
 impl Resolvable for Ready {
     type Promised = Promised;
+}
 
-    fn try_resolve(promised: Promised) -> Result<Self, Self::Promised> {
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
         match promised {
-            Promised::Create(create) => Resolvable::try_resolve(create)
-                .map(Ready::Create)
-                .map_err(Promised::Create),
-            Promised::Read(read) => Resolvable::try_resolve(read)
-                .map(Ready::Read)
-                .map_err(Promised::Read),
-            Promised::Update(update) => Resolvable::try_resolve(update)
-                .map(Ready::Update)
-                .map_err(Promised::Update),
-            Promised::Destroy(destroy) => Resolvable::try_resolve(destroy)
-                .map(Ready::Destroy)
-                .map_err(Promised::Destroy),
+            Promised::Create(create) => create.into(),
+            Promised::Read(read) => read.into(),
+            Promised::Update(update) => update.into(),
+            Promised::Destroy(destroy) => destroy.into(),
         }
     }
 }

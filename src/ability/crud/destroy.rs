@@ -9,7 +9,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 // FIXME deserialize instance
 
@@ -53,40 +53,13 @@ pub struct Generic<Path> {
 ///
 ///     style destroyready stroke:orange;
 /// ```
-pub type Ready = Generic<PathBuf>;
-
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// The delegatable ability for destroying resources.
-///
-/// # Lifecycle
-///
-/// The lifecycle of a `crud/destroy` ability is as follows:
-///
-/// ```mermaid
-/// flowchart LR
-///     subgraph Delegations
-///       top("*")
-///
-///       subgraph CRUD Abilities
-///         any("crud/*")
-///
-///         mutate("crud/mutate")
-///
-///         subgraph Invokable
-///           destroy("crud/destroy")
-///         end
-///       end
-///     end
-///
-///     destroypromise("crud::destroy::Promised")
-///     destroyready("crud::destroy::Ready")
-///
-///     top --> any --> mutate --> destroy
-///     destroy -.->|invoke| destroypromise -.->|resolve| destroyready -.-> exe{{execute}}
-///
-///     style destroy stroke:orange;
-/// ```
-pub type Builder = Generic<PathBuf>;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Ready {
+    /// An optional path to a sub-resource that is to be destroyed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
+}
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// An invoked `crud/destroy` ability (but possibly awaiting another
@@ -120,48 +93,54 @@ pub type Builder = Generic<PathBuf>;
 ///
 ///     style destroypromise stroke:orange;
 /// ```
-pub type Promised = Generic<promise::Resolves<PathBuf>>;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Promised {
+    /// An optional path to a sub-resource that is to be destroyed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<promise::Resolves<PathBuf>>,
+}
 
-impl<P> Command for Generic<P> {
-    const COMMAND: &'static str = "crud/destroy";
+const COMMAND: &'static str = "crud/destroy";
+
+impl Command for Ready {
+    const COMMAND: &'static str = COMMAND;
+}
+
+impl Command for Promised {
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Delegable for Ready {
-    type Builder = Builder;
+    type Builder = Ready;
 }
 
-impl<P: Into<Ipld>> From<Generic<P>> for Ipld {
-    fn from(destroy: Generic<P>) -> Self {
-        destroy.into()
-    }
-}
-
-impl<P: TryFrom<Ipld>> TryFrom<Ipld> for Generic<P> {
+impl TryFrom<arguments::Named<Ipld>> for Ready {
     type Error = (); // FIXME
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        if let Ipld::Map(mut map) = ipld {
-            if map.len() > 1 {
-                return Err(()); // FIXME
-            }
+    fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut path = None;
 
-            Ok(Generic {
-                path: map
-                    .remove("path")
-                    .map(|ipld| P::try_from(ipld).map_err(|_| ()))
-                    .transpose()?,
-            })
-        } else {
-            Err(()) // FIXME
+        for (k, ipld) in args {
+            match k.as_str() {
+                "path" => {
+                    if let Ipld::String(s) = ipld {
+                        path = Some(PathBuf::from(s));
+                    }
+                }
+                _ => return Err(()),
+            }
         }
+
+        Ok(Ready { path })
     }
 }
 
-impl Checkable for Builder {
-    type Hierarchy = Parentful<Builder>;
+impl Checkable for Ready {
+    type Hierarchy = Parentful<Ready>;
 }
 
-impl CheckSame for Builder {
+impl CheckSame for Ready {
     type Error = (); // FIXME better error
 
     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
@@ -173,7 +152,7 @@ impl CheckSame for Builder {
     }
 }
 
-impl CheckParents for Builder {
+impl CheckParents for Ready {
     type Parents = MutableParents;
     type ParentError = (); // FIXME
 
@@ -228,21 +207,17 @@ impl From<Ready> for Promised {
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
+}
 
-    fn try_resolve(p: Promised) -> Result<Ready, Promised> {
-        // FIXME extract & cleanup
-        let path = match p.path {
-            Some(ref res_path) => match res_path.clone().try_resolve() {
-                Ok(path) => Some(Ok(path)),
-                Err(unresolved) => Some(Err(Promised {
-                    path: Some(unresolved),
-                })),
-            },
-            None => None,
+impl From<Promised> for arguments::Named<ipld::Promised> {
+    fn from(promised: Promised) -> Self {
+        let mut named = arguments::Named::new();
+
+        if let Some(path) = promised.path {
+            named.insert("path".to_string(), path.into());
         }
-        .transpose()?;
 
-        Ok(Ready { path })
+        named
     }
 }
 
@@ -257,8 +232,8 @@ impl From<Promised> for Ready {
     }
 }
 
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
+impl From<Ready> for arguments::Named<Ipld> {
+    fn from(builder: Ready) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path) = builder.path {

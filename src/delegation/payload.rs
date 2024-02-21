@@ -323,7 +323,7 @@ impl<
                 let args = arguments.ok_or(de::Error::missing_field("args"))?;
 
                 let ability_builder =
-                    <T as ParseAbility>::try_parse(cmd.as_str(), &args).map_err(|e| {
+                    <T as ParseAbility>::try_parse(cmd.as_str(), args).map_err(|e| {
                         de::Error::custom(format!(
                             "Unable to parse ability field for {:?} because {:?}",
                             cmd, e
