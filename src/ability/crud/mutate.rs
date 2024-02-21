@@ -1,7 +1,7 @@
 //! The delegation superclass for all mutable CRUD actions.
 
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
     proof::{
         checkable::Checkable, error::OptionalFieldError, parentful::Parentful,
         parents::CheckParents, same::CheckSame,
@@ -111,5 +111,24 @@ impl CheckParents for Mutate {
         }
 
         Ok(())
+    }
+}
+
+impl From<Mutate> for arguments::Named<Ipld> {
+    fn from(mutate: Mutate) -> Self {
+        let mut args = arguments::Named::new();
+
+        if let Some(path) = mutate.path {
+            args.insert(
+                "path".into(),
+                Ipld::String(
+                    path.into_os_string()
+                        .into_string()
+                        .expect("PathBuf should generate a valid path"),
+                ),
+            );
+        }
+
+        args
     }
 }

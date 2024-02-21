@@ -155,3 +155,22 @@ impl From<Promised> for Builder {
         }
     }
 }
+
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(builder: Builder) -> Self {
+        match builder {
+            Builder::Crud(builder) => builder.into(),
+            Builder::Msg(builder) => builder.into(),
+            Builder::Wasm(builder) => builder.into(),
+        }
+    }
+}
+
+impl From<Parents> for arguments::Named<Ipld> {
+    fn from(parents: Parents) -> Self {
+        match parents {
+            Parents::Crud(parents) => parents.into(),
+            Parents::Msg(parents) => parents.into(),
+        }
+    }
+}

@@ -122,6 +122,17 @@ impl CheckParents for Builder {
     }
 }
 
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(builder: Builder) -> Self {
+        match builder {
+            Builder::Create(create) => create.into(),
+            Builder::Read(read) => read.into(),
+            Builder::Update(update) => update.into(),
+            Builder::Destroy(destroy) => destroy.into(),
+        }
+    }
+}
+
 impl From<Promised> for arguments::Named<Ipld> {
     fn from(promised: Promised) -> Self {
         match promised {

@@ -127,3 +127,12 @@ impl CheckSame for MutableParents {
         }
     }
 }
+
+impl From<MutableParents> for arguments::Named<Ipld> {
+    fn from(parents: MutableParents) -> Self {
+        match parents {
+            MutableParents::Any(any) => any.into(),
+            MutableParents::Mutate(mutate) => mutate.into(),
+        }
+    }
+}

@@ -1,7 +1,7 @@
 //! "Any" message ability (superclass of all message abilities)
 
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
     proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -71,5 +71,17 @@ impl CheckSame for Any {
     type Error = ();
     fn check_same(&self, _proof: &Self) -> Result<(), Self::Error> {
         Ok(())
+    }
+}
+
+impl From<Any> for arguments::Named<Ipld> {
+    fn from(any: Any) -> arguments::Named<Ipld> {
+        let mut args = arguments::Named::new();
+
+        if let Some(from) = any.from {
+            args.insert("from".into(), from.to_string().into());
+        }
+
+        args
     }
 }

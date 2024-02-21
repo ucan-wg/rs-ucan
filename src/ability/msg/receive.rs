@@ -46,7 +46,7 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
-pub(super) type Builder = Receive;
+pub type Builder = Receive;
 
 // FIXME needs promisory version
 
@@ -147,5 +147,17 @@ impl promise::Resolvable for Receive {
                 Err(_from) => Err(Promised { from: p.from }),
             },
         }
+    }
+}
+
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(builder: Builder) -> Self {
+        let mut args = arguments::Named::new();
+
+        if let Some(from) = builder.from {
+            args.insert("from".into(), from.into());
+        }
+
+        args
     }
 }

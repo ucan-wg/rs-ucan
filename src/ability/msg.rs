@@ -1,12 +1,11 @@
 //! Message abilities
 
 mod any;
-mod receive;
 
+pub mod receive;
 pub mod send;
 
 pub use any::Any;
-pub use receive::Receive;
 
 use crate::{
     ability::arguments,
@@ -118,4 +117,13 @@ impl CheckParents for Builder {
 
 impl Checkable for Builder {
     type Hierarchy = Parentful<Builder>;
+}
+
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(builder: Builder) -> Self {
+        match builder {
+            Builder::Send(send) => send.into(),
+            Builder::Receive(receive) => receive.into(),
+        }
+    }
 }

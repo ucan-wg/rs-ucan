@@ -256,3 +256,21 @@ impl From<Promised> for Ready {
         }
     }
 }
+
+impl From<Builder> for arguments::Named<Ipld> {
+    fn from(builder: Builder) -> Self {
+        let mut named = arguments::Named::new();
+
+        if let Some(path) = builder.path {
+            named.insert(
+                "path".to_string(),
+                path.into_os_string()
+                    .into_string()
+                    .expect("PathBuf to generate valid paths") // FIXME reasonable assumption?
+                    .into(),
+            );
+        }
+
+        named
+    }
+}

@@ -6,6 +6,7 @@ use super::{
     prove::{Prove, Success},
     same::CheckSame,
 };
+use crate::ability::arguments;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,15 @@ impl<T> From<T> for Parentless<T> {
     }
 }
 
+impl<T: Into<arguments::Named<Ipld>>> From<Parentless<T>> for arguments::Named<Ipld> {
+    fn from(parentless: Parentless<T>) -> Self {
+        match parentless {
+            Parentless::Any => todo!(),
+            Parentless::This(this) => this.into(),
+        }
+    }
+}
+
 // FIXME generally useful (e.g. checkiung `_/*`); move to its own module and rename?
 /// Error cases when checking proofs
 #[derive(Debug, Clone, PartialEq)]
@@ -49,7 +59,7 @@ pub enum ParentlessError<T: CheckSame> {
 /// This behaves as an alias for `Checkable::<Hierarchy = Parentless<T>>`.
 pub trait NoParents {}
 
-impl<T: PartialEq + NoParents + CheckSame> Checkable for T {
+impl<T: PartialEq + NoParents + CheckSame + Into<arguments::Named<Ipld>>> Checkable for T {
     type Hierarchy = Parentless<Self>;
 }
 

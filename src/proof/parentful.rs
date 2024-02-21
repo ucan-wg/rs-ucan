@@ -6,6 +6,7 @@ use super::{
     prove::{Prove, Success},
     same::CheckSame,
 };
+use crate::ability::arguments;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
@@ -59,6 +60,19 @@ pub enum ParentfulError<ArgErr, PrfErr, ParErr> {
     /// The specific comparison error is captured in the `ParErr`.
     #[error("Comparing parents in a delegation chain failed: {0}")]
     InvalidParents(ParErr), // FIXME seems kinda broken -- better naming at least
+}
+
+impl<T: CheckParents> From<Parentful<T>> for arguments::Named<Ipld>
+where
+    arguments::Named<Ipld>: From<T> + From<T::Parents>,
+{
+    fn from(parentful: Parentful<T>) -> Self {
+        match parentful {
+            Parentful::Any => arguments::Named::new(),
+            Parentful::Parents(parents) => parents.into(),
+            Parentful::This(this) => this.into(),
+        }
+    }
 }
 
 impl<T: CheckParents> From<Parentful<T>> for Ipld

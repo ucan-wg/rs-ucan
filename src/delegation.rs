@@ -32,8 +32,10 @@ use crate::{
 };
 use condition::Condition;
 use libipld_core::{
+    cid::{Cid, CidGeneric},
     codec::{Codec, Encode},
     ipld::Ipld,
+    multihash::{Code, MultihashDigest},
 };
 use std::collections::BTreeMap;
 use web_time::SystemTime;
@@ -137,6 +139,18 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
 
     pub fn signature(&self) -> &DID::Signature {
         &self.0.signature
+    }
+
+    pub fn codec(&self) -> &Enc {
+        self.varsig_header().codec()
+    }
+
+    pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
+    where
+        signature::Envelope<Payload<B, C, DID>, DID, V, Enc>: Clone + Encode<Enc>,
+        Ipld: Encode<Enc>,
+    {
+        self.0.cid()
     }
 
     pub fn validate_signature(&self) -> Result<(), signature::ValidateError>

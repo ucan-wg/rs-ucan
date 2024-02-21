@@ -133,6 +133,18 @@ where
         self.payload().check_time(now)
     }
 
+    pub fn codec(&self) -> &Enc {
+        self.varsig_header().codec()
+    }
+
+    pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
+    where
+        signature::Envelope<Payload<A, DID>, DID, V, Enc>: Clone + Encode<Enc>,
+        Ipld: Encode<Enc>,
+    {
+        self.0.cid()
+    }
+
     pub fn try_sign(
         signer: &DID::Signer,
         varsig_header: V,

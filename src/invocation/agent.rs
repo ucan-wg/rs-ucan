@@ -1,7 +1,7 @@
 use super::{payload::Payload, promise::Resolvable, store::Store, Invocation};
 use crate::{
     ability::{arguments, ucan},
-    crypto::{varsig, Nonce},
+    crypto::{signature as ucan_signature, varsig, Nonce},
     delegation,
     delegation::{condition::Condition, Delegable},
     did::{Did, Verifiable},
@@ -14,8 +14,9 @@ use libipld_core::{
     cid::{Cid, CidGeneric},
     codec::{Codec, Encode},
     ipld::Ipld,
-    multihash::{Code, MultihashGeneric},
+    multihash::{Code, MultihashDigest},
 };
+use signature;
 use std::{collections::BTreeMap, fmt, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
@@ -26,7 +27,7 @@ pub struct Agent<
     T: Resolvable + Delegable,
     C: Condition,
     DID: Did,
-    S: Store<T, DID, V, Enc>,
+    S: Store<T::Promised, DID, V, Enc>,
     P: promise::Store<T, DID>,
     D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
     V: varsig::Header<Enc>,
@@ -36,8 +37,7 @@ pub struct Agent<
 
     pub delegation_store: &'a mut D,
     pub invocation_store: &'a mut S,
-    pub unresolved_promise_store: &'a mut P,
-    pub resolved_promise_store: &'a mut P,
+    pub unresolved_promise_index: &'a mut P,
 
     signer: &'a <DID as Did>::Signer,
     marker: PhantomData<(T, C, V, Enc)>,
@@ -48,7 +48,7 @@ impl<
         T: Resolvable + Delegable + Clone,
         C: Condition,
         DID: Did + Clone,
-        S: Store<T, DID, V, Enc>,
+        S: Store<T::Promised, DID, V, Enc>,
         P: promise::Store<T, DID>,
         D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
         V: varsig::Header<Enc>,
@@ -64,15 +64,13 @@ where
         signer: &'a <DID as Did>::Signer,
         invocation_store: &'a mut S,
         delegation_store: &'a mut D,
-        unresolved_promise_store: &'a mut P,
-        resolved_promise_store: &'a mut P,
+        unresolved_promise_index: &'a mut P,
     ) -> Self {
         Self {
             did,
             invocation_store,
             delegation_store,
-            unresolved_promise_store,
-            resolved_promise_store,
+            unresolved_promise_index,
             signer,
             marker: PhantomData,
         }
@@ -122,23 +120,29 @@ where
         now: &SystemTime,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, C, D::DelegationStoreError>>
     where
+        T::Builder: Into<arguments::Named<Ipld>> + Clone,
+        Ipld: Encode<Enc>,
         C: fmt::Debug + Clone,
         <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
-        T::Builder: Clone + Checkable + Prove + Into<arguments::Named<Ipld>>,
         Invocation<T::Promised, DID, V, Enc>: Clone,
         <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error: fmt::Debug,
         <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
+        ucan_signature::Envelope<Payload<T, DID>, DID, V, Enc>: Clone,
+        ucan_signature::Envelope<Payload<T::Promised, DID>, DID, V, Enc>: Clone,
     {
+        // FIXME You know... store it
+        // also: Envelops hsould have a cid() method
+        // self.invocation_store
+        //     .put(promised.cid().clone(), promised.clone())
+        // .map_err(ReceiveError::PromiseStoreError)?;
+
         let mut buffer = vec![];
         Ipld::from(promised.clone())
             .encode(*promised.varsig_header().codec(), &mut buffer)
             .map_err(ReceiveError::EncodingError)?;
 
-        let cid: Cid = CidGeneric::new_v1(
-            DagCborCodec.into(),
-            MultihashGeneric::wrap(Code::Sha2_256.into(), buffer.as_slice())
-                .map_err(ReceiveError::MultihashError)?,
-        );
+        let multihash = Code::Sha2_256.digest(buffer.as_slice());
+        let cid: Cid = CidGeneric::new_v1(DagCborCodec.into(), multihash);
 
         let mut encoded = vec![];
         Ipld::from(promised.payload().clone())
@@ -153,19 +157,13 @@ where
         let resolved_ability: T = match Resolvable::try_resolve(promised.ability().clone()) {
             Ok(resolved) => resolved,
             Err(_) => {
-                // FIXME check if any of the unresolved promises are in the store
-                // FIXME check if it's actually unresolved
+                let waiting_on_cid = todo!();
 
-                // self.invocation_store
-                //     .put(cid.clone(), promised.clone())
-                //     .map_err(ReceiveError::PromiseStoreError)?;
-
-                self.unresolved_promise_store
-                    .put(cid, todo!()) // cid for promised)
+                self.unresolved_promise_index
+                    .put(promised.cid()?, vec![waiting_on_cid])
                     .map_err(ReceiveError::PromiseStoreError)?;
 
-                todo!()
-                // return Ok(Recipient::Other(promised)); // FIXME
+                return Ok(Recipient::Unresolved(cid));
             }
         };
 
@@ -242,8 +240,10 @@ where
 
 #[derive(Debug)]
 pub enum Recipient<T> {
+    // FIXME change to status
     You(T),
     Other(T),
+    Unresolved(Cid),
 }
 
 #[derive(Debug, Error)]

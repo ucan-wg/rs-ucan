@@ -4,9 +4,11 @@ use crate::{
     did::{Did, Verifiable},
 };
 use libipld_core::{
+    cid::{Cid, CidGeneric},
     codec::{Codec, Encode},
     error::Result,
     ipld::Ipld,
+    multihash::{Code, MultihashDigest},
 };
 use signature::{SignatureEncoding, Signer};
 use std::collections::BTreeMap;
@@ -155,6 +157,23 @@ impl<
             .verify(&encoded, &self.signature)
             .map_err(ValidateError::VerifyError)
     }
+
+    pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
+    where
+        Self: Clone,
+        Ipld: Encode<Enc>,
+        T: Into<Ipld>,
+    {
+        let codec = self.varsig_header.codec().clone();
+        let mut ipld_buffer = vec![];
+        self.encode(codec, &mut ipld_buffer)?;
+
+        let multihash = Code::Sha2_256.digest(&ipld_buffer);
+        Ok(CidGeneric::new_v1(
+            self.varsig_header.codec().clone().into(),
+            multihash,
+        ))
+    }
 }
 
 impl<
@@ -172,6 +191,26 @@ impl<
             ("sig".into(), Ipld::Bytes(envelope.signature.to_vec())),
             ("pld".into(), Ipld::List(vec![varsig_header, ipld])),
         ]))
+    }
+}
+
+impl<
+        T: Verifiable<DID> + Capsule + Into<Ipld>,
+        DID: Did,
+        V: varsig::Header<Enc>,
+        Enc: Codec + Into<u32> + TryFrom<u32>,
+    > Encode<Enc> for Envelope<T, DID, V, Enc>
+where
+    Self: Clone,
+    Ipld: Encode<Enc>,
+{
+    fn encode<W: std::io::Write>(
+        &self,
+        codec: Enc,
+        w: &mut W,
+    ) -> Result<(), libipld_core::error::Error> {
+        let ipld: Ipld = self.clone().into();
+        ipld.encode(codec, w)
     }
 }
 

@@ -1,7 +1,7 @@
 //! "Any" CRUD ability (superclass of all CRUD abilities)
 
 use crate::{
-    ability::command::Command,
+    ability::{arguments, command::Command},
     proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -92,5 +92,21 @@ impl TryFrom<Ipld> for Any {
 impl From<Any> for Ipld {
     fn from(builder: Any) -> Self {
         builder.into()
+    }
+}
+
+impl From<Any> for arguments::Named<Ipld> {
+    fn from(any: Any) -> arguments::Named<Ipld> {
+        let mut named = arguments::Named::new();
+        if let Some(path) = any.path {
+            named.insert(
+                "path".into(),
+                path.into_os_string()
+                    .into_string()
+                    .expect("PathBuf should generate a valid path")
+                    .into(),
+            );
+        }
+        named
     }
 }

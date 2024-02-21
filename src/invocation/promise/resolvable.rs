@@ -1,5 +1,5 @@
 use crate::{ability::arguments, delegation::Delegable};
-use libipld_core::ipld::Ipld;
+use libipld_core::{cid::Cid, ipld::Ipld};
 
 // FIXME rename "Unresolved"
 // FIXME better name
@@ -18,5 +18,6 @@ pub trait Resolvable: Delegable {
     type Promised: Into<Self::Builder> + Into<arguments::Named<Ipld>>;
 
     /// Attempt to resolve the [`Self::Promised`].
+    // FIXME bubble up what we're waiting on fn try_resolve(promised: Self::Promised) -> Result<Self, (Cid, Self::Promised)>;
     fn try_resolve(promised: Self::Promised) -> Result<Self, Self::Promised>;
 }

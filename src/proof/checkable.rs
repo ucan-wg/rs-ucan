@@ -1,6 +1,8 @@
 //! Define the hierarchy of an ability (or mark as not having one)
 
 use super::{prove::Prove, same::CheckSame};
+use crate::ability::arguments;
+use libipld_core::ipld::Ipld;
 
 // FIXME move to Delegatbel?
 
@@ -11,5 +13,5 @@ pub trait Checkable: CheckSame + Sized {
     /// The only options are [`Parentful`][super::parentful::Parentful]
     /// and [`Parentless`][super::parentless::Parentless],
     /// (which are the only instances of the unexported `Checker`)
-    type Hierarchy: CheckSame + Prove + From<Self> + PartialEq;
+    type Hierarchy: CheckSame + Prove + From<Self> + PartialEq + Into<arguments::Named<Ipld>>;
 }
