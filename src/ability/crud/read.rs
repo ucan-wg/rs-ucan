@@ -2,12 +2,9 @@
 
 use super::any as crud;
 use crate::{
-    ability::{
-        arguments,
-        command::{Command, ParseAbility, ParseAbilityError},
-    },
+    ability::{arguments, command::Command},
     delegation::Delegable,
-    invocation::{promise, promise::Resolves},
+    invocation::promise,
     ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
@@ -98,14 +95,66 @@ pub struct Promised {
     pub args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
 }
 
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut path = None;
+        let mut args = None;
+
+        for (k, prom) in arguments {
+            match k.as_str() {
+                "path" => match prom {
+                    ipld::Promised::String(s) => {
+                        path = Some(promise::Resolves::Ok(
+                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
+                        ));
+                    }
+                    ipld::Promised::WaitOk(cid) => {
+                        path = Some(promise::PromiseOk::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitErr(cid) => {
+                        path = Some(promise::PromiseErr::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitAny(cid) => {
+                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                    }
+                    _ => return Err(()),
+                },
+
+                "args" => {
+                    args = match prom {
+                        ipld::Promised::Map(map) => {
+                            Some(promise::PromiseOk::Fulfilled(arguments::Named(map)).into())
+                        }
+                        ipld::Promised::WaitOk(cid) => {
+                            Some(promise::PromiseOk::Pending(cid).into())
+                        }
+                        ipld::Promised::WaitErr(cid) => {
+                            Some(promise::PromiseErr::Pending(cid).into())
+                        }
+                        ipld::Promised::WaitAny(cid) => {
+                            todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
+                        }
+                        _ => return Err(()),
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised { path, args })
+    }
+}
+
 const COMMAND: &'static str = "crud/read";
 
 impl Command for Ready {
-    const COMMAND: &'static str = "crud/read";
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Command for Promised {
-    const COMMAND: &'static str = "crud/read";
+    const COMMAND: &'static str = COMMAND;
 }
 
 impl Delegable for Ready {
@@ -205,34 +254,6 @@ impl CheckParents for Ready {
     }
 }
 
-// impl From<Promised> for arguments::Named<Ipld> {
-//     fn from(promised: Promised) -> Self {
-//         let mut named = arguments::Named::new();
-//
-//         if let Some(path_res) = promised.path {
-//             named.insert("path".into(), path_res.into());
-//         }
-//
-//         if let Some(args_res) = promised.args {
-//             named.insert("args".into(), args_res.into());
-//         }
-//
-//         named
-//     }
-// }
-
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Promised {
-        Promised {
-            path: r
-                .path
-                .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
-
-            args: r.args.map(|inner_args| Resolves::new(inner_args.into())),
-        }
-    }
-}
-
 impl promise::Resolvable for Ready {
     type Promised = Promised;
 }
@@ -252,28 +273,3 @@ impl From<Promised> for arguments::Named<ipld::Promised> {
         named
     }
 }
-
-// impl TryFrom<arguments::Named<Ipld>> for Promised {
-//     type Error = ();
-//
-//     fn try_from(arguments: arguments::Named<Ipld>) -> Result<Promised, Self::Error> {
-//         let mut path = None;
-//         let mut args = None;
-//
-//         for (k, v) in arguments.into_iter() {
-//             match k.as_str() {
-//                 "path" => {
-//                     let path = promise::Resolves::try_from(v)?;
-//                     path.map(|path| Promised { path, args });
-//                 }
-//                 "args" => {
-//                     let args = promise::Resolves::try_from(v)?;
-//                     args.map(|args| Promised { path, args });
-//                 }
-//                 _ => return Err(()),
-//             }
-//         }
-//
-//         Ok(Promised { path, args })
-//     }
-// }

@@ -37,9 +37,6 @@ pub struct Agent<
     _marker: PhantomData<(B, C, V, Enc)>,
 }
 
-// FIXME show example of multiple hierarchies of "all things accepted"
-// delegating down to inner versions of this
-
 impl<
         'a,
         B: Checkable + Clone,

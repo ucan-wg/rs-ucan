@@ -2,7 +2,8 @@ use super::condition::Condition;
 use crate::{
     ability::{
         arguments,
-        command::{Command, ParseAbility, ToCommand},
+        command::{Command, ToCommand},
+        parse::ParseAbility,
     },
     capsule::Capsule,
     crypto::Nonce,
@@ -379,7 +380,7 @@ impl<T: Checkable + Into<arguments::Named<Ipld>>, C: Condition, DID: Did> Payloa
     ) -> Result<(), ValidationError<<T::Hierarchy as Prove>::Error, C>>
     where
         T: Clone,
-        C: fmt::Debug + Clone,
+        C: Clone,
         DID: Clone,
         T::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
     {
@@ -432,7 +433,7 @@ impl<H: Prove, DID: Did> Acc<H, DID> {
         now: &SystemTime,
     ) -> Result<Success, ValidationError<<H as Prove>::Error, C>>
     where
-        C: fmt::Debug + Clone,
+        C: Clone,
         H: Prove + Clone + Into<arguments::Named<Ipld>>,
     {
         if self.issuer != proof.audience {

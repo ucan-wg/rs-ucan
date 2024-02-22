@@ -2,7 +2,8 @@ use super::{crud, msg, wasm};
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
     delegation::Delegable,
     invocation::promise::Resolvable,
@@ -137,6 +138,35 @@ impl ToCommand for Promised {
             Promised::Msg(promised) => promised.to_command(),
             Promised::Wasm(promised) => promised.to_command(),
         }
+    }
+}
+
+impl ParsePromised for Promised {
+    type PromisedArgsError = ();
+
+    fn try_parse_promised(
+        cmd: &str,
+        args: arguments::Named<ipld::Promised>,
+    ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
+        match crud::Promised::try_parse_promised(cmd, args.clone()) {
+            Ok(promised) => return Ok(Promised::Crud(promised)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match msg::Promised::try_parse_promised(cmd, args.clone()) {
+            Ok(promised) => return Ok(Promised::Msg(promised)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match wasm::run::Promised::try_parse_promised(cmd, args) {
+            Ok(promised) => return Ok(Promised::Wasm(promised)),
+            Err(err) => return Err(err),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 

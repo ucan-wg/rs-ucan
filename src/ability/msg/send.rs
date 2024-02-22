@@ -6,12 +6,12 @@ use crate::{
     invocation::promise,
     ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
-    url as url_newtype,
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use url::Url;
+// use url::Url;
+use crate::url;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `msg/send` ability.
@@ -44,13 +44,13 @@ use url::Url;
 #[serde(deny_unknown_fields)]
 pub struct Ready {
     /// The recipient of the message
-    pub to: Url,
+    pub to: url::Newtype,
 
     /// The sender address of the message
     ///
     /// This *may* be a URL (such as an email address).
     /// If provided, the `subject` must have the right to send from this address.
-    pub from: Url,
+    pub from: url::Newtype,
 
     /// The main body of the message
     pub message: String,
@@ -86,13 +86,13 @@ pub struct Ready {
 #[serde(deny_unknown_fields)]
 pub struct Builder {
     /// The recipient of the message
-    pub to: Option<Url>,
+    pub to: Option<url::Newtype>,
 
     /// The sender address of the message
     ///
     /// This *may* be a URL (such as an email address).
     /// If provided, the `subject` must have the right to send from this address.
-    pub from: Option<Url>,
+    pub from: Option<url::Newtype>,
 
     /// The main body of the message
     pub message: Option<String>,
@@ -131,13 +131,13 @@ pub struct Builder {
 #[serde(deny_unknown_fields)]
 pub struct Promised {
     /// The recipient of the message
-    pub to: promise::Resolves<Url>,
+    pub to: promise::Resolves<url::Newtype>,
 
     /// The sender address of the message
     ///
     /// This *may* be a URL (such as an email address).
     /// If provided, the `subject` must have the right to send from this address.
-    pub from: promise::Resolves<Url>,
+    pub from: promise::Resolves<url::Newtype>,
 
     /// The main body of the message
     pub message: promise::Resolves<String>,
@@ -149,6 +149,51 @@ impl Delegable for Ready {
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
+}
+
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(args: arguments::Named<ipld::Promised>) -> Result<Promised, Self::Error> {
+        let mut to = None;
+        let mut from = None;
+        let mut message = None;
+
+        for (key, prom) in args.0 {
+            match key.as_str() {
+                "to" => match Ipld::try_from(prom) {
+                    Ok(Ipld::String(s)) => {
+                        to = Some(promise::Resolves::from(Ok(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
+                        )));
+                    }
+                    Err(pending) => to = Some(pending.into()),
+                    _ => return Err(()),
+                },
+                "from" => match Ipld::try_from(prom) {
+                    Ok(Ipld::String(s)) => {
+                        from = Some(promise::Resolves::from(Ok(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
+                        )));
+                    }
+                    Err(pending) => from = Some(pending.into()),
+                    _ => return Err(()),
+                },
+                "message" => match Ipld::try_from(prom) {
+                    Ok(Ipld::String(s)) => message = Some(promise::Resolves::from(Ok(s))),
+                    Err(pending) => to = Some(pending.into()),
+                    _ => return Err(()),
+                },
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised {
+            to: to.ok_or(())?,
+            from: from.ok_or(())?,
+            message: message.ok_or(())?,
+        })
+    }
 }
 
 impl From<Builder> for arguments::Named<Ipld> {
@@ -167,8 +212,8 @@ impl From<Builder> for arguments::Named<Ipld> {
 impl From<Promised> for arguments::Named<Ipld> {
     fn from(p: Promised) -> Self {
         arguments::Named::from_iter([
-            ("to".into(), p.to.map(url_newtype::Newtype).into()),
-            ("from".into(), p.from.map(String::from).into()),
+            ("to".into(), p.to.into()),
+            ("from".into(), p.from.into()),
             ("message".into(), p.message.into()),
         ])
     }
@@ -234,14 +279,14 @@ impl TryFrom<arguments::Named<Ipld>> for Builder {
                 "to" => {
                     // FIXME extract this common pattern
                     if let Ipld::String(s) = ipld {
-                        to = Some(Url::parse(s.as_str()).map_err(|_| ())?);
+                        to = Some(url::Newtype::parse(s.as_str()).map_err(|_| ())?);
                     } else {
                         return Err(());
                     }
                 }
                 "from" => {
                     if let Ipld::String(s) = ipld {
-                        from = Some(Url::parse(s.as_str()).map_err(|_| ())?);
+                        from = Some(url::Newtype::parse(s.as_str()).map_err(|_| ())?);
                     } else {
                         return Err(());
                     }

@@ -1,4 +1,4 @@
-use super::{Promise, PromiseAny, PromiseErr, PromiseOk};
+use super::{Pending, Promise, PromiseAny, PromiseErr, PromiseOk};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -224,6 +224,16 @@ impl<T> Resolves<T> {
         match self {
             Resolves::Ok(p_ok) => Resolves::Ok(p_ok.map(f)),
             Resolves::Err(p_err) => Resolves::Err(p_err.map(f)),
+        }
+    }
+}
+
+impl<T> From<Pending> for Resolves<T> {
+    fn from(pending: Pending) -> Self {
+        match pending {
+            Pending::Ok(cid) => Resolves::Ok(PromiseOk::Pending(cid)),
+            Pending::Err(cid) => Resolves::Err(PromiseErr::Pending(cid)),
+            Pending::Any(cid) => Resolves::Ok(PromiseOk::Pending(cid)), // FIXME
         }
     }
 }

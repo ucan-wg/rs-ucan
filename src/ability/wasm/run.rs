@@ -2,10 +2,7 @@
 
 use super::module::Module;
 use crate::{
-    ability::{
-        arguments,
-        command::{Command, ParseAbility},
-    },
+    ability::{arguments, command::Command},
     delegation::Delegable,
     invocation::promise,
     ipld,
@@ -84,20 +81,6 @@ impl TryFrom<arguments::Named<Ipld>> for Builder {
         })
     }
 }
-
-// impl TryFrom<arguments::Named<Ipld>> for Builder {
-//     type Error = ();
-//
-//     fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
-//         let ready = Ready::try_from(args)?;
-//
-//         Ok(Builder {
-//             module: Some(ready.module),
-//             function: Some(ready.function),
-//             args: Some(ready.args),
-//         })
-//     }
-// }
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
@@ -193,27 +176,50 @@ pub struct Promised {
     pub args: promise::Resolves<Vec<ipld::Promised>>,
 }
 
-// impl From<Ready> for Promised {
-//     fn from(ready: Ready) -> Self {
-//         Promised {
-//             module: promise::Resolves::from(Ok(ready.module)),
-//             function: promise::Resolves::from(Ok(ready.function)),
-//             args: promise::Resolves::from(Ok(ready.args)),
-//         }
-//     }
-// }
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
 
-// impl TryFrom<Promised> for Ready {
-//     type Error = (); // FIXME
-//
-//     fn try_from(promised: Promised) -> Result<Self, Self::Error> {
-//         Ok(Ready {
-//             module: promised.module.try_from().map_err(|_| ())?,
-//             function: promised.function.try_from().map_err(|_| ())?,
-//             args: promised.args.try_from().map_err(|_| ())?,
-//         })
-//     }
-// }
+    fn try_from(named: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut module = None;
+        let mut function = None;
+        let mut args = None;
+
+        for (key, prom) in named {
+            match key.as_str() {
+                "module" => module = Some(prom.try_into().map_err(|_| ())?),
+                "function" => function = Some(prom.try_into().map_err(|_| ())?),
+                "args" => {
+                    if let ipld::Promised::List(list) = prom.into() {
+                        args = Some(promise::Resolves::new(list));
+                    } else {
+                        return Err(());
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised {
+            module: module.ok_or(())?,
+            function: function.ok_or(())?,
+            args: args.ok_or(())?,
+        })
+    }
+}
+
+impl From<Ready> for Promised {
+    fn from(ready: Ready) -> Self {
+        Promised {
+            module: promise::Resolves::from(Ok(ready.module)),
+            function: promise::Resolves::from(Ok(ready.function)),
+            args: promise::Resolves::from(Ok(ready
+                .args
+                .iter()
+                .map(|ipld| ipld.clone().into())
+                .collect())),
+        }
+    }
+}
 
 impl From<Promised> for arguments::Named<ipld::Promised> {
     fn from(promised: Promised) -> Self {

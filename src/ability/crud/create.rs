@@ -7,9 +7,9 @@ use crate::{
     ipld,
     proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
-use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use libipld_core::ipld::Ipld;
 use serde::Serialize;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 
 // FIXME deserialize instance
 
@@ -123,31 +123,57 @@ impl Command for Promised {
     const COMMAND: &'static str = COMMAND;
 }
 
-// impl TryFrom<Ipld> for Ready {
-//     type Error = (); // FIXME
-//
-//     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-//         if let Ipld::Map(mut map) = ipld {
-//             if map.len() > 2 {
-//                 return Err(()); // FIXME
-//             }
-//
-//             Ok(Generic {
-//                 path: map
-//                     .remove("path")
-//                     .map(|ipld| P::try_from(ipld).map_err(|_| ()))
-//                     .transpose()?,
-//
-//                 args: map
-//                     .remove("args")
-//                     .map(|ipld| A::try_from(ipld).map_err(|_| ()))
-//                     .transpose()?,
-//             })
-//         } else {
-//             Err(()) // FIXME
-//         }
-//     }
-// }
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut path = None;
+        let mut args = None;
+
+        for (k, prom) in arguments {
+            match k.as_str() {
+                "path" => match prom {
+                    ipld::Promised::String(s) => {
+                        path = Some(promise::Resolves::Ok(
+                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
+                        ));
+                    }
+                    ipld::Promised::WaitOk(cid) => {
+                        path = Some(promise::PromiseOk::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitErr(cid) => {
+                        path = Some(promise::PromiseErr::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitAny(cid) => {
+                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                    }
+                    _ => return Err(()),
+                },
+
+                "args" => {
+                    args = match prom {
+                        ipld::Promised::Map(map) => {
+                            Some(promise::PromiseOk::Fulfilled(arguments::Named(map)).into())
+                        }
+                        ipld::Promised::WaitOk(cid) => {
+                            Some(promise::PromiseOk::Pending(cid).into())
+                        }
+                        ipld::Promised::WaitErr(cid) => {
+                            Some(promise::PromiseErr::Pending(cid).into())
+                        }
+                        ipld::Promised::WaitAny(cid) => {
+                            todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
+                        }
+                        _ => return Err(()),
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised { path, args })
+    }
+}
 
 impl TryFrom<arguments::Named<Ipld>> for Ready {
     type Error = ();
@@ -253,18 +279,6 @@ impl From<Ready> for Promised {
         }
     }
 }
-
-// FIXME may want to name this something other than a TryFrom
-//  impl From<Promised> for Builder {
-//      fn from(promised: Promised) -> Self {
-//          Builder {
-//              path: promised.path.and_then(|x| x.try_resolve().ok()),
-//              args: promised
-//                  .args
-//                  .and_then(|x| x.try_resolve().ok()?.try_into().ok()),
-//          }
-//      }
-//  }
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;

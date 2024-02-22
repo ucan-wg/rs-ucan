@@ -4,7 +4,7 @@ use crate::{
     did::{Did, Verifiable},
 };
 use libipld_core::{
-    cid::{Cid, CidGeneric},
+    cid::Cid,
     codec::{Codec, Encode},
     error::Result,
     ipld::Ipld,
@@ -143,14 +143,14 @@ impl<
     /// # Exmaples
     ///
     /// FIXME
-    pub fn validate_signature(&self, varsig_header: &V) -> Result<(), ValidateError>
+    pub fn validate_signature(&self) -> Result<(), ValidateError>
     where
         T: Clone,
         Ipld: Encode<Enc>,
     {
         let mut encoded = vec![];
         let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), self.payload.clone().into())]).into();
-        ipld.encode(*varsig_header.codec(), &mut encoded)
+        ipld.encode(*self.varsig_header.codec(), &mut encoded)
             .map_err(ValidateError::PayloadEncodingError)?;
 
         self.verifier()
@@ -169,7 +169,7 @@ impl<
         self.encode(codec, &mut ipld_buffer)?;
 
         let multihash = Code::Sha2_256.digest(&ipld_buffer);
-        Ok(CidGeneric::new_v1(
+        Ok(Cid::new_v1(
             self.varsig_header.codec().clone().into(),
             multihash,
         ))

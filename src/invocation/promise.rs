@@ -14,7 +14,7 @@ pub use any::PromiseAny;
 pub use err::PromiseErr;
 pub use ok::PromiseOk;
 pub use pending::Pending;
-pub use resolvable::Resolvable;
+pub use resolvable::*;
 pub use resolves::Resolves;
 pub use store::Store;
 

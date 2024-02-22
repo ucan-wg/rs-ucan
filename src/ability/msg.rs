@@ -10,7 +10,8 @@ pub use any::Any;
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
     delegation::Delegable,
     invocation::promise::Resolvable,
@@ -66,6 +67,25 @@ impl ToCommand for Promised {
             Promised::Send(send) => send.to_command(),
             Promised::Receive(receive) => receive.to_command(),
         }
+    }
+}
+
+impl ParsePromised for Promised {
+    type PromisedArgsError = ();
+
+    fn try_parse_promised(
+        cmd: &str,
+        args: arguments::Named<ipld::Promised>,
+    ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
+        if let Ok(send) = send::Promised::try_parse_promised(cmd, args.clone()) {
+            return Ok(Promised::Send(send));
+        }
+
+        if let Ok(receive) = receive::Promised::try_parse_promised(cmd, args) {
+            return Ok(Promised::Receive(receive));
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 

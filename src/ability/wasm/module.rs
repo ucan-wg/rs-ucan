@@ -1,6 +1,6 @@
 //! Wasm module representations
 
-use crate::{ability::arguments, ipld};
+use crate::ipld;
 use base64::{display::Base64Display, engine::general_purpose::STANDARD, Engine as _};
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, link::Link, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,14 @@ impl From<Module> for Ipld {
             Module::Inline(bytes) => Ipld::Bytes(bytes),
             Module::Remote(cid) => Ipld::Link(*cid),
         }
+    }
+}
+
+impl TryFrom<ipld::Newtype> for Module {
+    type Error = SerdeError;
+
+    fn try_from(nt: ipld::Newtype) -> Result<Self, Self::Error> {
+        ipld_serde::from_ipld(nt.0)
     }
 }
 

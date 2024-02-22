@@ -2,7 +2,7 @@
 use crate::{
     ability::arguments,
     invocation::promise::{Pending, Promise, PromiseAny, PromiseErr, PromiseOk, Resolves},
-    url,
+    ipld, url,
 };
 use enum_as_inner::EnumAsInner;
 use libipld_core::{cid::Cid, ipld::Ipld};
@@ -67,11 +67,26 @@ impl From<Ipld> for Promised {
             Ipld::Link(cid) => Promised::Link(cid),
             Ipld::List(list) => Promised::List(list.into_iter().map(Into::into).collect()),
             Ipld::Map(map) => {
-                let mut promised_map = BTreeMap::new();
-                for (k, v) in map {
-                    promised_map.insert(k, v.into());
+                if map.len() == 1 {
+                    if let Some((k, Ipld::Link(cid))) = map.first_key_value() {
+                        return match k.as_str() {
+                            "await/ok" => Promised::WaitOk(*cid),
+                            "await/err" => Promised::WaitErr(*cid),
+                            "await/*" => Promised::WaitAny(*cid),
+                            _ => Promised::Map(BTreeMap::from_iter([(
+                                k.to_string(),
+                                Promised::Link(*cid),
+                            )])),
+                        };
+                    }
                 }
-                Promised::Map(promised_map)
+
+                let map = map.into_iter().fold(BTreeMap::new(), |mut acc, (k, v)| {
+                    acc.insert(k, v.into());
+                    acc
+                });
+
+                Promised::Map(map)
             }
         }
     }
@@ -148,6 +163,66 @@ impl From<Promise<Ipld, Ipld>> for Promised {
     }
 }
 
+impl<T: TryFrom<ipld::Newtype>> TryFrom<Promised> for Resolves<T> {
+    type Error = ();
+
+    fn try_from(promised: Promised) -> Result<Resolves<T>, Self::Error> {
+        match promised {
+            Promised::WaitOk(cid) => Ok(Resolves::Ok(PromiseOk::Pending(cid))),
+            Promised::WaitErr(cid) => Ok(Resolves::Err(PromiseErr::Pending(cid))),
+            Promised::WaitAny(cid) => Ok(Resolves::Ok(PromiseOk::Pending(cid))), // FIXME
+
+            Promised::Null => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Null.into()).map_err(|_| ())?,
+            ))),
+            Promised::Bool(b) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Bool(b).into()).map_err(|_| ())?,
+            ))),
+            Promised::Integer(i) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Integer(i).into()).map_err(|_| ())?,
+            ))),
+            Promised::Float(f) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Float(f).into()).map_err(|_| ())?,
+            ))),
+            Promised::String(s) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::String(s).into()).map_err(|_| ())?,
+            ))),
+            Promised::Bytes(b) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Bytes(b).into()).map_err(|_| ())?,
+            ))),
+            Promised::Link(cid) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                T::try_from(Ipld::Link(cid).into()).map_err(|_| ())?,
+            ))),
+
+            Promised::List(list) => {
+                let vec: Vec<Ipld> = list.into_iter().try_fold(vec![], |mut acc, promised| {
+                    let ipld: Ipld = promised.try_into().map_err(|_| ())?;
+                    acc.push(ipld);
+                    Ok(acc)
+                })?;
+
+                Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                    ipld::Newtype(Ipld::List(vec)).try_into().map_err(|_| ())?,
+                )))
+            }
+
+            Promised::Map(map) => {
+                let btree: BTreeMap<String, Ipld> =
+                    map.into_iter()
+                        .try_fold(BTreeMap::new(), |mut acc, (k, v)| {
+                            let ipld: Ipld = v.try_into().map_err(|_| ())?;
+                            acc.insert(k, ipld);
+                            Ok(acc)
+                        })?;
+
+                Ok(Resolves::Ok(PromiseOk::Fulfilled(
+                    ipld::Newtype(Ipld::Map(btree)).try_into().map_err(|_| ())?,
+                )))
+            }
+        }
+    }
+}
+
 impl<T> From<Resolves<T>> for Promised
 where
     Promised: From<T>,
@@ -194,6 +269,18 @@ impl From<Cid> for Promised {
 impl From<::url::Url> for Promised {
     fn from(url: ::url::Url) -> Promised {
         Promised::String(url.to_string())
+    }
+}
+
+impl TryFrom<Promised> for url::Newtype {
+    type Error = ();
+
+    fn try_from(promised: Promised) -> Result<url::Newtype, Self::Error> {
+        match promised {
+            Promised::String(s) => Ok(url::Newtype(::url::Url::parse(&s).map_err(|_| ())?)),
+            // FIXME Promised::Link(cid) => Ok(url::Newtype::from(cid)),
+            _ => Err(()),
+        }
     }
 }
 
@@ -304,7 +391,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
                 Some(ref map @ Promised::Map(ref btree)) => {
-                    self.outbound.push(map.clone());
+                    self.outbound.push(map);
 
                     for node in btree.values() {
                         self.inbound.push(node);
@@ -312,7 +399,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
                 }
 
                 Some(ref list @ Promised::List(ref vector)) => {
-                    self.outbound.push(list.clone());
+                    self.outbound.push(list);
 
                     for node in vector {
                         self.inbound.push(node);

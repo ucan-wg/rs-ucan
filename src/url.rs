@@ -1,7 +1,9 @@
 //! URL utilities.
 
+use crate::proof::same::CheckSame;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use thiserror::Error;
 use url::Url;
 
@@ -35,6 +37,30 @@ use proptest::prelude::*;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Newtype(pub Url);
+
+impl Newtype {
+    pub fn parse(s: &str) -> Result<Self, url::ParseError> {
+        Ok(Newtype(Url::parse(s)?))
+    }
+}
+
+impl fmt::Display for Newtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl CheckSame for Newtype {
+    type Error = ();
+
+    fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
+        if self == other {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+}
 
 impl From<Newtype> for Ipld {
     fn from(newtype: Newtype) -> Self {

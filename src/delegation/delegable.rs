@@ -1,7 +1,8 @@
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError},
     },
     proof::checkable::Checkable,
 };
@@ -48,5 +49,3 @@ pub trait Delegable: Sized {
         builder.try_into().map_err(|err| todo!())
     }
 }
-
-// FIXME ParseAbility + ToCommand + Checkable = Ability?

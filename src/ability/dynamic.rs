@@ -2,12 +2,13 @@
 
 use super::{
     arguments,
-    command::{ParseAbility, ParseAbilityError, ToCommand},
+    command::ToCommand,
+    parse::{ParseAbility, ParseAbilityError},
 };
 use crate::proof::same::CheckSame;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, fmt::Debug};
+use std::fmt::Debug;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

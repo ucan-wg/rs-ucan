@@ -139,7 +139,7 @@ where
 
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        signature::Envelope<Payload<A, DID>, DID, V, Enc>: Clone + Encode<Enc>,
+        signature::Envelope<Payload<A, DID>, DID, V, Enc>: Clone,
         Ipld: Encode<Enc>,
     {
         self.0.cid()
@@ -155,6 +155,13 @@ where
     {
         let envelope = signature::Envelope::try_sign(signer, varsig_header, payload)?;
         Ok(Invocation(envelope))
+    }
+
+    pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
+    where
+        Payload<A, DID>: Clone,
+    {
+        self.0.validate_signature()
     }
 }
 

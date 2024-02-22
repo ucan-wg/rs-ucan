@@ -3,11 +3,10 @@
     missing_debug_implementations,
     future_incompatible,
     let_underscore,
-    // FIXME missing_docs,
+    missing_docs,
     rust_2021_compatibility,
-    nonstandard_style,
+    nonstandard_style
 )]
-// FIXME consider removing for Prove
 #![deny(unreachable_pub)]
 
 //! ucan
@@ -35,3 +34,10 @@ pub mod test_utils;
 pub use delegation::Delegation;
 pub use invocation::Invocation;
 pub use receipt::Receipt;
+
+/////////////
+// FIXME s //
+/////////////
+
+// show example of multiple hierarchies of "all things accepted"
+// delegating down to inner versions of this

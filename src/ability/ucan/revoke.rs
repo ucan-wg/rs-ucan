@@ -11,10 +11,7 @@ use crate::{
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Debug,
-};
+use std::{collections::BTreeMap, fmt::Debug};
 
 /// The fully resolved variant: ready to execute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -131,6 +128,31 @@ impl From<Builder> for arguments::Named<Ipld> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Promised {
     pub ucan: promise::Resolves<Cid>,
+}
+
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut ucan = None;
+
+        for (k, prom) in arguments {
+            match k.as_str() {
+                "ucan" => match Ipld::try_from(prom) {
+                    Ok(Ipld::Link(cid)) => {
+                        ucan = Some(promise::Resolves::new(cid));
+                    }
+                    Err(pending) => ucan = Some(pending.into()),
+                    _ => return Err(()),
+                },
+                _ => (),
+            }
+        }
+
+        Ok(Promised {
+            ucan: ucan.ok_or(())?,
+        })
+    }
 }
 
 impl From<Ready> for Promised {

@@ -32,10 +32,9 @@ use crate::{
 };
 use condition::Condition;
 use libipld_core::{
-    cid::{Cid, CidGeneric},
+    cid::Cid,
     codec::{Codec, Encode},
     ipld::Ipld,
-    multihash::{Code, MultihashDigest},
 };
 use std::collections::BTreeMap;
 use web_time::SystemTime;
@@ -158,7 +157,7 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
         Payload<B, C, DID>: Clone,
         Ipld: Encode<Enc>,
     {
-        self.0.validate_signature(self.varsig_header())
+        self.0.validate_signature()
     }
 
     pub fn try_sign(

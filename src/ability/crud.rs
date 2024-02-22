@@ -54,7 +54,8 @@ pub use parents::*;
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
     delegation::Delegable,
     invocation::promise::Resolvable,
@@ -88,6 +89,49 @@ pub enum Promised {
     Read(read::Promised),
     Update(update::Promised),
     Destroy(destroy::Promised),
+}
+
+impl ParsePromised for Promised {
+    type PromisedArgsError = ();
+
+    fn try_parse_promised(
+        cmd: &str,
+        args: arguments::Named<ipld::Promised>,
+    ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
+        match create::Promised::try_parse_promised(cmd, args.clone()) {
+            Ok(create) => return Ok(Promised::Create(create)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match read::Promised::try_parse_promised(cmd, args.clone()) {
+            Ok(read) => return Ok(Promised::Read(read)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match update::Promised::try_parse_promised(cmd, args.clone()) {
+            Ok(update) => return Ok(Promised::Update(update)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        match destroy::Promised::try_parse_promised(cmd, args) {
+            Ok(destroy) => return Ok(Promised::Destroy(destroy)),
+            Err(ParseAbilityError::InvalidArgs(_)) => {
+                return Err(ParseAbilityError::InvalidArgs(()))
+            }
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+        }
+
+        Err(ParseAbilityError::UnknownCommand(cmd.into()))
+    }
 }
 
 impl Delegable for Ready {

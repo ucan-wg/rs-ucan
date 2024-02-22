@@ -140,7 +140,7 @@ pub struct Promised {
 
     /// Optional arguments to be passed in the update.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    args: Option<arguments::Promised>,
+    args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
 }
 
 const COMMAND: &'static str = "crud/update";
@@ -155,6 +155,49 @@ impl Command for Builder {
 
 impl Command for Promised {
     const COMMAND: &'static str = COMMAND;
+}
+
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(named: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut path = None;
+        let mut args = None;
+
+        for (key, prom) in named {
+            match key.as_str() {
+                "path" => match Ipld::try_from(prom) {
+                    Err(pending) => {
+                        path = Some(pending.into());
+                    }
+                    Ok(ipld) => match ipld {
+                        Ipld::String(s) => path = Some(promise::Resolves::new(PathBuf::from(s))),
+                        _ => return Err(()),
+                    },
+                },
+
+                "args" => match prom {
+                    ipld::Promised::Map(map) => {
+                        args = Some(promise::Resolves::new(arguments::Named(map)))
+                    }
+                    ipld::Promised::WaitOk(cid) => {
+                        args = Some(promise::Resolves::new(arguments::Named::new()));
+                    }
+                    ipld::Promised::WaitErr(cid) => {
+                        args = Some(promise::Resolves::new(arguments::Named::new()));
+                    }
+                    ipld::Promised::WaitAny(cid) => {
+                        args = Some(promise::Resolves::new(arguments::Named::new()));
+                    }
+                    _ => return Err(()),
+                },
+
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised { path, args })
+    }
 }
 
 impl Delegable for Ready {

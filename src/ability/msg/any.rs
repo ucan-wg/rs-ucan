@@ -3,10 +3,11 @@
 use crate::{
     ability::{arguments, command::Command},
     proof::{parentless::NoParents, same::CheckSame},
+    url,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
-use url::Url;
+// use url::Url;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The [`msg::Any`][Any] ability may not be invoked, but it is the superclass of
@@ -44,7 +45,7 @@ use url::Url;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Any {
-    pub from: Option<Url>,
+    pub from: Option<url::Newtype>,
 }
 
 impl Command for Any {

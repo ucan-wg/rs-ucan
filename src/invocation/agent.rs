@@ -1,23 +1,27 @@
 use super::{payload::Payload, promise::Resolvable, store::Store, Invocation};
 use crate::{
-    ability::{arguments, ucan},
-    crypto::{signature as ucan_signature, varsig, Nonce},
+    ability::{
+        parse::{ParseAbility, ParseAbilityError, ParsePromised},
+        ucan,
+    },
+    crypto::{signature, varsig, Nonce},
     delegation,
     delegation::{condition::Condition, Delegable},
-    did::{Did, Verifiable},
+    did::Did,
     invocation::promise,
     proof::{checkable::Checkable, prove::Prove},
     time::Timestamp,
 };
-use libipld_cbor::DagCborCodec;
 use libipld_core::{
-    cid::{Cid, CidGeneric},
+    cid::Cid,
     codec::{Codec, Encode},
     ipld::Ipld,
-    multihash::{Code, MultihashDigest},
 };
-use signature;
-use std::{collections::BTreeMap, fmt, marker::PhantomData};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    marker::PhantomData,
+};
 use thiserror::Error;
 use web_time::SystemTime;
 
@@ -43,21 +47,19 @@ pub struct Agent<
     marker: PhantomData<(T, C, V, Enc)>,
 }
 
-impl<
-        'a,
-        T: Resolvable + Delegable + Clone,
-        C: Condition,
-        DID: Did + Clone,
-        S: Store<T::Promised, DID, V, Enc>,
-        P: promise::Store<T, DID>,
-        D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
-        V: varsig::Header<Enc>,
-        Enc: Codec + Into<u32> + TryFrom<u32>,
-    > Agent<'a, T, C, DID, S, P, D, V, Enc>
+impl<'a, T, C, DID, S, P, D, V, Enc> Agent<'a, T, C, DID, S, P, D, V, Enc>
 where
     T::Promised: Clone,
     Ipld: Encode<Enc>,
     delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>: Clone,
+    T: Resolvable + Delegable + Clone,
+    C: Condition,
+    DID: Did + Clone,
+    S: Store<T::Promised, DID, V, Enc>,
+    P: promise::Store<T, DID>,
+    D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
+    V: varsig::Header<Enc>,
+    Enc: Codec + Into<u32> + TryFrom<u32>,
 {
     pub fn new(
         did: &'a DID,
@@ -80,25 +82,65 @@ where
         &mut self,
         audience: Option<&DID>,
         subject: &DID,
-        ability: T::Promised, // FIXME give them an enum for promised or not probs doens't matter?
+        ability: T,
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
         expiration: Option<Timestamp>,
         issued_at: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-        // FIXME err type
-    ) -> Result<Invocation<T::Promised, DID, V, Enc>, ()> {
+    ) -> Result<
+        Invocation<T::Promised, DID, V, Enc>,
+        InvokeError<
+            D::DelegationStoreError,
+            ParseAbilityError<<<T as Delegable>::Builder as ParseAbility>::ArgsErr>,
+        >,
+    >
+    where
+        <<T as promise::Resolvable>::Promised as ParsePromised>::PromisedArgsError: fmt::Debug,
+    {
+        self.invoke_promise(
+            audience,
+            subject,
+            Resolvable::into_promised(ability),
+            metadata,
+            cause,
+            expiration,
+            issued_at,
+            now,
+            varsig_header,
+        )
+    }
+
+    pub fn invoke_promise(
+        &mut self,
+        audience: Option<&DID>,
+        subject: &DID,
+        ability: T::Promised,
+        metadata: BTreeMap<String, Ipld>,
+        cause: Option<Cid>,
+        expiration: Option<Timestamp>,
+        issued_at: Option<Timestamp>,
+        now: SystemTime,
+        varsig_header: V,
+    ) -> Result<
+        Invocation<T::Promised, DID, V, Enc>,
+        InvokeError<
+            D::DelegationStoreError,
+            ParseAbilityError<<<T as Delegable>::Builder as ParseAbility>::ArgsErr>,
+        >,
+    > {
         let proofs = self
             .delegation_store
             .get_chain(
                 self.did,
                 subject,
-                &<T as Resolvable>::try_to_builder(ability.clone()).map_err(|_| ())?,
+                &<T as Resolvable>::try_to_builder(ability.clone())
+                    .map_err(InvokeError::PromiseResolveError)?,
                 vec![],
                 now,
             )
-            .map_err(|_| ())?
+            .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
 
@@ -117,56 +159,48 @@ where
             issued_at,
         };
 
-        Ok(Invocation::try_sign(self.signer, varsig_header, payload).map_err(|_| ())?)
+        Ok(Invocation::try_sign(self.signer, varsig_header, payload)
+            .map_err(InvokeError::SignError)?)
     }
 
     pub fn receive(
         &mut self,
         promised: Invocation<T::Promised, DID, V, Enc>,
         now: &SystemTime,
-    ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, C, D::DelegationStoreError>>
+    ) -> Result<
+        Recipient<Payload<T, DID>>,
+        ReceiveError<T, P, DID, C, D::DelegationStoreError, S, V, Enc>,
+    >
     where
-        T::Builder: Into<arguments::Named<Ipld>> + Clone,
-        Ipld: Encode<Enc>,
-        C: fmt::Debug + Clone,
-        <T::Builder as Checkable>::Hierarchy: Clone + Into<arguments::Named<Ipld>>,
+        Enc: From<u32> + Into<u32>,
+        T::Builder: Clone + Encode<Enc>,
+        C: Clone,
+        <T::Builder as Checkable>::Hierarchy: Clone,
         Invocation<T::Promised, DID, V, Enc>: Clone,
         <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error: fmt::Debug,
         <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
-        ucan_signature::Envelope<Payload<T, DID>, DID, V, Enc>: Clone,
-        ucan_signature::Envelope<Payload<T::Promised, DID>, DID, V, Enc>: Clone,
+        signature::Envelope<Payload<T::Promised, DID>, DID, V, Enc>: Clone,
+        <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
     {
-        // FIXME You know... store it
-        // also: Envelops hsould have a cid() method
-        // self.invocation_store
-        //     .put(promised.cid().clone(), promised.clone())
-        // .map_err(ReceiveError::PromiseStoreError)?;
-
-        let mut buffer = vec![];
-        Ipld::from(promised.clone())
-            .encode(*promised.varsig_header().codec(), &mut buffer)
-            .map_err(ReceiveError::EncodingError)?;
-
-        let multihash = Code::Sha2_256.digest(buffer.as_slice());
-        let cid: Cid = CidGeneric::new_v1(DagCborCodec.into(), multihash);
-
-        let mut encoded = vec![];
-        Ipld::from(promised.payload().clone())
-            .encode(*promised.0.varsig_header.codec(), &mut encoded)
-            .map_err(ReceiveError::EncodingError)?;
-
-        promised
-            .verifier()
-            .verify(&encoded, &promised.signature())
+        let cid: Cid = promised.cid().map_err(ReceiveError::EncodingError)?;
+        let _ = promised
+            .validate_signature()
             .map_err(ReceiveError::SigVerifyError)?;
+
+        self.invocation_store
+            .put(cid.clone(), promised.clone())
+            .map_err(ReceiveError::InvocationStoreError)?;
 
         let resolved_ability: T = match Resolvable::try_resolve(promised.ability().clone()) {
             Ok(resolved) => resolved,
-            Err(_) => {
-                let waiting_on_cid = todo!();
+            Err(cant_resolve) => {
+                let waiting_on: BTreeSet<Cid> = T::get_all_pending(cant_resolve.promised);
 
                 self.unresolved_promise_index
-                    .put(promised.cid()?, vec![waiting_on_cid])
+                    .put(
+                        promised.cid()?,
+                        waiting_on.into_iter().collect::<Vec<Cid>>(),
+                    )
                     .map_err(ReceiveError::PromiseStoreError)?;
 
                 return Ok(Recipient::Unresolved(cid));
@@ -253,22 +287,33 @@ pub enum Recipient<T> {
 }
 
 #[derive(Debug, Error)]
-pub enum ReceiveError<T: Resolvable, P: promise::Store<T, DID>, DID: Did, C: fmt::Debug, D>
-where
+pub enum ReceiveError<
+    T: Resolvable,
+    P: promise::Store<T, DID>,
+    DID: Did,
+    C: fmt::Debug,
+    D,
+    S: Store<T::Promised, DID, V, Enc>,
+    V: varsig::Header<Enc>,
+    Enc: Codec + From<u32> + Into<u32>,
+> where
     delegation::ValidationError<
         <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error,
         C,
     >: fmt::Debug,
     <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
+    <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
 {
     #[error("encoding error: {0}")]
     EncodingError(#[from] libipld_core::error::Error),
 
-    #[error("multihash error: {0}")]
-    MultihashError(#[from] libipld_core::multihash::Error),
-
     #[error("signature verification error: {0}")]
-    SigVerifyError(#[from] signature::Error),
+    SigVerifyError(#[from] signature::ValidateError),
+
+    #[error("invocation store error: {0}")]
+    InvocationStoreError(
+        #[source] <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError,
+    ),
 
     #[error("promise store error: {0}")]
     PromiseStoreError(#[source] <P as promise::Store<T, DID>>::PromiseStoreError),
@@ -284,4 +329,16 @@ where
             C,
         >,
     ),
+}
+
+#[derive(Debug, Error)]
+pub enum InvokeError<D, ArgsErr> {
+    #[error("delegation store error: {0}")]
+    DelegationStoreError(#[source] D),
+
+    #[error("promise store error: {0}")]
+    SignError(#[source] signature::SignError),
+
+    #[error("promise store error: {0}")]
+    PromiseResolveError(#[source] ArgsErr),
 }

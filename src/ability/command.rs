@@ -16,11 +16,6 @@
 //! }
 //! ```
 
-use crate::ability::arguments;
-use libipld_core::ipld::Ipld;
-use std::fmt;
-use thiserror::Error;
-
 /// Attach a `cmd` field to a type
 ///
 /// Commands are the `cmd` field of a UCAN, and set the shape of the `args` field.
@@ -53,44 +48,6 @@ pub trait Command {
     /// a special ability called [`Dynamic`][super::dynamic::Dynamic] (for e.g. JS FFI)
     /// that uses a non-exported code path separate from the [`Command`] trait.</small>
     const COMMAND: &'static str;
-}
-
-// FIXME definitely needs a better name
-// pub trait ParseAbility: TryFrom<arguments::Named<Ipld>> {
-pub trait ParseAbility: Sized {
-    type ArgsErr: fmt::Debug;
-
-    fn try_parse(
-        cmd: &str,
-        args: arguments::Named<Ipld>,
-    ) -> Result<Self, ParseAbilityError<Self::ArgsErr>>;
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum ParseAbilityError<E> {
-    #[error("Unknown command: {0}")]
-    UnknownCommand(String),
-
-    #[error(transparent)]
-    InvalidArgs(#[from] E),
-}
-
-impl<T: Command + TryFrom<arguments::Named<Ipld>>> ParseAbility for T
-where
-    <T as TryFrom<arguments::Named<Ipld>>>::Error: fmt::Debug,
-{
-    type ArgsErr = <T as TryFrom<arguments::Named<Ipld>>>::Error;
-
-    fn try_parse(
-        cmd: &str,
-        args: arguments::Named<Ipld>,
-    ) -> Result<Self, ParseAbilityError<<Self as TryFrom<arguments::Named<Ipld>>>::Error>> {
-        if cmd != T::COMMAND {
-            return Err(ParseAbilityError::UnknownCommand(cmd.to_string()));
-        }
-
-        Self::try_from(args).map_err(ParseAbilityError::InvalidArgs)
-    }
 }
 
 // NOTE do not export; this is used to limit the Hierarchy

@@ -49,6 +49,17 @@ impl From<Ipld> for Newtype {
     }
 }
 
+impl TryFrom<Newtype> for String {
+    type Error = ();
+
+    fn try_from(nt: Newtype) -> Result<String, ()> {
+        match nt.0 {
+            Ipld::String(s) => Ok(s),
+            _ => Err(()),
+        }
+    }
+}
+
 impl From<Newtype> for Ipld {
     fn from(wrapped: Newtype) -> Self {
         wrapped.0

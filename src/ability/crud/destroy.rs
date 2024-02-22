@@ -1,4 +1,5 @@
 //! Destroy a resource.
+
 use super::parents::MutableParents;
 use crate::{
     ability::{arguments, command::Command},
@@ -9,9 +10,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::Serialize;
-use std::{collections::BTreeMap, path::PathBuf};
-
-// FIXME deserialize instance
+use std::path::PathBuf;
 
 /// A helper for creating lifecycle instances of `crud/create` with the correct shape.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -99,6 +98,39 @@ pub struct Promised {
     /// An optional path to a sub-resource that is to be destroyed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<promise::Resolves<PathBuf>>,
+}
+
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut path = None;
+
+        for (k, prom) in arguments {
+            match k.as_str() {
+                "path" => match prom {
+                    ipld::Promised::String(s) => {
+                        path = Some(promise::Resolves::Ok(
+                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
+                        ));
+                    }
+                    ipld::Promised::WaitOk(cid) => {
+                        path = Some(promise::PromiseOk::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitErr(cid) => {
+                        path = Some(promise::PromiseErr::Pending(cid).into());
+                    }
+                    ipld::Promised::WaitAny(cid) => {
+                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                    }
+                    _ => return Err(()),
+                },
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised { path })
+    }
 }
 
 const COMMAND: &'static str = "crud/destroy";

@@ -112,7 +112,7 @@ impl CheckParents for Receive {
     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
         if let Some(from) = &self.from {
             if let Some(proof_from) = &proof.from {
-                if from != &url::Newtype(proof_from.clone()) {
+                if &from != &proof_from {
                     return Err(());
                 }
             }
@@ -138,7 +138,7 @@ impl TryFrom<Ipld> for Receive {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Promised {
-    pub from: Option<promise::Resolves<Option<url::Newtype>>>,
+    pub from: Option<promise::Resolves<url::Newtype>>,
 }
 
 impl From<Promised> for arguments::Named<Ipld> {
@@ -162,6 +162,31 @@ impl From<Promised> for arguments::Named<Ipld> {
 
 impl promise::Resolvable for Receive {
     type Promised = Promised;
+}
+
+impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+    type Error = ();
+
+    fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
+        let mut from = None;
+
+        for (key, prom) in arguments {
+            match key.as_str() {
+                "from" => match Ipld::try_from(prom) {
+                    Ok(Ipld::String(s)) => {
+                        from = Some(promise::Resolves::from(Ok(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
+                        )));
+                    }
+                    Err(pending) => from = Some(pending.into()),
+                    _ => return Err(()),
+                },
+                _ => return Err(()),
+            }
+        }
+
+        Ok(Promised { from })
+    }
 }
 
 impl From<Promised> for arguments::Named<ipld::Promised> {

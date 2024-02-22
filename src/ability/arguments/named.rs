@@ -1,4 +1,4 @@
-use crate::ipld;
+use crate::{invocation::promise::Pending, ipld};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -293,20 +293,14 @@ impl From<Named<Ipld>> for Named<ipld::Promised> {
 }
 
 impl TryFrom<Named<ipld::Promised>> for Named<Ipld> {
-    type Error = Named<ipld::Promised>;
+    type Error = Pending;
 
     fn try_from(named: Named<ipld::Promised>) -> Result<Self, Self::Error> {
-        // FIXME lots of clone
-        // FIXME idea: what if they implemet a is_resoled, and then the try_from?
-        // This lets us check by ref, and then do the conversion and unwrap
-        named
-            .iter()
-            .try_fold(Named::new(), |mut acc, (ref k, v)| {
-                let ipld = v.clone().try_into().map_err(|_| ())?;
-                acc.insert(k.to_string(), ipld);
-                Ok(acc)
-            })
-            .map_err(|()| named.clone())
+        named.iter().try_fold(Named::new(), |mut acc, (ref k, v)| {
+            let ipld = v.clone().try_into()?;
+            acc.insert(k.to_string(), ipld);
+            Ok(acc)
+        })
     }
 }
 

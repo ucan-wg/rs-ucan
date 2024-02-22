@@ -1,10 +1,7 @@
 //! "Any" CRUD ability (superclass of all CRUD abilities)
 
 use crate::{
-    ability::{
-        arguments,
-        command::{Command, ParseAbility, ParseAbilityError},
-    },
+    ability::{arguments, command::Command},
     proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -94,21 +91,6 @@ impl TryFrom<arguments::Named<Ipld>> for Any {
 // FIXME pipe example
 
 impl NoParents for Any {}
-
-// impl ParseAbility for Any {
-//     type ArgsErr = ();
-//
-//     fn try_parse(
-//         cmd: &str,
-//         args: arguments::Named<Ipld>,
-//     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
-//         if cmd != Self::COMMAND {
-//             return Err(ParseAbilityError::CommandMismatch);
-//         }
-//
-//         Self::try_from(args).map_err(|_| ParseAbilityError::Args(Self::COMMAND))
-//     }
-// }
 
 impl CheckSame for Any {
     type Error = OptionalFieldError;

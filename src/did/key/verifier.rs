@@ -227,7 +227,7 @@ impl FromStr for Verifier {
 
                         return Ok(Verifier::Rs512(rs512::VerifyingKey(vk)));
                     }
-                    _ => todo!(),
+                    _ => return Err("invalid did:key".to_string()),
                 },
                 ([0xeb, 0x01], pk_bytes) => match pk_bytes.len() {
                     48 => {

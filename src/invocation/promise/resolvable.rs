@@ -1,7 +1,8 @@
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
     delegation::Delegable,
     invocation::promise::Pending,
@@ -25,8 +26,22 @@ pub trait Resolvable: Delegable {
     /// be a promise.
     ///
     /// [PromiseIpld]: crate::ipld::Promised
-    // type Promised: Into<Self::Builder> + Into<arguments::Named<ipld::Promised>>;
-    type Promised: Into<arguments::Named<ipld::Promised>> + ToCommand;
+    type Promised: ToCommand
+        + ParsePromised // TryFrom<arguments::Named<ipld::Promised>>
+        + Into<arguments::Named<ipld::Promised>>;
+
+    fn into_promised(self) -> Self::Promised
+    where
+        <Self::Promised as ParsePromised>::PromisedArgsError: fmt::Debug,
+    {
+        // FIXME In no way efficient... override where possible, or just cut the impl
+        let builder = Self::Builder::from(self);
+        let cmd = &builder.to_command();
+        let named_ipld: arguments::Named<Ipld> = builder.into();
+        let promised_ipld: arguments::Named<ipld::Promised> = named_ipld.into();
+        <Self as Resolvable>::Promised::try_parse_promised(cmd, promised_ipld)
+            .expect("promise to always be possible from a ready ability")
+    }
 
     /// Attempt to resolve the [`Self::Promised`].
     fn try_resolve(promised: Self::Promised) -> Result<Self, CantResolve<Self>>
@@ -35,20 +50,20 @@ pub trait Resolvable: Delegable {
     {
         let ipld_promise: arguments::Named<ipld::Promised> = promised.clone().into();
         match arguments::Named::<Ipld>::try_from(ipld_promise) {
-            Err(_) => Err(CantResolve {
+            Err(pending) => Err(CantResolve {
                 promised,
-                reason: todo!(), // ParseAbility::ArgsErr::ExpectedMap,
+                reason: ResolveError::StillWaiting(pending),
             }),
             Ok(named) => {
                 let builder = Self::Builder::try_parse(promised.to_command().as_str(), named)
-                    .map_err(|reason| CantResolve {
+                    .map_err(|_reason| CantResolve {
                         promised: promised.clone(),
-                        reason: todo!(),
+                        reason: ResolveError::ConversionError,
                     })?;
 
                 builder.try_into().map_err(|_reason| CantResolve {
                     promised,
-                    reason: todo!(),
+                    reason: ResolveError::ConversionError,
                 })
             }
         }
@@ -68,7 +83,12 @@ pub trait Resolvable: Delegable {
             })
     }
 
-    fn try_to_builder(promised: Self::Promised) -> Result<Self::Builder, ()> {
+    fn try_to_builder(
+        promised: Self::Promised,
+    ) -> Result<
+        Self::Builder,
+        ParseAbilityError<<<Self as Delegable>::Builder as ParseAbility>::ArgsErr>,
+    > {
         let cmd = promised.to_command();
         let ipld_promise: arguments::Named<ipld::Promised> = promised.into();
 
@@ -86,14 +106,14 @@ pub trait Resolvable: Delegable {
                     acc
                 });
 
-        Self::Builder::try_parse(&cmd, named).map_err(|_| ())
+        Self::Builder::try_parse(&cmd, named)
     }
 }
 
-#[derive(Error)]
+#[derive(Error, Clone)]
 pub struct CantResolve<S: Resolvable> {
     pub promised: S::Promised,
-    pub reason: <<S as Delegable>::Builder as ParseAbility>::ArgsErr,
+    pub reason: ResolveError,
 }
 
 impl<S: Resolvable> fmt::Debug for CantResolve<S>
@@ -108,4 +128,13 @@ where
             .field("reason", &self.reason)
             .finish()
     }
+}
+
+#[derive(Error, PartialEq, Eq, Clone, Debug)]
+pub enum ResolveError {
+    #[error("The promise is still has arguments waiting to be resolved")]
+    StillWaiting(Pending),
+
+    #[error("The resolved promise was unable to reify a Builder")]
+    ConversionError,
 }

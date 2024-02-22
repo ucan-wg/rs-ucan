@@ -34,7 +34,7 @@ impl<T> From<T> for Parentless<T> {
 impl<T: Into<arguments::Named<Ipld>>> From<Parentless<T>> for arguments::Named<Ipld> {
     fn from(parentless: Parentless<T>) -> Self {
         match parentless {
-            Parentless::Any => todo!(),
+            Parentless::Any => arguments::Named::new(),
             Parentless::This(this) => this.into(),
         }
     }

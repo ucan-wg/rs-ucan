@@ -33,10 +33,6 @@
 //! field may include a promise pointing at another invocation. Once fully
 //! resolved ("ready"), they must be validatable against the delegation chain.
 
-// FIXME feature flag each?
-// FIXME ability implementers guide (e.g. serde deny fields)
-//
-
 pub mod ucan;
 
 #[cfg(feature = "ability-crud")]
@@ -53,12 +49,9 @@ pub mod preset;
 
 pub mod arguments;
 pub mod command;
+pub mod parse;
 
 #[cfg(target_arch = "wasm32")]
 pub mod js;
 
-// // TODO move to crate::wasm? or hide behind "dynamic" feature flag?
 pub mod dynamic;
-
-// FIXME macro to derive promise versions & delagted builder versions
-// ... also maybe Ipld

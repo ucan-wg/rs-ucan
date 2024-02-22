@@ -8,7 +8,8 @@ use super::error::ParentError;
 use crate::{
     ability::{
         arguments,
-        command::{ParseAbility, ParseAbilityError, ToCommand},
+        command::ToCommand,
+        parse::{ParseAbility, ParseAbilityError},
     },
     proof::{parents::CheckParents, same::CheckSame},
 };
