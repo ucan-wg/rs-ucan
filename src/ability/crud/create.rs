@@ -1,11 +1,11 @@
 //! Create new resources.
-use super::parents::MutableParents;
+// use super::parents::MutableParents;
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegable,
+    // delegation::Delegable,
     invocation::{promise, promise::Resolves},
     ipld,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    //   proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 use serde::Serialize;
@@ -202,55 +202,55 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
     }
 }
 
-impl Delegable for Ready {
-    type Builder = Ready;
-}
+// impl Delegable for Ready {
+//     type Builder = Ready;
+// }
 
-impl Checkable for Ready {
-    type Hierarchy = Parentful<Ready>;
-}
-
-impl CheckSame for Ready {
-    type Error = (); // FIXME better error
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if self.path == proof.path {
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl CheckParents for Ready {
-    type Parents = MutableParents;
-    type ParentError = (); // FIXME
-
-    fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-        if let Some(self_path) = &self.path {
-            match other {
-                MutableParents::Any(any) => {
-                    // FIXME check the args, too!
-                    if let Some(proof_path) = &any.path {
-                        if self_path != proof_path {
-                            return Err(());
-                        }
-                    }
-                }
-                MutableParents::Mutate(mutate) => {
-                    // FIXME check the args, too!
-                    if let Some(proof_path) = &mutate.path {
-                        if self_path != proof_path {
-                            return Err(());
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
+// impl Checkable for Ready {
+//     type Hierarchy = Parentful<Ready>;
+// }
+//
+// impl CheckSame for Ready {
+//     type Error = (); // FIXME better error
+//
+//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+//         if self.path == proof.path {
+//             Ok(())
+//         } else {
+//             Err(())
+//         }
+//     }
+// }
+//
+// impl CheckParents for Ready {
+//     type Parents = MutableParents;
+//     type ParentError = (); // FIXME
+//
+//     fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
+//         if let Some(self_path) = &self.path {
+//             match other {
+//                 MutableParents::Any(any) => {
+//                     // FIXME check the args, too!
+//                     if let Some(proof_path) = &any.path {
+//                         if self_path != proof_path {
+//                             return Err(());
+//                         }
+//                     }
+//                 }
+//                 MutableParents::Mutate(mutate) => {
+//                     // FIXME check the args, too!
+//                     if let Some(proof_path) = &mutate.path {
+//                         if self_path != proof_path {
+//                             return Err(());
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 // impl From<Promised> for arguments::Named<Ipld> {
 //     fn from(promised: Promised) -> Self {

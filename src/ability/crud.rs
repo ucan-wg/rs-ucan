@@ -37,19 +37,19 @@
 //! [CRUD]: https://en.wikipedia.org/wiki/Create,_read,_update_and_delete
 //! [`Did`]: crate::did::Did
 
-mod any;
-mod mutate;
-mod parents;
+// mod any;
+// mod mutate;
+// mod parents;
 
 pub mod create;
 pub mod destroy;
-pub mod error;
+// pub mod error;
 pub mod read;
 pub mod update;
 
-pub use any::Any;
-pub use mutate::Mutate;
-pub use parents::*;
+// pub use any::Any;
+// pub use mutate::Mutate;
+// pub use parents::*;
 
 use crate::{
     ability::{
@@ -57,10 +57,8 @@ use crate::{
         command::ToCommand,
         parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
-    delegation::Delegable,
     invocation::promise::Resolvable,
     ipld,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 
@@ -72,14 +70,6 @@ pub enum Ready {
     Create(create::Ready),
     Read(read::Ready),
     Update(update::Ready),
-    Destroy(destroy::Ready),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Builder {
-    Create(create::Ready),
-    Read(read::Ready),
-    Update(update::Builder),
     Destroy(destroy::Ready),
 }
 
@@ -134,11 +124,7 @@ impl ParsePromised for Promised {
     }
 }
 
-impl Delegable for Ready {
-    type Builder = Builder;
-}
-
-impl ParseAbility for Builder {
+impl ParseAbility for Ready {
     type ArgsErr = ();
 
     fn try_parse(
@@ -146,7 +132,7 @@ impl ParseAbility for Builder {
         args: arguments::Named<Ipld>,
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
         match create::Ready::try_parse(cmd, args.clone()) {
-            Ok(create) => return Ok(Builder::Create(create)),
+            Ok(create) => return Ok(Ready::Create(create)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()));
             }
@@ -154,15 +140,15 @@ impl ParseAbility for Builder {
         }
 
         match read::Ready::try_parse(cmd, args.clone()) {
-            Ok(read) => return Ok(Builder::Read(read)),
+            Ok(read) => return Ok(Ready::Read(read)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()));
             }
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
-        match update::Builder::try_parse(cmd, args.clone()) {
-            Ok(update) => return Ok(Builder::Update(update)),
+        match update::Ready::try_parse(cmd, args.clone()) {
+            Ok(update) => return Ok(Ready::Update(update)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()));
             }
@@ -170,7 +156,7 @@ impl ParseAbility for Builder {
         }
 
         match destroy::Ready::try_parse(cmd, args) {
-            Ok(destroy) => return Ok(Builder::Destroy(destroy)),
+            Ok(destroy) => return Ok(Ready::Destroy(destroy)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()));
             }
@@ -180,10 +166,10 @@ impl ParseAbility for Builder {
         Err(ParseAbilityError::UnknownCommand(cmd.into()))
     }
 }
-
-impl Checkable for Builder {
-    type Hierarchy = Parentful<Builder>;
-}
+//
+// impl Checkable for Builder {
+//     type Hierarchy = Parentful<Builder>;
+// }
 
 impl ToCommand for Ready {
     fn to_command(&self) -> String {
@@ -207,44 +193,44 @@ impl ToCommand for Promised {
     }
 }
 
-impl ToCommand for Builder {
-    fn to_command(&self) -> String {
-        match self {
-            Builder::Create(create) => create.to_command(),
-            Builder::Read(read) => read.to_command(),
-            Builder::Update(update) => update.to_command(),
-            Builder::Destroy(destroy) => destroy.to_command(),
-        }
-    }
-}
-
-impl CheckParents for Builder {
-    type Parents = MutableParents;
-    type ParentError = (); // FIXME
-
-    fn check_parent(&self, parents: &MutableParents) -> Result<(), Self::ParentError> {
-        match self {
-            Builder::Create(create) => create.check_parent(parents.into()).map_err(|_| ()),
-            Builder::Update(update) => update.check_parent(parents.into()).map_err(|_| ()),
-            Builder::Destroy(destroy) => destroy.check_parent(parents.into()).map_err(|_| ()),
-            Builder::Read(read) => match parents {
-                MutableParents::Any(crud_any) => read.check_parent(crud_any).map_err(|_| ()),
-                _ => Err(()),
-            },
-        }
-    }
-}
-
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
-        match builder {
-            Builder::Create(create) => create.into(),
-            Builder::Read(read) => read.into(),
-            Builder::Update(update) => update.into(),
-            Builder::Destroy(destroy) => destroy.into(),
-        }
-    }
-}
+// impl ToCommand for Builder {
+//     fn to_command(&self) -> String {
+//         match self {
+//             Builder::Create(create) => create.to_command(),
+//             Builder::Read(read) => read.to_command(),
+//             Builder::Update(update) => update.to_command(),
+//             Builder::Destroy(destroy) => destroy.to_command(),
+//         }
+//     }
+// }
+//
+// impl CheckParents for Builder {
+//     type Parents = MutableParents;
+//     type ParentError = (); // FIXME
+//
+//     fn check_parent(&self, parents: &MutableParents) -> Result<(), Self::ParentError> {
+//         match self {
+//             Builder::Create(create) => create.check_parent(parents.into()).map_err(|_| ()),
+//             Builder::Update(update) => update.check_parent(parents.into()).map_err(|_| ()),
+//             Builder::Destroy(destroy) => destroy.check_parent(parents.into()).map_err(|_| ()),
+//             Builder::Read(read) => match parents {
+//                 MutableParents::Any(crud_any) => read.check_parent(crud_any).map_err(|_| ()),
+//                 _ => Err(()),
+//             },
+//         }
+//     }
+// }
+//
+// impl From<Builder> for arguments::Named<Ipld> {
+//     fn from(builder: Builder) -> Self {
+//         match builder {
+//             Builder::Create(create) => create.into(),
+//             Builder::Read(read) => read.into(),
+//             Builder::Update(update) => update.into(),
+//             Builder::Destroy(destroy) => destroy.into(),
+//         }
+//     }
+// }
 
 // impl From<Promised> for arguments::Named<Ipld> {
 //     fn from(promised: Promised) -> Self {
@@ -257,43 +243,43 @@ impl From<Builder> for arguments::Named<Ipld> {
 //     }
 // }
 
-impl From<Ready> for Builder {
-    fn from(ready: Ready) -> Self {
-        match ready {
-            Ready::Create(create) => Builder::Create(create.into()),
-            Ready::Read(read) => Builder::Read(read.into()),
-            Ready::Update(update) => Builder::Update(update.into()),
-            Ready::Destroy(destroy) => Builder::Destroy(destroy.into()),
-        }
-    }
-}
-
-impl TryFrom<Builder> for Ready {
-    type Error = (); // FIXME
-
-    fn try_from(builder: Builder) -> Result<Self, Self::Error> {
-        match builder {
-            Builder::Create(create) => create.try_into().map(Ready::Create).map_err(|_| ()),
-            Builder::Read(read) => read.try_into().map(Ready::Read).map_err(|_| ()),
-            Builder::Update(update) => update.try_into().map(Ready::Update).map_err(|_| ()),
-            Builder::Destroy(destroy) => destroy.try_into().map(Ready::Destroy).map_err(|_| ()),
-        }
-    }
-}
-
-impl CheckSame for Builder {
-    type Error = ();
-
-    fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
-        match (self, other) {
-            (Builder::Create(a), Builder::Create(b)) => a.check_same(b),
-            (Builder::Read(a), Builder::Read(b)) => a.check_same(b),
-            (Builder::Update(a), Builder::Update(b)) => a.check_same(b),
-            (Builder::Destroy(a), Builder::Destroy(b)) => a.check_same(b),
-            _ => Err(()),
-        }
-    }
-}
+// impl From<Ready> for Builder {
+//     fn from(ready: Ready) -> Self {
+//         match ready {
+//             Ready::Create(create) => Builder::Create(create.into()),
+//             Ready::Read(read) => Builder::Read(read.into()),
+//             Ready::Update(update) => Builder::Update(update.into()),
+//             Ready::Destroy(destroy) => Builder::Destroy(destroy.into()),
+//         }
+//     }
+// }
+//
+// impl TryFrom<Builder> for Ready {
+//     type Error = (); // FIXME
+//
+//     fn try_from(builder: Builder) -> Result<Self, Self::Error> {
+//         match builder {
+//             Builder::Create(create) => create.try_into().map(Ready::Create).map_err(|_| ()),
+//             Builder::Read(read) => read.try_into().map(Ready::Read).map_err(|_| ()),
+//             Builder::Update(update) => update.try_into().map(Ready::Update).map_err(|_| ()),
+//             Builder::Destroy(destroy) => destroy.try_into().map(Ready::Destroy).map_err(|_| ()),
+//         }
+//     }
+// }
+//
+// impl CheckSame for Builder {
+//     type Error = ();
+//
+//     fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
+//         match (self, other) {
+//             (Builder::Create(a), Builder::Create(b)) => a.check_same(b),
+//             (Builder::Read(a), Builder::Read(b)) => a.check_same(b),
+//             (Builder::Update(a), Builder::Update(b)) => a.check_same(b),
+//             (Builder::Destroy(a), Builder::Destroy(b)) => a.check_same(b),
+//             _ => Err(()),
+//         }
+//     }
+// }
 
 impl Resolvable for Ready {
     type Promised = Promised;

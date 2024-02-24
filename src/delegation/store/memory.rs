@@ -1,12 +1,12 @@
 use super::Store;
 use crate::{
-    ability::arguments,
+    // ability::arguments,
     crypto::varsig,
     delegation::{condition::Condition, Delegation},
     did::Did,
-    proof::{checkable::Checkable, prove::Prove},
+    // proof::{checkable::Checkable, prove::Prove},
 };
-use libipld_core::{cid::Cid, codec::Codec, ipld::Ipld};
+use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -72,41 +72,34 @@ use web_time::SystemTime;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemoryStore<
-    H,
     C: Condition,
     DID: Did + Ord,
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
 > {
-    ucans: BTreeMap<Cid, Delegation<H, C, DID, V, Enc>>,
-    index: BTreeMap<DID, BTreeMap<DID, BTreeSet<Cid>>>,
+    ucans: BTreeMap<Cid, Delegation<C, DID, V, Enc>>,
+    index: BTreeMap<Option<DID>, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
 // FIXME check that UCAN is valid
 impl<
-        B: Checkable + Clone,
         C: Condition + PartialEq,
         DID: Did + Ord + Clone,
         V: varsig::Header<Enc>,
         Enc: Codec + TryFrom<u32> + Into<u32>,
-    > Store<B, C, DID, V, Enc> for MemoryStore<B::Hierarchy, C, DID, V, Enc>
-where
-    B::Hierarchy: Into<arguments::Named<Ipld>> + Clone,
+    > Store<C, DID, V, Enc> for MemoryStore<C, DID, V, Enc>
 {
     type DelegationStoreError = (); // FIXME misisng
 
-    fn get(
-        &self,
-        cid: &Cid,
-    ) -> Result<&Delegation<B::Hierarchy, C, DID, V, Enc>, Self::DelegationStoreError> {
+    fn get(&self, cid: &Cid) -> Result<&Delegation<C, DID, V, Enc>, Self::DelegationStoreError> {
         self.ucans.get(cid).ok_or(())
     }
 
     fn insert(
         &mut self,
         cid: Cid,
-        delegation: Delegation<B, C, DID, V, Enc>,
+        delegation: Delegation<C, DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
         self.index
             .entry(delegation.subject().clone())
@@ -115,10 +108,7 @@ where
             .or_default()
             .insert(cid);
 
-        let hierarchy: Delegation<B::Hierarchy, C, DID, V, Enc> =
-            delegation.map_ability_builder(Into::into);
-
-        self.ucans.insert(cid.clone(), hierarchy);
+        self.ucans.insert(cid.clone(), delegation);
         Ok(())
     }
 
@@ -130,15 +120,16 @@ where
     fn get_chain(
         &self,
         aud: &DID,
-        subject: &DID,
-        builder: &B,
+        subject: &Option<DID>,
         conditions: Vec<C>,
         now: SystemTime,
-    ) -> Result<
-        Option<NonEmpty<(Cid, &Delegation<B::Hierarchy, C, DID, V, Enc>)>>,
-        Self::DelegationStoreError,
-    > {
-        match self.index.get(subject).and_then(|aud_map| aud_map.get(aud)) {
+    ) -> Result<Option<NonEmpty<(Cid, &Delegation<C, DID, V, Enc>)>>, Self::DelegationStoreError>
+    {
+        match self
+            .index
+            .get(subject) // FIXME probably need to rework this after last minbute chanegs
+            .and_then(|aud_map| aud_map.get(aud))
+        {
             None => Ok(None),
             Some(delegation_subtree) => {
                 #[derive(PartialEq)]
@@ -150,7 +141,6 @@ where
 
                 let mut status = Status::Looking;
                 let mut target_aud = aud;
-                let mut args = &B::Hierarchy::from(builder.clone());
                 let mut chain = vec![];
 
                 while status == Status::Looking {
@@ -166,24 +156,14 @@ where
 
                             target_aud = &d.audience();
 
-                            if args.check(&d.ability_builder()).is_ok() {
-                                args = &d.ability_builder();
-                            } else {
-                                return ControlFlow::Continue(());
-                            }
-
-                            for condition in &conditions {
-                                if !condition.validate(&d.ability_builder().clone().into()) {
-                                    return ControlFlow::Continue(());
-                                }
-                            }
-
                             chain.push((*cid, d));
 
-                            if d.issuer() == subject {
-                                status = Status::Complete;
+                            if let Some(ref subject) = subject {
+                                if d.issuer() == subject {
+                                    status = Status::Complete;
+                                }
                             } else {
-                                target_aud = &d.issuer();
+                                status = Status::Complete;
                             }
 
                             ControlFlow::Break(())

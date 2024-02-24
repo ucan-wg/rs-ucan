@@ -16,18 +16,18 @@ pub mod condition;
 pub mod store;
 
 mod agent;
-mod delegable;
+// mod delegable;
 mod payload;
 
 pub use agent::Agent;
-pub use delegable::Delegable;
-pub use payload::{Payload, ValidationError};
+// pub use delegable::Delegable;
+pub use payload::*;
 
 use crate::{
-    ability,
+    // ability,
     crypto::{signature, varsig, Nonce},
     did::{self, Did},
-    proof::{parents::CheckParents, same::CheckSame},
+    // proof::{parents::CheckParents, same::CheckSame},
     time::{TimeBoundError, Timestamp},
 };
 use condition::Condition;
@@ -47,16 +47,14 @@ use web_time::SystemTime;
 /// FIXME
 #[derive(Clone, Debug, PartialEq)]
 pub struct Delegation<
-    D,
     C: Condition,
     DID: Did,
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
->(pub signature::Envelope<Payload<D, C, DID>, DID, V, Enc>);
+>(pub signature::Envelope<Payload<C, DID>, DID, V, Enc>);
 
 /// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
 pub type Preset = Delegation<
-    ability::preset::Builder,
     condition::Preset,
     did::preset::Verifier,
     varsig::header::Preset,
@@ -65,8 +63,8 @@ pub type Preset = Delegation<
 
 // FIXME checkable -> provable?
 
-impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
-    Delegation<B, C, DID, V, Enc>
+impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
+    Delegation<C, DID, V, Enc>
 {
     /// Retrive the `issuer` of a [`Delegation`]
     pub fn issuer(&self) -> &DID {
@@ -74,29 +72,13 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
     }
 
     /// Retrive the `subject` of a [`Delegation`]
-    pub fn subject(&self) -> &DID {
+    pub fn subject(&self) -> &Option<DID> {
         &self.0.payload.subject
     }
 
     /// Retrive the `audience` of a [`Delegation`]
     pub fn audience(&self) -> &DID {
         &self.0.payload.audience
-    }
-
-    /// Retrive the `ability_builder` of a [`Delegation`]
-    pub fn ability_builder(&self) -> &B {
-        &self.0.payload.ability_builder
-    }
-
-    pub fn map_ability_builder<F, T>(self, f: F) -> Delegation<T, C, DID, V, Enc>
-    where
-        F: FnOnce(B) -> T,
-    {
-        Delegation(signature::Envelope::new(
-            self.0.varsig_header,
-            self.0.signature,
-            self.0.payload.map_ability(f),
-        ))
     }
 
     /// Retrive the `condition` of a [`Delegation`]
@@ -128,7 +110,7 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
         self.0.payload.check_time(now)
     }
 
-    pub fn payload(&self) -> &Payload<B, C, DID> {
+    pub fn payload(&self) -> &Payload<C, DID> {
         &self.0.payload
     }
 
@@ -146,7 +128,7 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
 
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        signature::Envelope<Payload<B, C, DID>, DID, V, Enc>: Clone + Encode<Enc>,
+        signature::Envelope<Payload<C, DID>, DID, V, Enc>: Clone + Encode<Enc>,
         Ipld: Encode<Enc>,
     {
         self.0.cid()
@@ -154,7 +136,7 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
 
     pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
     where
-        Payload<B, C, DID>: Clone,
+        Payload<C, DID>: Clone,
         Ipld: Encode<Enc>,
     {
         self.0.validate_signature()
@@ -163,43 +145,43 @@ impl<B, C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> +
     pub fn try_sign(
         signer: &DID::Signer,
         varsig_header: V,
-        payload: Payload<B, C, DID>,
+        payload: Payload<C, DID>,
     ) -> Result<Self, signature::SignError>
     where
         Ipld: Encode<Enc>,
-        Payload<B, C, DID>: Clone,
+        Payload<C, DID>: Clone,
     {
         signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
     }
 }
 
-impl<
-        B: CheckSame,
-        C: Condition,
-        DID: Did,
-        V: varsig::Header<Enc>,
-        Enc: Codec + TryFrom<u32> + Into<u32>,
-    > CheckSame for Delegation<B, C, DID, V, Enc>
-{
-    type Error = <B as CheckSame>::Error;
-
-    fn check_same(&self, proof: &Delegation<B, C, DID, V, Enc>) -> Result<(), Self::Error> {
-        self.0.payload.check_same(&proof.payload())
-    }
-}
-
-impl<
-        T: CheckParents,
-        C: Condition,
-        DID: Did,
-        V: varsig::Header<Enc>,
-        Enc: Codec + TryFrom<u32> + Into<u32>,
-    > CheckParents for Delegation<T, C, DID, V, Enc>
-{
-    type Parents = Delegation<T::Parents, C, DID, V, Enc>;
-    type ParentError = <T as CheckParents>::ParentError;
-
-    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        self.payload().check_parent(&proof.payload())
-    }
-}
+// impl<
+//         B: CheckSame,
+//         C: Condition,
+//         DID: Did,
+//         V: varsig::Header<Enc>,
+//         Enc: Codec + TryFrom<u32> + Into<u32>,
+//     > CheckSame for Delegation<C, DID, V, Enc>
+// {
+//     type Error = <B as CheckSame>::Error;
+//
+//     fn check_same(&self, proof: &Delegation<C, DID, V, Enc>) -> Result<(), Self::Error> {
+//         self.0.payload.check_same(&proof.payload())
+//     }
+// }
+//
+// impl<
+//         T: CheckParents,
+//         C: Condition,
+//         DID: Did,
+//         V: varsig::Header<Enc>,
+//         Enc: Codec + TryFrom<u32> + Into<u32>,
+//     > CheckParents for Delegation<C, DID, V, Enc>
+// {
+//     type Parents = Delegation<T::Parents, C, DID, V, Enc>;
+//     type ParentError = <T as CheckParents>::ParentError;
+//
+//     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+//         self.payload().check_parent(&proof.payload())
+//     }
+// }

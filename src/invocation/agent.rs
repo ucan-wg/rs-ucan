@@ -1,15 +1,20 @@
-use super::{payload::Payload, promise::Resolvable, store::Store, Invocation};
+use super::{
+    payload::{Payload, ValidationError},
+    promise::Resolvable,
+    store::Store,
+    Invocation,
+};
 use crate::{
     ability::{
+        arguments,
         parse::{ParseAbility, ParseAbilityError, ParsePromised},
         ucan,
     },
     crypto::{signature, varsig, Nonce},
-    delegation,
-    delegation::{condition::Condition, Delegable},
+    delegation::{self, condition::Condition},
     did::Did,
     invocation::promise,
-    proof::{checkable::Checkable, prove::Prove},
+    // proof::prove::Prove,
     time::Timestamp,
 };
 use libipld_core::{
@@ -28,12 +33,12 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    T: Resolvable + Delegable,
+    T: Resolvable,
     C: Condition,
     DID: Did,
     S: Store<T::Promised, DID, V, Enc>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
+    D: delegation::store::Store<C, DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + Into<u32> + TryFrom<u32>,
 > {
@@ -51,13 +56,13 @@ impl<'a, T, C, DID, S, P, D, V, Enc> Agent<'a, T, C, DID, S, P, D, V, Enc>
 where
     T::Promised: Clone,
     Ipld: Encode<Enc>,
-    delegation::Payload<<T::Builder as Checkable>::Hierarchy, C, DID>: Clone,
-    T: Resolvable + Delegable + Clone,
+    delegation::Payload<C, DID>: Clone,
+    T: Resolvable + Clone,
     C: Condition,
     DID: Did + Clone,
     S: Store<T::Promised, DID, V, Enc>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<T::Builder, C, DID, V, Enc>,
+    D: delegation::store::Store<C, DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + Into<u32> + TryFrom<u32>,
 {
@@ -80,8 +85,8 @@ where
 
     pub fn invoke(
         &mut self,
-        audience: Option<&DID>,
-        subject: &DID,
+        audience: Option<DID>,
+        subject: DID,
         ability: T,
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
@@ -90,32 +95,42 @@ where
         now: SystemTime,
         varsig_header: V,
     ) -> Result<
-        Invocation<T::Promised, DID, V, Enc>,
+        Invocation<T, DID, V, Enc>,
         InvokeError<
             D::DelegationStoreError,
-            ParseAbilityError<<<T as Delegable>::Builder as ParseAbility>::ArgsErr>,
+            ParseAbilityError<()>, // FIXME argserror
         >,
-    >
-    where
-        <<T as promise::Resolvable>::Promised as ParsePromised>::PromisedArgsError: fmt::Debug,
-    {
-        self.invoke_promise(
-            audience,
+    > {
+        let proofs = self
+            .delegation_store
+            .get_chain(self.did, &Some(subject.clone()), vec![], now)
+            .map_err(InvokeError::DelegationStoreError)?
+            .map(|chain| chain.map(|(cid, _)| cid).into())
+            .unwrap_or(vec![]);
+
+        let mut seed = vec![];
+
+        let payload = Payload {
+            issuer: self.did.clone(),
             subject,
-            Resolvable::into_promised(ability),
+            audience,
+            ability,
+            proofs,
             metadata,
+            nonce: Nonce::generate_12(&mut seed),
             cause,
             expiration,
             issued_at,
-            now,
-            varsig_header,
-        )
+        };
+
+        Ok(Invocation::try_sign(self.signer, varsig_header, payload)
+            .map_err(InvokeError::SignError)?)
     }
 
     pub fn invoke_promise(
         &mut self,
         audience: Option<&DID>,
-        subject: &DID,
+        subject: DID,
         ability: T::Promised,
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
@@ -127,19 +142,12 @@ where
         Invocation<T::Promised, DID, V, Enc>,
         InvokeError<
             D::DelegationStoreError,
-            ParseAbilityError<<<T as Delegable>::Builder as ParseAbility>::ArgsErr>,
+            ParseAbilityError<()>, // FIXME errs
         >,
     > {
         let proofs = self
             .delegation_store
-            .get_chain(
-                self.did,
-                subject,
-                &<T as Resolvable>::try_to_builder(ability.clone())
-                    .map_err(InvokeError::PromiseResolveError)?,
-                vec![],
-                now,
-            )
+            .get_chain(self.did, &Some(subject.clone()), vec![], now)
             .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
@@ -148,7 +156,7 @@ where
 
         let payload = Payload {
             issuer: self.did.clone(),
-            subject: subject.clone(),
+            subject,
             audience: audience.cloned(),
             ability,
             proofs,
@@ -172,12 +180,10 @@ where
         ReceiveError<T, P, DID, C, D::DelegationStoreError, S, V, Enc>,
     >
     where
-        Enc: From<u32> + Into<u32>,
-        T::Builder: Clone + Encode<Enc>,
         C: Clone,
-        <T::Builder as Checkable>::Hierarchy: Clone,
+        Enc: From<u32> + Into<u32>,
+        arguments::Named<Ipld>: From<T>,
         Invocation<T::Promised, DID, V, Enc>: Clone,
-        <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error: fmt::Debug,
         <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
         signature::Envelope<Payload<T::Promised, DID>, DID, V, Enc>: Clone,
         <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
@@ -217,9 +223,9 @@ where
 
         let resolved_payload = promised.payload().clone().map_ability(|_| resolved_ability);
 
-        delegation::Payload::<T::Builder, C, DID>::from(resolved_payload.clone())
+        let _ = &resolved_payload
             .check(proof_payloads, now)
-            .map_err(ReceiveError::DelegationValidationError)?;
+            .map_err(ReceiveError::ValidationError)?;
 
         if promised.audience() != &Some(self.did.clone()) {
             return Ok(Recipient::Other(resolved_payload));
@@ -230,7 +236,7 @@ where
 
     pub fn revoke(
         &mut self,
-        subject: &DID,
+        subject: DID,
         cause: Option<Cid>,
         cid: Cid,
         now: Timestamp,
@@ -241,17 +247,11 @@ where
         T: From<ucan::revoke::Ready>,
     {
         let ability: T = ucan::revoke::Ready { ucan: cid.clone() }.into();
-        let proofs = if subject == self.did {
+        let proofs = if &subject == self.did {
             vec![]
         } else {
             self.delegation_store
-                .get_chain(
-                    subject,
-                    self.did,
-                    &ability.clone().into(),
-                    vec![],
-                    now.into(),
-                )
+                .get_chain(&subject, &Some(self.did.clone()), vec![], now.into())
                 .map_err(|_| ())?
                 .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
                 .unwrap_or(vec![])
@@ -297,10 +297,6 @@ pub enum ReceiveError<
     V: varsig::Header<Enc>,
     Enc: Codec + From<u32> + Into<u32>,
 > where
-    delegation::ValidationError<
-        <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error,
-        C,
-    >: fmt::Debug,
     <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
     <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
 {
@@ -322,13 +318,7 @@ pub enum ReceiveError<
     DelegationStoreError(#[source] D),
 
     #[error("delegation validation error: {0}")]
-    DelegationValidationError(
-        #[source]
-        delegation::ValidationError<
-            <<<T as Delegable>::Builder as Checkable>::Hierarchy as Prove>::Error,
-            C,
-        >,
-    ),
+    ValidationError(#[source] ValidationError<C>),
 }
 
 #[derive(Debug, Error)]

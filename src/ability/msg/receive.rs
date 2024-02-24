@@ -2,10 +2,10 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegable,
+    // delegation::Delegable,
     invocation::promise,
     ipld,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    // proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
     url,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
@@ -59,9 +59,9 @@ impl Command for Promised {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Delegable for Receive {
-    type Builder = Receive;
-}
+// impl Delegable for Receive {
+//     type Builder = Receive;
+// }
 
 impl TryFrom<arguments::Named<Ipld>> for Receive {
     type Error = ();
@@ -94,33 +94,33 @@ impl From<Receive> for arguments::Named<Ipld> {
     }
 }
 
-impl Checkable for Receive {
-    type Hierarchy = Parentful<Receive>;
-}
-
-impl CheckSame for Receive {
-    type Error = (); // FIXME better error
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        self.from.check_same(&proof.from).map_err(|_| ())
-    }
-}
-
-impl CheckParents for Receive {
-    type Parents = super::Any;
-    type ParentError = <super::Any as CheckSame>::Error;
-
-    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        if let Some(from) = &self.from {
-            if let Some(proof_from) = &proof.from {
-                if &from != &proof_from {
-                    return Err(());
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
+// impl Checkable for Receive {
+//     type Hierarchy = Parentful<Receive>;
+// }
+//
+// impl CheckSame for Receive {
+//     type Error = (); // FIXME better error
+//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+//         self.from.check_same(&proof.from).map_err(|_| ())
+//     }
+// }
+//
+// impl CheckParents for Receive {
+//     type Parents = super::Any;
+//     type ParentError = <super::Any as CheckSame>::Error;
+//
+//     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
+//         if let Some(from) = &self.from {
+//             if let Some(proof_from) = &proof.from {
+//                 if &from != &proof_from {
+//                     return Err(());
+//                 }
+//             }
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 impl From<Receive> for Ipld {
     fn from(receive: Receive) -> Self {

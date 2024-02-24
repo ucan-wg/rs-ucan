@@ -19,7 +19,7 @@ pub mod promise;
 pub mod store;
 
 pub use agent::Agent;
-pub use payload::{Payload, Promised};
+pub use payload::*;
 
 use crate::{
     ability,

@@ -5,10 +5,8 @@ use crate::{
         command::ToCommand,
         parse::{ParseAbility, ParseAbilityError, ParsePromised},
     },
-    delegation::Delegable,
     invocation::promise::Resolvable,
     ipld,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 
@@ -20,37 +18,6 @@ pub enum Ready {
     Wasm(wasm::run::Ready),
 }
 
-#[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
-pub enum Builder {
-    Crud(crud::Builder),
-    Msg(msg::Builder),
-    Wasm(wasm::run::Builder),
-}
-
-#[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
-pub enum Parents {
-    Crud(crud::MutableParents),
-    Msg(msg::Any),
-} // NOTE WasmRun has no parents
-
-impl CheckSame for Parents {
-    type Error = (); // FIXME
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        match (self, proof) {
-            (Parents::Msg(self_), Parents::Msg(proof_)) => self_.check_same(proof_).map_err(|_| ()),
-            (Parents::Crud(self_), Parents::Crud(proof_)) => {
-                self_.check_same(proof_).map_err(|_| ())
-            }
-            _ => Err(()),
-        }
-    }
-}
-
-impl Delegable for Ready {
-    type Builder = Builder;
-}
-
 impl ToCommand for Ready {
     fn to_command(&self) -> String {
         match self {
@@ -60,66 +27,6 @@ impl ToCommand for Ready {
         }
     }
 }
-
-impl ToCommand for Builder {
-    fn to_command(&self) -> String {
-        match self {
-            Builder::Crud(builder) => builder.to_command(),
-            Builder::Msg(builder) => builder.to_command(),
-            Builder::Wasm(builder) => builder.to_command(),
-        }
-    }
-}
-
-impl CheckSame for Builder {
-    type Error = (); // FIXME
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        match (self, proof) {
-            (Builder::Wasm(builder), Builder::Wasm(proof)) => builder.check_same(proof),
-            _ => Err(()),
-        }
-    }
-}
-
-impl CheckParents for Builder {
-    type Parents = Parents;
-    type ParentError = (); // FIXME
-
-    fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-        match (self, proof) {
-            (Builder::Msg(builder), Parents::Msg(proof)) => builder.check_parent(proof),
-            _ => Err(()),
-        }
-    }
-}
-
-impl Checkable for Builder {
-    type Hierarchy = Parentful<Builder>;
-}
-
-impl From<Ready> for Builder {
-    fn from(ready: Ready) -> Self {
-        match ready {
-            Ready::Crud(ready) => Builder::Crud(ready.into()),
-            Ready::Msg(ready) => Builder::Msg(ready.into()),
-            Ready::Wasm(ready) => Builder::Wasm(ready.into()),
-        }
-    }
-}
-
-impl TryFrom<Builder> for Ready {
-    type Error = (); // FIXME
-
-    fn try_from(builder: Builder) -> Result<Self, Self::Error> {
-        match builder {
-            Builder::Crud(builder) => builder.try_into().map(Ready::Crud).map_err(|_| ()),
-            Builder::Msg(builder) => builder.try_into().map(Ready::Msg).map_err(|_| ()),
-            Builder::Wasm(builder) => builder.try_into().map(Ready::Wasm).map_err(|_| ()),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
 pub enum Promised {
     Crud(crud::Promised),
@@ -170,27 +77,27 @@ impl ParsePromised for Promised {
     }
 }
 
-impl ParseAbility for Builder {
+impl ParseAbility for Ready {
     type ArgsErr = ();
 
     fn try_parse(
         cmd: &str,
         args: arguments::Named<Ipld>,
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
-        match msg::Builder::try_parse(cmd, args.clone()) {
-            Ok(builder) => return Ok(Builder::Msg(builder)),
+        match msg::Ready::try_parse(cmd, args.clone()) {
+            Ok(builder) => return Ok(Ready::Msg(builder)),
             Err(err) => return Err(err),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
-        match crud::Builder::try_parse(cmd, args.clone()) {
-            Ok(builder) => return Ok(Builder::Crud(builder)),
+        match crud::Ready::try_parse(cmd, args.clone()) {
+            Ok(builder) => return Ok(Ready::Crud(builder)),
             Err(err) => return Err(err),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
-        match wasm::run::Builder::try_parse(cmd, args) {
-            Ok(builder) => return Ok(Builder::Wasm(builder)),
+        match wasm::run::Ready::try_parse(cmd, args) {
+            Ok(builder) => return Ok(Ready::Wasm(builder)),
             Err(err) => return Err(err),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
@@ -199,24 +106,24 @@ impl ParseAbility for Builder {
     }
 }
 
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
-        match builder {
-            Builder::Crud(builder) => builder.into(),
-            Builder::Msg(builder) => builder.into(),
-            Builder::Wasm(builder) => builder.into(),
-        }
-    }
-}
-
-impl From<Parents> for arguments::Named<Ipld> {
-    fn from(parents: Parents) -> Self {
-        match parents {
-            Parents::Crud(parents) => parents.into(),
-            Parents::Msg(parents) => parents.into(),
-        }
-    }
-}
+// impl From<Builder> for arguments::Named<Ipld> {
+//     fn from(builder: Builder) -> Self {
+//         match builder {
+//             Builder::Crud(builder) => builder.into(),
+//             Builder::Msg(builder) => builder.into(),
+//             Builder::Wasm(builder) => builder.into(),
+//         }
+//     }
+// }
+//
+// impl From<Parents> for arguments::Named<Ipld> {
+//     fn from(parents: Parents) -> Self {
+//         match parents {
+//             Parents::Crud(parents) => parents.into(),
+//             Parents::Msg(parents) => parents.into(),
+//         }
+//     }
+// }
 
 impl From<Promised> for arguments::Named<ipld::Promised> {
     fn from(promised: Promised) -> Self {

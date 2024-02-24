@@ -3,22 +3,17 @@
 use super::module::Module;
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegable,
+    // delegation::Delegable,
     invocation::promise,
     ipld,
-    proof::{parentless::NoParents, same::CheckSame},
+    // proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 const COMMAND: &'static str = "wasm/run";
 
 impl Command for Ready {
-    const COMMAND: &'static str = COMMAND;
-}
-
-impl Command for Builder {
     const COMMAND: &'static str = COMMAND;
 }
 
@@ -39,11 +34,7 @@ pub struct Ready {
     pub args: Vec<Ipld>,
 }
 
-impl Delegable for Ready {
-    type Builder = Builder;
-}
-
-impl TryFrom<arguments::Named<Ipld>> for Builder {
+impl TryFrom<arguments::Named<Ipld>> for Ready {
     type Error = ();
 
     fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
@@ -74,98 +65,16 @@ impl TryFrom<arguments::Named<Ipld>> for Builder {
             }
         }
 
-        Ok(Builder {
-            module,
-            function,
-            args,
+        Ok(Ready {
+            module: module.ok_or(())?,
+            function: function.ok_or(())?,
+            args: args.ok_or(())?,
         })
     }
 }
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
-}
-
-/// A variant meant for delegation, where fields may be omitted
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Builder {
-    /// The Wasm module to run
-    pub module: Option<Module>,
-
-    /// The function from the module to run
-    pub function: Option<String>,
-
-    /// Arguments to pass to the function
-    pub args: Option<Vec<Ipld>>,
-}
-
-impl NoParents for Builder {}
-
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
-        let mut btree = BTreeMap::new();
-        if let Some(module) = builder.module {
-            btree.insert("module".into(), Ipld::from(module));
-        }
-
-        if let Some(function) = builder.function {
-            btree.insert("function".into(), Ipld::String(function));
-        }
-
-        if let Some(args) = builder.args {
-            btree.insert("args".into(), Ipld::List(args));
-        }
-
-        arguments::Named(btree)
-    }
-}
-
-impl From<Ready> for Builder {
-    fn from(ready: Ready) -> Builder {
-        Builder {
-            module: Some(ready.module),
-            function: Some(ready.function),
-            args: Some(ready.args),
-        }
-    }
-}
-
-impl TryFrom<Builder> for Ready {
-    type Error = (); // FIXME
-
-    fn try_from(b: Builder) -> Result<Self, Self::Error> {
-        Ok(Ready {
-            module: b.module.ok_or(())?,
-            function: b.function.ok_or(())?,
-            args: b.args.ok_or(())?,
-        })
-    }
-}
-
-impl CheckSame for Builder {
-    type Error = (); // FIXME
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if let Some(module) = &self.module {
-            if module != proof.module.as_ref().unwrap() {
-                return Err(());
-            }
-        }
-
-        if let Some(function) = &self.function {
-            if function != proof.function.as_ref().unwrap() {
-                return Err(());
-            }
-        }
-
-        if let Some(args) = &self.args {
-            if args != proof.args.as_ref().unwrap() {
-                return Err(());
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// A variant meant for linking together invocations with promises

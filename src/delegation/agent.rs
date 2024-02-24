@@ -2,7 +2,7 @@ use super::{condition::Condition, payload::Payload, store::Store, Delegation};
 use crate::{
     crypto::{varsig, Nonce},
     did::Did,
-    proof::checkable::Checkable,
+    //   proof::checkable::Checkable,
     time::Timestamp,
 };
 use libipld_core::{
@@ -20,10 +20,9 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    B: Checkable,
     C: Condition,
     DID: Did,
-    S: Store<B, C, DID, V, Enc>,
+    S: Store<C, DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
 > {
@@ -34,18 +33,17 @@ pub struct Agent<
     pub store: &'a mut S,
 
     signer: &'a <DID as Did>::Signer,
-    _marker: PhantomData<(B, C, V, Enc)>,
+    _marker: PhantomData<(C, V, Enc)>,
 }
 
 impl<
         'a,
-        B: Checkable + Clone,
         C: Condition + Clone,
         DID: Did + ToString + Clone,
-        S: Store<B, C, DID, V, Enc> + Clone,
+        S: Store<C, DID, V, Enc> + Clone,
         V: varsig::Header<Enc>,
         Enc: Codec + TryFrom<u32> + Into<u32>,
-    > Agent<'a, B, C, DID, S, V, Enc>
+    > Agent<'a, C, DID, S, V, Enc>
 where
     Ipld: Encode<Enc>,
 {
@@ -61,37 +59,39 @@ where
     pub fn delegate(
         &self,
         audience: DID,
-        subject: DID,
-        ability_builder: B,
+        subject: Option<DID>,
         new_conditions: Vec<C>,
         metadata: BTreeMap<String, Ipld>,
         expiration: Timestamp,
         not_before: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<Delegation<B, C, DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
+    ) -> Result<Delegation<C, DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
-        if subject == *self.did {
-            let payload: Payload<B, C, DID> = Payload {
-                issuer: self.did.clone(),
-                audience,
-                subject,
-                ability_builder,
-                metadata,
-                nonce,
-                expiration: expiration.into(),
-                not_before: not_before.map(Into::into),
-                conditions: new_conditions,
-            };
+        if let Some(ref sub) = subject {
+            if sub == self.did {
+                let payload: Payload<C, DID> = Payload {
+                    issuer: self.did.clone(),
+                    audience,
+                    subject,
+                    metadata,
+                    nonce,
+                    expiration: expiration.into(),
+                    not_before: not_before.map(Into::into),
+                    conditions: new_conditions,
+                };
 
-            return Ok(Delegation::try_sign(self.signer, varsig_header, payload).expect("FIXME"));
+                return Ok(
+                    Delegation::try_sign(self.signer, varsig_header, payload).expect("FIXME")
+                );
+            }
         }
 
         let to_delegate = &self
             .store
-            .get_chain(&self.did, &subject, &ability_builder, vec![], now)
+            .get_chain(&self.did, &subject, vec![], now)
             .map_err(DelegateError::StoreError)?
             .ok_or(DelegateError::ProofsNotFound)?
             .first()
@@ -101,11 +101,10 @@ where
         let mut conditions = to_delegate.conditions.clone();
         conditions.append(&mut new_conditions.clone());
 
-        let payload: Payload<B, C, DID> = Payload {
+        let payload: Payload<C, DID> = Payload {
             issuer: self.did.clone(),
             audience,
             subject,
-            ability_builder,
             conditions,
             metadata,
             nonce,
@@ -119,7 +118,7 @@ where
     pub fn receive(
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
-        delegation: Delegation<B, C, DID, V, Enc>,
+        delegation: Delegation<C, DID, V, Enc>,
     ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());

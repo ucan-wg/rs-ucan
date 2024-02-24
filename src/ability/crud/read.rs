@@ -1,12 +1,12 @@
 //! Read from a resource.
 
-use super::any as crud;
+// use super::any as crud;
 use crate::{
     ability::{arguments, command::Command},
-    delegation::Delegable,
+    // delegation::Delegable,
     invocation::promise,
     ipld,
-    proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
+    // proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -157,9 +157,9 @@ impl Command for Promised {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Delegable for Ready {
-    type Builder = Ready;
-}
+// impl Delegable for Ready {
+//     type Builder = Ready;
+// }
 
 // FIXME resolves vs resolvable is confusing
 
@@ -220,39 +220,39 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
     }
 }
 
-impl Checkable for Ready {
-    type Hierarchy = Parentful<Ready>;
-}
-
-impl CheckSame for Ready {
-    type Error = (); // FIXME better error
-
-    fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-        if self.path == proof.path {
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl CheckParents for Ready {
-    type Parents = crud::Any;
-    type ParentError = (); // FIXME
-
-    fn check_parent(&self, other: &crud::Any) -> Result<(), Self::ParentError> {
-        if let Some(self_path) = &self.path {
-            // FIXME check the args, too!
-            if let Some(proof_path) = &other.path {
-                if self_path != proof_path {
-                    return Err(());
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
+// impl Checkable for Ready {
+//     type Hierarchy = Parentful<Ready>;
+// }
+//
+// impl CheckSame for Ready {
+//     type Error = (); // FIXME better error
+//
+//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
+//         if self.path == proof.path {
+//             Ok(())
+//         } else {
+//             Err(())
+//         }
+//     }
+// }
+//
+// impl CheckParents for Ready {
+//     type Parents = crud::Any;
+//     type ParentError = (); // FIXME
+//
+//     fn check_parent(&self, other: &crud::Any) -> Result<(), Self::ParentError> {
+//         if let Some(self_path) = &self.path {
+//             // FIXME check the args, too!
+//             if let Some(proof_path) = &other.path {
+//                 if self_path != proof_path {
+//                     return Err(());
+//                 }
+//             }
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;

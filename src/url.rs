@@ -1,6 +1,6 @@
 //! URL utilities.
 
-use crate::proof::same::CheckSame;
+// use crate::proof::same::CheckSame;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -50,17 +50,17 @@ impl fmt::Display for Newtype {
     }
 }
 
-impl CheckSame for Newtype {
-    type Error = ();
-
-    fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
-        if self == other {
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-}
+// impl CheckSame for Newtype {
+//     type Error = ();
+//
+//     fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
+//         if self == other {
+//             Ok(())
+//         } else {
+//             Err(())
+//         }
+//     }
+// }
 
 impl From<Newtype> for Ipld {
     fn from(newtype: Newtype) -> Self {
