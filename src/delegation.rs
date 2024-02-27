@@ -13,6 +13,7 @@
 //! - [`store`] is an interface for caching [`Delegation`]s.
 
 pub mod condition;
+pub mod policy;
 pub mod store;
 
 mod agent;
