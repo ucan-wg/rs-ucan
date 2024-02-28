@@ -130,19 +130,19 @@ pub fn glob(input: &Ipld, pattern: &Ipld) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Stream {
-    Every(Vec<Ipld>), // "All or nothing"
-    Some(Vec<Ipld>),
+    Every(BTreeMap<usize, Ipld>), // "All or nothing"
+    Some(BTreeMap<usize, Ipld>),
 }
 
 impl Stream {
-    pub fn to_vec(self) -> Vec<Ipld> {
+    pub fn to_btree(self) -> BTreeMap<usize, Ipld> {
         match self {
             Stream::Every(xs) => xs,
             Stream::Some(xs) => xs,
         }
     }
 
-    pub fn map(self, f: impl Fn(Vec<Ipld>) -> Vec<Ipld>) -> Stream {
+    pub fn map(self, f: impl Fn(BTreeMap<usize, Ipld>) -> BTreeMap<usize, Ipld>) -> Stream {
         match self {
             Stream::Every(xs) => {
                 let updated = f(xs);
@@ -163,8 +163,8 @@ impl Stream {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EveryStream(Vec<Ipld>);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SomeStream(Vec<Ipld>);
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// pub struct EveryStream(V<Ipld>);
+//
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// pub struct SomeStream(Vec<Ipld>);

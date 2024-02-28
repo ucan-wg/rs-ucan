@@ -34,34 +34,35 @@ use std::collections::BTreeMap;
 // }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Machine<'a> {
+pub struct Machine {
     pub args: arguments::Named<Ipld>,
-    pub frames: BTreeMap<&'a str, Stream>,
+    pub frames: BTreeMap<String, Stream>,
     pub program: Statement,
     pub index_counter: usize,
 }
 
-pub fn run<'a>(machine: Machine<'a>) -> Machine<'a> {
+pub fn run(machine: Machine) -> Machine {
     // run to exhaustion
-    loop {
-        if let Ok(next) = run_once(&machine) {
-            if next == &machine {
-                return machine;
-            }
-        } else {
-            panic!("failed some step");
-        }
-    }
+    // loop {
+    //     if let Ok(next) = run_once(&machine) {
+    //         if next == &machine {
+    //             return machine;
+    //         }
+    //     } else {
+    //         panic!("failed some step");
+    //     }
+    // }
+    todo!()
 }
 
-pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
+pub fn run_once(mut context: Machine) -> Result<Machine, ()> {
     // FIXME Fix this iter; need to keep getting smaller and runninhg top-to-bottom
     // or at least that's one startegy
-    match context.program {
+    match context.clone().program {
         Statement::And(left, right) => {
             let lhs = Machine {
                 program: *left,
-                ..context
+                ..context.clone()
             };
 
             let lhs_result = run(lhs);
@@ -73,7 +74,7 @@ pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
                 index_counter: lhs_result.index_counter,
             };
 
-            let mut rhs_result = run(rhs);
+            let rhs_result = run(rhs);
 
             if rhs_result.frames.is_empty() {
                 Err(())
@@ -84,7 +85,7 @@ pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
         Statement::Or(left, right) => {
             let lhs = Machine {
                 program: *left,
-                ..context
+                ..context.clone()
             };
 
             let rhs = Machine {
@@ -109,21 +110,39 @@ pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
             todo!(); // remove all not_results from context.frames
         }
         Statement::Exists(var, collection) => {
-            let xs: Vec<Ipld> = match collection {
-                Collection::Array(vec) => vec,
-                Collection::Map(map) => map.values().cloned().collect(),
+            let btree: BTreeMap<usize, Ipld> = match collection {
+                Collection::Array(vec) => vec
+                    .into_iter()
+                    .map(|ipld| (context.next_index(), ipld))
+                    .collect(),
+
+                Collection::Map(map) => map
+                    .into_iter()
+                    .map(|(_k, ipld)| (context.next_index(), ipld))
+                    .collect(),
             };
 
-            context.frames.insert(var.0.as_str(), Stream::Some(xs));
+            context.frames.insert(var.0, Stream::Some(btree));
             Ok(context)
         }
         Statement::Forall(var, collection) => {
-            let xs: Vec<Ipld> = match collection {
-                Collection::Array(vec) => vec,
-                Collection::Map(map) => map.values().cloned().collect(),
+            let btree: BTreeMap<usize, Ipld> = match collection {
+                Collection::Array(vec) => vec
+                    .into_iter()
+                    .map(|ipld| (context.next_index(), ipld))
+                    .collect(),
+
+                Collection::Map(map) => map
+                    .into_iter()
+                    .map(|(_k, ipld)| (context.next_index(), ipld))
+                    .collect(),
             };
 
-            context.frames.insert(var.0.as_str(), Stream::Every(xs));
+            context.frames.insert(var.0, Stream::Every(btree));
+
+            // FIXME needs to check that nothing changed
+            // ...perhaps at the end of the iteration, loop through the streams?
+
             Ok(context)
         }
         Statement::Equal(left, right) => context
@@ -172,38 +191,45 @@ pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
             .map(|()| context),
         Statement::Select(selector, target, var) => match target {
             SelectorValue::Args => {
-                let ipld = Ipld::Map(context.args.0);
+                let ipld = Ipld::Map(context.args.clone().0);
                 let selected = select(selector, ipld)?;
+                let idx = context.next_index();
 
                 context
                     .frames
-                    .insert(var.0.as_str(), Stream::Every(vec![selected]));
+                    .insert(var.0, Stream::Every(BTreeMap::from_iter([(idx, selected)])));
 
                 Ok(context)
             }
             SelectorValue::Literal(ipld) => {
                 let ipld = select(selector, ipld)?;
+                let idx = context.next_index();
 
                 context
                     .frames
-                    .insert(var.0.as_str(), Stream::Every(vec![ipld]));
+                    .insert(var.0, Stream::Every(BTreeMap::from_iter([(idx, ipld)])));
 
                 Ok(context)
             }
             SelectorValue::Variable(var_id) => {
                 let current = context
                     .frames
-                    .get(var_id.0.as_str())
-                    .unwrap_or(&Stream::Every(vec![]));
+                    .get(&var_id.0)
+                    .cloned()
+                    .unwrap_or(Stream::Every(BTreeMap::new()));
 
-                let result: Result<Vec<Ipld>, ()> = current
-                    .to_vec()
-                    .iter()
-                    .map(|ipld| select(selector.clone(), ipld.clone()))
+                let result: Result<BTreeMap<usize, Ipld>, ()> = current
+                    .clone()
+                    .to_btree()
+                    .into_iter()
+                    .map(|(idx, ipld)| select(selector.clone(), ipld).map(|ipld| (idx, ipld)))
                     .collect();
 
                 let updated = result?;
-                current.map(|_| updated);
+
+                context
+                    .frames
+                    .insert(var.0, current.map(|_| updated.clone()));
 
                 Ok(context)
             }
@@ -212,79 +238,69 @@ pub fn run_once<'a>(mut context: Machine<'a>) -> Result<Machine<'a>, ()> {
 }
 
 pub fn select(selector: Selector, on: Ipld) -> Result<Ipld, ()> {
-    let results: Vec<&Ipld> =
-        selector
-            .0
-            .iter()
-            .try_fold(vec![&on], |mut ipld_stream, segment| match segment {
-                PathSegment::This => Ok(ipld_stream),
-                PathSegment::Index(i) => {
-                    ipld_stream
-                        .iter()
-                        .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
-                            Ipld::List(vec) => {
-                                if let Some(ipld) = vec.get(*i) {
-                                    acc.push(ipld);
-                                    Ok(acc)
-                                } else {
-                                    Err(())
-                                }
-                            }
-                            _ => Err(()),
-                        })
-                }
-                PathSegment::Key(key) => {
-                    ipld_stream
-                        .iter()
-                        .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
-                            Ipld::Map(map) => {
-                                if let Some(ipld) = map.get(key) {
-                                    acc.push(ipld);
-                                    Ok(acc)
-                                } else {
-                                    Err(())
-                                }
-                            }
-                            _ => Err(()),
-                        })
-                }
-                PathSegment::FlattenAll => {
-                    ipld_stream
-                        .iter()
-                        .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
-                            Ipld::List(vec) => {
-                                acc.extend(vec);
+    let results: Vec<Ipld> = selector
+        .0
+        .iter()
+        .try_fold(vec![on], |ipld_stream, segment| match segment {
+            PathSegment::This => Ok(ipld_stream),
+            PathSegment::Index(i) => {
+                ipld_stream
+                    .iter()
+                    .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
+                        Ipld::List(vec) => {
+                            if let Some(ipld) = vec.get(*i) {
+                                acc.push(ipld.clone());
                                 Ok(acc)
+                            } else {
+                                Err(())
                             }
-                            _ => Err(()),
-                        })
-                }
-            })?;
+                        }
+                        _ => Err(()),
+                    })
+            }
+            PathSegment::Key(key) => {
+                ipld_stream
+                    .iter()
+                    .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
+                        Ipld::Map(map) => {
+                            if let Some(ipld) = map.get(key) {
+                                acc.push(ipld.clone());
+                                Ok(acc)
+                            } else {
+                                Err(())
+                            }
+                        }
+                        _ => Err(()),
+                    })
+            }
+            PathSegment::FlattenAll => {
+                ipld_stream
+                    .iter()
+                    .try_fold(vec![], |mut acc, ipld_entry| match ipld_entry {
+                        Ipld::List(vec) => {
+                            acc.extend(vec.clone());
+                            Ok(acc.iter().cloned().collect())
+                        }
+                        _ => Err(()),
+                    })
+            }
+        })?;
 
-    match results.as_slice() {
-        [ipld] => Ok(*ipld.clone()),
+    match &results[..] {
+        [ipld] => Ok(ipld.clone()),
         vec => Ok(Ipld::List(
-            vec.into_iter().map(|ipld| *ipld.clone()).collect(),
+            vec.into_iter().map(|ipld| ipld.clone()).collect(),
         )),
     }
 }
 
-// pub fn select_step(segment: PathSegment, ipld: Ipld) -> Result<Ipld, ()> {
-//     match segment {
-//         PathSegment::This => Ok(ipld),
-//         PathSegment::Index(i) => match ipld {
-//             Ipld::List(vec) => vec.get(i).cloned().ok_or(()),
-//             _ => Err(()),
-//         },
-//         PathSegment::Key(key) => match ipld {
-//             Ipld::Map(map) => map.get(&key).cloned().ok_or(()),
-//             _ => Err(()),
-//         },
-//         PathSegment::FlattenAll => todo!(),
-//     }
-// }
+impl Machine {
+    pub fn next_index(&mut self) -> usize {
+        let prev = self.index_counter;
+        self.index_counter += 1;
+        prev
+    }
 
-impl<'a> Machine<'a> {
     pub fn apply<F>(&mut self, lhs: &Value, rhs: &Value, f: F) -> Result<(), ()>
     where
         F: Fn(&Ipld, &Ipld) -> bool,
@@ -299,10 +315,15 @@ impl<'a> Machine<'a> {
                     }
                 }
                 Value::Variable(var_id) => {
-                    let key = var_id.0.as_str();
-                    if let Some(stream) = self.frames.get(key) {
-                        let updated = stream
-                            .map(|vec| vec.into_iter().filter(|ipld| f(left_ipld, ipld)).collect());
+                    let key = var_id.0.clone();
+
+                    if let Some(stream) = self.frames.get(&key) {
+                        let updated = stream.clone().map(|btree| {
+                            btree
+                                .into_iter()
+                                .filter(|(_idx, ipld)| f(left_ipld, ipld))
+                                .collect()
+                        });
 
                         if updated.is_empty() {
                             return Err(());
@@ -317,33 +338,41 @@ impl<'a> Machine<'a> {
                 }
             },
             Value::Variable(var_id) => {
-                let lhs_key = var_id.0.as_str();
+                let lhs_key = &var_id.0;
+
                 if let Some(stream) = self.frames.get(lhs_key) {
                     match rhs {
                         Value::Literal(right_ipld) => {
-                            let updated = stream.map(|vec| {
-                                vec.into_iter().filter(|ipld| f(ipld, right_ipld)).collect()
+                            let updated = stream.clone().map(|btree| {
+                                btree
+                                    .into_iter()
+                                    .filter(|(_idx, ipld)| f(ipld, right_ipld))
+                                    .collect()
                             });
 
                             if updated.is_empty() {
                                 return Err(());
                             }
 
-                            self.frames.insert(lhs_key, updated);
+                            self.frames.insert(lhs_key.clone(), updated);
                             Ok(())
                         }
                         Value::Variable(var_id) => {
                             let rhs_key = var_id.0.as_str();
+
                             if let Some(stream) = self.frames.get(rhs_key) {
-                                let updated = stream.map(|vec| {
-                                    vec.into_iter().filter(|ipld| f(ipld, ipld)).collect()
+                                let updated = stream.clone().map(|btree| {
+                                    btree
+                                        .into_iter()
+                                        .filter(|(_idx, ipld)| f(ipld, ipld))
+                                        .collect()
                                 });
 
                                 if updated.is_empty() {
                                     return Err(());
                                 }
 
-                                self.frames.insert(lhs_key, updated);
+                                self.frames.insert(lhs_key.clone(), updated);
 
                                 Ok(())
                             } else {
