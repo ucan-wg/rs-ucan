@@ -52,10 +52,9 @@ pub fn run(machine: Machine) -> Machine {
     //         panic!("failed some step");
     //     }
     // }
-    todo!()
 }
 
-pub fn run_once(mut context: Machine) -> Result<Machine, ()> {
+pub fn step(mut context: Machine) -> Result<Machine, ()> {
     // FIXME Fix this iter; need to keep getting smaller and runninhg top-to-bottom
     // or at least that's one startegy
     match context.clone().program {
@@ -90,24 +89,59 @@ pub fn run_once(mut context: Machine) -> Result<Machine, ()> {
 
             let rhs = Machine {
                 program: *right,
-                ..context
+                ..context.clone()
             };
 
             let lhs_result = run(lhs);
             let rhs_result = run(rhs);
-            todo!() // merge_and_dedup(lhs_result, rhs_result);
+
+            let merged_frames = lhs_result
+                .frames
+                .into_iter()
+                .map(|(key, lhs_stream)| {
+                    let rhs_stream = rhs_result
+                        .frames
+                        .get(&key)
+                        .cloned()
+                        .unwrap_or(lhs_stream.clone());
+
+                    let merged = match (lhs_stream, rhs_stream) {
+                        (Stream::Every(lhs), Stream::Every(rhs)) => {
+                            Stream::Every(lhs.into_iter().chain(rhs).collect())
+                        }
+                        (Stream::Some(lhs), Stream::Some(rhs)) => {
+                            Stream::Some(lhs.into_iter().chain(rhs).collect())
+                        }
+                        (Stream::Every(lhs), Stream::Some(rhs)) => {
+                            Stream::Every(lhs.into_iter().chain(rhs).collect())
+                        }
+                        (Stream::Some(lhs), Stream::Every(rhs)) => {
+                            Stream::Every(lhs.into_iter().chain(rhs).collect())
+                        }
+                    };
+
+                    (key, merged)
+                })
+                .collect();
+
+            Ok(Machine {
+                frames: merged_frames,
+                ..context
+            })
         }
         Statement::Not(statement) => {
             let next = Machine {
-                args: context.args,
-                frames: context.frames,
                 program: *statement,
-                index_counter: context.index_counter,
+                ..context.clone()
             };
 
             let not_results = run(next);
 
-            todo!(); // remove all not_results from context.frames
+            for (idx, _) in not_results.frames.iter() {
+                context.frames.remove(idx);
+            }
+
+            Ok(context)
         }
         Statement::Exists(var, collection) => {
             let btree: BTreeMap<usize, Ipld> = match collection {
@@ -145,7 +179,7 @@ pub fn run_once(mut context: Machine) -> Result<Machine, ()> {
 
             Ok(context)
         }
-        Statement::Equal(left, right) => context
+        Statement::Equal(left, right) => context // FIXME do unification
             .apply(&left, &right, |a, b| a == b)
             .map(|()| context),
         Statement::GreaterThan(left, right) => context
@@ -325,12 +359,20 @@ impl Machine {
                                 .collect()
                         });
 
-                        if updated.is_empty() {
-                            return Err(());
+                        match updated {
+                            Stream::Every(btree) => {
+                                if btree.len() < stream.to_btree().len() {
+                                    return Err(());
+                                }
+                            }
+                            Stream::Some(btree) => {
+                                if btree.is_empty() {
+                                    return Err(());
+                                }
+                            }
                         }
 
                         self.frames.insert(key, updated);
-
                         Ok(())
                     } else {
                         Err(())
@@ -340,18 +382,27 @@ impl Machine {
             Value::Variable(var_id) => {
                 let lhs_key = &var_id.0;
 
-                if let Some(stream) = self.frames.get(lhs_key) {
+                if let Some(lhs_stream) = self.frames.get(lhs_key) {
                     match rhs {
                         Value::Literal(right_ipld) => {
-                            let updated = stream.clone().map(|btree| {
+                            let updated = lhs_stream.clone().map(|btree| {
                                 btree
                                     .into_iter()
                                     .filter(|(_idx, ipld)| f(ipld, right_ipld))
                                     .collect()
                             });
 
-                            if updated.is_empty() {
-                                return Err(());
+                            match updated {
+                                Stream::Every(btree) => {
+                                    if btree.len() < lhs_stream.to_btree().len() {
+                                        return Err(());
+                                    }
+                                }
+                                Stream::Some(btree) => {
+                                    if btree.is_empty() {
+                                        return Err(());
+                                    }
+                                }
                             }
 
                             self.frames.insert(lhs_key.clone(), updated);
@@ -360,16 +411,36 @@ impl Machine {
                         Value::Variable(var_id) => {
                             let rhs_key = var_id.0.as_str();
 
-                            if let Some(stream) = self.frames.get(rhs_key) {
-                                let updated = stream.clone().map(|btree| {
-                                    btree
-                                        .into_iter()
-                                        .filter(|(_idx, ipld)| f(ipld, ipld))
-                                        .collect()
-                                });
+                            // ["every", ".email", "?email"]
+                            // ["some",  ".req",   "?req"]
+                            // ["==",    "?email", "?req"]
 
-                                if updated.is_empty() {
-                                    return Err(());
+                            // ["some",  ".email", "?email"]
+                            // ["every", ".req",   "?req"]
+                            // ["==",    "?email", "?req"]
+
+                            if let Some(rhs_stream) = self.frames.get(rhs_key) {
+                                let updated: Vec<((usize, Ipld), (usize, Ipld))> = lhs_stream
+                                    .to_btree()
+                                    .into_iter()
+                                    .zip(rhs_stream.to_btree())
+                                    .filter(|((lhs_idx, lhs_ipld), (rhs_idx, rhs_ipld))| {
+                                        f(lhs_ipld, rhs_ipld)
+                                    })
+                                    .collect();
+
+                                // FIXME check both sides
+                                match (updated_lhs, updated_rhs) {
+                                    Stream::Every(btree) => {
+                                        if btree.len() < stream.to_btree().len() {
+                                            return Err(());
+                                        }
+                                    }
+                                    Stream::Some(btree) => {
+                                        if btree.is_empty() {
+                                            return Err(());
+                                        }
+                                    }
                                 }
 
                                 self.frames.insert(lhs_key.clone(), updated);

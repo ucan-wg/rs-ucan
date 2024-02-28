@@ -1,3 +1,4 @@
+use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -128,10 +129,10 @@ pub fn glob(input: &Ipld, pattern: &Ipld) -> bool {
     panic!("FIXME");
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
 pub enum Stream {
     Every(BTreeMap<usize, Ipld>), // "All or nothing"
-    Some(BTreeMap<usize, Ipld>),
+    Some(BTreeMap<usize, Ipld>),  // FIXME disambiguate from Option::Some
 }
 
 impl Stream {
