@@ -1,3 +1,4 @@
+//FIXME rename core
 use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -50,7 +51,6 @@ pub enum Statement {
     GreaterThanOrEqual(Value, Value),
     LessThan(Value, Value),
     LessThanOrEqual(Value, Value),
-    // >= and <= are probably good for efficiency
 
     // String Matcher
     Glob(Value, Value),
@@ -78,8 +78,7 @@ pub struct Selector(pub Vec<PathSegment>); // .foo.bar[].baz
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PathSegment {
-    This, // .
-    // RecDesend,    // ..
+    This,         // .
     Index(usize), // [2]
     Key(String),  // ["key"] (or .key)
     FlattenAll,   // [] --> creates an Array
@@ -136,6 +135,31 @@ pub enum Stream {
 }
 
 impl Stream {
+    pub fn remove(&mut self, key: usize) {
+        match self {
+            Stream::Every(xs) => {
+                xs.remove(&key);
+            }
+            Stream::Some(xs) => {
+                xs.remove(&key);
+            }
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Stream::Every(xs) => xs.len(),
+            Stream::Some(xs) => xs.len(),
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Ipld)> {
+        match self {
+            Stream::Every(xs) => xs.iter(),
+            Stream::Some(xs) => xs.iter(),
+        }
+    }
+
     pub fn to_btree(self) -> BTreeMap<usize, Ipld> {
         match self {
             Stream::Every(xs) => xs,

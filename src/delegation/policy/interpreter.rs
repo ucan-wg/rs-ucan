@@ -42,6 +42,7 @@ pub struct Machine {
 }
 
 pub fn run(machine: Machine) -> Machine {
+    todo!()
     // run to exhaustion
     // loop {
     //     if let Ok(next) = run_once(&machine) {
@@ -360,12 +361,12 @@ impl Machine {
                         });
 
                         match updated {
-                            Stream::Every(btree) => {
-                                if btree.len() < stream.to_btree().len() {
+                            Stream::Every(ref btree) => {
+                                if btree.len() < stream.len() {
                                     return Err(());
                                 }
                             }
-                            Stream::Some(btree) => {
+                            Stream::Some(ref btree) => {
                                 if btree.is_empty() {
                                     return Err(());
                                 }
@@ -393,12 +394,12 @@ impl Machine {
                             });
 
                             match updated {
-                                Stream::Every(btree) => {
-                                    if btree.len() < lhs_stream.to_btree().len() {
+                                Stream::Every(ref btree) => {
+                                    if btree.len() < lhs_stream.len() {
                                         return Err(());
                                     }
                                 }
-                                Stream::Some(btree) => {
+                                Stream::Some(ref btree) => {
                                     if btree.is_empty() {
                                         return Err(());
                                     }
@@ -411,41 +412,55 @@ impl Machine {
                         Value::Variable(var_id) => {
                             let rhs_key = var_id.0.as_str();
 
-                            // ["every", ".email", "?email"]
-                            // ["some",  ".req",   "?req"]
-                            // ["==",    "?email", "?req"]
-
-                            // ["some",  ".email", "?email"]
-                            // ["every", ".req",   "?req"]
-                            // ["==",    "?email", "?req"]
-
                             if let Some(rhs_stream) = self.frames.get(rhs_key) {
-                                let updated: Vec<((usize, Ipld), (usize, Ipld))> = lhs_stream
-                                    .to_btree()
-                                    .into_iter()
-                                    .zip(rhs_stream.to_btree())
-                                    .filter(|((lhs_idx, lhs_ipld), (rhs_idx, rhs_ipld))| {
-                                        f(lhs_ipld, rhs_ipld)
-                                    })
-                                    .collect();
+                                let mut non_matches: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
 
-                                // FIXME check both sides
-                                match (updated_lhs, updated_rhs) {
-                                    Stream::Every(btree) => {
-                                        if btree.len() < stream.to_btree().len() {
-                                            return Err(());
-                                        }
-                                    }
-                                    Stream::Some(btree) => {
-                                        if btree.is_empty() {
-                                            return Err(());
+                                for (lhs_id, lhs_value) in lhs_stream.iter() {
+                                    for (rhs_id, rhs_value) in rhs_stream.iter() {
+                                        if !f(lhs_value, rhs_value) {
+                                            if let Some(rhs_ids) = non_matches.get_mut(lhs_id) {
+                                                rhs_ids.push(*rhs_id);
+                                            } else {
+                                                non_matches.insert(*lhs_id, vec![*rhs_id]);
+                                            }
                                         }
                                     }
                                 }
 
-                                self.frames.insert(lhs_key.clone(), updated);
+                                // Double negatives, but for good reason
+                                let did_quantify =
+                                    match (lhs_stream.is_every(), rhs_stream.is_every()) {
+                                        (true, true) => non_matches.is_empty(),
+                                        (true, false) => non_matches
+                                            .values()
+                                            .all(|rhs_ids| rhs_ids.len() != rhs_stream.len()),
+                                        (false, true) => {
+                                            non_matches.values().any(|rhs_ids| rhs_ids.is_empty())
+                                        }
+                                        (false, false) => non_matches
+                                            .values()
+                                            .any(|rhs_ids| rhs_ids.len() < rhs_stream.len()),
+                                    };
 
-                                Ok(())
+                                if did_quantify {
+                                    let mut new_lhs_stream = lhs_stream.clone();
+                                    let mut new_rhs_stream = rhs_stream.clone();
+
+                                    for (l_key, r_keys) in non_matches {
+                                        new_lhs_stream.remove(l_key);
+
+                                        for r_key in r_keys {
+                                            new_rhs_stream.remove(r_key);
+                                        }
+                                    }
+
+                                    self.frames.insert(lhs_key.into(), new_lhs_stream);
+                                    self.frames.insert(rhs_key.into(), new_rhs_stream);
+
+                                    Ok(())
+                                } else {
+                                    Err(())
+                                }
                             } else {
                                 Err(())
                             }
@@ -459,7 +474,7 @@ impl Machine {
         }
     }
 
-    pub fn unify(&mut self, lhs: &Value, rhs: &Value) -> Result<Value, ()> {
+    pub fn pattern_matching_unification(&mut self, lhs: &Value, rhs: &Value) -> Result<Value, ()> {
         self.apply(lhs, rhs, |a, b| {
             todo!();
             todo!();
