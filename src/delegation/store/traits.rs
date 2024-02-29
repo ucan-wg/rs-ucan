@@ -39,7 +39,7 @@ pub trait Store<
         &self,
         audience: &DID,
         subject: &Option<DID>,
-        conditions: Vec<C>,
+        policy: Vec<C>,
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<C, DID, V, Enc>)>>, Self::DelegationStoreError>;
 
@@ -47,10 +47,10 @@ pub trait Store<
         &self,
         issuer: DID,
         audience: &DID,
-        conditions: Vec<C>,
+        policy: Vec<C>,
         now: SystemTime,
     ) -> Result<bool, Self::DelegationStoreError> {
-        self.get_chain(audience, &Some(issuer), conditions, now)
+        self.get_chain(audience, &Some(issuer), policy, now)
             .map(|chain| chain.is_some())
     }
 

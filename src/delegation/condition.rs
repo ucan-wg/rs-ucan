@@ -1,4 +1,4 @@
-//! Conditions for syntactic validation of abilities in [`Delegation`][super::Delegation]s.
+//! Policies for syntactic validation of abilities in [`Delegation`][super::Delegation]s.
 
 mod contains_all;
 mod contains_any;

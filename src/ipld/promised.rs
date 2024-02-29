@@ -1,4 +1,3 @@
-// use super::enriched::Enriched;
 use crate::{
     ability::arguments,
     invocation::promise::{Pending, Promise, PromiseAny, PromiseErr, PromiseOk, Resolves},
@@ -14,22 +13,40 @@ use std::{collections::BTreeMap, path::PathBuf};
 /// [`Promised`] resolves to regular [`Ipld`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
 pub enum Promised {
-    // Resolved Leaves
+    /// Resolved null.
     Null,
+
+    /// Resolved Boolean.
     Bool(bool),
+
+    /// Resolved integer.
     Integer(i128),
+
+    /// Resolved float.
     Float(f64),
+
+    /// Resolved string.
     String(String),
+
+    /// Resolved bytes.
     Bytes(Vec<u8>),
+
+    /// Resolved link.
     Link(Cid),
 
-    // Pending Leaves
+    /// Promise pending the `ok` branch.
     WaitOk(Cid),
+
+    /// Promise pending the `err` branch.
     WaitErr(Cid),
+
+    /// Promise pending either branch.
     WaitAny(Cid),
 
-    // Recursive
+    /// Recursively promised list.
     List(Vec<Promised>),
+
+    /// Recursively promised map.
     Map(BTreeMap<String, Promised>),
 }
 
@@ -278,7 +295,6 @@ impl TryFrom<Promised> for url::Newtype {
     fn try_from(promised: Promised) -> Result<url::Newtype, Self::Error> {
         match promised {
             Promised::String(s) => Ok(url::Newtype(::url::Url::parse(&s).map_err(|_| ())?)),
-            // FIXME Promised::Link(cid) => Ok(url::Newtype::from(cid)),
             _ => Err(()),
         }
     }
@@ -365,12 +381,6 @@ pub struct PostOrderIpldIter<'a> {
     inbound: Vec<&'a Promised>,
     outbound: Vec<&'a Promised>,
 }
-
-// #[derive(Clone, Debug, PartialEq)]
-// pub enum Item<'a> {
-//     Node(&'a Promised),
-//     Inner(&'a Cid),
-// }
 
 impl<'a> PostOrderIpldIter<'a> {
     /// Initialize a new [`PostOrderIpldIter`]

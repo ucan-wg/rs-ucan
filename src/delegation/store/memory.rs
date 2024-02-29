@@ -121,7 +121,7 @@ impl<
         &self,
         aud: &DID,
         subject: &Option<DID>,
-        conditions: Vec<C>,
+        policy: Vec<C>,
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<C, DID, V, Enc>)>>, Self::DelegationStoreError>
     {

@@ -1,7 +1,6 @@
 //! Task indices for [`Receipt`][crate::receipt::Receipt] reverse lookup.
 
 mod id;
-
 pub use id::Id;
 
 use crate::{ability::arguments, crypto::Nonce, did};

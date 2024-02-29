@@ -35,9 +35,5 @@ pub use delegation::Delegation;
 pub use invocation::Invocation;
 pub use receipt::Receipt;
 
-/////////////
-// FIXME s //
-/////////////
-
-// show example of multiple hierarchies of "all things accepted"
-// delegating down to inner versions of this
+// FIXME
+// show pipe

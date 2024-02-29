@@ -62,7 +62,7 @@ pub struct Mutate {
 }
 
 impl Command for Mutate {
-    const COMMAND: &'static str = "crud/mutate";
+    const COMMAND: &'static str = "/crud/mutate";
 }
 
 impl From<Mutate> for Ipld {

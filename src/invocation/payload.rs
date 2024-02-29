@@ -138,11 +138,16 @@ impl<A, DID: Did> Payload<A, DID> {
         now: &SystemTime,
     ) -> Result<(), ValidationError<C>>
     where
-        A: Clone,
+        A: ToCommand + Clone,
         DID: Clone,
         arguments::Named<Ipld>: From<A>,
     {
         let args: arguments::Named<Ipld> = self.ability.clone().into();
+
+        let mut cmd = self.ability.to_command();
+        if !cmd.ends_with('/') {
+            cmd.push('/');
+        }
 
         proofs.into_iter().try_fold(&self.issuer, |iss, proof| {
             // FIXME extract step function?
@@ -166,7 +171,11 @@ impl<A, DID: Did> Payload<A, DID> {
                 }
             }
 
-            for predicate in proof.conditions.iter() {
+            if !cmd.starts_with(&proof.command) {
+                return Err(ValidationError::CommandMismatch(proof.command.clone()));
+            }
+
+            for predicate in proof.policy.iter() {
                 if !predicate.validate(&args) {
                     return Err(ValidationError::FailedCondition(predicate.clone()));
                 }
@@ -194,6 +203,9 @@ pub enum ValidationError<C: fmt::Debug> {
     #[error("The delegation is not yet valid")]
     NotYetValid,
 
+    #[error("The command of the delegation does not match the proof: {0:?}")]
+    CommandMismatch(String),
+
     #[error("The delegation failed a condition: {0:?}")]
     FailedCondition(C),
 }
@@ -201,26 +213,6 @@ pub enum ValidationError<C: fmt::Debug> {
 impl<A, DID: Did> Capsule for Payload<A, DID> {
     const TAG: &'static str = "ucan/i/1.0.0-rc.1";
 }
-
-// impl<C: Condition, DID: Did + Clone> From<Payload<A, DID>> for delegation::Payload<C, DID> {
-//     fn from(inv_payload: Payload<A, DID>) -> Self {
-//         delegation::Payload {
-//             issuer: inv_payload.issuer,
-//             subject: Some(inv_payload.subject.clone()),
-//             audience: inv_payload.audience.unwrap_or(inv_payload.subject),
-//
-//             conditions: vec![],
-//
-//             metadata: inv_payload.metadata,
-//             nonce: inv_payload.nonce,
-//
-//             not_before: None,
-//             expiration: inv_payload
-//                 .expiration
-//                 .unwrap_or(Timestamp::postel(SystemTime::now())),
-//         }
-//     }
-// }
 
 impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld> {
     fn from(payload: Payload<A, DID>) -> Self {

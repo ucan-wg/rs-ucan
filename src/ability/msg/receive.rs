@@ -49,7 +49,7 @@ pub struct Receive {
 
 // FIXME needs promisory version
 
-const COMMAND: &'static str = "msg/send";
+const COMMAND: &'static str = "/msg/send";
 
 impl Command for Receive {
     const COMMAND: &'static str = COMMAND;

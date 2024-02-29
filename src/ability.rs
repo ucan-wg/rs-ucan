@@ -33,6 +33,7 @@
 //! field may include a promise pointing at another invocation. Once fully
 //! resolved ("ready"), they must be validatable against the delegation chain.
 
+pub mod pipe;
 pub mod ucan;
 
 #[cfg(feature = "ability-crud")]

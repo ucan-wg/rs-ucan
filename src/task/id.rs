@@ -1,3 +1,5 @@
+//! A newtype wrapper around [`Cid`]s to tag them as able to identify a particular invocation.
+
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;

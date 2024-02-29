@@ -11,7 +11,7 @@ use crate::{
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
-const COMMAND: &'static str = "wasm/run";
+const COMMAND: &'static str = "/wasm/run";
 
 impl Command for Ready {
     const COMMAND: &'static str = COMMAND;

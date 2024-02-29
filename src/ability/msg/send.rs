@@ -5,7 +5,7 @@ use crate::{
     invocation::promise,
     ipld, url,
 };
-use libipld_core::{error::SerdeError, ipld::Ipld};
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -95,10 +95,6 @@ pub struct Promised {
     /// The main body of the message
     pub message: promise::Resolves<String>,
 }
-
-// impl Delegable for Ready {
-//     type Builder = Builder;
-// }
 
 impl promise::Resolvable for Ready {
     type Promised = Promised;
@@ -197,7 +193,7 @@ impl From<Promised> for arguments::Named<Ipld> {
     }
 }
 
-const COMMAND: &'static str = "msg/send";
+const COMMAND: &'static str = "/msg/send";
 
 impl Command for Ready {
     const COMMAND: &'static str = COMMAND;

@@ -49,7 +49,7 @@ pub struct Any {
 }
 
 impl Command for Any {
-    const COMMAND: &'static str = "msg/*";
+    const COMMAND: &'static str = "/msg";
 }
 
 impl From<Any> for Ipld {

@@ -147,7 +147,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
     }
 }
 
-const COMMAND: &'static str = "crud/read";
+const COMMAND: &'static str = "/crud/read";
 
 impl Command for Ready {
     const COMMAND: &'static str = COMMAND;

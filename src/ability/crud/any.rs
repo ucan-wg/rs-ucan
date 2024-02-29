@@ -61,7 +61,7 @@ pub struct Any {
 }
 
 impl Command for Any {
-    const COMMAND: &'static str = "crud/*";
+    const COMMAND: &'static str = "/crud";
 }
 
 impl TryFrom<arguments::Named<Ipld>> for Any {

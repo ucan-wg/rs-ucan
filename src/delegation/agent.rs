@@ -60,7 +60,8 @@ where
         &self,
         audience: DID,
         subject: Option<DID>,
-        new_conditions: Vec<C>,
+        command: String,
+        new_policy: Vec<C>,
         metadata: BTreeMap<String, Ipld>,
         expiration: Timestamp,
         not_before: Option<Timestamp>,
@@ -76,11 +77,12 @@ where
                     issuer: self.did.clone(),
                     audience,
                     subject,
+                    command,
                     metadata,
                     nonce,
                     expiration: expiration.into(),
                     not_before: not_before.map(Into::into),
-                    conditions: new_conditions,
+                    policy: new_policy,
                 };
 
                 return Ok(
@@ -98,14 +100,15 @@ where
             .1
             .payload();
 
-        let mut conditions = to_delegate.conditions.clone();
-        conditions.append(&mut new_conditions.clone());
+        let mut policy = to_delegate.policy.clone();
+        policy.append(&mut new_policy.clone());
 
         let payload: Payload<C, DID> = Payload {
             issuer: self.did.clone(),
             audience,
             subject,
-            conditions,
+            command,
+            policy,
             metadata,
             nonce,
             expiration: expiration.into(),

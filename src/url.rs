@@ -50,18 +50,6 @@ impl fmt::Display for Newtype {
     }
 }
 
-// impl CheckSame for Newtype {
-//     type Error = ();
-//
-//     fn check_same(&self, other: &Self) -> Result<(), Self::Error> {
-//         if self == other {
-//             Ok(())
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
-
 impl From<Newtype> for Ipld {
     fn from(newtype: Newtype) -> Self {
         newtype.into()

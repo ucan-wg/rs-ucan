@@ -26,7 +26,7 @@
 //! ```js
 //! {
 //!   "sub: "did:example:1234", // <-- e.g. Wraps a web API
-//!   "cmd": "crud/update",
+//!   "cmd": "/crud/update",
 //!   "args": {
 //!       "path": "/some/path/to/a/resource",
 //!   },
@@ -67,7 +67,7 @@ pub mod js;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ready {
-    Create(create::Ready),
+    Create(create::Create),
     Read(read::Ready),
     Update(update::Ready),
     Destroy(destroy::Ready),
@@ -75,7 +75,7 @@ pub enum Ready {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Promised {
-    Create(create::Promised),
+    Create(create::PromisedCreate),
     Read(read::Promised),
     Update(update::Promised),
     Destroy(destroy::Promised),
@@ -88,7 +88,7 @@ impl ParsePromised for Promised {
         cmd: &str,
         args: arguments::Named<ipld::Promised>,
     ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
-        match create::Promised::try_parse_promised(cmd, args.clone()) {
+        match create::PromisedCreate::try_parse_promised(cmd, args.clone()) {
             Ok(create) => return Ok(Promised::Create(create)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()))
@@ -131,7 +131,7 @@ impl ParseAbility for Ready {
         cmd: &str,
         args: arguments::Named<Ipld>,
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
-        match create::Ready::try_parse(cmd, args.clone()) {
+        match create::Create::try_parse(cmd, args.clone()) {
             Ok(create) => return Ok(Ready::Create(create)),
             Err(ParseAbilityError::InvalidArgs(_)) => {
                 return Err(ParseAbilityError::InvalidArgs(()));

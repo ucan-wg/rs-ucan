@@ -21,20 +21,6 @@ impl CrudAny {
     pub fn to_command(&self) -> String {
         self.to_command()
     }
-
-    pub fn check_same(&self, proof: &CrudAny) -> Result<(), JsError> {
-        if self.path.is_some() {
-            if self.path != proof.path {
-                return Err(OptionalFieldError {
-                    field: "path".into(),
-                    err: OptionalFieldReason::NotEqual,
-                }
-                .into());
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[wasm_bindgen]

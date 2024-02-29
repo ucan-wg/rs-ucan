@@ -7,7 +7,7 @@
 //! {
 //!   "iss": "did:example:123",
 //!   "aud": "did:example:456",
-//!   "cmd": "msg/send", // <--- This is the command
+//!   "cmd": "/msg/send", // <--- This is the command
 //!   "args": {                           // ┐
 //!     "to": "mailto:alice@example.com", // ├─ These are determined by the command
 //!     "message": "Hello, World!",       // │
@@ -32,7 +32,7 @@
 /// }
 ///
 /// impl Command for Upload {
-///    const COMMAND: &'static str = "storage/upload";
+///    const COMMAND: &'static str = "/storage/upload";
 /// }
 ///
 /// assert_eq!(Upload::COMMAND, "storage/upload");

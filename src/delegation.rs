@@ -17,18 +17,16 @@ pub mod policy;
 pub mod store;
 
 mod agent;
-// mod delegable;
 mod payload;
 
 pub use agent::Agent;
-// pub use delegable::Delegable;
 pub use payload::*;
 
+use crate::capsule::Capsule;
 use crate::{
     // ability,
     crypto::{signature, varsig, Nonce},
     did::{self, Did},
-    // proof::{parents::CheckParents, same::CheckSame},
     time::{TimeBoundError, Timestamp},
 };
 use condition::Condition;
@@ -53,6 +51,20 @@ pub struct Delegation<
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
 >(pub signature::Envelope<Payload<C, DID>, DID, V, Enc>);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Chain<
+    C: Condition,
+    DID: Did,
+    V: varsig::Header<Enc>,
+    Enc: Codec + TryFrom<u32> + Into<u32>,
+>(Vec<Delegation<C, DID, V, Enc>>);
+
+impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Capsule
+    for Chain<C, DID, V, Enc>
+{
+    const TAG: &'static str = "ucan/chain";
+}
 
 /// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
 pub type Preset = Delegation<
@@ -83,8 +95,8 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
     }
 
     /// Retrive the `condition` of a [`Delegation`]
-    pub fn conditions(&self) -> &[C] {
-        &self.0.payload.conditions
+    pub fn policy(&self) -> &[C] {
+        &self.0.payload.policy
     }
 
     /// Retrive the `metadata` of a [`Delegation`]
@@ -117,6 +129,13 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
 
     pub fn varsig_header(&self) -> &V {
         &self.0.varsig_header
+    }
+
+    pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
+    where
+        Ipld: Encode<Enc>,
+    {
+        self.0.varsig_encode(w)
     }
 
     pub fn signature(&self) -> &DID::Signature {
@@ -155,34 +174,3 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
         signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
     }
 }
-
-// impl<
-//         B: CheckSame,
-//         C: Condition,
-//         DID: Did,
-//         V: varsig::Header<Enc>,
-//         Enc: Codec + TryFrom<u32> + Into<u32>,
-//     > CheckSame for Delegation<C, DID, V, Enc>
-// {
-//     type Error = <B as CheckSame>::Error;
-//
-//     fn check_same(&self, proof: &Delegation<C, DID, V, Enc>) -> Result<(), Self::Error> {
-//         self.0.payload.check_same(&proof.payload())
-//     }
-// }
-//
-// impl<
-//         T: CheckParents,
-//         C: Condition,
-//         DID: Did,
-//         V: varsig::Header<Enc>,
-//         Enc: Codec + TryFrom<u32> + Into<u32>,
-//     > CheckParents for Delegation<C, DID, V, Enc>
-// {
-//     type Parents = Delegation<T::Parents, C, DID, V, Enc>;
-//     type ParentError = <T as CheckParents>::ParentError;
-//
-//     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-//         self.payload().check_parent(&proof.payload())
-//     }
-// }

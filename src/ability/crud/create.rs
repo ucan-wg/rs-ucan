@@ -11,21 +11,6 @@ use libipld_core::ipld::Ipld;
 use serde::Serialize;
 use std::path::PathBuf;
 
-// FIXME deserialize instance
-
-/// A helper for creating lifecycle instances of `crud/create` with the correct shape.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Generic<Path, Args> {
-    /// An optional path to a sub-resource that is to be created.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<Path>,
-
-    /// Optional arguments for creation.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<Args>,
-}
-
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/create` ability.
 ///
@@ -49,8 +34,8 @@ pub struct Generic<Path, Args> {
 ///       end
 ///     end
 ///
-///     createpromise("crud::create::Promised")
-///     createready("crud::create::Ready")
+///     createpromise("crud::create::PromisedCreate")
+///     createready("crud::create::Create")
 ///
 ///     top --> any --> mutate --> create
 ///     create -.->|invoke| createpromise -.->|resolve| createready -.-> exe{{execute}}
@@ -59,7 +44,7 @@ pub struct Generic<Path, Args> {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ready {
+pub struct Create {
     /// An optional path to a sub-resource that is to be created.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
@@ -93,8 +78,8 @@ pub struct Ready {
 ///       end
 ///     end
 ///
-///     createpromise("crud::create::Promised")
-///     createready("crud::create::Ready")
+///     createpromise("crud::create::PromisedCreate")
+///     createready("crud::create::Create")
 ///
 ///     top --> any --> mutate --> create
 ///     create -.->|invoke| createpromise -.->|resolve| createready -.-> exe{{execute}}
@@ -103,7 +88,7 @@ pub struct Ready {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Promised {
+pub struct PromisedCreate {
     /// An optional path to a sub-resource that is to be created.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<promise::Resolves<PathBuf>>,
@@ -113,17 +98,17 @@ pub struct Promised {
     pub args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
 }
 
-const COMMAND: &str = "crud/create";
+const COMMAND: &str = "/crud/create";
 
-impl Command for Ready {
+impl Command for Create {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
+impl Command for PromisedCreate {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -171,11 +156,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised { path, args })
+        Ok(PromisedCreate { path, args })
     }
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Create {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
@@ -198,79 +183,13 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
             }
         }
 
-        Ok(Ready { path, args })
+        Ok(Create { path, args })
     }
 }
 
-// impl Delegable for Ready {
-//     type Builder = Ready;
-// }
-
-// impl Checkable for Ready {
-//     type Hierarchy = Parentful<Ready>;
-// }
-//
-// impl CheckSame for Ready {
-//     type Error = (); // FIXME better error
-//
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         if self.path == proof.path {
-//             Ok(())
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
-//
-// impl CheckParents for Ready {
-//     type Parents = MutableParents;
-//     type ParentError = (); // FIXME
-//
-//     fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-//         if let Some(self_path) = &self.path {
-//             match other {
-//                 MutableParents::Any(any) => {
-//                     // FIXME check the args, too!
-//                     if let Some(proof_path) = &any.path {
-//                         if self_path != proof_path {
-//                             return Err(());
-//                         }
-//                     }
-//                 }
-//                 MutableParents::Mutate(mutate) => {
-//                     // FIXME check the args, too!
-//                     if let Some(proof_path) = &mutate.path {
-//                         if self_path != proof_path {
-//                             return Err(());
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//
-//         Ok(())
-//     }
-// }
-
-// impl From<Promised> for arguments::Named<Ipld> {
-//     fn from(promised: Promised) -> Self {
-//         let mut named = arguments::Named::new();
-//
-//         if let Some(path) = promised.path {
-//             named.insert("path".to_string(), Ipld::String(path.to_string()));
-//         }
-//
-//         if let Some(args) = promised.args {
-//             named.insert("args".to_string(), Ipld::from(args));
-//         }
-//
-//         named
-//     }
-// }
-
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Promised {
-        Promised {
+impl From<Create> for PromisedCreate {
+    fn from(r: Create) -> PromisedCreate {
+        PromisedCreate {
             path: r
                 .path
                 .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
@@ -280,12 +199,12 @@ impl From<Ready> for Promised {
     }
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Create {
+    type Promised = PromisedCreate;
 }
 
-impl From<Ready> for arguments::Named<Ipld> {
-    fn from(builder: Ready) -> Self {
+impl From<Create> for arguments::Named<Ipld> {
+    fn from(builder: Create) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path) = builder.path {
@@ -306,8 +225,8 @@ impl From<Ready> for arguments::Named<Ipld> {
     }
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedCreate> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedCreate) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path) = promised.path {

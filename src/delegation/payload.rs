@@ -45,8 +45,11 @@ pub struct Payload<C: Condition, DID: Did> {
     /// The agent being delegated to.
     pub audience: DID,
 
+    /// The command being delegated.
+    pub command: String,
+
     /// Any [`Condition`]s on the `ability_builder`.
-    pub conditions: Vec<C>,
+    pub policy: Vec<C>,
 
     /// Extensible, free-form fields.
     pub metadata: BTreeMap<String, Ipld>,
@@ -129,6 +132,7 @@ where
             Option::<DID>::arbitrary(),
             DID::arbitrary_with(did_args.clone()),
             DID::arbitrary_with(did_args),
+            String::arbitrary(),
             Nonce::arbitrary(),
             Timestamp::arbitrary(),
             Option::<Timestamp>::arbitrary(),
@@ -144,17 +148,19 @@ where
                     subject,
                     issuer,
                     audience,
+                    command,
                     nonce,
                     expiration,
                     not_before,
                     metadata,
-                    conditions,
+                    policy,
                 )| {
                     Payload {
                         issuer,
                         subject,
                         audience,
-                        conditions,
+                        command,
+                        policy,
                         metadata,
                         nonce,
                         expiration,

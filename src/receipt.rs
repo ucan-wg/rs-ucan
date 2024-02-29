@@ -5,6 +5,9 @@
 //! - [`Store`] is the storage interface for [`Receipt`]s.
 //! - [`Responds`] associates the response success type to an [Ability][crate::ability].
 
+// FIXME consider "assertion"?
+//
+
 mod payload;
 mod responds;
 
@@ -19,7 +22,10 @@ use crate::{
     crypto::{signature, varsig},
     did,
 };
-use libipld_core::codec::Codec;
+use libipld_core::{
+    codec::{Codec, Encode},
+    ipld::Ipld,
+};
 
 /// The complete, signed receipt of an [`Invocation`][`crate::invocation::Invocation`].
 #[derive(Clone, Debug, PartialEq)]
@@ -39,8 +45,8 @@ pub type Preset = Receipt<
     varsig::encoding::Preset,
 >;
 
-impl<T: Responds, DID: did::Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>>
-    Receipt<T, DID, V, C>
+impl<T: Responds, DID: did::Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
+    Receipt<T, DID, V, Enc>
 {
     /// Returns the [`Payload`] of the [`Receipt`].
     pub fn payload(&self) -> &Payload<T, DID> {
@@ -50,5 +56,12 @@ impl<T: Responds, DID: did::Did, V: varsig::Header<C>, C: Codec + Into<u32> + Tr
     /// Returns the [`signature::Envelope`] of the [`Receipt`].
     pub fn signature(&self) -> &DID::Signature {
         &self.0.signature
+    }
+
+    pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
+    where
+        Ipld: Encode<Enc>,
+    {
+        self.0.varsig_encode(w)
     }
 }

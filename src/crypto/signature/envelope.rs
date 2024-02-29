@@ -62,6 +62,16 @@ impl<
         }
     }
 
+    // FIXME extract into trait?
+    pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
+    where
+        Ipld: Encode<Enc>,
+    {
+        let codec = self.varsig_header.codec().clone();
+        let ipld: Ipld = self.into();
+        ipld.encode(codec, w)
+    }
+
     /// Attempt to sign some payload with a given signer.
     ///
     /// # Arguments

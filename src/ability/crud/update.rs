@@ -143,7 +143,7 @@ pub struct Promised {
     args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
 }
 
-const COMMAND: &'static str = "crud/update";
+const COMMAND: &'static str = "/crud/update";
 
 impl Command for Ready {
     const COMMAND: &'static str = COMMAND;
