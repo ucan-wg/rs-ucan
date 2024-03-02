@@ -1,400 +1,421 @@
 //FIXME rename core
+use crate::ipld;
 use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{collections::BTreeMap, fmt};
+
+impl Predicate {
+    pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
+        Ok(match self {
+            Predicate::True => true,
+            Predicate::False => false,
+            Predicate::Equal(lhs, rhs) => lhs.resolve(data)? == rhs.resolve(data)?,
+            Predicate::GreaterThan(lhs, rhs) => lhs.resolve(data)? > rhs.resolve(data)?,
+            Predicate::GreaterThanOrEqual(lhs, rhs) => lhs.resolve(data)? >= rhs.resolve(data)?,
+            Predicate::LessThan(lhs, rhs) => lhs.resolve(data)? < rhs.resolve(data)?,
+            Predicate::LessThanOrEqual(lhs, rhs) => lhs.resolve(data)? <= rhs.resolve(data)?,
+            Predicate::Like(lhs, rhs) => glob(&lhs.resolve(data)?, &rhs.resolve(data)?),
+            Predicate::Not(inner) => !inner.run(data)?,
+            Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
+            Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
+            Predicate::Forall(xs, p) => xs
+                .resolve(data)?
+                .to_vec()
+                .iter()
+                .try_fold(true, |acc, ipld| Ok(acc && p.clone().run(ipld)?))?,
+            Predicate::Exists(xs, p) => {
+                let pred = p.clone();
+
+                xs.resolve(data)?
+                    .to_vec()
+                    .iter()
+                    .try_fold(true, |acc, ipld| Ok(acc || pred.clone().run(ipld)?))?
+            }
+        })
+    }
+}
+
+pub enum RunError {
+    IndexOutOfBounds,
+    KeyNotFound,
+    NotAList,
+    NotAMap,
+    NotACollection,
+    NotANumber(<ipld::Number as TryFrom<Ipld>>::Error),
+}
+
+trait Resolve<T> {
+    fn resolve(self, ctx: &Ipld) -> Result<T, SelectorError>;
+}
+
+impl Resolve<Ipld> for Ipld {
+    fn resolve(self, _ctx: &Ipld) -> Result<Ipld, SelectorError> {
+        Ok(self)
+    }
+}
+
+impl Resolve<ipld::Number> for ipld::Number {
+    fn resolve(self, _ctx: &Ipld) -> Result<ipld::Number, SelectorError> {
+        Ok(self)
+    }
+}
+
+impl Resolve<Collection> for Collection {
+    fn resolve(self, _ctx: &Ipld) -> Result<Collection, SelectorError> {
+        Ok(self)
+    }
+}
+
+// impl Resolve<Ipld> for Collection {
+//     fn resolve(self, ctx: Ipld) -> Result<Ipld, SelectorError> {
+//         match self {
+//             Collection::Array(xs) => Ok(Ipld::List(xs)),
+//             Collection::Map(xs) => Ok(Ipld::Map(xs)),
+//         }
+//     }
+// }
+
+// FIXME Normal form?
+
+impl Resolve<String> for String {
+    fn resolve(self, _ctx: &Ipld) -> Result<String, SelectorError> {
+        Ok(self)
+    }
+}
+
+pub struct Text(String);
+
+// impl TryFrom<Ipld> for String {
+//     fn try_from(ipld: Ipld) -> Result<String, <String as TryFrom<Ipld>>::Error> {
+//         match ipld {
+//             Ipld::String(s) => Ok(s),
+//             _ => Err(()),
+//         }
+//     }
+// }
+
+impl<T: TryFromIpld> SelectorOr<T> {
+    fn resolve(self, ctx: &Ipld) -> Result<T, SelectorError> {
+        match self {
+            SelectorOr::Pure(inner) => Ok(inner),
+            SelectorOr::Get(ops) => {
+                ops.iter()
+                    .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
+                        seen_ops.push(op);
+
+                        match op {
+                            SelectorOp::This => Ok((ipld, seen_ops)),
+                            SelectorOp::Try(inner) => {
+                                let op: SelectorOp = *inner.clone();
+                                let ipld: Ipld = SelectorOr::Get::<Ipld>(vec![op])
+                                    .resolve(ctx)
+                                    .unwrap_or(Ipld::Null);
+
+                                Ok((ipld, seen_ops))
+                            }
+                            SelectorOp::Index(i) => {
+                                let result = match ipld {
+                                    Ipld::List(xs) => xs
+                                        .get(*i)
+                                        .ok_or(SelectorError {
+                                            path: seen_ops.iter().map(|op| (*op).clone()).collect(),
+                                            reason: SelectorErrorReason::IndexOutOfBounds,
+                                        })
+                                        .cloned(),
+                                    // FIXME behaviour on maps? type error
+                                    _ => Err(SelectorError {
+                                        path: seen_ops.iter().map(|op| (*op).clone()).collect(),
+                                        reason: SelectorErrorReason::NotAList,
+                                    }),
+                                };
+
+                                Ok((result?, seen_ops))
+                            }
+                            SelectorOp::Key(k) => {
+                                let result = match ipld {
+                                    Ipld::Map(xs) => xs
+                                        .get(k)
+                                        .ok_or(SelectorError::from_refs(
+                                            &seen_ops,
+                                            SelectorErrorReason::KeyNotFound,
+                                        ))
+                                        .cloned(),
+                                    _ => Err(SelectorError::from_refs(
+                                        &seen_ops,
+                                        SelectorErrorReason::NotAMap,
+                                    )),
+                                };
+
+                                Ok((result?.clone(), seen_ops))
+                            }
+                            SelectorOp::Values => {
+                                let result = match ipld {
+                                    Ipld::List(xs) => Ok(Ipld::List(xs)),
+                                    Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
+                                    _ => Err(SelectorError::from_refs(
+                                        &seen_ops,
+                                        SelectorErrorReason::NotACollection,
+                                    )),
+                                };
+
+                                Ok((result?.clone(), seen_ops))
+                            }
+                        }
+                    })
+                    .and_then(|(ipld, ref path)| {
+                        T::try_from_ipld(ipld).map_err(|e| SelectorError::from_refs(path, e))
+                    })
+            }
+        }
+    }
+}
+
+pub trait TryFromIpld: Sized {
+    fn try_from_ipld(ipld: Ipld) -> Result<Self, SelectorErrorReason>;
+}
+
+impl TryFromIpld for Ipld {
+    fn try_from_ipld(ipld: Ipld) -> Result<Ipld, SelectorErrorReason> {
+        Ok(ipld)
+    }
+}
+
+impl TryFromIpld for ipld::Number {
+    fn try_from_ipld(ipld: Ipld) -> Result<ipld::Number, SelectorErrorReason> {
+        match ipld {
+            Ipld::Integer(i) => Ok(ipld::Number::Integer(i)),
+            Ipld::Float(f) => Ok(ipld::Number::Float(f)),
+            _ => Err(SelectorErrorReason::NotANumber),
+        }
+    }
+}
+
+impl TryFromIpld for String {
+    fn try_from_ipld(ipld: Ipld) -> Result<Self, SelectorErrorReason> {
+        match ipld {
+            Ipld::String(s) => Ok(s),
+            _ => Err(SelectorErrorReason::NotAString),
+        }
+    }
+}
+
+impl TryFromIpld for Collection {
+    fn try_from_ipld(ipld: Ipld) -> Result<Collection, SelectorErrorReason> {
+        match ipld {
+            Ipld::List(xs) => Ok(Collection::Array(xs)),
+            Ipld::Map(xs) => Ok(Collection::Map(xs)),
+            _ => Err(SelectorErrorReason::NotACollection),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Term {
-    // Leaves
-    Literal(Ipld),
-    Selector(Selector), // NOTE the IR version doens't inline the results
+pub struct SelectorError {
+    pub path: Vec<SelectorOp>,
+    pub reason: SelectorErrorReason,
+}
 
-    // Connectives
-    Not(Box<Term>),
-    And(Vec<Term>),
-    Or(Vec<Term>),
+impl SelectorError {
+    pub fn from_refs(path_refs: &Vec<&SelectorOp>, reason: SelectorErrorReason) -> SelectorError {
+        SelectorError {
+            path: path_refs.iter().map(|op| (*op).clone()).collect(),
+            reason,
+        }
+    }
+}
 
-    // Comparison
-    Equal(Value, Value), // AKA unification
-    GreaterThan(Value, Value),
-    LessThan(Value, Value),
-
-    // String Matcher
-    Glob(Value, Value),
-
-    // Existential Quantification
-    Every(Variable, Value), // ∀x ∈ xs
-    Some(Variable, Value),  // ∃x ∈ xs -> convert every -> some
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SelectorErrorReason {
+    IndexOutOfBounds,
+    KeyNotFound,
+    NotAList,
+    NotAMap,
+    NotACollection,
+    NotANumber,
+    NotAString,
 }
 
 // FIXME exract domain gen selectors first?
 // FIXME rename constraint or validation or expression or something?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Statement {
-    // Select from ?foo
-    Select(Selector, SelectorValue, Variable), // .foo.bar[].baz
-
-    // Connectives
-    Not(Box<Statement>),
-    And(Box<Statement>, Box<Statement>),
-    Or(Box<Statement>, Box<Statement>),
-
-    // String Matcher
-    Glob(Value, Value),
-    Equal(Value, Value), // AKA unification // FIXME value can also be a selector
+pub enum Predicate {
+    // Booleans for connectives? FIXME
+    True,
+    False,
 
     // Comparison
-    GreaterThan(Value, Value),
-    GreaterThanOrEqual(Value, Value),
-    LessThan(Value, Value),
-    LessThanOrEqual(Value, Value),
+    Equal(SelectorOr<Ipld>, SelectorOr<Ipld>),
 
-    // Forall: unpack and unify size before and after
-    // Exists genrates more than one frame (unpacks an array) instead of one
-    Forall(Variable, Collection), // ∀x ∈ xs
-    Exists(Variable, Collection), // ∃x ∈ xs
+    GreaterThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    GreaterThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+
+    LessThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    LessThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+
+    Like(SelectorOr<String>, SelectorOr<String>),
+
+    // Connectives
+    Not(Box<Predicate>),
+    And(Box<Predicate>, Box<Predicate>),
+    Or(Box<Predicate>, Box<Predicate>),
+
+    // Collection iteration
+    Forall(SelectorOr<Collection>, Box<Predicate>), // ∀x ∈ xs
+    Exists(SelectorOr<Collection>, Box<Predicate>), // ∃x ∈ xs
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Variable(pub String); // ?x
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SelectorOr<T> {
+    Get(Vec<SelectorOp>),
+    Pure(T),
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Collection {
     Array(Vec<Ipld>),
     Map(BTreeMap<String, Ipld>),
-    Selector(Vec<Ipld>),
+}
+
+impl Collection {
+    pub fn to_vec(self) -> Vec<Ipld> {
+        match self {
+            Collection::Array(xs) => xs,
+            Collection::Map(xs) => xs.into_values().collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Selector(pub Vec<PathSegment>); // .foo.bar[].baz
-
-// FIXME need an IR representation of $args
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum PathSegment {
-    This,         // .
-    Index(usize), // [2]
-    Key(String),  // ["key"] (or .key)
-                  // FlattenAll,   // [] --> creates an Array
+pub enum SelectorOp {
+    This,                 // .
+    Index(usize),         // [2]
+    Key(String),          // ["key"] (or .key)
+    Values,               // .[]
+    Try(Box<SelectorOp>), // ?
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SelectorValue {
-    Literal(Ipld),
-    Variable(Variable),
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Value {
-    Literal(Ipld),
-    Selector(Vec<PathSegment>),
-}
-
-pub fn glob(input: &Ipld, pattern: &Ipld) -> bool {
-    if let (Ipld::String(s), Ipld::String(pat)) = (input, pattern) {
-        let mut input = s.chars();
-        let mut pattern = pat.chars(); // Ugly
-
-        loop {
-            match (input.next(), pattern.next()) {
-                (Some(i), Some(p)) => {
-                    if p == '*' {
-                        return true;
-                    } else if i != p {
-                        return false;
+impl fmt::Display for SelectorOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SelectorOp::This => write!(f, "."),
+            SelectorOp::Index(i) => write!(f, "[{}]", i),
+            SelectorOp::Key(k) => {
+                if let Some(first) = k.chars().next() {
+                    if first.is_alphabetic() && k.chars().all(char::is_alphanumeric) {
+                        write!(f, ".{}", k)
+                    } else {
+                        write!(f, "[\"{}\"]", k)
                     }
+                } else {
+                    write!(f, "[\"{}\"]", k)
                 }
-                (Some(_), None) => {
-                    return false; // FIXME correct?
+            }
+            SelectorOp::Values => write!(f, "[]"),
+            SelectorOp::Try(inner) => write!(f, "{}?", inner),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Selector(pub Vec<SelectorOp>);
+
+impl Serialize for Selector {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0
+            .iter()
+            .fold("".into(), |acc, seg| format!("{}{}", acc, seg.to_string()))
+            .serialize(serializer)
+    }
+}
+
+pub fn glob(input: &String, pattern: &String) -> bool {
+    let mut chars = input.chars();
+    let mut like = pattern.chars();
+
+    loop {
+        match (chars.next(), like.next()) {
+            (Some(i), Some(p)) => {
+                if p == '*' {
+                    return true;
+                } else if i != p {
+                    return false;
                 }
-                (None, Some(p)) => {
-                    if p == '*' {
-                        return true;
-                    }
-                }
-                (None, None) => {
+            }
+            (Some(_), None) => {
+                return false; // FIXME correct?
+            }
+            (None, Some(p)) => {
+                if p == '*' {
                     return true;
                 }
             }
-        }
-    }
-    panic!("FIXME");
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
-pub enum Stream {
-    Every(BTreeMap<usize, Ipld>), // "All or nothing"
-    Some(BTreeMap<usize, Ipld>),  // FIXME disambiguate from Option::Some
-}
-
-impl Stream {
-    pub fn remove(&mut self, key: usize) {
-        match self {
-            Stream::Every(xs) => {
-                xs.remove(&key);
+            (None, None) => {
+                return true;
             }
-            Stream::Some(xs) => {
-                xs.remove(&key);
-            }
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Stream::Every(xs) => xs.len(),
-            Stream::Some(xs) => xs.len(),
-        }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Ipld)> {
-        match self {
-            Stream::Every(xs) => xs.iter(),
-            Stream::Some(xs) => xs.iter(),
-        }
-    }
-
-    pub fn to_btree(self) -> BTreeMap<usize, Ipld> {
-        match self {
-            Stream::Every(xs) => xs,
-            Stream::Some(xs) => xs,
-        }
-    }
-
-    pub fn map(self, f: impl Fn(BTreeMap<usize, Ipld>) -> BTreeMap<usize, Ipld>) -> Stream {
-        match self {
-            Stream::Every(xs) => {
-                let updated = f(xs);
-                Stream::Every(updated)
-            }
-            Stream::Some(xs) => {
-                let updated = f(xs);
-                Stream::Some(updated)
-            }
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Stream::Every(xs) => xs.is_empty(),
-            Stream::Some(xs) => xs.is_empty(),
         }
     }
 }
 
-// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-// pub struct EveryStream(V<Ipld>);
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
+// pub enum Stream {
+//     Every(BTreeMap<usize, Ipld>), // "All or nothing"
+//     Some(BTreeMap<usize, Ipld>),  // FIXME disambiguate from Option::Some
+// }
 //
-// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-// pub struct SomeStream(Vec<Ipld>);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum LogicIpld {
-    Null,
-    Bool(bool),
-    Float(f64),
-    Integer(i128),
-    String(String),
-    Bytes(Vec<u8>),
-    List(Vec<LogicIpld>),
-    Map(BTreeMap<String, LogicIpld>),
-
-    // A new challenger has appeared!
-    Var(String),
-}
-
-impl LogicIpld {
-    pub fn substitute(&mut self, bindings: BTreeMap<Variable, LogicIpld>) {
-        match self {
-            LogicIpld::Var(var_id) => {
-                if let Some(value) = bindings.get(&Variable(*var_id)) {
-                    *self = value.clone();
-                }
-            }
-            LogicIpld::List(xs) => {
-                for x in xs {
-                    x.substitute(bindings.clone());
-                }
-            }
-            LogicIpld::Map(btree) => {
-                for (_, x) in btree {
-                    x.substitute(bindings.clone());
-                }
-            }
-            _other => (),
-        }
-    }
-
-    pub fn extract_into(&self, vars: &mut BTreeSet<Variable>) {
-        match self {
-            LogicIpld::Var(var_id) => {
-                vars.insert(Variable(var_id.clone()));
-            }
-            LogicIpld::List(xs) => {
-                for x in xs {
-                    x.extract_into(vars);
-                }
-            }
-            LogicIpld::Map(btree) => {
-                for (_, x) in btree {
-                    x.extract_into(vars);
-                }
-            }
-            _other => (),
-        }
-    }
-
-    pub fn unify(
-        self,
-        other: Self,
-        bindings: BTreeMap<Variable, LogicIpld>,
-    ) -> Result<(Self, BTreeSet<Variable>), ()> {
-        match (self, other) {
-            (LogicIpld::Null, LogicIpld::Null) => Ok((LogicIpld::Null, BTreeSet::new())),
-            (LogicIpld::Bool(a), LogicIpld::Bool(b)) => {
-                if a == b {
-                    Ok((LogicIpld::Bool(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::Float(a), LogicIpld::Float(b)) => {
-                if a == b {
-                    Ok((LogicIpld::Float(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::Integer(a), LogicIpld::Integer(b)) => {
-                if a == b {
-                    Ok((LogicIpld::Integer(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::String(a), LogicIpld::String(b)) => {
-                if a == b {
-                    Ok((LogicIpld::String(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::Bytes(a), LogicIpld::Bytes(b)) => {
-                if a == b {
-                    Ok((LogicIpld::Bytes(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::List(a), LogicIpld::List(b)) => {
-                // FIXME
-                if a.len() != b.len() {
-                    return Err(());
-                }
-                let mut bindings = BTreeSet::new();
-                let mut result = Vec::with_capacity(a.len());
-                for (a, b) in a.into_iter().zip(b.into_iter()) {
-                    let (unified, mut new_bindings) = a.unify(b)?;
-                    result.push(unified);
-                    bindings.append(&mut new_bindings);
-                }
-                Ok((LogicIpld::List(result), bindings))
-            }
-            (LogicIpld::Map(a), LogicIpld::Map(b)) => {
-                // FIXME
-                if a.len() != b.len() {
-                    return Err(());
-                }
-                let mut bindings = BTreeSet::new();
-                let mut result = BTreeMap::new();
-                for (k, a) in a.into_iter() {
-                    if let Some(b) = b.get(&k) {
-                        let (unified, mut new_bindings) = a.unify(b.clone())?;
-                        result.insert(k, unified);
-                        bindings.append(&mut new_bindings);
-                    } else {
-                        return Err(());
-                    }
-                }
-                Ok((LogicIpld::Map(result), bindings))
-            }
-            (LogicIpld::Var(a), LogicIpld::Var(b)) => {
-                // FIXME
-
-                // If I have a binding for a, and no binding for b, set ?b := ?a
-                // If I have a binding for b, and no binding for a, set ?a := ?b
-                // If I have neither binding, what do???
-                // If I have both bindings, and they are the same, great
-                //     1. check ?a == ?b
-                //     2 set ?a := ?b
-                //           NOTE: would need to update the lookup procedure elsewhere
-                //                 to do recursive lookup
-                // If I have both bindings, and they are not immeditely equal,
-                //   recursively unify them, and then set ?a := ?b
-                //   NOTE: during recursion, if we see ?a in ?b or ?b in ?a, you need to bail
-
-                if a == b {
-                    Ok((LogicIpld::Var(a), BTreeSet::new()))
-                } else {
-                    Err(())
-                }
-            }
-            (LogicIpld::Var(lhs_tag), logic_ipld) => {
-                match logic_ipld {
-                    rhs @ LogicIpld::Var(rhs_tag) => {
-                        //FIXME double check
-                        if let Some(b) = bindings.get(&rhs_tag) {
-                            let (unified, mut new_bindings) =
-                                LogicIpld::Var(a).unify(rhs.clone())?;
-                            new_bindings.insert(rhs.clone());
-                            Ok((unified, new_bindings))
-                        } else {
-                            let mut new_bindings = BTreeSet::new();
-                            new_bindings.insert(Variable(b.clone()));
-                            Ok((LogicIpld::Var(a), new_bindings))
-                        }
-                    }
-
-                    _ => {
-                        let mut new_bindings = BTreeSet::new();
-                        new_bindings.insert(Variable(a.clone()));
-                        Ok((logic_ipld, new_bindings))
-                    }
-                }
-            }
-            (lhs, rhs @ LogicIpld::Var(_)) => rhs.unify(lhs, bindings),
-
-            _ => Err(()),
-        }
-    }
-}
-
-impl TryFrom<LogicIpld> for Ipld {
-    type Error = Variable;
-
-    fn try_from(logic: LogicIpld) -> Result<Ipld, Self::Error> {
-        match logic {
-            LogicIpld::Null => Ok(Ipld::Null),
-            LogicIpld::Bool(b) => Ok(Ipld::Bool(b)),
-            LogicIpld::Float(f) => Ok(Ipld::Float(f)),
-            LogicIpld::Integer(i) => Ok(Ipld::Integer(i)),
-            LogicIpld::String(s) => Ok(Ipld::String(s)),
-            LogicIpld::Bytes(b) => Ok(Ipld::Bytes(b)),
-            LogicIpld::List(xs) => xs
-                .into_iter()
-                .try_fold(vec![], |mut acc, x| {
-                    acc.push(Ipld::try_from(x)?);
-                    Ok(acc)
-                })
-                .map(Ipld::List),
-            LogicIpld::Map(btree) => btree
-                .into_iter()
-                .try_fold(BTreeMap::new(), |mut acc, (k, v)| {
-                    acc.insert(k, Ipld::try_from(v)?);
-                    Ok(acc)
-                })
-                .map(Ipld::Map),
-            LogicIpld::Var(var_id) => Err(Variable(var_id)),
-        }
-    }
-}
+// impl Stream {
+//     pub fn remove(&mut self, key: usize) {
+//         match self {
+//             Stream::Every(xs) => {
+//                 xs.remove(&key);
+//             }
+//             Stream::Some(xs) => {
+//                 xs.remove(&key);
+//             }
+//         }
+//     }
+//
+//     pub fn len(&self) -> usize {
+//         match self {
+//             Stream::Every(xs) => xs.len(),
+//             Stream::Some(xs) => xs.len(),
+//         }
+//     }
+//
+//     pub fn iter(&self) -> impl Iterator<Item = (&usize, &Ipld)> {
+//         match self {
+//             Stream::Every(xs) => xs.iter(),
+//             Stream::Some(xs) => xs.iter(),
+//         }
+//     }
+//
+//     pub fn to_btree(self) -> BTreeMap<usize, Ipld> {
+//         match self {
+//             Stream::Every(xs) => xs,
+//             Stream::Some(xs) => xs,
+//         }
+//     }
+//
+//     pub fn map(self, f: impl Fn(BTreeMap<usize, Ipld>) -> BTreeMap<usize, Ipld>) -> Stream {
+//         match self {
+//             Stream::Every(xs) => {
+//                 let updated = f(xs);
+//                 Stream::Every(updated)
+//             }
+//             Stream::Some(xs) => {
+//                 let updated = f(xs);
+//                 Stream::Some(updated)
+//             }
+//         }
+//     }
+//
+//     pub fn is_empty(&self) -> bool {
+//         match self {
+//             Stream::Every(xs) => xs.is_empty(),
+//             Stream::Some(xs) => xs.is_empty(),
+//         }
+//     }
+// }

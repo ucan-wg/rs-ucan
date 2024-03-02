@@ -10,7 +10,7 @@ use serde_derive::{Deserialize, Serialize};
 /// bounds checking in [`Condition`]s.
 ///
 /// [`Condition`]: crate::delegation::Condition
-#[derive(Debug, Clone, PartialEq, PartialOrd, EnumAsInner, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Number {
     /// Designate a floating point number
@@ -18,6 +18,17 @@ pub enum Number {
 
     /// Designate an integer
     Integer(i128),
+}
+
+impl PartialOrd for Number {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Number::Float(a), Number::Float(b)) => a.partial_cmp(b),
+            (Number::Integer(a), Number::Integer(b)) => a.partial_cmp(b),
+            (Number::Float(a), Number::Integer(b)) => a.partial_cmp(&(*b as f64)),
+            (Number::Integer(a), Number::Float(b)) => (*a as f64).partial_cmp(b),
+        }
+    }
 }
 
 impl From<Number> for Ipld {

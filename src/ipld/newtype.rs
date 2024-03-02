@@ -1,6 +1,7 @@
 use libipld_core::ipld::Ipld;
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{cmp::Ordering, path::PathBuf};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -42,6 +43,65 @@ use super::cid;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Newtype(pub Ipld);
+
+// impl Eq for Newtype {}
+//
+// impl PartialOrd for Newtype {
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         match (&self.0, &other.0) {
+//             (Ipld::Null, Ipld::Null) => Some(Ordering::Equal),
+//             (Ipld::Null, _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Bool(lhs), Ipld::Bool(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::Bool(lhs), Ipld::Bool(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::Bool(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Float(lhs_f), Ipld::Float(rhs_f)) => {
+//                 OrderedFloat(*lhs_f).partial_cmp(&OrderedFloat(*rhs_f))
+//             }
+//             (lhs @ Ipld::Float(_), rhs) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Integer(lhs), Ipld::Integer(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::Integer(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::String(lhs), Ipld::String(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::String(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Bytes(lhs), Ipld::Bytes(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::Bytes(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Link(lhs), Ipld::Link(rhs)) => lhs.partial_cmp(rhs),
+//             (Ipld::Link(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::List(lhs), Ipld::List(rhs)) => {
+//                 let result = lhs.iter().zip(rhs).try_fold((), |acc, (l, r)| {
+//                     match Newtype(*l).partial_cmp(&Newtype(*r)) {
+//                         Some(Ordering::Equal) => Ok(()),
+//                         Some(other) => Err(other),
+//                         None => Err(Ordering::Less),
+//                     }
+//                 });
+//
+//                 match result {
+//                     Ok(()) => Some(Ordering::Equal),
+//                     Err(comp) => Some(comp),
+//                 }
+//             }
+//             (Ipld::List(_), _) => Some(Ordering::Less),
+//
+//             //
+//             (Ipld::Map(lhs), Ipld::Map(rhs)) => None,
+//             (Ipld::Map(_), _) => Some(Ordering::Less),
+//         }
+//     }
+// }
 
 impl From<Ipld> for Newtype {
     fn from(ipld: Ipld) -> Self {

@@ -35,7 +35,7 @@
 ///    const COMMAND: &'static str = "/storage/upload";
 /// }
 ///
-/// assert_eq!(Upload::COMMAND, "storage/upload");
+/// assert_eq!(Upload::COMMAND, "/storage/upload");
 /// ```
 pub trait Command {
     /// The value that will be placed in the UCAN's `cmd` field for the given type
