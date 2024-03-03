@@ -53,6 +53,7 @@ base64 = "0.21"
 bs58 = "0.5"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_derive = "1.0"
+nom = "7.1"
 
 # Web Stack
 did_url = "0.1"

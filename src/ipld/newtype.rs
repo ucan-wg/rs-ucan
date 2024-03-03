@@ -1,7 +1,6 @@
 use libipld_core::ipld::Ipld;
-use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, path::PathBuf};
+use std::path::PathBuf;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
