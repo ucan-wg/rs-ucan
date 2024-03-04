@@ -85,7 +85,7 @@ pub struct Payload<T: Responds, DID: Did> {
 }
 
 impl<T: Responds, DID: Did> Capsule for Payload<T, DID> {
-    const TAG: &'static str = "ucan/r/1.0.0-rc.1";
+    const TAG: &'static str = "ucan/r@1.0.0-rc.1";
 }
 
 impl<T: Responds, DID: Did + Clone> Serialize for Payload<T, DID>

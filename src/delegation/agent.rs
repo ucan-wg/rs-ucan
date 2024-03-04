@@ -1,8 +1,7 @@
-use super::{condition::Condition, payload::Payload, store::Store, Delegation};
+use super::{payload::Payload, policy::predicate::Predicate, store::Store, Delegation};
 use crate::{
     crypto::{varsig, Nonce},
     did::Did,
-    //   proof::checkable::Checkable,
     time::Timestamp,
 };
 use libipld_core::{
@@ -20,9 +19,8 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    C: Condition,
     DID: Did,
-    S: Store<C, DID, V, Enc>,
+    S: Store<DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
 > {
@@ -33,17 +31,16 @@ pub struct Agent<
     pub store: &'a mut S,
 
     signer: &'a <DID as Did>::Signer,
-    _marker: PhantomData<(C, V, Enc)>,
+    _marker: PhantomData<(V, Enc)>,
 }
 
 impl<
         'a,
-        C: Condition + Clone,
         DID: Did + ToString + Clone,
-        S: Store<C, DID, V, Enc> + Clone,
+        S: Store<DID, V, Enc> + Clone,
         V: varsig::Header<Enc>,
         Enc: Codec + TryFrom<u32> + Into<u32>,
-    > Agent<'a, C, DID, S, V, Enc>
+    > Agent<'a, DID, S, V, Enc>
 where
     Ipld: Encode<Enc>,
 {
@@ -61,19 +58,19 @@ where
         audience: DID,
         subject: Option<DID>,
         command: String,
-        new_policy: Vec<C>,
+        new_policy: Vec<Predicate>,
         metadata: BTreeMap<String, Ipld>,
         expiration: Timestamp,
         not_before: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<Delegation<C, DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
+    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
         if let Some(ref sub) = subject {
             if sub == self.did {
-                let payload: Payload<C, DID> = Payload {
+                let payload: Payload<DID> = Payload {
                     issuer: self.did.clone(),
                     audience,
                     subject,
@@ -103,7 +100,7 @@ where
         let mut policy = to_delegate.policy.clone();
         policy.append(&mut new_policy.clone());
 
-        let payload: Payload<C, DID> = Payload {
+        let payload: Payload<DID> = Payload {
             issuer: self.did.clone(),
             audience,
             subject,
@@ -121,7 +118,7 @@ where
     pub fn receive(
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
-        delegation: Delegation<C, DID, V, Enc>,
+        delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());

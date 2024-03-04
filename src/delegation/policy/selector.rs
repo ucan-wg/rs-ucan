@@ -1,7 +1,8 @@
 pub mod error;
 pub mod op;
+pub mod or;
 
-use error::ParseError;
+use error::{ParseError, SelectorErrorReason};
 use nom::{
     self,
     branch::alt,
@@ -15,6 +16,7 @@ use nom::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Selector(Vec<op::SelectorOp>);
@@ -23,7 +25,7 @@ pub fn parse(input: &str) -> IResult<&str, Selector> {
     let without_this = many1(op::parse);
     let with_this = preceded(char('.'), many0(op::parse));
 
-    // NOTE: must try without this first, to disambiguate `.field` from `.`
+    // NOTE: must try without_this this first, to disambiguate `.field` from `.`
     let p = map_res(alt((without_this, with_this)), |found| {
         Ok::<Selector, ()>(Selector(found))
     });
@@ -80,5 +82,24 @@ impl<'de> Deserialize<'de> for Selector {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         Selector::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+#[error("Selector {selector} encountered runtime error: {reason}")]
+pub struct SelectorError {
+    pub selector: Selector,
+    pub reason: SelectorErrorReason,
+}
+
+impl SelectorError {
+    pub fn from_refs(
+        path_refs: &Vec<&op::SelectorOp>,
+        reason: SelectorErrorReason,
+    ) -> SelectorError {
+        SelectorError {
+            selector: Selector(path_refs.iter().map(|op| (*op).clone()).collect()),
+            reason,
+        }
     }
 }

@@ -14,10 +14,11 @@ use nom::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum SelectorOp {
-    // FIXME remove #[default]
-    // This, // .
     ArrayIndex(i32),      // [2]
     Field(String),        // ["key"] (or .key)
     Values,               // .[]
@@ -27,7 +28,6 @@ pub enum SelectorOp {
 impl fmt::Display for SelectorOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            // SelectorOp::This => write!(f, "."),
             SelectorOp::ArrayIndex(i) => write!(f, "[{}]", i),
             SelectorOp::Field(k) => {
                 if let Some(first) = k.chars().next() {
@@ -138,5 +138,21 @@ impl<'de> Deserialize<'de> for SelectorOp {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         SelectorOp::from_str(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for SelectorOp {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            i32::arbitrary().prop_map(|i| SelectorOp::ArrayIndex(i)),
+            String::arbitrary().prop_map(SelectorOp::Field),
+            Just(SelectorOp::Values),
+            // FIXME prop_recursive::lazy(|_| { SelectorOp::arbitrary_with(()).prop_map(SelectorOp::Try) }),
+        ]
+        .boxed()
     }
 }

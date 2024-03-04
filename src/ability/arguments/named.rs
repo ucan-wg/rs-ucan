@@ -150,12 +150,6 @@ impl<T: TryFrom<Ipld>> TryFrom<Ipld> for Named<T> {
     }
 }
 
-// impl From<BTreeMap<String, Ipld>> for Named<Ipld> {
-//     fn from(map: BTreeMap<String, Ipld>) -> Self {
-//         Named(map)
-//     }
-// }
-
 impl<T: Into<Ipld>> From<Named<T>> for Ipld {
     fn from(arguments: Named<T>) -> Self {
         Ipld::Map(

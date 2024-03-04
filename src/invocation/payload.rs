@@ -3,7 +3,10 @@ use crate::{
     ability::{arguments, command::ToCommand, parse::ParseAbility},
     capsule::Capsule,
     crypto::Nonce,
-    delegation::{self, condition::Condition}, //, ValidationError},
+    delegation::{
+        self,
+        policy::{predicate::Predicate, selector::SelectorError},
+    },
     did::{Did, Verifiable},
     time::{Expired, Timestamp},
 };
@@ -132,11 +135,11 @@ impl<A, DID: Did> Payload<A, DID> {
         Ok(())
     }
 
-    pub fn check<C: Condition + fmt::Debug + Clone>(
+    pub fn check(
         &self,
-        proofs: Vec<&delegation::Payload<C, DID>>,
+        proofs: Vec<&delegation::Payload<DID>>,
         now: &SystemTime,
-    ) -> Result<(), ValidationError<C>>
+    ) -> Result<(), ValidationError>
     where
         A: ToCommand + Clone,
         DID: Clone,
@@ -175,9 +178,15 @@ impl<A, DID: Did> Payload<A, DID> {
                 return Err(ValidationError::CommandMismatch(proof.command.clone()));
             }
 
+            let ipld_args = Ipld::from(args.clone());
+
             for predicate in proof.policy.iter() {
-                if !predicate.validate(&args) {
-                    return Err(ValidationError::FailedCondition(predicate.clone()));
+                if !predicate
+                    .clone()
+                    .run(&ipld_args)
+                    .map_err(ValidationError::SelectorError)?
+                {
+                    return Err(ValidationError::FailedPolicy(predicate.clone()));
                 }
             }
 
@@ -189,8 +198,8 @@ impl<A, DID: Did> Payload<A, DID> {
 }
 
 /// Delegation validation errors.
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum ValidationError<C: fmt::Debug> {
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ValidationError {
     #[error("The subject of the delegation is invalid")]
     InvalidSubject,
 
@@ -206,12 +215,15 @@ pub enum ValidationError<C: fmt::Debug> {
     #[error("The command of the delegation does not match the proof: {0:?}")]
     CommandMismatch(String),
 
-    #[error("The delegation failed a condition: {0:?}")]
-    FailedCondition(C),
+    #[error("The delegation failed a policy predicate: {0:?}")]
+    FailedPolicy(Predicate),
+
+    #[error(transparent)]
+    SelectorError(#[from] SelectorError),
 }
 
 impl<A, DID: Did> Capsule for Payload<A, DID> {
-    const TAG: &'static str = "ucan/i/1.0.0-rc.1";
+    const TAG: &'static str = "ucan/i@1.0.0-rc.1";
 }
 
 impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld> {

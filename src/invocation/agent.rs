@@ -5,13 +5,9 @@ use super::{
     Invocation,
 };
 use crate::{
-    ability::{
-        arguments,
-        parse::{ParseAbility, ParseAbilityError, ParsePromised},
-        ucan,
-    },
+    ability::{arguments, parse::ParseAbilityError, ucan},
     crypto::{signature, varsig, Nonce},
-    delegation::{self, condition::Condition},
+    delegation,
     did::Did,
     invocation::promise,
     // proof::prove::Prove,
@@ -34,11 +30,10 @@ use web_time::SystemTime;
 pub struct Agent<
     'a,
     T: Resolvable,
-    C: Condition,
     DID: Did,
     S: Store<T::Promised, DID, V, Enc>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<C, DID, V, Enc>,
+    D: delegation::store::Store<DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + Into<u32> + TryFrom<u32>,
 > {
@@ -49,20 +44,19 @@ pub struct Agent<
     pub unresolved_promise_index: &'a mut P,
 
     signer: &'a <DID as Did>::Signer,
-    marker: PhantomData<(T, C, V, Enc)>,
+    marker: PhantomData<(T, V, Enc)>,
 }
 
-impl<'a, T, C, DID, S, P, D, V, Enc> Agent<'a, T, C, DID, S, P, D, V, Enc>
+impl<'a, T, DID, S, P, D, V, Enc> Agent<'a, T, DID, S, P, D, V, Enc>
 where
     T::Promised: Clone,
     Ipld: Encode<Enc>,
-    delegation::Payload<C, DID>: Clone,
+    delegation::Payload<DID>: Clone,
     T: Resolvable + Clone,
-    C: Condition,
     DID: Did + Clone,
     S: Store<T::Promised, DID, V, Enc>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<C, DID, V, Enc>,
+    D: delegation::store::Store<DID, V, Enc>,
     V: varsig::Header<Enc>,
     Enc: Codec + Into<u32> + TryFrom<u32>,
 {
@@ -177,10 +171,9 @@ where
         now: &SystemTime,
     ) -> Result<
         Recipient<Payload<T, DID>>,
-        ReceiveError<T, P, DID, C, D::DelegationStoreError, S, V, Enc>,
+        ReceiveError<T, P, DID, D::DelegationStoreError, S, V, Enc>,
     >
     where
-        C: Clone,
         Enc: From<u32> + Into<u32>,
         arguments::Named<Ipld>: From<T>,
         Invocation<T::Promised, DID, V, Enc>: Clone,
@@ -291,7 +284,6 @@ pub enum ReceiveError<
     T: Resolvable,
     P: promise::Store<T, DID>,
     DID: Did,
-    C: fmt::Debug,
     D,
     S: Store<T::Promised, DID, V, Enc>,
     V: varsig::Header<Enc>,
@@ -318,7 +310,7 @@ pub enum ReceiveError<
     DelegationStoreError(#[source] D),
 
     #[error("delegation validation error: {0}")]
-    ValidationError(#[source] ValidationError<C>),
+    ValidationError(#[source] ValidationError),
 }
 
 #[derive(Debug, Error)]

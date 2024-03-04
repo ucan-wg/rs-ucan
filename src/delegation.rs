@@ -1,18 +1,17 @@
-//! An [`Delegation`] is the way to grant someone else the use of [`Ability`][crate::ability].
+//! A [`Delegation`] is the way to grant someone else the use of [`Ability`][crate::ability].
 //!
 //! ## Data
 //!
 //! - [`Delegation`] is the top-level, signed data struture.
 //! - [`Payload`] is the fields unique to an invocation.
 //! - [`Preset`] is an [`Delegation`] preloaded with this library's [preset abilities](crate::ability::preset::Ready).
-//! - [`Condition`]s are syntactically-driven validation rules for [`Delegation`]s.
+//! - [`Predicate`]s are syntactically-driven validation rules for [`Delegation`]s.
 //!
 //! ## Stateful Helpers
 //!
 //! - [`Agent`] is a high-level interface for sessions that will involve more than one invoctaion.
 //! - [`store`] is an interface for caching [`Delegation`]s.
 
-pub mod condition;
 pub mod policy;
 pub mod store;
 
@@ -22,19 +21,18 @@ mod payload;
 pub use agent::Agent;
 pub use payload::*;
 
-use crate::capsule::Capsule;
 use crate::{
-    // ability,
+    capsule::Capsule,
     crypto::{signature, varsig, Nonce},
     did::{self, Did},
     time::{TimeBoundError, Timestamp},
 };
-use condition::Condition;
 use libipld_core::{
     cid::Cid,
     codec::{Codec, Encode},
     ipld::Ipld,
 };
+use policy::predicate::Predicate;
 use std::collections::BTreeMap;
 use web_time::SystemTime;
 
@@ -45,39 +43,29 @@ use web_time::SystemTime;
 /// # Examples
 /// FIXME
 #[derive(Clone, Debug, PartialEq)]
-pub struct Delegation<
-    C: Condition,
-    DID: Did,
-    V: varsig::Header<Enc>,
-    Enc: Codec + TryFrom<u32> + Into<u32>,
->(pub signature::Envelope<Payload<C, DID>, DID, V, Enc>);
+pub struct Delegation<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>(
+    pub signature::Envelope<Payload<DID>, DID, V, Enc>,
+);
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Chain<
-    C: Condition,
-    DID: Did,
-    V: varsig::Header<Enc>,
-    Enc: Codec + TryFrom<u32> + Into<u32>,
->(Vec<Delegation<C, DID, V, Enc>>);
+pub struct Chain<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>(
+    Vec<Delegation<DID, V, Enc>>,
+);
 
-impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Capsule
-    for Chain<C, DID, V, Enc>
+impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Capsule
+    for Chain<DID, V, Enc>
 {
     const TAG: &'static str = "ucan/chain";
 }
 
 /// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
-pub type Preset = Delegation<
-    condition::Preset,
-    did::preset::Verifier,
-    varsig::header::Preset,
-    varsig::encoding::Preset,
->;
+pub type Preset =
+    Delegation<did::preset::Verifier, varsig::header::Preset, varsig::encoding::Preset>;
 
 // FIXME checkable -> provable?
 
-impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
-    Delegation<C, DID, V, Enc>
+impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
+    Delegation<DID, V, Enc>
 {
     /// Retrive the `issuer` of a [`Delegation`]
     pub fn issuer(&self) -> &DID {
@@ -94,8 +82,8 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
         &self.0.payload.audience
     }
 
-    /// Retrive the `condition` of a [`Delegation`]
-    pub fn policy(&self) -> &[C] {
+    /// Retrive the `policy` of a [`Delegation`]
+    pub fn policy(&self) -> &Vec<Predicate> {
         &self.0.payload.policy
     }
 
@@ -123,7 +111,7 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
         self.0.payload.check_time(now)
     }
 
-    pub fn payload(&self) -> &Payload<C, DID> {
+    pub fn payload(&self) -> &Payload<DID> {
         &self.0.payload
     }
 
@@ -148,7 +136,7 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
 
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        signature::Envelope<Payload<C, DID>, DID, V, Enc>: Clone + Encode<Enc>,
+        signature::Envelope<Payload<DID>, DID, V, Enc>: Clone + Encode<Enc>,
         Ipld: Encode<Enc>,
     {
         self.0.cid()
@@ -156,7 +144,7 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
 
     pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
     where
-        Payload<C, DID>: Clone,
+        Payload<DID>: Clone,
         Ipld: Encode<Enc>,
     {
         self.0.validate_signature()
@@ -165,11 +153,11 @@ impl<C: Condition, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
     pub fn try_sign(
         signer: &DID::Signer,
         varsig_header: V,
-        payload: Payload<C, DID>,
+        payload: Payload<DID>,
     ) -> Result<Self, signature::SignError>
     where
         Ipld: Encode<Enc>,
-        Payload<C, DID>: Clone,
+        Payload<DID>: Clone,
     {
         signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
     }

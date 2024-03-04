@@ -1,0 +1,144 @@
+use super::{
+    collection::Collection,
+    selector::{or::SelectorOr, SelectorError},
+};
+use crate::{ability::arguments, ipld};
+use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+// FIXME Normal form?
+// FIXME exract domain gen selectors first?
+// FIXME rename constraint or validation or expression or something?
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Predicate {
+    // Booleans
+    True,
+    False,
+
+    // Comparison
+    Equal(SelectorOr<ipld::Newtype>, SelectorOr<ipld::Newtype>),
+
+    GreaterThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    GreaterThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+
+    LessThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    LessThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+
+    Like(SelectorOr<String>, SelectorOr<String>),
+
+    // Connectives
+    Not(Box<Predicate>),
+    And(Box<Predicate>, Box<Predicate>),
+    Or(Box<Predicate>, Box<Predicate>),
+
+    // Collection iteration
+    Every(SelectorOr<Collection>, Box<Predicate>), // ∀x ∈ xs
+    Some(SelectorOr<Collection>, Box<Predicate>),  // ∃x ∈ xs
+}
+
+impl Predicate {
+    pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
+        Ok(match self {
+            Predicate::True => true,
+            Predicate::False => false,
+            Predicate::Equal(lhs, rhs) => lhs.resolve(data)? == rhs.resolve(data)?,
+            Predicate::GreaterThan(lhs, rhs) => lhs.resolve(data)? > rhs.resolve(data)?,
+            Predicate::GreaterThanOrEqual(lhs, rhs) => lhs.resolve(data)? >= rhs.resolve(data)?,
+            Predicate::LessThan(lhs, rhs) => lhs.resolve(data)? < rhs.resolve(data)?,
+            Predicate::LessThanOrEqual(lhs, rhs) => lhs.resolve(data)? <= rhs.resolve(data)?,
+            Predicate::Like(lhs, rhs) => glob(&lhs.resolve(data)?, &rhs.resolve(data)?),
+            Predicate::Not(inner) => !inner.run(data)?,
+            Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
+            Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
+            Predicate::Every(xs, p) => xs
+                .resolve(data)?
+                .to_vec()
+                .iter()
+                .try_fold(true, |acc, nt| Ok(acc && p.clone().run(&nt.0)?))?,
+            Predicate::Some(xs, p) => {
+                let pred = p.clone();
+
+                xs.resolve(data)?
+                    .to_vec()
+                    .iter()
+                    .try_fold(true, |acc, nt| Ok(acc || pred.clone().run(&nt.0)?))?
+            }
+        })
+    }
+}
+
+pub fn glob(input: &String, pattern: &String) -> bool {
+    let mut chars = input.chars();
+    let mut like = pattern.chars();
+
+    loop {
+        match (chars.next(), like.next()) {
+            (Some(i), Some(p)) => {
+                if p == '*' {
+                    return true;
+                } else if i != p {
+                    return false;
+                }
+            }
+            (Some(_), None) => {
+                return false; // FIXME correct?
+            }
+            (None, Some(p)) => {
+                if p == '*' {
+                    return true;
+                }
+            }
+            (None, None) => {
+                return true;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Predicate {
+    type Parameters = (); // FIXME?
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_params: Self::Parameters) -> Self::Strategy {
+        let leaf = prop_oneof![
+            Just(Predicate::True),
+            Just(Predicate::False),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::Equal(lhs, rhs) }),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::GreaterThan(lhs, rhs) }),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::GreaterThanOrEqual(lhs, rhs) }),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::LessThan(lhs, rhs) }),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::LessThanOrEqual(lhs, rhs) }),
+            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+                .prop_map(|(lhs, rhs)| { Predicate::Like(lhs, rhs) })
+        ];
+
+        let connective = leaf.clone().prop_recursive(8, 16, 4, |inner| {
+            prop_oneof![
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| { Predicate::And(Box::new(lhs), Box::new(rhs)) }),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| { Predicate::Or(Box::new(lhs), Box::new(rhs)) }),
+            ]
+        });
+
+        let quantified = leaf.clone().prop_recursive(8, 16, 4, |inner| {
+            prop_oneof![
+                (SelectorOr::arbitrary(), inner.clone())
+                    .prop_map(|(xs, p)| { Predicate::Every(xs, Box::new(p)) }),
+                (SelectorOr::arbitrary(), inner.clone())
+                    .prop_map(|(xs, p)| { Predicate::Some(xs, Box::new(p)) }),
+            ]
+        });
+
+        prop_oneof![leaf, connective, quantified].boxed()
+    }
+}

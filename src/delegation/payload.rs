@@ -1,4 +1,4 @@
-use super::condition::Condition;
+use super::policy::predicate::Predicate;
 use crate::{
     capsule::Capsule,
     crypto::Nonce,
@@ -21,7 +21,7 @@ use crate::ipld;
 /// This contains the semantic information about the delegation, including the
 /// issuer, subject, audience, the delegated ability, time bounds, and so on.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Payload<C: Condition, DID: Did> {
+pub struct Payload<DID: Did> {
     /// The subject of the [`Delegation`].
     ///
     /// This role *must* have issued the earlier (root)
@@ -48,8 +48,8 @@ pub struct Payload<C: Condition, DID: Did> {
     /// The command being delegated.
     pub command: String,
 
-    /// Any [`Condition`]s on the `ability_builder`.
-    pub policy: Vec<C>,
+    /// Any [`Predicate`] policies that constrain the `args` on an [`Invocation`][crate::invocation::Invocation].
+    pub policy: Vec<Predicate>,
 
     /// Extensible, free-form fields.
     pub metadata: BTreeMap<String, Ipld>,
@@ -73,7 +73,7 @@ pub struct Payload<C: Condition, DID: Did> {
     pub not_before: Option<Timestamp>,
 }
 
-impl<C: Condition, DID: Did> Payload<C, DID> {
+impl<DID: Did> Payload<DID> {
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
         let ts_now = &Timestamp::postel(now);
 
@@ -91,19 +91,17 @@ impl<C: Condition, DID: Did> Payload<C, DID> {
     }
 }
 
-impl<C: Condition, DID: Did> Capsule for Payload<C, DID> {
-    const TAG: &'static str = "ucan/d/1.0";
+impl<DID: Did> Capsule for Payload<DID> {
+    const TAG: &'static str = "ucan/d@1.0.0-rc.1";
 }
 
-impl<DID: Did, C: Condition> Verifiable<DID> for Payload<C, DID> {
+impl<DID: Did> Verifiable<DID> for Payload<DID> {
     fn verifier(&self) -> &DID {
         &self.issuer
     }
 }
 
-impl<C: Condition + for<'de> Deserialize<'de>, DID: Did + for<'de> Deserialize<'de>> TryFrom<Ipld>
-    for Payload<C, DID>
-{
+impl<DID: Did + for<'de> Deserialize<'de>> TryFrom<Ipld> for Payload<DID> {
     type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
@@ -111,23 +109,21 @@ impl<C: Condition + for<'de> Deserialize<'de>, DID: Did + for<'de> Deserialize<'
     }
 }
 
-impl<C: Condition, DID: Did> From<Payload<C, DID>> for Ipld {
-    fn from(payload: Payload<C, DID>) -> Self {
+impl<DID: Did> From<Payload<DID>> for Ipld {
+    fn from(payload: Payload<DID>) -> Self {
         payload.into()
     }
 }
 
 #[cfg(feature = "test_utils")]
-impl<DID: Did + Arbitrary + 'static, C: Condition + Arbitrary> Arbitrary for Payload<C, DID>
+impl<DID: Did + Arbitrary + 'static> Arbitrary for Payload<DID>
 where
-    C::Strategy: 'static,
     DID::Parameters: Clone,
-    C::Parameters: Clone,
 {
-    type Parameters = (DID::Parameters, C::Parameters);
+    type Parameters = (DID::Parameters, <Predicate as Arbitrary>::Parameters);
     type Strategy = BoxedStrategy<Self>;
 
-    fn arbitrary_with((did_args, c_args): Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((did_args, pred_args): Self::Parameters) -> Self::Strategy {
         (
             Option::<DID>::arbitrary(),
             DID::arbitrary_with(did_args.clone()),
@@ -141,7 +137,7 @@ where
                     .map(|(k, v)| (k, v.0))
                     .collect::<BTreeMap<String, Ipld>>()
             }),
-            prop::collection::vec(C::arbitrary_with(c_args), 0..10),
+            prop::collection::vec(Predicate::arbitrary_with(pred_args), 0..10),
         )
             .prop_map(
                 |(

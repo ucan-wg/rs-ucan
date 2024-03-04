@@ -21,7 +21,6 @@ pub mod delegation;
 pub mod did;
 pub mod invocation;
 pub mod ipld;
-//pub mod proof;
 pub mod reader;
 pub mod receipt;
 pub mod task;
@@ -34,6 +33,3 @@ pub mod test_utils;
 pub use delegation::Delegation;
 pub use invocation::Invocation;
 pub use receipt::Receipt;
-
-// FIXME
-// show pipe

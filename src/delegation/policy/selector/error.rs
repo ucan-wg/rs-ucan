@@ -9,3 +9,27 @@ pub enum ParseError {
     #[error("unknown pattern: {0}")]
     UnknownPattern(String),
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+pub enum SelectorErrorReason {
+    #[error("Index out of bounds")]
+    IndexOutOfBounds,
+
+    #[error("Key not found")]
+    KeyNotFound,
+
+    #[error("Not a list")]
+    NotAList,
+
+    #[error("Not a map")]
+    NotAMap,
+
+    #[error("Not a collection")]
+    NotACollection,
+
+    #[error("Not a number")]
+    NotANumber,
+
+    #[error("Not a string")]
+    NotAString,
+}

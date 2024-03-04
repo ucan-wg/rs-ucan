@@ -1,10 +1,8 @@
 use super::Store;
 use crate::{
-    // ability::arguments,
     crypto::varsig,
-    delegation::{condition::Condition, Delegation},
+    delegation::{policy::predicate::Predicate, Delegation},
     did::Did,
-    // proof::{checkable::Checkable, prove::Prove},
 };
 use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
@@ -72,34 +70,29 @@ use web_time::SystemTime;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemoryStore<
-    C: Condition,
     DID: Did + Ord,
     V: varsig::Header<Enc>,
     Enc: Codec + TryFrom<u32> + Into<u32>,
 > {
-    ucans: BTreeMap<Cid, Delegation<C, DID, V, Enc>>,
+    ucans: BTreeMap<Cid, Delegation<DID, V, Enc>>,
     index: BTreeMap<Option<DID>, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
 // FIXME check that UCAN is valid
-impl<
-        C: Condition + PartialEq,
-        DID: Did + Ord + Clone,
-        V: varsig::Header<Enc>,
-        Enc: Codec + TryFrom<u32> + Into<u32>,
-    > Store<C, DID, V, Enc> for MemoryStore<C, DID, V, Enc>
+impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    Store<DID, V, Enc> for MemoryStore<DID, V, Enc>
 {
     type DelegationStoreError = (); // FIXME misisng
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<C, DID, V, Enc>, Self::DelegationStoreError> {
+    fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError> {
         self.ucans.get(cid).ok_or(())
     }
 
     fn insert(
         &mut self,
         cid: Cid,
-        delegation: Delegation<C, DID, V, Enc>,
+        delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
         self.index
             .entry(delegation.subject().clone())
@@ -121,10 +114,9 @@ impl<
         &self,
         aud: &DID,
         subject: &Option<DID>,
-        policy: Vec<C>,
+        policy: Vec<Predicate>,
         now: SystemTime,
-    ) -> Result<Option<NonEmpty<(Cid, &Delegation<C, DID, V, Enc>)>>, Self::DelegationStoreError>
-    {
+    ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
         match self
             .index
             .get(subject) // FIXME probably need to rework this after last minbute chanegs
