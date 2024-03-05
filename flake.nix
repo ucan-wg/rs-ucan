@@ -93,21 +93,20 @@
         node = "${unstable.nodejs_20}/bin/node";
         wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
         wasm-opt = "${pkgs.binaryen}/bin/wasm-opt";
+
+        scripts = [
+        ];
+
       in rec {
         formatter = pkgs.alejandra;
 
         # NOTE: blst requires --target=wasm32 support in Clang, which MacOS system clang doesn't provide
-        # FIXME This explicitely does not get pulled in under devshell
-        # stdenv = pkgs.clangStdenv;
+        stdenv = pkgs.clangStdenv;
 
-        devShells.default = pkgs.devshell.mkShell {
+        devShells.default = pkgs.mkShell {
           name = "ucan";
 
-          imports = [
-            ./pre-commit.nix
-          ];
-
-          packages = with pkgs;
+          nativeBuildInputs = with pkgs;
             [
               direnv
               rust-toolchain
@@ -121,14 +120,30 @@
             ]
             ++ format-pkgs
             ++ cargo-installs
+            ++ scripts
             ++ lib.optionals stdenv.isDarwin darwin-installs;
 
-          env = [
-            {
-              name = "RUSTC_WRAPPER";
-              value = "${pkgs.sccache}/bin/sccache";
-            }
-          ];
+            shellHook = ''
+              [ -e .git/hooks/pre-commit ] || pre-commit install --install-hooks && pre-commit install --hook-type commit-msg
+
+              #
+              export RUSTC_WRAPPER="${pkgs.sccache}/bin/sccache"
+
+              # Setup local Kubo config
+              if [ ! -e ./.ipfs ]; then
+                ipfs --repo-dir ./.ipfs --offline init
+              fi
+
+              unset SOURCE_DATE_EPOCH
+
+              # Run Kubo / IPFS
+              echo -e "To run Kubo as a local IPFS node, use the following command:"
+              echo -e "ipfs --repo-dir ./.ipfs --offline daemon"
+            '' + pkgs.lib.strings.optionalString pkgs.stdenv.isDarwin ''
+              # See https://github.com/nextest-rs/nextest/issues/267
+              export DYLD_FALLBACK_LIBRARY_PATH="$(rustc --print sysroot)/lib"
+              export NIX_LDFLAGS="-F${pkgs.darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks -framework CoreFoundation $NIX_LDFLAGS";
+            '';
 
           commands = [
             # Release
