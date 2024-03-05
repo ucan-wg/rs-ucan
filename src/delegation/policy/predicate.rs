@@ -1,8 +1,5 @@
-use super::{
-    collection::Collection,
-    selector::{or::SelectorOr, SelectorError},
-};
-use crate::{ability::arguments, ipld};
+use super::selector::{Select, SelectorError};
+use crate::ipld;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
@@ -19,15 +16,15 @@ pub enum Predicate {
     False,
 
     // Comparison
-    Equal(SelectorOr<ipld::Newtype>, SelectorOr<ipld::Newtype>),
+    Equal(Select<ipld::Newtype>, Select<ipld::Newtype>),
 
-    GreaterThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
-    GreaterThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    GreaterThan(Select<ipld::Number>, Select<ipld::Number>),
+    GreaterThanOrEqual(Select<ipld::Number>, Select<ipld::Number>),
 
-    LessThan(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
-    LessThanOrEqual(SelectorOr<ipld::Number>, SelectorOr<ipld::Number>),
+    LessThan(Select<ipld::Number>, Select<ipld::Number>),
+    LessThanOrEqual(Select<ipld::Number>, Select<ipld::Number>),
 
-    Like(SelectorOr<String>, SelectorOr<String>),
+    Like(Select<String>, Select<String>),
 
     // Connectives
     Not(Box<Predicate>),
@@ -35,8 +32,8 @@ pub enum Predicate {
     Or(Box<Predicate>, Box<Predicate>),
 
     // Collection iteration
-    Every(SelectorOr<Collection>, Box<Predicate>), // ∀x ∈ xs
-    Some(SelectorOr<Collection>, Box<Predicate>),  // ∃x ∈ xs
+    Every(Select<ipld::Collection>, Box<Predicate>), // ∀x ∈ xs
+    Some(Select<ipld::Collection>, Box<Predicate>),  // ∃x ∈ xs
 }
 
 impl Predicate {
@@ -107,17 +104,17 @@ impl Arbitrary for Predicate {
         let leaf = prop_oneof![
             Just(Predicate::True),
             Just(Predicate::False),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::Equal(lhs, rhs) }),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::GreaterThan(lhs, rhs) }),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::GreaterThanOrEqual(lhs, rhs) }),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::LessThan(lhs, rhs) }),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::LessThanOrEqual(lhs, rhs) }),
-            (SelectorOr::arbitrary(), SelectorOr::arbitrary())
+            (Select::arbitrary(), Select::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::Like(lhs, rhs) })
         ];
 
@@ -132,9 +129,9 @@ impl Arbitrary for Predicate {
 
         let quantified = leaf.clone().prop_recursive(8, 16, 4, |inner| {
             prop_oneof![
-                (SelectorOr::arbitrary(), inner.clone())
+                (Select::arbitrary(), inner.clone())
                     .prop_map(|(xs, p)| { Predicate::Every(xs, Box::new(p)) }),
-                (SelectorOr::arbitrary(), inner.clone())
+                (Select::arbitrary(), inner.clone())
                     .prop_map(|(xs, p)| { Predicate::Some(xs, Box::new(p)) }),
             ]
         });

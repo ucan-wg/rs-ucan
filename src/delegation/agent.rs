@@ -1,4 +1,4 @@
-use super::{payload::Payload, policy::predicate::Predicate, store::Store, Delegation};
+use super::{payload::Payload, policy::Predicate, store::Store, Delegation};
 use crate::{
     crypto::{varsig, Nonce},
     did::Did,

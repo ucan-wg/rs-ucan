@@ -9,7 +9,7 @@
 //!   "aud": "did:example:456",
 //!   "cmd": "/msg/send", // <--- This is the command
 //!   "args": {                           // ┐
-//!     "to": "mailto:alice@example.com", // ├─ These are determined by the command
+//!     "to": "mailto:alice@example.com", // ├─ The shape of the args is determined by the cmd
 //!     "message": "Hello, World!",       // │
 //!   }                                   // ┘
 //!   "exp": 1234567890

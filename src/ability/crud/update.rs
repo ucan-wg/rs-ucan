@@ -1,17 +1,13 @@
 //! Update existing resources.
-// use super::parents::MutableParents;
+
 use crate::{
     ability::{arguments, command::Command},
-    // delegation::Delegable,
     invocation::{promise, promise::Resolves},
     ipld,
-    // proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
-
-// FIXME deserialize instance
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/create` ability.
@@ -37,59 +33,16 @@ use std::{collections::BTreeMap, path::PathBuf};
 ///     end
 ///
 ///     updatepromise("crud::update::Promised")
-///     updateready("crud::update::Ready")
+///     updateready("crud::update::Update")
 ///
 ///     top --> any --> mutate --> update
 ///     update -.->|invoke| updatepromise -.->|resolve| updateready -.-> exe{{execute}}
 ///
 ///     style updateready stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ready {
-    /// An optional path to a sub-resource that is to be updated.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    path: Option<PathBuf>,
-
-    /// Optional arguments to be passed in the update.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    args: Option<arguments::Named<Ipld>>,
-}
-
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// The delegatable ability for updating existing agents.
-///
-/// # Lifecycle
-///
-/// The lifecycle of a `crud/create` ability is as follows:
-///
-/// ```mermaid
-/// flowchart LR
-///     subgraph Delegations
-///       top("*")
-///
-///       subgraph CRUD Abilities
-///         any("crud/*")
-///
-///         mutate("crud/mutate")
-///
-///         subgraph Invokable
-///           update("crud/update")
-///         end
-///       end
-///     end
-///
-///     updatepromise("crud::update::Promised")
-///     updateready("crud::update::Ready")
-///
-///     top --> any --> mutate --> update
-///     update -.->|invoke| updatepromise -.->|resolve| updateready -.-> exe{{execute}}
-///
-///     style update stroke:orange;
-/// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Builder {
+pub struct Update {
     /// An optional path to a sub-resource that is to be updated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     path: Option<PathBuf>,
@@ -124,16 +77,16 @@ pub struct Builder {
 ///     end
 ///
 ///     updatepromise("crud::update::Promised")
-///     updateready("crud::update::Ready")
+///     updateready("crud::update::Update")
 ///
 ///     top --> any --> mutate --> update
 ///     update -.->|invoke| updatepromise -.->|resolve| updateready -.-> exe{{execute}}
 ///
 ///     style updatepromise stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Promised {
+pub struct PromisedUpdate {
     /// An optional path to a sub-resource that is to be updated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     path: Option<promise::Resolves<PathBuf>>,
@@ -145,19 +98,15 @@ pub struct Promised {
 
 const COMMAND: &'static str = "/crud/update";
 
-impl Command for Ready {
+impl Command for Update {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Builder {
+impl Command for PromisedUpdate {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
-    const COMMAND: &'static str = COMMAND;
-}
-
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedUpdate {
     type Error = ();
 
     fn try_from(named: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -196,15 +145,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised { path, args })
+        Ok(PromisedUpdate { path, args })
     }
 }
 
-// impl Delegable for Ready {
-//     type Builder = Builder;
-// }
-
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Update {
     type Error = ();
 
     fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
@@ -231,66 +176,17 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
             }
         }
 
-        Ok(Ready { path, args })
+        Ok(Update { path, args })
     }
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Builder {
-    type Error = ();
-
-    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
-        let mut path = None;
-        let mut args = None;
-
-        for (key, ipld) in named {
-            match key.as_str() {
-                "path" => {
-                    if let Ipld::String(s) = ipld {
-                        path = Some(PathBuf::from(s));
-                    } else {
-                        return Err(());
-                    }
-                }
-                "args" => {
-                    if let Ipld::Map(map) = ipld {
-                        args = Some(arguments::Named(map));
-                    } else {
-                        return Err(());
-                    }
-                }
-                _ => return Err(()),
-            }
-        }
-
-        Ok(Builder { path, args })
-    }
-}
-
-impl From<Ready> for Builder {
-    fn from(r: Ready) -> Self {
-        Builder {
-            path: r.path,
-            args: r.args,
-        }
-    }
-}
-
-impl From<Builder> for Ready {
-    fn from(builder: Builder) -> Self {
-        Ready {
-            path: builder.path,
-            args: builder.args,
-        }
-    }
-}
-
-impl From<Ready> for Ipld {
-    fn from(create: Ready) -> Self {
+impl From<Update> for Ipld {
+    fn from(create: Update) -> Self {
         create.into()
     }
 }
 
-impl TryFrom<Ipld> for Ready {
+impl TryFrom<Ipld> for Update {
     type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
@@ -299,7 +195,7 @@ impl TryFrom<Ipld> for Ready {
                 return Err(()); // FIXME
             }
 
-            Ok(Ready {
+            Ok(Update {
                 path: map
                     .get("path")
                     .map(|ipld| (ipld::Newtype(ipld.clone())).try_into().map_err(|_| ()))
@@ -316,54 +212,8 @@ impl TryFrom<Ipld> for Ready {
     }
 }
 
-// impl Checkable for Builder {
-//     type Hierarchy = Parentful<Builder>;
-// }
-//
-// impl CheckSame for Builder {
-//     type Error = (); // FIXME better error
-//
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         if self.path == proof.path {
-//             Ok(())
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
-//
-// impl CheckParents for Builder {
-//     type Parents = MutableParents;
-//     type ParentError = (); // FIXME
-//
-//     fn check_parent(&self, other: &Self::Parents) -> Result<(), Self::ParentError> {
-//         if let Some(self_path) = &self.path {
-//             match other {
-//                 MutableParents::Any(any) => {
-//                     // FIXME check the args, too!
-//                     if let Some(proof_path) = &any.path {
-//                         if self_path != proof_path {
-//                             return Err(());
-//                         }
-//                     }
-//                 }
-//                 MutableParents::Mutate(mutate) => {
-//                     // FIXME check the args, too!
-//                     if let Some(proof_path) = &mutate.path {
-//                         if self_path != proof_path {
-//                             return Err(());
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//
-//         Ok(())
-//     }
-// }
-
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedUpdate> for arguments::Named<Ipld> {
+    fn from(promised: PromisedUpdate) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path_res) = promised.path {
@@ -393,9 +243,9 @@ impl From<Promised> for arguments::Named<Ipld> {
     }
 }
 
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Promised {
-        Promised {
+impl From<Update> for PromisedUpdate {
+    fn from(r: Update) -> PromisedUpdate {
+        PromisedUpdate {
             path: r
                 .path
                 .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
@@ -405,43 +255,12 @@ impl From<Ready> for Promised {
     }
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Update {
+    type Promised = PromisedUpdate;
 }
 
-impl From<Promised> for Builder {
-    fn from(promised: Promised) -> Self {
-        Builder {
-            path: promised.path.and_then(|p| p.try_resolve().ok()),
-            args: todo!(), // promised.args.and_then(|a| a.try_resolve_option()),
-        }
-    }
-}
-
-impl From<Builder> for arguments::Named<Ipld> {
-    fn from(builder: Builder) -> Self {
-        let mut named = arguments::Named::new();
-
-        if let Some(path) = builder.path {
-            named.insert(
-                "path".to_string(),
-                path.into_os_string()
-                    .into_string()
-                    .expect("PathBuf to generate valid paths") // FIXME reasonable assumption?
-                    .into(),
-            );
-        }
-
-        if let Some(args) = builder.args {
-            named.insert("args".to_string(), args.into());
-        }
-
-        named
-    }
-}
-
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedUpdate> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedUpdate) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path) = promised.path {

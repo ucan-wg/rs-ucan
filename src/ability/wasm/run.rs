@@ -13,17 +13,18 @@ use serde::{Deserialize, Serialize};
 
 const COMMAND: &'static str = "/wasm/run";
 
-impl Command for Ready {
+impl Command for Run {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
+// FIXME autogenerate for resolvable?
+impl Command for PromisedRun {
     const COMMAND: &'static str = COMMAND;
 }
 
 /// The ability to run a Wasm module on the subject's machine
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Ready {
+pub struct Run {
     /// The Wasm module to run
     pub module: Module,
 
@@ -34,7 +35,7 @@ pub struct Ready {
     pub args: Vec<Ipld>,
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Run {
     type Error = ();
 
     fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
@@ -65,7 +66,7 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
             }
         }
 
-        Ok(Ready {
+        Ok(Run {
             module: module.ok_or(())?,
             function: function.ok_or(())?,
             args: args.ok_or(())?,
@@ -73,19 +74,19 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
     }
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Run {
+    type Promised = PromisedRun;
 }
 
 /// A variant meant for linking together invocations with promises
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Promised {
+pub struct PromisedRun {
     pub module: promise::Resolves<Module>,
     pub function: promise::Resolves<String>,
     pub args: promise::Resolves<Vec<ipld::Promised>>,
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRun {
     type Error = ();
 
     fn try_from(named: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -108,7 +109,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised {
+        Ok(PromisedRun {
             module: module.ok_or(())?,
             function: function.ok_or(())?,
             args: args.ok_or(())?,
@@ -116,9 +117,9 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
     }
 }
 
-impl From<Ready> for Promised {
-    fn from(ready: Ready) -> Self {
-        Promised {
+impl From<Run> for PromisedRun {
+    fn from(ready: Run) -> Self {
+        PromisedRun {
             module: promise::Resolves::from(Ok(ready.module)),
             function: promise::Resolves::from(Ok(ready.function)),
             args: promise::Resolves::from(Ok(ready
@@ -130,8 +131,8 @@ impl From<Ready> for Promised {
     }
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedRun> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedRun) -> Self {
         arguments::Named::from_iter([
             ("module".into(), promised.module.into()),
             ("function".into(), promised.function.into()),

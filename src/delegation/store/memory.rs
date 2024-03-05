@@ -1,7 +1,7 @@
 use super::Store;
 use crate::{
     crypto::varsig,
-    delegation::{policy::predicate::Predicate, Delegation},
+    delegation::{policy::Predicate, Delegation},
     did::Did,
 };
 use libipld_core::{cid::Cid, codec::Codec};

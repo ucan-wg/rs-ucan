@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 ///     end
 ///
 ///     sendpromise("msg::send::Promised")
-///     sendrun("msg::send::Ready")
+///     sendrun("msg::send::Send")
 ///
 ///     top --> any
 ///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ready {
+pub struct Send {
     /// The recipient of the message
     pub to: url::Newtype,
 
@@ -73,7 +73,7 @@ pub struct Ready {
 ///     end
 ///
 ///     sendpromise("msg::send::Promised")
-///     sendrun("msg::send::Ready")
+///     sendrun("msg::send::Send")
 ///
 ///     top --> any
 ///     any --> send -.->|invoke| sendpromise -.->|resolve| sendrun -.-> exe{{execute}}
@@ -82,7 +82,7 @@ pub struct Ready {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Promised {
+pub struct PromisedSend {
     /// The recipient of the message
     pub to: promise::Resolves<url::Newtype>,
 
@@ -96,14 +96,14 @@ pub struct Promised {
     pub message: promise::Resolves<String>,
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Send {
+    type Promised = PromisedSend;
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Send {
     type Error = ();
 
-    fn try_from(named: arguments::Named<Ipld>) -> Result<Ready, Self::Error> {
+    fn try_from(named: arguments::Named<Ipld>) -> Result<Send, Self::Error> {
         let mut to = None;
         let mut from = None;
         let mut message = None;
@@ -130,7 +130,7 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
             }
         }
 
-        Ok(Ready {
+        Ok(Send {
             to: to.ok_or(())?,
             from: from.ok_or(())?,
             message: message.ok_or(())?,
@@ -138,10 +138,10 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
     }
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedSend {
     type Error = ();
 
-    fn try_from(args: arguments::Named<ipld::Promised>) -> Result<Promised, Self::Error> {
+    fn try_from(args: arguments::Named<ipld::Promised>) -> Result<PromisedSend, Self::Error> {
         let mut to = None;
         let mut from = None;
         let mut message = None;
@@ -175,7 +175,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised {
+        Ok(PromisedSend {
             to: to.ok_or(())?,
             from: from.ok_or(())?,
             message: message.ok_or(())?,
@@ -183,8 +183,8 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
     }
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(p: Promised) -> Self {
+impl From<PromisedSend> for arguments::Named<Ipld> {
+    fn from(p: PromisedSend) -> Self {
         arguments::Named::from_iter([
             ("to".into(), p.to.into()),
             ("from".into(), p.from.into()),
@@ -195,17 +195,17 @@ impl From<Promised> for arguments::Named<Ipld> {
 
 const COMMAND: &'static str = "/msg/send";
 
-impl Command for Ready {
+impl Command for Send {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
+impl Command for PromisedSend {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Self {
-        Promised {
+impl From<Send> for PromisedSend {
+    fn from(r: Send) -> Self {
+        PromisedSend {
             to: promise::Resolves::from(Ok(r.to)),
             from: promise::Resolves::from(Ok(r.from)),
             message: promise::Resolves::from(Ok(r.message)),
@@ -213,19 +213,19 @@ impl From<Ready> for Promised {
     }
 }
 
-impl TryFrom<Promised> for Ready {
-    type Error = Promised;
+impl TryFrom<PromisedSend> for Send {
+    type Error = PromisedSend;
 
-    fn try_from(p: Promised) -> Result<Ready, Promised> {
+    fn try_from(p: PromisedSend) -> Result<Send, PromisedSend> {
         match promise::Resolves::try_resolve_3(p.to, p.from, p.message) {
-            Ok((to, from, message)) => Ok(Ready { to, from, message }),
-            Err((to, from, message)) => Err(Promised { to, from, message }),
+            Ok((to, from, message)) => Ok(Send { to, from, message }),
+            Err((to, from, message)) => Err(PromisedSend { to, from, message }),
         }
     }
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(p: Promised) -> Self {
+impl From<PromisedSend> for arguments::Named<ipld::Promised> {
+    fn from(p: PromisedSend) -> Self {
         arguments::Named::from_iter([
             ("to".into(), p.to.into()),
             ("from".into(), p.from.into()),

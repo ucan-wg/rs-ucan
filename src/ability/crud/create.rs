@@ -1,14 +1,12 @@
 //! Create new resources.
-// use super::parents::MutableParents;
+
 use crate::{
     ability::{arguments, command::Command},
-    // delegation::Delegable,
     invocation::{promise, promise::Resolves},
     ipld,
-    //   proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -42,7 +40,7 @@ use std::path::PathBuf;
 ///
 ///     style createready stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Create {
     /// An optional path to a sub-resource that is to be created.
@@ -86,7 +84,7 @@ pub struct Create {
 ///
 ///     style createpromise stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PromisedCreate {
     /// An optional path to a sub-resource that is to be created.
@@ -204,10 +202,10 @@ impl promise::Resolvable for Create {
 }
 
 impl From<Create> for arguments::Named<Ipld> {
-    fn from(builder: Create) -> Self {
+    fn from(create: Create) -> Self {
         let mut named = arguments::Named::new();
 
-        if let Some(path) = builder.path {
+        if let Some(path) = create.path {
             named.insert(
                 "path".to_string(),
                 path.into_os_string()
@@ -217,7 +215,7 @@ impl From<Create> for arguments::Named<Ipld> {
             );
         }
 
-        if let Some(args) = builder.args {
+        if let Some(args) = create.args {
             named.insert("args".to_string(), args.into());
         }
 

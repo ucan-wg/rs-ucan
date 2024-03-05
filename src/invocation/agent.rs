@@ -5,12 +5,11 @@ use super::{
     Invocation,
 };
 use crate::{
-    ability::{arguments, parse::ParseAbilityError, ucan},
+    ability::{arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
     crypto::{signature, varsig, Nonce},
     delegation,
     did::Did,
     invocation::promise,
-    // proof::prove::Prove,
     time::Timestamp,
 };
 use libipld_core::{
@@ -37,10 +36,16 @@ pub struct Agent<
     V: varsig::Header<Enc>,
     Enc: Codec + Into<u32> + TryFrom<u32>,
 > {
+    /// The agent's [`DID`].
     pub did: &'a DID,
 
+    /// A [`delegation::Store`][delegation::store::Store].
     pub delegation_store: &'a mut D,
+
+    /// A [`Store`][Store] for the agent's [`Invocation`]s.
     pub invocation_store: &'a mut S,
+
+    /// A [`promise::Store`] for the agent's unresolved promises.
     pub unresolved_promise_index: &'a mut P,
 
     signer: &'a <DID as Did>::Signer,
@@ -196,7 +201,7 @@ where
                 let waiting_on: BTreeSet<Cid> = T::get_all_pending(cant_resolve.promised);
 
                 self.unresolved_promise_index
-                    .put(
+                    .put_waiting(
                         promised.cid()?,
                         waiting_on.into_iter().collect::<Vec<Cid>>(),
                     )
@@ -237,9 +242,9 @@ where
         // FIXME return type
     ) -> Result<Invocation<T, DID, V, Enc>, ()>
     where
-        T: From<ucan::revoke::Ready>,
+        T: From<Revoke>,
     {
-        let ability: T = ucan::revoke::Ready { ucan: cid.clone() }.into();
+        let ability: T = Revoke { ucan: cid.clone() }.into();
         let proofs = if &subject == self.did {
             vec![]
         } else {

@@ -13,9 +13,6 @@ use wasm_bindgen::{prelude::*, JsValue};
 // FIXME rename
 type WithParents = Reader<ParentfulConfig, arguments::Named<Ipld>>;
 
-// Promise = Promise? Ah, nope becuase we need that CID on the promise
-// FIXME represent promises (for Promised) and options (for builder)
-
 /// The configuration object that expresses an ability (with parents) from JS
 #[derive(Debug, Clone, PartialEq, Default)]
 #[wasm_bindgen(getter_with_clone)]

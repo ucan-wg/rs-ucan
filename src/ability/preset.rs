@@ -1,4 +1,9 @@
-use super::{crud, msg, wasm};
+use super::{
+    crud::{Crud, PromisedCrud},
+    msg::{Msg, PromisedMsg},
+    ucan::revoke::{PromisedRevoke, Revoke},
+    wasm::run as wasm,
+};
 use crate::{
     ability::{
         arguments,
@@ -9,128 +14,127 @@ use crate::{
     ipld,
 };
 use libipld_core::ipld::Ipld;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
-pub enum Ready {
-    // FIXME UCAN
-    Crud(crud::Ready),
-    Msg(msg::Ready),
-    Wasm(wasm::run::Ready),
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Preset {
+    Crud(Crud),
+    Msg(Msg),
+    Ucan(Revoke),
+    Wasm(wasm::Run),
 }
 
-impl ToCommand for Ready {
+impl ToCommand for Preset {
     fn to_command(&self) -> String {
         match self {
-            Ready::Crud(ready) => ready.to_command(),
-            Ready::Msg(ready) => ready.to_command(),
-            Ready::Wasm(ready) => ready.to_command(),
-        }
-    }
-}
-#[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
-pub enum Promised {
-    Crud(crud::Promised),
-    Msg(msg::Promised),
-    Wasm(wasm::run::Promised),
-}
-
-impl Resolvable for Ready {
-    type Promised = Promised;
-}
-
-impl ToCommand for Promised {
-    fn to_command(&self) -> String {
-        match self {
-            Promised::Crud(promised) => promised.to_command(),
-            Promised::Msg(promised) => promised.to_command(),
-            Promised::Wasm(promised) => promised.to_command(),
+            Preset::Crud(crud) => crud.to_command(),
+            Preset::Msg(msg) => msg.to_command(),
+            Preset::Ucan(ucan) => ucan.to_command(),
+            Preset::Wasm(wasm) => wasm.to_command(),
         }
     }
 }
 
-impl ParsePromised for Promised {
+#[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
+pub enum PromisedPreset {
+    Crud(PromisedCrud),
+    Msg(PromisedMsg),
+    Ucan(PromisedRevoke),
+    Wasm(wasm::PromisedRun),
+}
+
+impl Resolvable for Preset {
+    type Promised = PromisedPreset;
+}
+
+impl ToCommand for PromisedPreset {
+    fn to_command(&self) -> String {
+        match self {
+            PromisedPreset::Crud(promised) => promised.to_command(),
+            PromisedPreset::Msg(promised) => promised.to_command(),
+            PromisedPreset::Ucan(promised) => promised.to_command(),
+            PromisedPreset::Wasm(promised) => promised.to_command(),
+        }
+    }
+}
+
+impl ParsePromised for PromisedPreset {
     type PromisedArgsError = ();
 
     fn try_parse_promised(
         cmd: &str,
         args: arguments::Named<ipld::Promised>,
     ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
-        match crud::Promised::try_parse_promised(cmd, args.clone()) {
-            Ok(promised) => return Ok(Promised::Crud(promised)),
-            Err(err) => return Err(err),
+        match PromisedCrud::try_parse_promised(cmd, args.clone()) {
+            Ok(promised) => return Ok(PromisedPreset::Crud(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
-        match msg::Promised::try_parse_promised(cmd, args.clone()) {
-            Ok(promised) => return Ok(Promised::Msg(promised)),
-            Err(err) => return Err(err),
+        match PromisedMsg::try_parse_promised(cmd, args.clone()) {
+            Ok(promised) => return Ok(PromisedPreset::Msg(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
-        match wasm::run::Promised::try_parse_promised(cmd, args) {
-            Ok(promised) => return Ok(Promised::Wasm(promised)),
-            Err(err) => return Err(err),
+        match wasm::PromisedRun::try_parse_promised(cmd, args.clone()) {
+            Ok(promised) => return Ok(PromisedPreset::Wasm(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
+        }
+
+        match PromisedRevoke::try_parse_promised(cmd, args) {
+            Ok(promised) => return Ok(PromisedPreset::Ucan(promised)),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 
-impl ParseAbility for Ready {
+impl ParseAbility for Preset {
     type ArgsErr = ();
 
     fn try_parse(
         cmd: &str,
         args: arguments::Named<Ipld>,
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
-        match msg::Ready::try_parse(cmd, args.clone()) {
-            Ok(builder) => return Ok(Ready::Msg(builder)),
-            Err(err) => return Err(err),
+        match Msg::try_parse(cmd, args.clone()) {
+            Ok(msg) => return Ok(Preset::Msg(msg)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
-        match crud::Ready::try_parse(cmd, args.clone()) {
-            Ok(builder) => return Ok(Ready::Crud(builder)),
-            Err(err) => return Err(err),
+        match Crud::try_parse(cmd, args.clone()) {
+            Ok(crud) => return Ok(Preset::Crud(crud)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
-        match wasm::run::Ready::try_parse(cmd, args) {
-            Ok(builder) => return Ok(Ready::Wasm(builder)),
-            Err(err) => return Err(err),
+        match wasm::Run::try_parse(cmd, args.clone()) {
+            Ok(wasm) => return Ok(Preset::Wasm(wasm)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
+        }
+
+        match Revoke::try_parse(cmd, args) {
+            Ok(ucan) => return Ok(Preset::Ucan(ucan)),
+            Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(err) => return Err(err),
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 
-// impl From<Builder> for arguments::Named<Ipld> {
-//     fn from(builder: Builder) -> Self {
-//         match builder {
-//             Builder::Crud(builder) => builder.into(),
-//             Builder::Msg(builder) => builder.into(),
-//             Builder::Wasm(builder) => builder.into(),
-//         }
-//     }
-// }
-//
-// impl From<Parents> for arguments::Named<Ipld> {
-//     fn from(parents: Parents) -> Self {
-//         match parents {
-//             Parents::Crud(parents) => parents.into(),
-//             Parents::Msg(parents) => parents.into(),
-//         }
-//     }
-// }
-
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedPreset> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedPreset) -> Self {
         match promised {
-            Promised::Crud(promised) => promised.into(),
-            Promised::Msg(promised) => promised.into(),
-            Promised::Wasm(promised) => promised.into(),
+            PromisedPreset::Crud(promised) => promised.into(),
+            PromisedPreset::Msg(promised) => promised.into(),
+            PromisedPreset::Ucan(promised) => promised.into(),
+            PromisedPreset::Wasm(promised) => promised.into(),
         }
     }
 }

@@ -10,12 +10,13 @@ use libipld_core::{
     ipld::Ipld,
     multihash::{Code, MultihashDigest},
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signature::{SignatureEncoding, Signer};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
 /// A container associating a `payload` with its signature over it.
-#[derive(Debug, Clone, PartialEq)] // , Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Envelope<
     T: Verifiable<DID> + Capsule,
     DID: Did,
@@ -65,10 +66,10 @@ impl<
     // FIXME extract into trait?
     pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
     where
-        Ipld: Encode<Enc>,
+        Ipld: Encode<Enc> + From<Self>,
     {
         let codec = self.varsig_header.codec().clone();
-        let ipld: Ipld = self.into();
+        let ipld = Ipld::from(self);
         ipld.encode(codec, w)
     }
 
@@ -171,8 +172,7 @@ impl<
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
         Self: Clone,
-        Ipld: Encode<Enc>,
-        T: Into<Ipld>,
+        Ipld: Encode<Enc> + From<T>,
     {
         let codec = self.varsig_header.codec().clone();
         let mut ipld_buffer = vec![];
@@ -187,11 +187,13 @@ impl<
 }
 
 impl<
-        T: Verifiable<DID> + Capsule + Into<Ipld>,
+        T: Verifiable<DID> + Capsule,
         DID: Did,
         V: varsig::Header<Enc>,
         Enc: Codec + Into<u32> + TryFrom<u32>,
     > From<Envelope<T, DID, V, Enc>> for Ipld
+where
+    Ipld: From<T>,
 {
     fn from(envelope: Envelope<T, DID, V, Enc>) -> Self {
         let ipld: Ipld = BTreeMap::from_iter([(T::TAG.into(), envelope.payload.into())]).into();
@@ -205,14 +207,76 @@ impl<
 }
 
 impl<
-        T: Verifiable<DID> + Capsule + Into<Ipld>,
+        T: TryFrom<Ipld> + Verifiable<DID> + Capsule,
+        DID: Did,
+        V: varsig::Header<Enc>,
+        Enc: Codec + Into<u32> + TryFrom<u32>,
+    > TryFrom<Ipld> for Envelope<T, DID, V, Enc>
+{
+    type Error = FromIpldError<T::Error>;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        if let Ipld::List(list) = ipld {
+            if let [Ipld::Bytes(sig), Ipld::List(inner)] = list.as_slice() {
+                if let [Ipld::Bytes(varsig_header), Ipld::Map(btree)] = inner.as_slice() {
+                    if let (1, Some(payload)) = (btree.len(), btree.get(T::TAG.into())) {
+                        Ok(Envelope {
+                            payload: T::try_from(payload.clone())
+                                .map_err(FromIpldError::CannotParsePayload)?,
+
+                            varsig_header: V::try_from(varsig_header.as_slice())
+                                .map_err(|_| FromIpldError::CannotParseVarsigHeader)?,
+
+                            signature: DID::Signature::try_from(sig.as_slice())
+                                .map_err(|_| FromIpldError::CannotParseSignature)?,
+
+                            _phantom: std::marker::PhantomData,
+                        })
+                    } else {
+                        Err(FromIpldError::InvalidPayloadCapsule)
+                    }
+                } else {
+                    Err(FromIpldError::InvalidVarsigContainer)
+                }
+            } else {
+                Err(FromIpldError::InvalidSignatureContainer)
+            }
+        } else {
+            Err(FromIpldError::InvalidSignatureContainer)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum FromIpldError<E> {
+    #[error("Invalid signature container")]
+    InvalidSignatureContainer,
+
+    #[error("Invalid varsig container")]
+    InvalidVarsigContainer,
+
+    #[error("Cannot parse payload: {0}")]
+    CannotParsePayload(#[from] E),
+
+    #[error("Cannot parse varsig header")]
+    CannotParseVarsigHeader,
+
+    #[error("Cannot parse signature")]
+    CannotParseSignature,
+
+    #[error("Invalid payload capsule")]
+    InvalidPayloadCapsule,
+}
+
+impl<
+        T: Verifiable<DID> + Capsule,
         DID: Did,
         V: varsig::Header<Enc>,
         Enc: Codec + Into<u32> + TryFrom<u32>,
     > Encode<Enc> for Envelope<T, DID, V, Enc>
 where
     Self: Clone,
-    Ipld: Encode<Enc>,
+    Ipld: Encode<Enc> + From<T>,
 {
     fn encode<W: std::io::Write>(
         &self,
@@ -246,4 +310,39 @@ pub enum ValidateError {
     /// Error while verifying the signature.
     #[error("Signature verification failed: {0}")]
     VerifyError(#[from] signature::Error),
+}
+
+impl<
+        T: Verifiable<DID> + Capsule,
+        DID: Did,
+        V: varsig::Header<Enc>,
+        Enc: Codec + TryFrom<u32> + Into<u32>,
+    > Serialize for Envelope<T, DID, V, Enc>
+{
+    fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.clone().serialize(serializer)
+    }
+}
+
+impl<
+        'de,
+        T: Verifiable<DID> + Capsule + TryFrom<Ipld>,
+        DID: Did,
+        V: varsig::Header<Enc>,
+        Enc: Codec + TryFrom<u32> + Into<u32>,
+    > Deserialize<'de> for Envelope<T, DID, V, Enc>
+where
+    Envelope<T, DID, V, Enc>: TryFrom<Ipld>,
+    <Envelope<T, DID, V, Enc> as TryFrom<Ipld>>::Error: std::fmt::Display,
+{
+    fn deserialize<D>(deserializer: D) -> std::prelude::v1::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ipld: Ipld = Deserialize::deserialize(deserializer)?;
+        Ok(Envelope::try_from(ipld).map_err(serde::de::Error::custom)?)
+    }
 }

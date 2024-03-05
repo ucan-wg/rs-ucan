@@ -21,6 +21,7 @@ pub mod delegation;
 pub mod did;
 pub mod invocation;
 pub mod ipld;
+pub mod proof;
 pub mod reader;
 pub mod receipt;
 pub mod task;

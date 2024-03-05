@@ -32,6 +32,7 @@ use libipld_core::{
     codec::{Codec, Encode},
     ipld::Ipld,
 };
+use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 
 /// The complete, signed [`invocation::Payload`][Payload].
@@ -56,14 +57,14 @@ pub struct Invocation<
 
 /// A variant of [`Invocation`] that has the abilties and DIDs from this library pre-filled.
 pub type Preset = Invocation<
-    ability::preset::Ready,
+    ability::preset::Preset,
     did::preset::Verifier,
     varsig::header::Preset,
     varsig::encoding::Preset,
 >;
 
 pub type PresetPromised = Invocation<
-    ability::preset::Promised,
+    ability::preset::Preset,
     did::preset::Verifier,
     varsig::header::Preset,
     varsig::encoding::Preset,
@@ -180,15 +181,47 @@ impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
     }
 }
 
-impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    Invocation<T, DID, V, Enc>
+impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    From<Invocation<A, DID, V, Enc>> for Ipld
 {
+    fn from(invocation: Invocation<A, DID, V, Enc>) -> Self {
+        invocation.0.into()
+    }
 }
 
-impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    From<Invocation<T, DID, V, Enc>> for Ipld
+impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> TryFrom<Ipld>
+    for Invocation<A, DID, V, Enc>
+where
+    Payload<A, DID>: TryFrom<Ipld>,
 {
-    fn from(invocation: Invocation<T, DID, V, Enc>) -> Self {
-        invocation.0.into()
+    type Error = <signature::Envelope<Payload<A, DID>, DID, V, Enc> as TryFrom<Ipld>>::Error;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        signature::Envelope::try_from(ipld).map(Invocation)
+    }
+}
+
+impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Serialize
+    for Invocation<A, DID, V, Enc>
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de, A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    Deserialize<'de> for Invocation<A, DID, V, Enc>
+where
+    Payload<A, DID>: TryFrom<Ipld>,
+    <Payload<A, DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        signature::Envelope::deserialize(deserializer).map(Invocation)
     }
 }

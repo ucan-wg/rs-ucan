@@ -13,92 +13,102 @@ use crate::{
     ipld,
 };
 use libipld_core::ipld::Ipld;
+use receive::{PromisedReceive, Receive};
+use send::{PromisedSend, Send};
+use serde::{Deserialize, Serialize};
 
-// FIXME rename invokable?
-#[derive(Debug, Clone, PartialEq)]
-pub enum Ready {
-    Send(send::Ready),
-    Receive(receive::Receive),
+/// A family of abilities for sending and receiving messages.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Msg {
+    /// The ability for sending messages.
+    Send(Send),
+
+    /// The ability for receiving messages.
+    Receive(Receive),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Promised {
-    Send(send::Promised),
-    Receive(receive::Promised),
+/// A promised version of the [`Msg`] ability.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum PromisedMsg {
+    /// The promised ability for sending messages.
+    Send(PromisedSend),
+
+    /// The promised ability for receiving messages.
+    Receive(PromisedReceive),
 }
 
-impl ToCommand for Ready {
+impl ToCommand for Msg {
     fn to_command(&self) -> String {
         match self {
-            Ready::Send(send) => send.to_command(),
-            Ready::Receive(receive) => receive.to_command(),
+            Msg::Send(send) => send.to_command(),
+            Msg::Receive(receive) => receive.to_command(),
         }
     }
 }
 
-impl ToCommand for Promised {
+impl ToCommand for PromisedMsg {
     fn to_command(&self) -> String {
         match self {
-            Promised::Send(send) => send.to_command(),
-            Promised::Receive(receive) => receive.to_command(),
+            PromisedMsg::Send(send) => send.to_command(),
+            PromisedMsg::Receive(receive) => receive.to_command(),
         }
     }
 }
 
-impl ParsePromised for Promised {
+impl ParsePromised for PromisedMsg {
     type PromisedArgsError = ();
 
     fn try_parse_promised(
         cmd: &str,
         args: arguments::Named<ipld::Promised>,
     ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
-        if let Ok(send) = send::Promised::try_parse_promised(cmd, args.clone()) {
-            return Ok(Promised::Send(send));
+        if let Ok(send) = PromisedSend::try_parse_promised(cmd, args.clone()) {
+            return Ok(PromisedMsg::Send(send));
         }
 
-        if let Ok(receive) = receive::Promised::try_parse_promised(cmd, args) {
-            return Ok(Promised::Receive(receive));
+        if let Ok(receive) = PromisedReceive::try_parse_promised(cmd, args) {
+            return Ok(PromisedMsg::Receive(receive));
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedMsg> for arguments::Named<Ipld> {
+    fn from(promised: PromisedMsg) -> Self {
         match promised {
-            Promised::Send(send) => send.into(),
-            Promised::Receive(receive) => receive.into(),
+            PromisedMsg::Send(send) => send.into(),
+            PromisedMsg::Receive(receive) => receive.into(),
         }
     }
 }
 
-impl Resolvable for Ready {
-    type Promised = Promised;
+impl Resolvable for Msg {
+    type Promised = PromisedMsg;
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedMsg> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedMsg) -> Self {
         match promised {
-            Promised::Send(send) => send.into(),
-            Promised::Receive(receive) => receive.into(),
+            PromisedMsg::Send(send) => send.into(),
+            PromisedMsg::Receive(receive) => receive.into(),
         }
     }
 }
 
-impl ParseAbility for Ready {
+impl ParseAbility for Msg {
     type ArgsErr = ();
 
     fn try_parse(
         cmd: &str,
         args: arguments::Named<Ipld>,
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
-        if let Ok(send) = send::Ready::try_parse(cmd, args.clone()) {
-            return Ok(Ready::Send(send));
+        if let Ok(send) = Send::try_parse(cmd, args.clone()) {
+            return Ok(Msg::Send(send));
         }
 
-        if let Ok(receive) = receive::Receive::try_parse(cmd, args) {
-            return Ok(Ready::Receive(receive));
+        if let Ok(receive) = Receive::try_parse(cmd, args) {
+            return Ok(Msg::Receive(receive));
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))

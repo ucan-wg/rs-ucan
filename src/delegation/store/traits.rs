@@ -1,6 +1,6 @@
 use crate::{
     crypto::varsig,
-    delegation::{policy::predicate::Predicate, Delegation},
+    delegation::{policy::Predicate, Delegation},
     did::Did,
 };
 use libipld_core::{cid::Cid, codec::Codec};
@@ -8,7 +8,6 @@ use nonempty::NonEmpty;
 use std::fmt::Debug;
 use web_time::SystemTime;
 
-// NOTE the T here is the builder... FIXME add one layer up and call T::Builder? May be confusing?
 pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
     type DelegationStoreError: Debug;
 

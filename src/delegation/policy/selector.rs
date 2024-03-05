@@ -1,8 +1,14 @@
-pub mod error;
-pub mod op;
-pub mod or;
+pub mod filter;
 
-use error::{ParseError, SelectorErrorReason};
+mod error;
+mod select;
+mod selectable;
+
+pub use error::{ParseError, SelectorErrorReason};
+pub use select::Select;
+pub use selectable::Selectable;
+
+use filter::Filter;
 use nom::{
     self,
     branch::alt,
@@ -19,11 +25,11 @@ use std::{fmt, str::FromStr};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Selector(Vec<op::SelectorOp>);
+pub struct Selector(pub Vec<Filter>);
 
 pub fn parse(input: &str) -> IResult<&str, Selector> {
-    let without_this = many1(op::parse);
-    let with_this = preceded(char('.'), many0(op::parse));
+    let without_this = many1(filter::parse);
+    let with_this = preceded(char('.'), many0(filter::parse));
 
     // NOTE: must try without_this this first, to disambiguate `.field` from `.`
     let p = map_res(alt((without_this, with_this)), |found| {
@@ -38,9 +44,9 @@ pub fn parse_this(input: &str) -> IResult<&str, Selector> {
     context("this", p)(input)
 }
 
-pub fn parse_selector_ops(input: &str) -> IResult<&str, Vec<op::SelectorOp>> {
-    let p = many1(op::parse);
-    context("selector ops", p)(input)
+pub fn parse_selector_ops(input: &str) -> IResult<&str, Vec<Filter>> {
+    let p = many1(filter::parse);
+    context("filters", p)(input)
 }
 
 impl fmt::Display for Selector {
@@ -93,10 +99,7 @@ pub struct SelectorError {
 }
 
 impl SelectorError {
-    pub fn from_refs(
-        path_refs: &Vec<&op::SelectorOp>,
-        reason: SelectorErrorReason,
-    ) -> SelectorError {
+    pub fn from_refs(path_refs: &Vec<&Filter>, reason: SelectorErrorReason) -> SelectorError {
         SelectorError {
             selector: Selector(path_refs.iter().map(|op| (*op).clone()).collect()),
             reason,

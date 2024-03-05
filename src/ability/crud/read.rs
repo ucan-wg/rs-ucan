@@ -1,18 +1,13 @@
 //! Read from a resource.
 
-// use super::any as crud;
 use crate::{
     ability::{arguments, command::Command},
-    // delegation::Delegable,
     invocation::promise,
     ipld,
-    // proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
-// FIXME deserialize instance
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// This ability is used to fetch messages from other actors.
@@ -34,7 +29,7 @@ use std::path::PathBuf;
 ///     end
 ///
 ///     readpromise("crud::read::Promised")
-///     readready("crud::read::Ready")
+///     readready("crud::read::Read")
 ///
 ///     top --> any --> read
 ///     read -.->|invoke| readpromise -.->|resolve| readready -.-> exe{{execute}}
@@ -43,7 +38,7 @@ use std::path::PathBuf;
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ready {
+pub struct Read {
     /// An optional path to a sub-resource that is to be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
@@ -76,7 +71,7 @@ pub struct Ready {
 ///     end
 ///
 ///     readpromise("crud::read::Promised")
-///     readready("crud::read::Ready")
+///     readready("crud::read::Read")
 ///
 ///     top --> any --> read
 ///     read -.->|invoke| readpromise -.->|resolve| readready -.-> exe{{execute}}
@@ -85,7 +80,7 @@ pub struct Ready {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Promised {
+pub struct PromisedRead {
     /// An optional path to a sub-resource that is to be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<promise::Resolves<PathBuf>>,
@@ -95,7 +90,7 @@ pub struct Promised {
     pub args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -143,36 +138,30 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised { path, args })
+        Ok(PromisedRead { path, args })
     }
 }
 
 const COMMAND: &'static str = "/crud/read";
 
-impl Command for Ready {
+impl Command for Read {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
+impl Command for PromisedRead {
     const COMMAND: &'static str = COMMAND;
 }
 
-// impl Delegable for Ready {
-//     type Builder = Ready;
-// }
-
-// FIXME resolves vs resolvable is confusing
-
-impl TryFrom<Ipld> for Ready {
-    type Error = SerdeError; // FIXME
+impl TryFrom<Ipld> for Read {
+    type Error = SerdeError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         ipld_serde::from_ipld(ipld)
     }
 }
 
-impl From<Ready> for arguments::Named<Ipld> {
-    fn from(ready: Ready) -> Self {
+impl From<Read> for arguments::Named<Ipld> {
+    fn from(ready: Read) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path) = ready.path {
@@ -193,10 +182,10 @@ impl From<Ready> for arguments::Named<Ipld> {
     }
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Read {
     type Error = ();
 
-    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Ready, Self::Error> {
+    fn try_from(arguments: arguments::Named<Ipld>) -> Result<Read, Self::Error> {
         let mut path = None;
         let mut args = None;
 
@@ -216,50 +205,16 @@ impl TryFrom<arguments::Named<Ipld>> for Ready {
             }
         }
 
-        Ok(Ready { path, args })
+        Ok(Read { path, args })
     }
 }
 
-// impl Checkable for Ready {
-//     type Hierarchy = Parentful<Ready>;
-// }
-//
-// impl CheckSame for Ready {
-//     type Error = (); // FIXME better error
-//
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         if self.path == proof.path {
-//             Ok(())
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
-//
-// impl CheckParents for Ready {
-//     type Parents = crud::Any;
-//     type ParentError = (); // FIXME
-//
-//     fn check_parent(&self, other: &crud::Any) -> Result<(), Self::ParentError> {
-//         if let Some(self_path) = &self.path {
-//             // FIXME check the args, too!
-//             if let Some(proof_path) = &other.path {
-//                 if self_path != proof_path {
-//                     return Err(());
-//                 }
-//             }
-//         }
-//
-//         Ok(())
-//     }
-// }
-
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Read {
+    type Promised = PromisedRead;
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedRead> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedRead) -> Self {
         let mut named = arguments::Named::new();
 
         if let Some(path_res) = promised.path {

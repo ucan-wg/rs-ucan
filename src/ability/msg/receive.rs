@@ -2,11 +2,8 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    // delegation::Delegable,
     invocation::promise,
-    ipld,
-    // proof::{checkable::Checkable, parentful::Parentful, parents::CheckParents, same::CheckSame},
-    url,
+    ipld, url,
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -47,21 +44,15 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
-// FIXME needs promisory version
-
 const COMMAND: &'static str = "/msg/send";
 
 impl Command for Receive {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl Command for Promised {
+impl Command for PromisedReceive {
     const COMMAND: &'static str = COMMAND;
 }
-
-// impl Delegable for Receive {
-//     type Builder = Receive;
-// }
 
 impl TryFrom<arguments::Named<Ipld>> for Receive {
     type Error = ();
@@ -94,34 +85,6 @@ impl From<Receive> for arguments::Named<Ipld> {
     }
 }
 
-// impl Checkable for Receive {
-//     type Hierarchy = Parentful<Receive>;
-// }
-//
-// impl CheckSame for Receive {
-//     type Error = (); // FIXME better error
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         self.from.check_same(&proof.from).map_err(|_| ())
-//     }
-// }
-//
-// impl CheckParents for Receive {
-//     type Parents = super::Any;
-//     type ParentError = <super::Any as CheckSame>::Error;
-//
-//     fn check_parent(&self, proof: &Self::Parents) -> Result<(), Self::ParentError> {
-//         if let Some(from) = &self.from {
-//             if let Some(proof_from) = &proof.from {
-//                 if &from != &proof_from {
-//                     return Err(());
-//                 }
-//             }
-//         }
-//
-//         Ok(())
-//     }
-// }
-
 impl From<Receive> for Ipld {
     fn from(receive: Receive) -> Self {
         receive.into()
@@ -136,13 +99,13 @@ impl TryFrom<Ipld> for Receive {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Promised {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromisedReceive {
     pub from: Option<promise::Resolves<url::Newtype>>,
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedReceive> for arguments::Named<Ipld> {
+    fn from(promised: PromisedReceive) -> Self {
         let mut args = arguments::Named::new();
 
         if let Some(from) = promised.from {
@@ -161,10 +124,10 @@ impl From<Promised> for arguments::Named<Ipld> {
 }
 
 impl promise::Resolvable for Receive {
-    type Promised = Promised;
+    type Promised = PromisedReceive;
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedReceive {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -185,12 +148,12 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised { from })
+        Ok(PromisedReceive { from })
     }
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedReceive> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedReceive) -> Self {
         let mut args = arguments::Named::new();
 
         if let Some(from) = promised.from {

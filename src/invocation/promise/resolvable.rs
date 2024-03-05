@@ -2,7 +2,7 @@ use crate::{
     ability::{
         arguments,
         command::ToCommand,
-        parse::{ParseAbility, ParseAbilityError, ParsePromised},
+        parse::{ParseAbility, ParsePromised},
     },
     invocation::promise::Pending,
     ipld,
@@ -10,9 +10,6 @@ use crate::{
 use libipld_core::{cid::Cid, ipld::Ipld};
 use std::{collections::BTreeSet, fmt};
 use thiserror::Error;
-
-// FIXME rename "Unresolved"
-// FIXME better name
 
 /// A trait for [`Delegable`]s that can be deferred (by promises).
 ///
@@ -28,18 +25,6 @@ pub trait Resolvable: Sized + ParseAbility + ToCommand {
     type Promised: ToCommand
         + ParsePromised // TryFrom<arguments::Named<ipld::Promised>>
         + Into<arguments::Named<ipld::Promised>>;
-
-    // fn into_promised(self) -> Self::Promised
-    // where
-    //     <Self::Promised as ParsePromised>::PromisedArgsError: fmt::Debug,
-    // {
-    //     // FIXME In no way efficient... override where possible, or just cut the impl
-    //     let cmd = &builder.to_command();
-    //     let named_ipld: arguments::Named<Ipld> = builder.into();
-    //     let promised_ipld: arguments::Named<ipld::Promised> = named_ipld.into();
-    //     <Self as Resolvable>::Promised::try_parse_promised(cmd, promised_ipld)
-    //         .expect("promise to always be possible from a ready ability")
-    // }
 
     /// Attempt to resolve the [`Self::Promised`].
     fn try_resolve(promised: Self::Promised) -> Result<Self, CantResolve<Self>>
@@ -102,6 +87,6 @@ pub enum ResolveError {
     #[error("The promise is still has arguments waiting to be resolved")]
     StillWaiting(Pending),
 
-    #[error("The resolved promise was unable to reify a Builder")]
+    #[error("The resolved promise was unable to reify an ability from IPLD")]
     ConversionError,
 }

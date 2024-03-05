@@ -32,7 +32,8 @@ use libipld_core::{
     codec::{Codec, Encode},
     ipld::Ipld,
 };
-use policy::predicate::Predicate;
+use policy::Predicate;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use web_time::SystemTime;
 
@@ -160,5 +161,50 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
         Payload<DID>: Clone,
     {
         signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
+    }
+}
+
+impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> TryFrom<Ipld>
+    for Delegation<DID, V, Enc>
+where
+    Payload<DID>: TryFrom<Ipld>,
+{
+    type Error = <signature::Envelope<Payload<DID>, DID, V, Enc> as TryFrom<Ipld>>::Error;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        signature::Envelope::try_from(ipld).map(Delegation)
+    }
+}
+
+impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
+    From<Delegation<DID, V, Enc>> for Ipld
+{
+    fn from(delegation: Delegation<DID, V, Enc>) -> Self {
+        delegation.0.into()
+    }
+}
+
+impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Serialize
+    for Delegation<DID, V, Enc>
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Deserialize<'de>
+    for Delegation<DID, V, Enc>
+where
+    Payload<DID>: TryFrom<Ipld>,
+    <Payload<DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        signature::Envelope::deserialize(deserializer).map(Delegation)
     }
 }

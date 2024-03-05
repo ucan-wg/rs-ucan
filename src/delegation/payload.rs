@@ -1,4 +1,4 @@
-use super::policy::predicate::Predicate;
+use super::policy::Predicate;
 use crate::{
     capsule::Capsule,
     crypto::Nonce,

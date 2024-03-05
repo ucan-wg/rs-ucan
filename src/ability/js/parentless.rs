@@ -22,8 +22,6 @@ pub struct ParentlessConfig {
     check_same: Function,
 }
 
-// FIXME represent promises (for Promised) and options (for builder)
-
 // NOTE if changed, please update this in the docs for `ParentlessArgs` below
 #[wasm_bindgen(typescript_custom_section)]
 pub const PARENTLESS_ARGS: &str = r#"

@@ -1,5 +1,4 @@
-use super::{error::SelectorErrorReason, op::SelectorOp, SelectorError};
-use crate::delegation::policy::ir::Selectable;
+use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorError};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
@@ -8,11 +7,11 @@ use proptest::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Select<T> {
-    Get(Vec<SelectorOp>),
+    Get(Vec<Filter>),
     Pure(T),
 }
 
-impl<T: TryFromIpld> Select<T> {
+impl<T: Selectable> Select<T> {
     pub fn resolve(self, ctx: &Ipld) -> Result<T, SelectorError> {
         match self {
             Select::Pure(inner) => Ok(inner),
@@ -22,15 +21,15 @@ impl<T: TryFromIpld> Select<T> {
                         seen_ops.push(op);
 
                         match op {
-                            SelectorOp::Try(inner) => {
-                                let op: SelectorOp = *inner.clone();
+                            Filter::Try(inner) => {
+                                let op: Filter = *inner.clone();
                                 let ipld: Ipld = Select::Get::<Ipld>(vec![op])
                                     .resolve(ctx)
                                     .unwrap_or(Ipld::Null);
 
                                 Ok((ipld, seen_ops))
                             }
-                            SelectorOp::ArrayIndex(i) => {
+                            Filter::ArrayIndex(i) => {
                                 let result = {
                                     match ipld {
                                         Ipld::List(xs) => {
@@ -58,7 +57,7 @@ impl<T: TryFromIpld> Select<T> {
 
                                 Ok((result?, seen_ops))
                             }
-                            SelectorOp::Field(k) => {
+                            Filter::Field(k) => {
                                 let result = match ipld {
                                     Ipld::Map(xs) => xs
                                         .get(k)
@@ -75,7 +74,7 @@ impl<T: TryFromIpld> Select<T> {
 
                                 Ok((result?, seen_ops))
                             }
-                            SelectorOp::Values => {
+                            Filter::Values => {
                                 let result = match ipld {
                                     Ipld::List(xs) => Ok(Ipld::List(xs)),
                                     Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
@@ -106,7 +105,7 @@ impl<T: Arbitrary + 'static> Arbitrary for Select<T> {
         prop_oneof![
             T::arbitrary_with(t_params).prop_map(Select::Pure),
             // FIXME add params that make this actually correspond to data
-            prop::collection::vec(SelectorOp::arbitrary(), 1..10).prop_map(Select::Get),
+            prop::collection::vec(Filter::arbitrary(), 1..10).prop_map(Select::Get),
         ]
         .boxed()
     }

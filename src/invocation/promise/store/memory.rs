@@ -14,7 +14,7 @@ pub struct MemoryStore {
 impl<T: Resolvable, DID: Did> Store<T, DID> for MemoryStore {
     type PromiseStoreError = Infallible;
 
-    fn put(
+    fn put_waiting(
         &mut self,
         invocation: Cid,
         waiting_on: Vec<Cid>,
@@ -25,7 +25,10 @@ impl<T: Resolvable, DID: Did> Store<T, DID> for MemoryStore {
         Ok(())
     }
 
-    fn get(&self, waiting_on: &mut Vec<Cid>) -> Result<BTreeSet<Cid>, Self::PromiseStoreError> {
+    fn get_waiting(
+        &self,
+        waiting_on: &mut Vec<Cid>,
+    ) -> Result<BTreeSet<Cid>, Self::PromiseStoreError> {
         Ok(match waiting_on.pop() {
             None => BTreeSet::new(),
             Some(first) => waiting_on

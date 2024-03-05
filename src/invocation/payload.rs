@@ -5,7 +5,7 @@ use crate::{
     crypto::Nonce,
     delegation::{
         self,
-        policy::{predicate::Predicate, selector::SelectorError},
+        policy::{selector::SelectorError, Predicate},
     },
     did::{Did, Verifiable},
     time::{Expired, Timestamp},

@@ -4,10 +4,8 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    //     delegation::Delegable,
     invocation::promise,
     ipld,
-    // proof::{error::OptionalFieldError, parentless::NoParents, same::CheckSame},
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
@@ -15,48 +13,48 @@ use std::fmt::Debug;
 
 /// The fully resolved variant: ready to execute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Ready {
+pub struct Revoke {
     /// The UCAN to revoke
     pub ucan: Cid,
 }
 
 const COMMAND: &'static str = "/ucan/revoke";
 
-impl Command for Ready {
+impl Command for Revoke {
     const COMMAND: &'static str = COMMAND;
 }
-impl Command for Promised {
+impl Command for PromisedRevoke {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl TryFrom<arguments::Named<Ipld>> for Ready {
+impl TryFrom<arguments::Named<Ipld>> for Revoke {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
         let ipld: Ipld = arguments.get("ucan").ok_or(())?.clone();
         let nt: ipld::cid::Newtype = ipld.try_into().map_err(|_| ())?;
 
-        Ok(Ready { ucan: nt.cid })
+        Ok(Revoke { ucan: nt.cid })
     }
 }
 
-impl promise::Resolvable for Ready {
-    type Promised = Promised;
+impl promise::Resolvable for Revoke {
+    type Promised = PromisedRevoke;
 }
 
-impl From<Promised> for arguments::Named<ipld::Promised> {
-    fn from(promised: Promised) -> Self {
+impl From<PromisedRevoke> for arguments::Named<ipld::Promised> {
+    fn from(promised: PromisedRevoke) -> Self {
         arguments::Named::from_iter([("ucan".into(), promised.ucan.into())])
     }
 }
 
 /// A variant where arguments may be [`Promise`][crate::invocation::promise]s.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Promised {
+pub struct PromisedRevoke {
     pub ucan: promise::Resolves<Cid>,
 }
 
-impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
+impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRevoke {
     type Error = ();
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
@@ -75,31 +73,31 @@ impl TryFrom<arguments::Named<ipld::Promised>> for Promised {
             }
         }
 
-        Ok(Promised {
+        Ok(PromisedRevoke {
             ucan: ucan.ok_or(())?,
         })
     }
 }
 
-impl From<Ready> for Promised {
-    fn from(r: Ready) -> Promised {
-        Promised {
+impl From<Revoke> for PromisedRevoke {
+    fn from(r: Revoke) -> PromisedRevoke {
+        PromisedRevoke {
             ucan: Ok(r.ucan).into(),
         }
     }
 }
 
-impl From<Promised> for arguments::Named<Ipld> {
-    fn from(p: Promised) -> arguments::Named<Ipld> {
+impl From<PromisedRevoke> for arguments::Named<Ipld> {
+    fn from(p: PromisedRevoke) -> arguments::Named<Ipld> {
         arguments::Named::from_iter([("ucan".into(), p.ucan.into())])
     }
 }
 
-impl TryFrom<Promised> for Ready {
+impl TryFrom<PromisedRevoke> for Revoke {
     type Error = ();
 
-    fn try_from(p: Promised) -> Result<Self, Self::Error> {
-        Ok(Ready {
+    fn try_from(p: PromisedRevoke) -> Result<Self, Self::Error> {
+        Ok(Revoke {
             ucan: p.ucan.try_resolve().map_err(|_| ())?,
         })
     }
