@@ -1,6 +1,7 @@
 use super::Header;
 use crate::crypto::rs256::{Signature, VerifyingKey};
 use libipld_core::codec::Codec;
+use thiserror::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rs256Header<C> {
@@ -8,20 +9,31 @@ pub struct Rs256Header<C> {
 }
 
 impl<C: TryFrom<u32>> TryFrom<&[u8]> for Rs256Header<C> {
-    type Error = (); // FIXME
+    type Error = ParseFromBytesError<<C as TryFrom<u32>>::Error>;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if let Ok((0x1205, inner)) = unsigned_varint::decode::u16(&bytes) {
             if let Ok((0x12, more)) = unsigned_varint::decode::u8(&inner) {
                 if let Ok((codec_info, &[])) = unsigned_varint::decode::u32(&more) {
-                    let codec = C::try_from(codec_info).map_err(|_| ())?;
+                    let codec =
+                        C::try_from(codec_info).map_err(ParseFromBytesError::CodecPrefixError)?;
+
                     return Ok(Rs256Header { codec });
                 }
             }
         }
 
-        Err(())
+        Err(ParseFromBytesError::InvalidHeader)
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Error)]
+pub enum ParseFromBytesError<C> {
+    #[error("Invalid header")]
+    InvalidHeader,
+
+    #[error("Codec prefix error: {0}")]
+    CodecPrefixError(#[from] C),
 }
 
 impl<C: Into<u32>> From<Rs256Header<C>> for Vec<u8> {

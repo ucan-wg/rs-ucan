@@ -1,6 +1,7 @@
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -14,7 +15,6 @@ use proptest::prelude::*;
 #[cfg(feature = "test_utils")]
 use super::cid;
 
-// FIXME push into the submodules
 /// A newtype wrapper around [`Ipld`] that has additional trait implementations.
 ///
 /// Usage is very simple: wrap a [`Newtype`] to gain access to additional traits and methods.
@@ -73,15 +73,19 @@ impl From<PathBuf> for Newtype {
 }
 
 impl TryFrom<Newtype> for PathBuf {
-    type Error = (); // FIXME
+    type Error = NotAString;
 
     fn try_from(wrapped: Newtype) -> Result<Self, Self::Error> {
         match wrapped.0 {
             Ipld::String(s) => Ok(PathBuf::from(s)),
-            _ => Err(()),
+            ipld => Err(NotAString(ipld)),
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+#[error("Ipld variant is not a string")]
+pub struct NotAString(pub Ipld);
 
 #[cfg(target_arch = "wasm32")]
 impl Newtype {
@@ -90,13 +94,12 @@ impl Newtype {
         JsError: From<<T as TryFrom<Ipld>>::Error>,
     {
         match Newtype::try_from(js_val) {
-            Err(_err) => Err(JsError::new("can't convert")), // FIXME
+            Err(_err) => Err(JsError::new("can't convert")),
             Ok(nt) => nt.0.try_into().map_err(JsError::from),
         }
     }
 }
 
-// FIXME testme
 #[cfg(target_arch = "wasm32")]
 impl From<Newtype> for JsValue {
     fn from(wrapped: Newtype) -> Self {
@@ -132,7 +135,6 @@ impl From<Newtype> for JsValue {
     }
 }
 
-// FIXME testme
 #[cfg(target_arch = "wasm32")]
 impl TryFrom<JsValue> for Newtype {
     type Error = (); // FIXME

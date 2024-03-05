@@ -40,9 +40,6 @@ use web_time::SystemTime;
 /// A [`Delegation`] is a signed delegation [`Payload`]
 ///
 /// A [`Payload`] on its own is not a valid [`Delegation`], as it must be signed by the issuer.
-///
-/// # Examples
-/// FIXME
 #[derive(Clone, Debug, PartialEq)]
 pub struct Delegation<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>(
     pub signature::Envelope<Payload<DID>, DID, V, Enc>,
@@ -62,8 +59,6 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Ca
 /// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
 pub type Preset =
     Delegation<did::preset::Verifier, varsig::header::Preset, varsig::encoding::Preset>;
-
-// FIXME checkable -> provable?
 
 impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
     Delegation<DID, V, Enc>

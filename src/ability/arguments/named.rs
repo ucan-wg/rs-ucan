@@ -1,4 +1,7 @@
-use crate::{invocation::promise::Pending, ipld};
+use crate::{
+    invocation::promise::{Pending, Resolves},
+    ipld,
+};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -125,7 +128,6 @@ impl<T> FromIterator<(String, T)> for Named<T> {
     }
 }
 
-// FIXME move to common ipld module?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
 pub enum FromIpldError<E> {
     NotAMap,
@@ -220,49 +222,6 @@ impl<T> TryFrom<JsValue> for Named<T> {
     }
 }
 
-use crate::invocation::promise::Resolves;
-
-// impl<T: TryFrom<Ipld>> TryFrom<Named<T>> for Named<Ipld> {
-//     type Error = ();
-//
-//     fn try_from(named: Named<T>) -> Result<Self, Self::Error> {
-//         let btree = named
-//             .0
-//             .into_iter()
-//             .map(|(k, v)| {
-//                 let ipld = v.try_into().map_err(|_| ())?;
-//                 Ok((k, ipld))
-//             })
-//             .collect::<Result<_, _>>()?;
-//
-//         Ok(Named(btree))
-//     }
-// }
-// the trait `From<Named<Ipld>>` is not implemented for `Named<promised::Promised>`
-
-// impl From<Named<Ipld>> for Named<Resolves<Ipld>> {
-//     fn from(named: Named<Ipld>) -> Named<Resolves<Ipld>> {
-//         named
-//             .into_iter()
-//             .map(|(k, v)| (k, promise::PromiseOk::Fulfilled(v).into()))
-//             .collect()
-//     }
-// }
-// impl<T: TryFrom<Ipld>> TryFrom<Named<Ipld>> for Named<Resolves<T>> {
-//     type Error = Named<Ipld>;
-//
-//     fn try_from(named: Named<Ipld>) -> Result<Named<Resolves<T>>, Self::Error> {
-//         named
-//             .into_iter()
-//             .try_fold(Named::new(), |mut btree, (k, v)| {
-//                 let ipld = v.try_into().map_err(|_| named.clone())?;
-//                 btree.insert(k, promise::PromiseOk::Fulfilled(ipld).into());
-//                 Ok(btree)
-//             })
-//     }
-// }
-
-// FIXME abstract over both of these?
 impl From<Named<Ipld>> for Named<Resolves<ipld::Promised>> {
     fn from(named: Named<Ipld>) -> Named<Resolves<ipld::Promised>> {
         let btree: BTreeMap<String, Resolves<ipld::Promised>> = named
@@ -306,7 +265,7 @@ where
 
     fn try_from(resolves: Resolves<Named<T>>) -> Result<Self, Self::Error> {
         resolves
-            .clone() // FIXME could be a pretty heavy clone
+            .clone()
             .try_resolve()?
             .into_iter()
             .try_fold(Named::new(), |mut btree, (k, v)| {

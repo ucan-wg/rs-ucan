@@ -1,8 +1,10 @@
 use p521;
+use serde::{Deserialize, Serialize};
 use signature::Verifier;
 use std::fmt;
 
-#[derive(Clone)] // FIXME , Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct VerifyingKey(pub p521::ecdsa::VerifyingKey);
 
 impl fmt::Debug for VerifyingKey {

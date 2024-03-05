@@ -6,7 +6,7 @@ use crate::{
 use enum_as_inner::EnumAsInner;
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, fmt, path::PathBuf};
 
 /// A recursive data structure whose leaves may be [`Ipld`] or promises.
 ///
@@ -68,6 +68,43 @@ impl Promised {
         match self.try_into() {
             Ok(ipld) => Err(ipld),
             Err(promised) => Ok(f(promised)),
+        }
+    }
+}
+
+impl fmt::Display for Promised {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Promised::Null => write!(f, "null"),
+            Promised::Bool(b) => write!(f, "{}", b),
+            Promised::Integer(i) => write!(f, "{}", i),
+            Promised::Float(fl) => write!(f, "{}", fl),
+            Promised::String(s) => write!(f, "{}", s),
+            Promised::Bytes(b) => write!(f, "{:?}", b),
+            Promised::Link(cid) => write!(f, "{}", cid),
+            Promised::WaitOk(cid) => write!(f, "await/ok: {}", cid),
+            Promised::WaitErr(cid) => write!(f, "await/err: {}", cid),
+            Promised::WaitAny(cid) => write!(f, "await/*: {}", cid),
+            Promised::List(list) => {
+                write!(f, "[")?;
+                for (i, promised) in list.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", promised)?;
+                }
+                write!(f, "]")
+            }
+            Promised::Map(map) => {
+                write!(f, "{{")?;
+                for (i, (k, v)) in map.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", k, v)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 //! URL utilities.
 
-// use crate::proof::same::CheckSame;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::fmt;

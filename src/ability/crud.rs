@@ -56,6 +56,7 @@ use destroy::{Destroy, PromisedDestroy};
 use libipld_core::ipld::Ipld;
 use read::{PromisedRead, Read};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use update::{PromisedUpdate, Update};
 
 #[cfg(target_arch = "wasm32")]
@@ -78,7 +79,7 @@ pub enum PromisedCrud {
 }
 
 impl ParsePromised for PromisedCrud {
-    type PromisedArgsError = (); // FIXME
+    type PromisedArgsError = InvalidArgs;
 
     fn try_parse_promised(
         cmd: &str,
@@ -86,38 +87,53 @@ impl ParsePromised for PromisedCrud {
     ) -> Result<Self, ParseAbilityError<Self::PromisedArgsError>> {
         match PromisedCreate::try_parse_promised(cmd, args.clone()) {
             Ok(create) => return Ok(PromisedCrud::Create(create)),
-            Err(ParseAbilityError::InvalidArgs(_)) => {
-                return Err(ParseAbilityError::InvalidArgs(()))
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(InvalidArgs::Create(e)))
             }
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
         match PromisedRead::try_parse_promised(cmd, args.clone()) {
             Ok(read) => return Ok(PromisedCrud::Read(read)),
-            Err(ParseAbilityError::InvalidArgs(_)) => {
-                return Err(ParseAbilityError::InvalidArgs(()))
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(InvalidArgs::Read(e)))
             }
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
         match PromisedUpdate::try_parse_promised(cmd, args.clone()) {
             Ok(update) => return Ok(PromisedCrud::Update(update)),
-            Err(ParseAbilityError::InvalidArgs(_)) => {
-                return Err(ParseAbilityError::InvalidArgs(()))
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(InvalidArgs::Update(e)))
             }
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
         match PromisedDestroy::try_parse_promised(cmd, args) {
             Ok(destroy) => return Ok(PromisedCrud::Destroy(destroy)),
-            Err(ParseAbilityError::InvalidArgs(_)) => {
-                return Err(ParseAbilityError::InvalidArgs(()))
+            Err(ParseAbilityError::InvalidArgs(e)) => {
+                return Err(ParseAbilityError::InvalidArgs(InvalidArgs::Destroy(e)))
             }
             Err(ParseAbilityError::UnknownCommand(_)) => (),
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.into()))
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum InvalidArgs {
+    #[error("Invalid args for create: {0}")]
+    Create(create::FromPromisedArgsError),
+
+    #[error("Invalid args for read: {0}")]
+    Read(read::FromPromisedArgsError),
+
+    #[error("Invalid args for update: {0}")]
+    Update(update::FromPromisedArgsError),
+
+    #[error("Invalid args for destroy: {0}")]
+    Destroy(destroy::FromPromisedArgsError),
 }
 
 impl ParseAbility for Crud {

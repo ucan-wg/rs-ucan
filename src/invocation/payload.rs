@@ -153,7 +153,6 @@ impl<A, DID: Did> Payload<A, DID> {
         }
 
         proofs.into_iter().try_fold(&self.issuer, |iss, proof| {
-            // FIXME extract step function?
             if *iss != proof.audience {
                 return Err(ValidationError::InvalidSubject.into());
             }

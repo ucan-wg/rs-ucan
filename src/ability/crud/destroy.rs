@@ -8,6 +8,7 @@ use crate::{
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/destroy` ability.
@@ -138,7 +139,7 @@ pub struct PromisedDestroy {
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedDestroy {
-    type Error = ();
+    type Error = FromPromisedArgsError;
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
         let mut path = None;
@@ -160,14 +161,23 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedDestroy {
                     ipld::Promised::WaitAny(cid) => {
                         todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
                     }
-                    _ => return Err(()),
+                    _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
-                _ => return Err(()),
+                _ => return Err(FromPromisedArgsError::InvalidMapKey(k)),
             }
         }
 
         Ok(PromisedDestroy { path })
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum FromPromisedArgsError {
+    #[error("Invalid path {0}")]
+    InvalidPath(String),
+
+    #[error("Invalid map key {0}")]
+    InvalidMapKey(String),
 }
 
 impl Command for PromisedDestroy {

@@ -1,5 +1,5 @@
 use super::{
-    crud::{Crud, PromisedCrud},
+    crud::{self, Crud, PromisedCrud},
     msg::{Msg, PromisedMsg},
     ucan::revoke::{PromisedRevoke, Revoke},
     wasm::run as wasm,
@@ -15,6 +15,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Preset {
@@ -59,7 +60,7 @@ impl ToCommand for PromisedPreset {
 }
 
 impl ParsePromised for PromisedPreset {
-    type PromisedArgsError = ();
+    type PromisedArgsError = ParsePromisedError;
 
     fn try_parse_promised(
         cmd: &str,
@@ -68,29 +69,48 @@ impl ParsePromised for PromisedPreset {
         match PromisedCrud::try_parse_promised(cmd, args.clone()) {
             Ok(promised) => return Ok(PromisedPreset::Crud(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
-            Err(err) => return Err(err),
+            Err(err) => {
+                return Err(ParseAbilityError::InvalidArgs(ParsePromisedError::Crud(
+                    err,
+                )))
+            }
         }
 
         match PromisedMsg::try_parse_promised(cmd, args.clone()) {
             Ok(promised) => return Ok(PromisedPreset::Msg(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
-            Err(err) => return Err(err),
+            Err(_err) => return Err(ParseAbilityError::InvalidArgs(ParsePromisedError::Msg)),
         }
 
         match wasm::PromisedRun::try_parse_promised(cmd, args.clone()) {
             Ok(promised) => return Ok(PromisedPreset::Wasm(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
-            Err(err) => return Err(err),
+            Err(_err) => return Err(ParseAbilityError::InvalidArgs(ParsePromisedError::Wasm)),
         }
 
         match PromisedRevoke::try_parse_promised(cmd, args) {
             Ok(promised) => return Ok(PromisedPreset::Ucan(promised)),
             Err(ParseAbilityError::UnknownCommand(_)) => (),
-            Err(err) => return Err(err),
+            Err(_err) => return Err(ParseAbilityError::InvalidArgs(ParsePromisedError::Ucan)),
         }
 
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum ParsePromisedError {
+    #[error("Crud error: {0}")]
+    Crud(ParseAbilityError<crud::InvalidArgs>),
+
+    #[error("Msg error")]
+    Msg, // FIXME
+
+    #[error("Wasm error")]
+    Wasm, // FIXME
+
+    #[error("Ucan error")]
+    Ucan, // FIXME
 }
 
 impl ParseAbility for Preset {
@@ -102,7 +122,7 @@ impl ParseAbility for Preset {
     ) -> Result<Self, ParseAbilityError<Self::ArgsErr>> {
         match Msg::try_parse(cmd, args.clone()) {
             Ok(msg) => return Ok(Preset::Msg(msg)),
-            Err(ParseAbilityError::UnknownCommand(_)) => (),
+            Err(ParseAbilityError::UnknownCommand(_)) => (), // FIXME
             Err(err) => return Err(err),
         }
 

@@ -3,10 +3,8 @@
 use super::module::Module;
 use crate::{
     ability::{arguments, command::Command},
-    // delegation::Delegable,
     invocation::promise,
     ipld,
-    // proof::{parentless::NoParents, same::CheckSame},
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};

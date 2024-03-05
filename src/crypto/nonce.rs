@@ -2,7 +2,6 @@
 //!
 //! [Nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
 
-// FIXME use enum_as_inner more?
 use enum_as_inner::EnumAsInner;
 use getrandom::getrandom;
 use libipld_core::{

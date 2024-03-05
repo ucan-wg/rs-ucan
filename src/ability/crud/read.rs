@@ -8,6 +8,7 @@ use crate::{
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// This ability is used to fetch messages from other actors.
@@ -91,7 +92,7 @@ pub struct PromisedRead {
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
-    type Error = ();
+    type Error = FromPromisedArgsError;
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
         let mut path = None;
@@ -114,7 +115,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
                     ipld::Promised::WaitAny(cid) => {
                         todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
                     }
-                    _ => return Err(()),
+                    _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
 
                 "args" => {
@@ -131,15 +132,27 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
                         ipld::Promised::WaitAny(cid) => {
                             todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
                         }
-                        _ => return Err(()),
+                        _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                     }
                 }
-                _ => return Err(()),
+                _ => return Err(FromPromisedArgsError::InvalidMapKey(k)),
             }
         }
 
         Ok(PromisedRead { path, args })
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum FromPromisedArgsError {
+    #[error("Invalid path {0}")]
+    InvalidPath(String),
+
+    #[error("Invalid args {0}")]
+    InvalidArgs(ipld::Promised),
+
+    #[error("Invalid map key {0}")]
+    InvalidMapKey(String),
 }
 
 const COMMAND: &'static str = "/crud/read";

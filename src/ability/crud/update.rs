@@ -8,6 +8,7 @@ use crate::{
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
+use thiserror::Error;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/create` ability.
@@ -107,7 +108,7 @@ impl Command for PromisedUpdate {
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedUpdate {
-    type Error = ();
+    type Error = FromPromisedArgsError;
 
     fn try_from(named: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
         let mut path = None;
@@ -121,7 +122,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedUpdate {
                     }
                     Ok(ipld) => match ipld {
                         Ipld::String(s) => path = Some(promise::Resolves::new(PathBuf::from(s))),
-                        _ => return Err(()),
+                        other => return Err(FromPromisedArgsError::PathBodyNotAString(other)),
                     },
                 },
 
@@ -129,24 +130,39 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedUpdate {
                     ipld::Promised::Map(map) => {
                         args = Some(promise::Resolves::new(arguments::Named(map)))
                     }
-                    ipld::Promised::WaitOk(cid) => {
+                    ipld::Promised::WaitOk(_cid) => {
+                        // FIXME
                         args = Some(promise::Resolves::new(arguments::Named::new()));
                     }
-                    ipld::Promised::WaitErr(cid) => {
+                    ipld::Promised::WaitErr(_cid) => {
+                        // FIXME
                         args = Some(promise::Resolves::new(arguments::Named::new()));
                     }
-                    ipld::Promised::WaitAny(cid) => {
+                    ipld::Promised::WaitAny(_cid) => {
+                        // FIXME
                         args = Some(promise::Resolves::new(arguments::Named::new()));
                     }
-                    _ => return Err(()),
+                    _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                 },
 
-                _ => return Err(()),
+                _ => return Err(FromPromisedArgsError::InvalidMapKey(key)),
             }
         }
 
         Ok(PromisedUpdate { path, args })
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum FromPromisedArgsError {
+    #[error("Path body is not a string")]
+    PathBodyNotAString(Ipld),
+
+    #[error("Invalid args {0}")]
+    InvalidArgs(ipld::Promised),
+
+    #[error("Invalid map key {0}")]
+    InvalidMapKey(String),
 }
 
 impl TryFrom<arguments::Named<Ipld>> for Update {
@@ -212,8 +228,10 @@ impl TryFrom<Ipld> for Update {
     }
 }
 
-impl From<PromisedUpdate> for arguments::Named<Ipld> {
-    fn from(promised: PromisedUpdate) -> Self {
+impl TryFrom<PromisedUpdate> for arguments::Named<Ipld> {
+    type Error = FromPromisedUpdateError;
+
+    fn try_from(promised: PromisedUpdate) -> Result<Self, Self::Error> {
         let mut named = arguments::Named::new();
 
         if let Some(path_res) = promised.path {
@@ -228,19 +246,31 @@ impl From<PromisedUpdate> for arguments::Named<Ipld> {
                 "args".to_string(),
                 args_res
                     .try_resolve()
-                    .expect("FIXME")
+                    .map_err(FromPromisedUpdateError::UnresolvedArgs)?
                     .iter()
                     .try_fold(BTreeMap::new(), |mut map, (k, v)| {
-                        map.insert(k.clone(), Ipld::try_from(v.clone()).ok()?); // FIXME double check
-                        Some(map)
+                        map.insert(k.clone(), Ipld::try_from(v.clone())?); // FIXME double check
+                        Ok(map)
                     })
-                    .expect("FIXME")
+                    .map_err(FromPromisedUpdateError::ArgsPending)?
                     .into(),
             );
         }
 
-        named
+        Ok(named)
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum FromPromisedUpdateError {
+    #[error("Unresolved args")]
+    UnresolvedArgs(Resolves<arguments::Named<ipld::Promised>>),
+
+    #[error("Args pending")]
+    ArgsPending(<Ipld as TryFrom<ipld::Promised>>::Error),
+
+    #[error("Invalid map key {0}")]
+    InvalidMapKey(String),
 }
 
 impl From<Update> for PromisedUpdate {

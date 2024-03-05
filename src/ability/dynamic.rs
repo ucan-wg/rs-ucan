@@ -5,7 +5,6 @@ use super::{
     command::ToCommand,
     parse::{ParseAbility, ParseAbilityError},
 };
-// use crate::proof::same::CheckSame;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -17,8 +16,6 @@ use wasm_bindgen::prelude::*;
 use js_sys;
 
 // NOTE the lack of checking functions!
-
-// FIXME make a NOTE somewhere that Hierarchy is availavle on ability/js/...
 
 /// A "dynamic" ability with the bare minimum of statics
 ///
@@ -117,28 +114,6 @@ impl TryFrom<js_sys::Map> for Dynamic {
         }
     }
 }
-
-// impl CheckSame for Dynamic {
-//     type Error = String; // FIXME better err
-//
-//     fn check_same(&self, proof: &Self) -> Result<(), Self::Error> {
-//         if self.cmd != proof.cmd {
-//             return Err("Command mismatch".into());
-//         }
-//
-//         self.args.0.iter().try_for_each(|(k, v)| {
-//             if let Some(proof_v) = proof.args.get(k) {
-//                 if v != proof_v {
-//                     return Err("arguments::Named mismatch".into());
-//                 }
-//             } else {
-//                 return Err("arguments::Named mismatch".into());
-//             }
-//
-//             Ok(())
-//         })
-//     }
-// }
 
 impl From<Dynamic> for Ipld {
     fn from(dynamic: Dynamic) -> Self {

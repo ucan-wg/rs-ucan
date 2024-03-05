@@ -8,6 +8,7 @@ use crate::{
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `crud/create` ability.
@@ -107,7 +108,7 @@ impl Command for PromisedCreate {
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
-    type Error = ();
+    type Error = FromPromisedArgsError;
 
     fn try_from(arguments: arguments::Named<ipld::Promised>) -> Result<Self, Self::Error> {
         let mut path = None;
@@ -130,7 +131,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
                     ipld::Promised::WaitAny(cid) => {
                         todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
                     }
-                    _ => return Err(()),
+                    _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
 
                 "args" => {
@@ -147,15 +148,27 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
                         ipld::Promised::WaitAny(cid) => {
                             todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
                         }
-                        _ => return Err(()),
+                        _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                     }
                 }
-                _ => return Err(()),
+                _ => return Err(FromPromisedArgsError::InvalidMapKey(k)),
             }
         }
 
         Ok(PromisedCreate { path, args })
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum FromPromisedArgsError {
+    #[error("Invalid path {0}")]
+    InvalidPath(String),
+
+    #[error("Invalid args {0}")]
+    InvalidArgs(ipld::Promised),
+
+    #[error("Invalid map key {0}")]
+    InvalidMapKey(String),
 }
 
 impl TryFrom<arguments::Named<Ipld>> for Create {

@@ -4,7 +4,7 @@ use rsa;
 use signature::{SignatureEncoding, Signer, Verifier};
 
 /// The verifying/public key for RS256.
-#[derive(Debug, Clone)] // FIXME , Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct VerifyingKey(pub rsa::pkcs1v15::VerifyingKey<rsa::sha2::Sha256>);
 
 impl PartialEq for VerifyingKey {
@@ -22,7 +22,7 @@ impl Verifier<Signature> for VerifyingKey {
 }
 
 /// The signing/secret key for RS256.
-#[derive(Debug, Clone)] // FIXME , Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SigningKey(pub rsa::pkcs1v15::SigningKey<rsa::sha2::Sha256>);
 
 impl Signer<Signature> for SigningKey {
@@ -32,7 +32,7 @@ impl Signer<Signature> for SigningKey {
 }
 
 /// The signature for RS256.
-#[derive(Debug, Clone, PartialEq, Eq)] // FIXME , Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signature(pub rsa::pkcs1v15::Signature);
 
 impl SignatureEncoding for Signature {
