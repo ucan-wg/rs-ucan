@@ -30,8 +30,14 @@
           (import rust-overlay)
         ];
 
-        pkgs = import nixpkgs {inherit system overlays;};
-        unstable = import nixos-unstable {inherit system overlays;};
+        pkgs = import nixpkgs {
+          inherit system overlays;
+          config = {replaceStdenv = {pkgs}: pkgs.clangStdenv;};
+        };
+        unstable = import nixos-unstable {
+          inherit system overlays;
+          config = {replaceStdenv = {pkgs}: pkgs.clangStdenv;};
+        };
 
         rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
           extensions = [
