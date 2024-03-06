@@ -6,6 +6,7 @@ use serde::{Serialize, Deserialize};
 use thiserror::Error;
 use blst::BLST_ERROR;
 use signature as sig;
+use did_url::DID;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -316,6 +317,20 @@ impl<'de> Deserialize<'de> for Verifier {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         Verifier::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl From<Verifier> for DID {
+    fn from(v: Verifier) -> Self {
+        DID::parse(&v.to_string()).expect("verifier to be a valid DID")
+    }
+}
+
+impl TryFrom<DID> for Verifier {
+    type Error = FromStrError;
+
+    fn try_from(did: DID) -> Result<Self, Self::Error> {
+        Verifier::from_str(&did.to_string())
     }
 }
 

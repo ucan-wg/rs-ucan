@@ -1,5 +1,4 @@
 use enum_as_inner::EnumAsInner;
-// FIXME use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "eddsa")]
 use ed25519_dalek;

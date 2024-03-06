@@ -1,4 +1,6 @@
 use super::key;
+use super::Did;
+use did_url::DID;
 use enum_as_inner::EnumAsInner;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
@@ -11,6 +13,41 @@ pub enum Verifier {
     Key(key::Verifier),
     //
     // FIXME Dns(did_url::DID),
+}
+
+impl From<Verifier> for DID {
+    fn from(verifier: Verifier) -> Self {
+        match verifier {
+            Verifier::Key(verifier) => verifier.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, EnumAsInner, PartialEq, Eq)]
+pub enum Signer {
+    Key(key::Signer),
+    // FIXME Dns(did_url::DID),
+}
+
+impl Did for Verifier {
+    type Signature = key::Signature;
+    type Signer = Signer;
+}
+
+impl TryFrom<DID> for Verifier {
+    type Error = key::FromStrError;
+
+    fn try_from(did: DID) -> Result<Self, Self::Error> {
+        key::Verifier::try_from(did).map(Verifier::Key)
+    }
+}
+
+impl signature::Signer<key::Signature> for Signer {
+    fn try_sign(&self, message: &[u8]) -> Result<key::Signature, signature::Error> {
+        match self {
+            Signer::Key(signer) => signer.try_sign(message),
+        }
+    }
 }
 
 impl signature::Verifier<key::Signature> for Verifier {

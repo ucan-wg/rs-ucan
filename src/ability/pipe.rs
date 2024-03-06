@@ -7,7 +7,7 @@ pub struct Pipe<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + In
 }
 
 pub enum Cap<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
-    Chain(delegation::Chain<DID, V, Enc>),
+    Proof(delegation::Proof<DID, V, Enc>),
     Literal(Ipld),
 }
 
@@ -17,6 +17,6 @@ pub struct PromisedPipe<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u
 }
 
 pub enum PromisedCap<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
-    Chain(delegation::Chain<DID, V, Enc>),
+    Proof(delegation::Proof<DID, V, Enc>),
     Promised(ipld::Promised),
 }

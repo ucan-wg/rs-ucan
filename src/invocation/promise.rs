@@ -25,14 +25,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, EnumAsInner)]
 #[serde(untagged)]
 pub enum Promise<T, E> {
-    /// The `await/ok` promise
+    /// The `ucan/await/ok` promise
     Ok(PromiseOk<T>),
 
-    /// The `await/err` promise
+    /// The `ucan/await/err` promise
     Err(PromiseErr<E>),
 
-    /// The `await/*` promise
+    /// The `ucan/await/*` promise
     Any(PromiseAny<T, E>),
+    // Tagged `ucan/await`
 }
 
 impl<T, E> From<PromiseOk<T>> for Promise<T, E> {

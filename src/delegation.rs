@@ -41,28 +41,35 @@ use web_time::SystemTime;
 ///
 /// A [`Payload`] on its own is not a valid [`Delegation`], as it must be signed by the issuer.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Delegation<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>(
-    pub signature::Envelope<Payload<DID>, DID, V, Enc>,
-);
+pub struct Delegation<
+    DID: Did = did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+>(signature::Envelope<Payload<DID>, DID, V, C>);
 
+// FIXME rename proofs?
 #[derive(Clone, Debug, PartialEq)]
-pub struct Chain<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>(
-    Vec<Delegation<DID, V, Enc>>,
-);
+pub struct Proof<
+    DID: Did = did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+>(Vec<Delegation<DID, V, C>>);
 
-impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Capsule
-    for Chain<DID, V, Enc>
+impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Capsule
+    for Proof<DID, V, C>
 {
-    const TAG: &'static str = "ucan/chain";
+    const TAG: &'static str = "ucan/prf";
 }
 
-/// A variant of [`Delegation`] that has the abilties and DIDs from this library pre-filled.
-pub type Preset =
-    Delegation<did::preset::Verifier, varsig::header::Preset, varsig::encoding::Preset>;
+impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>> Delegation<DID, V, C> {
+    pub fn new(
+        varsig_header: V,
+        signature: DID::Signature,
+        payload: Payload<DID>,
+    ) -> Delegation<DID, V, C> {
+        Delegation(signature::Envelope::new(varsig_header, signature, payload))
+    }
 
-impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
-    Delegation<DID, V, Enc>
-{
     /// Retrive the `issuer` of a [`Delegation`]
     pub fn issuer(&self) -> &DID {
         &self.0.payload.issuer
@@ -117,7 +124,7 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
 
     pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
     where
-        Ipld: Encode<Enc>,
+        Ipld: Encode<C>,
     {
         self.0.varsig_encode(w)
     }
@@ -126,14 +133,14 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
         &self.0.signature
     }
 
-    pub fn codec(&self) -> &Enc {
+    pub fn codec(&self) -> &C {
         self.varsig_header().codec()
     }
 
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        signature::Envelope<Payload<DID>, DID, V, Enc>: Clone + Encode<Enc>,
-        Ipld: Encode<Enc>,
+        signature::Envelope<Payload<DID>, DID, V, C>: Clone + Encode<C>,
+        Ipld: Encode<C>,
     {
         self.0.cid()
     }
@@ -141,7 +148,7 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
     pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
     where
         Payload<DID>: Clone,
-        Ipld: Encode<Enc>,
+        Ipld: Encode<C>,
     {
         self.0.validate_signature()
     }
@@ -152,35 +159,15 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
         payload: Payload<DID>,
     ) -> Result<Self, signature::SignError>
     where
-        Ipld: Encode<Enc>,
+        Ipld: Encode<C>,
         Payload<DID>: Clone,
     {
         signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
     }
 }
 
-impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> TryFrom<Ipld>
-    for Delegation<DID, V, Enc>
-where
-    Payload<DID>: TryFrom<Ipld>,
-{
-    type Error = <signature::Envelope<Payload<DID>, DID, V, Enc> as TryFrom<Ipld>>::Error;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        signature::Envelope::try_from(ipld).map(Delegation)
-    }
-}
-
-impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    From<Delegation<DID, V, Enc>> for Ipld
-{
-    fn from(delegation: Delegation<DID, V, Enc>) -> Self {
-        delegation.0.into()
-    }
-}
-
-impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Serialize
-    for Delegation<DID, V, Enc>
+impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Serialize
+    for Delegation<DID, V, C>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -190,8 +177,8 @@ impl<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Se
     }
 }
 
-impl<'de, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Deserialize<'de>
-    for Delegation<DID, V, Enc>
+impl<'de, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Deserialize<'de>
+    for Delegation<DID, V, C>
 where
     Payload<DID>: TryFrom<Ipld>,
     <Payload<DID> as TryFrom<Ipld>>::Error: std::fmt::Display,

@@ -1,4 +1,3 @@
-// use super::Newtype;
 use did_url::DID;
 use std::fmt;
 

@@ -219,13 +219,7 @@ impl From<Create> for arguments::Named<Ipld> {
         let mut named = arguments::Named::new();
 
         if let Some(path) = create.path {
-            named.insert(
-                "path".to_string(),
-                path.into_os_string()
-                    .into_string()
-                    .expect("PathBuf to generate valid paths") // FIXME reasonable assumption?
-                    .into(),
-            );
+            named.insert("path".to_string(), path.display().to_string().into());
         }
 
         if let Some(args) = create.args {

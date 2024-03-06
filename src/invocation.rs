@@ -50,30 +50,15 @@ use web_time::SystemTime;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Invocation<
     A,
-    DID: did::Did,
-    V: varsig::Header<Enc>,
-    Enc: Codec + TryFrom<u32> + Into<u32>,
->(pub signature::Envelope<payload::Payload<A, DID>, DID, V, Enc>);
+    DID: did::Did = did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+>(pub signature::Envelope<payload::Payload<A, DID>, DID, V, C>);
 
-/// A variant of [`Invocation`] that has the abilties and DIDs from this library pre-filled.
-pub type Preset = Invocation<
-    ability::preset::Preset,
-    did::preset::Verifier,
-    varsig::header::Preset,
-    varsig::encoding::Preset,
->;
-
-pub type PresetPromised = Invocation<
-    ability::preset::Preset,
-    did::preset::Verifier,
-    varsig::header::Preset,
-    varsig::encoding::Preset,
->;
-
-impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    Invocation<A, DID, V, Enc>
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>>
+    Invocation<A, DID, V, C>
 where
-    Ipld: Encode<Enc>,
+    Ipld: Encode<C>,
 {
     pub fn new(payload: Payload<A, DID>, varsig_header: V, signature: DID::Signature) -> Self {
         Invocation(signature::Envelope::new(varsig_header, signature, payload))
@@ -81,7 +66,7 @@ where
 
     pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
     where
-        Ipld: Encode<Enc>,
+        Ipld: Encode<C>,
     {
         self.0.varsig_encode(w)
     }
@@ -114,7 +99,7 @@ where
         &self.0.payload.ability
     }
 
-    pub fn map_ability<F, Z>(self, f: F) -> Invocation<Z, DID, V, Enc>
+    pub fn map_ability<F, Z>(self, f: F) -> Invocation<Z, DID, V, C>
     where
         F: FnOnce(A) -> Z,
     {
@@ -141,14 +126,14 @@ where
         self.payload().check_time(now)
     }
 
-    pub fn codec(&self) -> &Enc {
+    pub fn codec(&self) -> &C {
         self.varsig_header().codec()
     }
 
     pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        signature::Envelope<Payload<A, DID>, DID, V, Enc>: Clone,
-        Ipld: Encode<Enc>,
+        signature::Envelope<Payload<A, DID>, DID, V, C>: Clone,
+        Ipld: Encode<C>,
     {
         self.0.cid()
     }
@@ -157,7 +142,7 @@ where
         signer: &DID::Signer,
         varsig_header: V,
         payload: Payload<A, DID>,
-    ) -> Result<Invocation<A, DID, V, Enc>, signature::SignError>
+    ) -> Result<Invocation<A, DID, V, C>, signature::SignError>
     where
         Payload<A, DID>: Clone,
     {
@@ -173,36 +158,36 @@ where
     }
 }
 
-impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    did::Verifiable<DID> for Invocation<A, DID, V, Enc>
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> did::Verifiable<DID>
+    for Invocation<A, DID, V, C>
 {
     fn verifier(&self) -> &DID {
         &self.0.verifier()
     }
 }
 
-impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    From<Invocation<A, DID, V, Enc>> for Ipld
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>>
+    From<Invocation<A, DID, V, C>> for Ipld
 {
-    fn from(invocation: Invocation<A, DID, V, Enc>) -> Self {
+    fn from(invocation: Invocation<A, DID, V, C>) -> Self {
         invocation.0.into()
     }
 }
 
-impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> TryFrom<Ipld>
-    for Invocation<A, DID, V, Enc>
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> TryFrom<Ipld>
+    for Invocation<A, DID, V, C>
 where
     Payload<A, DID>: TryFrom<Ipld>,
 {
-    type Error = <signature::Envelope<Payload<A, DID>, DID, V, Enc> as TryFrom<Ipld>>::Error;
+    type Error = <signature::Envelope<Payload<A, DID>, DID, V, C> as TryFrom<Ipld>>::Error;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         signature::Envelope::try_from(ipld).map(Invocation)
     }
 }
 
-impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> Serialize
-    for Invocation<A, DID, V, Enc>
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Serialize
+    for Invocation<A, DID, V, C>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -212,8 +197,8 @@ impl<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
     }
 }
 
-impl<'de, A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>>
-    Deserialize<'de> for Invocation<A, DID, V, Enc>
+impl<'de, A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Deserialize<'de>
+    for Invocation<A, DID, V, C>
 where
     Payload<A, DID>: TryFrom<Ipld>,
     <Payload<A, DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
