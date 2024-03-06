@@ -60,6 +60,7 @@ impl From<f64> for Number {
     }
 }
 
+#[cfg(feature = "test_utils")]
 impl Arbitrary for Number {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;

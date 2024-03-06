@@ -15,6 +15,9 @@ use proptest::prelude::*;
 #[cfg(feature = "test_utils")]
 use super::cid;
 
+#[cfg(target_arch = "wasm32")]
+use super::cid;
+
 /// A newtype wrapper around [`Ipld`] that has additional trait implementations.
 ///
 /// Usage is very simple: wrap a [`Newtype`] to gain access to additional traits and methods.
