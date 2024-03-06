@@ -9,8 +9,8 @@ pub enum Preset {
     Es512(es512::Es512Header<encoding::Preset>),
     Rs256(rs256::Rs256Header<encoding::Preset>),
     Rs512(rs512::Rs512Header<encoding::Preset>),
-    // FIXME BLS?
-    // FIXME Es384
+    // FIXME BLS? needs varsig specs
+    // FIXME Es384 needs varsig specs
 }
 
 impl From<Preset> for Vec<u8> {

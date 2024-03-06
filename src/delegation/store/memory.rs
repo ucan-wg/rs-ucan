@@ -114,7 +114,7 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> +
         &self,
         aud: &DID,
         subject: &Option<DID>,
-        policy: Vec<Predicate>,
+        policy: Vec<Predicate>, // FIXME
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
         match self

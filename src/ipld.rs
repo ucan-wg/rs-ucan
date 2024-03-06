@@ -6,15 +6,13 @@
 //!
 //! [`Ipld`]: libipld_core::ipld::Ipld
 
-// mod enriched;
 mod collection;
-mod newtype;
 mod number;
 mod promised;
 
 pub mod cid;
+pub mod newtype;
 
-// pub use enriched::Enriched;
 pub use collection::Collection;
 pub use newtype::Newtype;
 pub use number::Number;

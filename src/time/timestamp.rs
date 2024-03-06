@@ -39,7 +39,7 @@ impl Timestamp {
     ///
     /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
     pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
-        if time.duration_since(UNIX_EPOCH).expect("FIXME").as_secs() > 0x1FFFFFFFFFFFFF {
+        if time.duration_since(UNIX_EPOCH).map_err(|_| OutOfRangeError{ tried: time })?.as_secs() > 0x1FFFFFFFFFFFFF {
             Err(OutOfRangeError { tried: time })
         } else {
             Ok(Timestamp { time })

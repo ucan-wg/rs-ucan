@@ -2,6 +2,7 @@ use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
+use std::fmt;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

@@ -6,11 +6,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1709698716,
-        "narHash": "sha256-l1o+s6MQo5Z/0+0wNmjO5z0qRk5iGJPpFnPM48a5Sfg=",
+        "lastModified": 1709701816,
+        "narHash": "sha256-Kwv17invnVzrNrm5fK3Bt6ISJqfXguCx6vc3JDOQtCE=",
         "owner": "expede",
         "repo": "nix-command-utils",
-        "rev": "2cdf5fe375f8206f10dd86d5f79ef1e2fadc5968",
+        "rev": "12056907b5194b82060fd8bc6ea11c9fdffb5f25",
         "type": "github"
       },
       "original": {

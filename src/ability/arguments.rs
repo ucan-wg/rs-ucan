@@ -2,7 +2,7 @@
 
 mod named;
 
-pub use named::{Named, NamedError};
+pub use named::*;
 
 use crate::{invocation::promise::Resolves, ipld};
 use libipld_core::ipld::Ipld;

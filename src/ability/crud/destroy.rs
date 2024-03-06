@@ -74,7 +74,7 @@ impl From<Destroy> for arguments::Named<Ipld> {
 }
 
 impl TryFrom<arguments::Named<Ipld>> for Destroy {
-    type Error = (); // FIXME
+    type Error = TryFromArgsError;
 
     fn try_from(args: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
         let mut path = None;
@@ -84,14 +84,25 @@ impl TryFrom<arguments::Named<Ipld>> for Destroy {
                 "path" => {
                     if let Ipld::String(s) = ipld {
                         path = Some(PathBuf::from(s));
+                    } else {
+                        return Err(TryFromArgsError::NotAPathBuf);
                     }
                 }
-                _ => return Err(()),
+                s => return Err(TryFromArgsError::InvalidField(s.into())),
             }
         }
 
         Ok(Destroy { path })
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum TryFromArgsError {
+    #[error("Path value is not a PathBuf")]
+    NotAPathBuf,
+
+    #[error("Invalid map key {0}")]
+    InvalidField(String)
 }
 
 impl promise::Resolvable for Destroy {

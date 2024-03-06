@@ -6,4 +6,4 @@ mod verifier;
 pub mod traits;
 
 pub use signature::Signature;
-pub use verifier::Verifier;
+pub use verifier::*;

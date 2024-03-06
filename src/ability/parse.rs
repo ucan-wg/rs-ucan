@@ -4,8 +4,6 @@ use libipld_core::ipld::Ipld;
 use std::fmt;
 use thiserror::Error;
 
-// FIXME definitely needs a better name
-// pub trait ParseAbility: TryFrom<arguments::Named<Ipld>> {
 pub trait ParseAbility: Sized {
     type ArgsErr: fmt::Debug;
 

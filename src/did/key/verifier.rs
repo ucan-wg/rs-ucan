@@ -2,6 +2,10 @@ use super::Signature;
 use enum_as_inner::EnumAsInner;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
 use std::{fmt::Display, str::FromStr};
+use serde::{Serialize, Deserialize};
+use thiserror::Error;
+use blst::BLST_ERROR;
+use signature as sig;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -145,7 +149,7 @@ impl Display for Verifier {
                         rsa2048_key
                             .0
                             .to_pkcs1_der()
-                            .expect("RSA key to encode") // FIXME?
+                            .map_err(|_| std::fmt::Error)? // NOTE: technically should never fail
                             .as_bytes()
                     )
                     .into_string()
@@ -158,7 +162,7 @@ impl Display for Verifier {
                     rsa4096_key
                         .0
                         .to_pkcs1_der()
-                        .expect("RSA key to encode") // FIXME?
+                        .map_err(|_| std::fmt::Error)? // NOTE: technically should never fail
                         .as_bytes()
                 )
                 .into_string()
@@ -178,79 +182,140 @@ impl Display for Verifier {
 }
 
 impl FromStr for Verifier {
-    type Err = String; // FIXME
+    type Err = FromStrError;
 
-    // FIXME needs tests
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() < 32 {
             // Smallest key size
-            return Err("invalid did:key".to_string());
+            return Err(FromStrError::TooShort);
         }
 
-        if let ("did:key:z", more) = s.split_at(9) {
-            let bytes = more.as_bytes();
-            match bytes.split_at(2) {
-                ([0xed, _], _) => {
-                    let vk = ed25519_dalek::VerifyingKey::try_from(&bytes[1..33])
-                        .map_err(|e| e.to_string())?;
+        match s.split_at(9) {
+            ("did:key:z", more) => {
+                let bytes = more.as_bytes();
+                match bytes.split_at(2) {
+                    ([0xed, _], _) => {
+                        let vk = ed25519_dalek::VerifyingKey::try_from(&bytes[1..33])
+                            .map_err(FromStrError::CannotParseEdDsa)?;
 
-                    return Ok(Verifier::EdDsa(vk));
-                }
-                ([0xe7, _], _) => {
-                    let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&bytes[1..])
-                        .map_err(|e| e.to_string())?;
-
-                    return Ok(Verifier::Es256k(vk));
-                }
-                ([0x12, 0x00], key_bytes) => {
-                    let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
-                        .map_err(|e| e.to_string())?;
-
-                    return Ok(Verifier::P256(vk));
-                }
-                ([0x12, 0x01], key_bytes) => {
-                    let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
-                        .map_err(|e| e.to_string())?;
-
-                    return Ok(Verifier::P384(vk));
-                }
-                ([0x12, 0x05], key_bytes) => match key_bytes.len() {
-                    2048 => {
-                        let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
-                            .map_err(|e| e.to_string())?;
-
-                        return Ok(Verifier::Rs256(rs256::VerifyingKey(vk)));
+                        return Ok(Verifier::EdDsa(vk));
                     }
-                    4096 => {
-                        let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
-                            .map_err(|e| e.to_string())?;
+                    ([0xe7, _], _) => {
+                        let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&bytes[1..])
+                            .map_err(FromStrError::CannotParseEs256k)?;
 
-                        return Ok(Verifier::Rs512(rs512::VerifyingKey(vk)));
+                        return Ok(Verifier::Es256k(vk));
                     }
-                    _ => return Err("invalid did:key".to_string()),
-                },
-                ([0xeb, 0x01], pk_bytes) => match pk_bytes.len() {
-                    48 => {
-                        let pk = blst::min_pk::PublicKey::deserialize(pk_bytes)
-                            .map_err(|_| "Failed BLS MinPk deserialization")?;
+                    ([0x12, 0x00], key_bytes) => {
+                        let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                            .map_err(FromStrError::CannotParseP256)?;
 
-                        return Ok(Verifier::BlsMinPk(pk));
+                        return Ok(Verifier::P256(vk));
                     }
-                    96 => {
-                        let pk = blst::min_sig::PublicKey::deserialize(pk_bytes)
-                            .map_err(|_| "Failed BLS MinSig deserialization")?;
+                    ([0x12, 0x01], key_bytes) => {
+                        let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                            .map_err(FromStrError::CannotParseP384)?;
 
-                        return Ok(Verifier::BlsMinSig(pk));
+                        return Ok(Verifier::P384(vk));
                     }
-                    _ => return Err("invalid did:key".to_string()),
-                },
-                _ => {
-                    return Err("invalid did:key".to_string());
+                    ([0x12, 0x02], key_bytes) => {
+                        let vk = p521::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                            .map_err(FromStrError::CannotParseP521)?;
+
+                        return Ok(Verifier::P521(es512::VerifyingKey(vk)));
+                    }
+                    ([0x12, 0x05], key_bytes) => match key_bytes.len() {
+                        2048 => {
+                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
+                                .map_err(FromStrError::CannotParseRs256)?;
+
+                            return Ok(Verifier::Rs256(rs256::VerifyingKey(vk)));
+                        }
+                        4096 => {
+                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
+                                .map_err(FromStrError::CannotParseRs512)?;
+
+                            return Ok(Verifier::Rs512(rs512::VerifyingKey(vk)));
+                        }
+                        word => return Err(FromStrError::NotADidKey(word)),
+                    },
+                    ([0xeb, 0x01], pk_bytes) => match pk_bytes.len() {
+                        48 => {
+                            let pk = blst::min_pk::PublicKey::deserialize(pk_bytes)
+                                .map_err(FromStrError::CannotParseBlsMinPk)?;
+
+                            return Ok(Verifier::BlsMinPk(pk));
+                        }
+                        96 => {
+                            let pk = blst::min_sig::PublicKey::deserialize(pk_bytes)
+                                .map_err(FromStrError::CannotParseBlsMinSig)?;
+
+                            return Ok(Verifier::BlsMinSig(pk));
+                        }
+                        word => return Err(FromStrError::UnexpectedPrefix([word].into())),
+                    },
+                    (word, _) => {
+                        return Err(FromStrError::UnexpectedPrefix(word.iter().map(|u| u.clone().into()).collect()));
+                    }
                 }
+            },
+
+            (s, _) => {
+                return Err(FromStrError::UnexpectedPrefix(s.to_string().chars().map(|u| u as usize).collect()));
             }
-        } else {
-            return Err("invalid did:key".to_string());
         }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum FromStrError {
+    #[error("not a did:key prefix: {0}")]
+    NotADidKey(usize),
+
+    #[error("unexpected prefix: {0:?}")]
+    UnexpectedPrefix(Vec<usize>),
+
+    #[error("key too short")]
+    TooShort,
+
+    #[error("cannot parse EdDSA key: {0}")]
+    CannotParseEdDsa(sig::Error),
+
+    #[error("cannot parse ES256K key: {0}")]
+    CannotParseEs256k(sig::Error),
+
+    #[error("cannot parse P-256 key: {0}")]
+    CannotParseP256(sig::Error),
+
+    #[error("cannot parse P-384 key: {0}")]
+    CannotParseP384(sig::Error),
+
+    #[error("cannot parse P-521 key: {0}")]
+    CannotParseP521(sig::Error),
+
+    #[error("cannot parse RS256 key: {0}")]
+    CannotParseRs256(rsa::pkcs1::Error),
+
+    #[error("cannot parse RS512 key: {0}")]
+    CannotParseRs512(rsa::pkcs1::Error),
+
+    #[error("cannot parse BLS min pk key: {0:?}")]
+    CannotParseBlsMinPk(BLST_ERROR),
+
+    #[error("cannot parse BLS min sig key: {0:?}")]
+    CannotParseBlsMinSig(BLST_ERROR),
+}
+
+impl Serialize for Verifier {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Verifier {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Verifier::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 

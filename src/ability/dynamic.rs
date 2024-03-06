@@ -107,7 +107,7 @@ impl TryFrom<js_sys::Map> for Dynamic {
 
             Ok(Dynamic {
                 cmd,
-                args: arguments::Named(btree), // FIXME kill clone
+                args: arguments::Named(btree),
             })
         } else {
             Err(JsValue::NULL) // FIXME

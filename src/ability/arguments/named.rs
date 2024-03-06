@@ -1,6 +1,6 @@
 use crate::{
     invocation::promise::{Pending, Resolves},
-    ipld,
+    ipld, ability::crud::update::TryFromIpldError,
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -211,15 +211,24 @@ impl<T> From<Named<T>> for JsValue {
 
 #[cfg(target_arch = "wasm32")]
 impl<T> TryFrom<JsValue> for Named<T> {
-    type Error = (); // FIXME
+    type Error = TryFromJsValueError;
 
     fn try_from(js: JsValue) -> Result<Self, Self::Error> {
         match T::try_from(js) {
-            Err(()) => Err(()), // FIXME surface that we can't parse at all
+            Err(()) => Err(TryFromJsValueError::NotIpld),
             Ok(Ipld::Map(map)) => Ok(Named(map)),
-            Ok(_wrong_ipld) => Err(()), // FIXME surface that we have the wrong type
+            Ok(_wrong_ipld) => Err(TryFromJsValueError::NotAMap),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+pub enum TryFromJsValueError {
+    #[error("Not a map")]
+    NotAMap,
+
+    #[error("Not Ipld")]
+    NotIpld
 }
 
 impl From<Named<Ipld>> for Named<Resolves<ipld::Promised>> {

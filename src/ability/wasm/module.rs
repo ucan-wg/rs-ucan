@@ -8,13 +8,12 @@ use serde::{Deserialize, Serialize};
 /// Ways to represent a Wasm module in a `wasm/run` payload.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Module {
-    // FIXME serialize both as URLs
     /// The raw bytes of the Wasm module
     ///
     /// Encodes as a `data:` URL
     Inline(Vec<u8>),
 
-    /// A link to the Wasm module
+    /// A [`Cid`] link to the Wasm module
     Remote(Link<Vec<u8>>),
 }
 

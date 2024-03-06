@@ -1,3 +1,5 @@
+/// A trait aligning signatures with keys.
+
 use crate::crypto::{bls12381, es512, rs256, rs512};
 use ::p521 as ext_p521;
 use ed25519_dalek;
@@ -6,9 +8,8 @@ use p256;
 use p384;
 
 // FIXME
-// also: e.g. HSM
+// also: e.g. HSM?
 
-// FIXME when name conflict gone
 pub trait DidKey: signature::Verifier<Self::Signature> {
     const BASE58_PREFIX: &'static str;
 

@@ -13,9 +13,6 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + In
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError>;
 
-    // FIXME add a variant that calculated the CID from the capsulre header?
-    // FIXME that means changing the name to insert_by_cid or similar
-    // FIXME rename put
     fn insert(
         &mut self,
         cid: Cid,
@@ -23,7 +20,7 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + In
     ) -> Result<(), Self::DelegationStoreError>;
 
     // FIXME validate invocation
-    // sore invocation
+    // store invocation
     // just... move to invocation
     fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError>;
 

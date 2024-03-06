@@ -1,27 +1,7 @@
 //! JavaScript bindings for the CRUD abilities.
 
-use super::{read, Any};
+use super::read;
 use wasm_bindgen::prelude::*;
-
-/// DOCS?
-#[wasm_bindgen]
-pub struct CrudAny(#[wasm_bindgen(skip)] pub Any);
-
-// FIXME macro this away
-#[wasm_bindgen]
-impl CrudAny {
-    pub fn into_js(self) -> JsValue {
-        ipld::Newtype(Ipld::from(self.0)).into()
-    }
-
-    pub fn try_from_js(js: JsValue) -> Result<CrudAny, JsError> {
-        ipld::Newtype::try_from_js(js).map(CrudAny)
-    }
-
-    pub fn to_command(&self) -> String {
-        self.to_command()
-    }
-}
 
 #[wasm_bindgen]
 pub struct CrudRead(#[wasm_bindgen(skip)] pub read::Ready);

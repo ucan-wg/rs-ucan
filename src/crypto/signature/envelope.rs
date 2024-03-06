@@ -63,7 +63,6 @@ impl<
         }
     }
 
-    // FIXME extract into trait?
     pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
     where
         Ipld: Encode<Enc> + From<Self>,
@@ -83,10 +82,6 @@ impl<
     /// # Errors
     ///
     /// * [`SignError`] - the payload can't be encoded or the signature fails.
-    ///
-    /// # Example
-    ///
-    /// FIXME
     pub fn try_sign(
         signer: &DID::Signer,
         varsig_header: V,

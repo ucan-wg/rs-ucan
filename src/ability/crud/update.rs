@@ -203,29 +203,44 @@ impl From<Update> for Ipld {
 }
 
 impl TryFrom<Ipld> for Update {
-    type Error = (); // FIXME
+    type Error = TryFromIpldError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         if let Ipld::Map(map) = ipld {
             if map.len() > 2 {
-                return Err(()); // FIXME
+                return Err(TryFromIpldError::TooManyKeys);
             }
 
             Ok(Update {
                 path: map
                     .get("path")
-                    .map(|ipld| (ipld::Newtype(ipld.clone())).try_into().map_err(|_| ()))
+                    .map(|ipld| (ipld::Newtype(ipld.clone())).try_into().map_err(TryFromIpldError::InvalidPath))
                     .transpose()?,
 
                 args: map
                     .get("args")
-                    .map(|ipld| ipld.clone().try_into().map_err(|_| ()))
+                    .map(|ipld| arguments::Named::<Ipld>::try_from(ipld.clone()).map_err(|_| TryFromIpldError::InvalidArgs))
                     .transpose()?,
             })
         } else {
-            Err(()) // FIXME
+            Err(TryFromIpldError::NotAMap)
         }
     }
+}
+
+#[derive(Error, Debug, PartialEq, Clone)]
+pub enum TryFromIpldError {
+    #[error("Not a map")]
+    NotAMap,
+
+    #[error("Too many keys")]
+    TooManyKeys,
+
+    #[error("Invalid path: {0}")]
+    InvalidPath(ipld::newtype::NotAString),
+
+    #[error("Invalid args: not a map")]
+    InvalidArgs
 }
 
 impl TryFrom<PromisedUpdate> for arguments::Named<Ipld> {
