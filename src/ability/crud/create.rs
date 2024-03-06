@@ -2,7 +2,7 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    invocation::{promise, promise::Resolves},
+    invocation::promise,
     ipld,
 };
 use libipld_core::ipld::Ipld;
@@ -90,11 +90,11 @@ pub struct Create {
 pub struct PromisedCreate {
     /// An optional path to a sub-resource that is to be created.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<promise::Resolves<PathBuf>>,
+    pub path: Option<promise::Any<PathBuf>>,
 
     /// Optional arguments for creation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
+    pub args: Option<promise::Any<arguments::Named<ipld::Promised>>>,
 }
 
 const COMMAND: &str = "/crud/create";
@@ -118,18 +118,16 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
             match k.as_str() {
                 "path" => match prom {
                     ipld::Promised::String(s) => {
-                        path = Some(promise::Resolves::Ok(
-                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
-                        ));
+                        path = Some(promise::Any::Resolved(PathBuf::from(s)).into());
                     }
                     ipld::Promised::WaitOk(cid) => {
-                        path = Some(promise::PromiseOk::Pending(cid).into());
+                        path = Some(promise::Any::PendingOk(cid).into());
                     }
                     ipld::Promised::WaitErr(cid) => {
-                        path = Some(promise::PromiseErr::Pending(cid).into());
+                        path = Some(promise::Any::PendingErr(cid).into());
                     }
                     ipld::Promised::WaitAny(cid) => {
-                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                        path = Some(promise::Any::PendingAny(cid).into());
                     }
                     _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
@@ -137,17 +135,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedCreate {
                 "args" => {
                     args = match prom {
                         ipld::Promised::Map(map) => {
-                            Some(promise::PromiseOk::Fulfilled(arguments::Named(map)).into())
+                            Some(promise::Any::Resolved(arguments::Named(map)).into())
                         }
-                        ipld::Promised::WaitOk(cid) => {
-                            Some(promise::PromiseOk::Pending(cid).into())
-                        }
-                        ipld::Promised::WaitErr(cid) => {
-                            Some(promise::PromiseErr::Pending(cid).into())
-                        }
-                        ipld::Promised::WaitAny(cid) => {
-                            todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
-                        }
+                        ipld::Promised::WaitOk(cid) => Some(promise::Any::PendingOk(cid)),
+                        ipld::Promised::WaitErr(cid) => Some(promise::Any::PendingErr(cid)),
+                        ipld::Promised::WaitAny(cid) => Some(promise::Any::PendingAny(cid)),
                         _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                     }
                 }
@@ -201,11 +193,11 @@ impl TryFrom<arguments::Named<Ipld>> for Create {
 impl From<Create> for PromisedCreate {
     fn from(r: Create) -> PromisedCreate {
         PromisedCreate {
-            path: r
-                .path
-                .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
+            path: r.path.map(|inner_path| promise::Any::Resolved(inner_path)),
 
-            args: r.args.map(|inner_args| Resolves::new(inner_args.into())),
+            args: r
+                .args
+                .map(|inner_args| promise::Any::Resolved(inner_args.into())),
         }
     }
 }
@@ -234,12 +226,12 @@ impl From<PromisedCreate> for arguments::Named<ipld::Promised> {
     fn from(promised: PromisedCreate) -> Self {
         let mut named = arguments::Named::new();
 
-        if let Some(path) = promised.path {
-            named.insert("path".to_string(), path.into());
+        if let Some(path_prom) = promised.path {
+            named.insert("path".to_string(), path_prom.to_promised_ipld());
         }
 
-        if let Some(args) = promised.args {
-            named.insert("args".to_string(), args.into());
+        if let Some(args_prom) = promised.args {
+            named.insert("args".to_string(), args_prom.to_promised_ipld());
         }
 
         named

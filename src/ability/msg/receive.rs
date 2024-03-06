@@ -101,26 +101,7 @@ impl TryFrom<Ipld> for Receive {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromisedReceive {
-    pub from: Option<promise::Resolves<url::Newtype>>,
-}
-
-impl From<PromisedReceive> for arguments::Named<Ipld> {
-    fn from(promised: PromisedReceive) -> Self {
-        let mut args = arguments::Named::new();
-
-        if let Some(from) = promised.from {
-            match from {
-                promise::Resolves::Ok(from) => {
-                    args.insert("from".into(), from.into());
-                }
-                promise::Resolves::Err(from) => {
-                    args.insert("from".into(), from.into());
-                }
-            }
-        }
-
-        args
-    }
+    pub from: Option<promise::Any<url::Newtype>>,
 }
 
 impl promise::Resolvable for Receive {
@@ -137,9 +118,9 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedReceive {
             match key.as_str() {
                 "from" => match Ipld::try_from(prom) {
                     Ok(Ipld::String(s)) => {
-                        from = Some(promise::Resolves::from(Ok(
-                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
-                        )));
+                        from = Some(promise::Any::Resolved(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?,
+                        ));
                     }
                     Err(pending) => from = Some(pending.into()),
                     _ => return Err(()),
@@ -157,7 +138,7 @@ impl From<PromisedReceive> for arguments::Named<ipld::Promised> {
         let mut args = arguments::Named::new();
 
         if let Some(from) = promised.from {
-            let _ = ipld::Promised::from(from).with_resolved(|ipld| {
+            let _ = from.to_promised_ipld().with_resolved(|ipld| {
                 args.insert("from".into(), ipld.into());
             });
         }

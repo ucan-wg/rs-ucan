@@ -84,16 +84,16 @@ pub struct Send {
 #[serde(deny_unknown_fields)]
 pub struct PromisedSend {
     /// The recipient of the message
-    pub to: promise::Resolves<url::Newtype>,
+    pub to: promise::Any<url::Newtype>,
 
     /// The sender address of the message
     ///
     /// This *may* be a URL (such as an email address).
     /// If provided, the `subject` must have the right to send from this address.
-    pub from: promise::Resolves<url::Newtype>,
+    pub from: promise::Any<url::Newtype>,
 
     /// The main body of the message
-    pub message: promise::Resolves<String>,
+    pub message: promise::Any<String>,
 }
 
 impl promise::Resolvable for Send {
@@ -150,24 +150,24 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedSend {
             match key.as_str() {
                 "to" => match Ipld::try_from(prom) {
                     Ok(Ipld::String(s)) => {
-                        to = Some(promise::Resolves::from(Ok(
-                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
-                        )));
+                        to = Some(promise::Any::Resolved(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?,
+                        ));
                     }
                     Err(pending) => to = Some(pending.into()),
                     _ => return Err(()),
                 },
                 "from" => match Ipld::try_from(prom) {
                     Ok(Ipld::String(s)) => {
-                        from = Some(promise::Resolves::from(Ok(
-                            url::Newtype::parse(s.as_str()).map_err(|_| ())?
-                        )));
+                        from = Some(promise::Any::Resolved(
+                            url::Newtype::parse(s.as_str()).map_err(|_| ())?,
+                        ));
                     }
                     Err(pending) => from = Some(pending.into()),
                     _ => return Err(()),
                 },
                 "message" => match Ipld::try_from(prom) {
-                    Ok(Ipld::String(s)) => message = Some(promise::Resolves::from(Ok(s))),
+                    Ok(Ipld::String(s)) => message = Some(promise::Any::Resolved(s)),
                     Err(pending) => to = Some(pending.into()),
                     _ => return Err(()),
                 },
@@ -206,9 +206,9 @@ impl Command for PromisedSend {
 impl From<Send> for PromisedSend {
     fn from(r: Send) -> Self {
         PromisedSend {
-            to: promise::Resolves::from(Ok(r.to)),
-            from: promise::Resolves::from(Ok(r.from)),
-            message: promise::Resolves::from(Ok(r.message)),
+            to: promise::Any::Resolved(r.to),
+            from: promise::Any::Resolved(r.from),
+            message: promise::Any::Resolved(r.message),
         }
     }
 }
@@ -217,9 +217,13 @@ impl TryFrom<PromisedSend> for Send {
     type Error = PromisedSend;
 
     fn try_from(p: PromisedSend) -> Result<Send, PromisedSend> {
-        match promise::Resolves::try_resolve_3(p.to, p.from, p.message) {
-            Ok((to, from, message)) => Ok(Send { to, from, message }),
-            Err((to, from, message)) => Err(PromisedSend { to, from, message }),
+        match p {
+            PromisedSend {
+                to: promise::Any::Resolved(to),
+                from: promise::Any::Resolved(from),
+                message: promise::Any::Resolved(message),
+            } => Ok(Send { to, from, message }),
+            _ => Err(p),
         }
     }
 }
@@ -227,9 +231,9 @@ impl TryFrom<PromisedSend> for Send {
 impl From<PromisedSend> for arguments::Named<ipld::Promised> {
     fn from(p: PromisedSend) -> Self {
         arguments::Named::from_iter([
-            ("to".into(), p.to.into()),
-            ("from".into(), p.from.into()),
-            ("message".into(), p.message.into()),
+            ("to".into(), p.to.to_promised_ipld()),
+            ("from".into(), p.from.to_promised_ipld()),
+            ("message".into(), p.message.to_promised_ipld()),
         ])
     }
 }

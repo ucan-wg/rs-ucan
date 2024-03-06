@@ -1,6 +1,7 @@
 use crate::{
-    invocation::promise::{Pending, Resolves},
-    ipld, ability::crud::update::TryFromIpldError,
+    // ability::crud::update::TryFromIpldError,
+    invocation::promise::{self, Pending},
+    ipld,
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -228,17 +229,14 @@ pub enum TryFromJsValueError {
     NotAMap,
 
     #[error("Not Ipld")]
-    NotIpld
+    NotIpld,
 }
 
-impl From<Named<Ipld>> for Named<Resolves<ipld::Promised>> {
-    fn from(named: Named<Ipld>) -> Named<Resolves<ipld::Promised>> {
-        let btree: BTreeMap<String, Resolves<ipld::Promised>> = named
+impl From<Named<Ipld>> for Named<promise::Any<ipld::Promised>> {
+    fn from(named: Named<Ipld>) -> Named<promise::Any<ipld::Promised>> {
+        let btree: BTreeMap<String, promise::Any<ipld::Promised>> = named
             .into_iter()
-            .map(|(k, v)| {
-                let promised: ipld::Promised = v.into();
-                (k, Resolves::new(promised))
-            })
+            .map(|(k, v)| (k, promise::Any::from_ipld(v)))
             .collect();
 
         Named(btree)
@@ -266,13 +264,13 @@ impl TryFrom<Named<ipld::Promised>> for Named<Ipld> {
     }
 }
 
-impl<T: Clone> TryFrom<Resolves<Named<T>>> for Named<Ipld>
+impl<T: Clone> TryFrom<promise::Any<Named<T>>> for Named<Ipld>
 where
     Ipld: TryFrom<T>,
 {
-    type Error = Resolves<Named<T>>;
+    type Error = promise::Any<Named<T>>;
 
-    fn try_from(resolves: Resolves<Named<T>>) -> Result<Self, Self::Error> {
+    fn try_from(resolves: promise::Any<Named<T>>) -> Result<Self, Self::Error> {
         resolves
             .clone()
             .try_resolve()?
@@ -282,7 +280,7 @@ where
                 btree.insert(k, ipld);
                 Ok(btree)
             })
-            .map_err(|_: ()| resolves)
+            .map_err(|_: ()| resolves) // FIXME
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     ability::arguments,
-    invocation::promise::{Pending, Promise, PromiseAny, PromiseErr, PromiseOk, Resolves},
+    invocation::promise::{self, Pending, PromiseErr, PromiseOk},
     ipld, url,
 };
 use enum_as_inner::EnumAsInner;
@@ -51,6 +51,15 @@ pub enum Promised {
 }
 
 impl Promised {
+    pub fn try_resolve(self) -> Result<Ipld, Pending> {
+        match self {
+            Promised::WaitOk(cid) => Err(Pending::Ok(cid)),
+            Promised::WaitErr(cid) => Err(Pending::Err(cid)),
+            Promised::WaitAny(cid) => Err(Pending::Any(cid)),
+            other => other.try_into().map_err(Into::into),
+        }
+    }
+
     pub fn with_resolved<F, T>(self, f: F) -> Result<T, Pending>
     where
         F: FnOnce(Ipld) -> T,
@@ -68,6 +77,30 @@ impl Promised {
         match self.try_into() {
             Ok(ipld) => Err(ipld),
             Err(promised) => Ok(f(promised)),
+        }
+    }
+
+    pub fn to_promise_any<T: TryFrom<Ipld>>(
+        self,
+    ) -> Result<promise::Any<T>, <T as TryFrom<Ipld>>::Error> {
+        Ok(match Ipld::try_from(self) {
+            Ok(ipld) => promise::Any::Resolved(ipld.try_into()?),
+            Err(pending) => match pending {
+                Pending::Ok(cid) => promise::Any::PendingOk(cid),
+                Pending::Err(cid) => promise::Any::PendingErr(cid),
+                Pending::Any(cid) => promise::Any::PendingAny(cid),
+            },
+        })
+    }
+
+    // FIXME return type
+    pub fn to_promise_any_string(self) -> Result<promise::Any<String>, ()> {
+        match self {
+            Promised::String(s) => Ok(promise::Any::Resolved(s)),
+            Promised::WaitOk(cid) => Ok(promise::Any::PendingOk(cid)),
+            Promised::WaitErr(cid) => Ok(promise::Any::PendingErr(cid)),
+            Promised::WaitAny(cid) => Ok(promise::Any::PendingAny(cid)),
+            _ => Err(()),
         }
     }
 }
@@ -197,100 +230,13 @@ impl From<PromiseErr<Ipld>> for Promised {
     }
 }
 
-impl From<PromiseAny<Ipld, Ipld>> for Promised {
-    fn from(p_any: PromiseAny<Ipld, Ipld>) -> Promised {
+impl From<promise::Any<Ipld>> for Promised {
+    fn from(p_any: promise::Any<Ipld>) -> Promised {
         match p_any {
-            PromiseAny::Fulfilled(ipld) => ipld.into(),
-            PromiseAny::Rejected(ipld) => ipld.into(),
-            PromiseAny::Pending(cid) => Promised::WaitAny(cid),
-        }
-    }
-}
-
-impl From<Promise<Ipld, Ipld>> for Promised {
-    fn from(promise: Promise<Ipld, Ipld>) -> Promised {
-        match promise {
-            Promise::Ok(p_ok) => p_ok.into(),
-            Promise::Err(p_err) => p_err.into(),
-            Promise::Any(p_any) => p_any.into(),
-        }
-    }
-}
-
-impl<T: TryFrom<ipld::Newtype>> TryFrom<Promised> for Resolves<T> {
-    type Error = ();
-
-    fn try_from(promised: Promised) -> Result<Resolves<T>, Self::Error> {
-        match promised {
-            Promised::WaitOk(cid) => Ok(Resolves::Ok(PromiseOk::Pending(cid))),
-            Promised::WaitErr(cid) => Ok(Resolves::Err(PromiseErr::Pending(cid))),
-            Promised::WaitAny(cid) => Ok(Resolves::Ok(PromiseOk::Pending(cid))), // FIXME
-
-            Promised::Null => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Null.into()).map_err(|_| ())?,
-            ))),
-            Promised::Bool(b) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Bool(b).into()).map_err(|_| ())?,
-            ))),
-            Promised::Integer(i) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Integer(i).into()).map_err(|_| ())?,
-            ))),
-            Promised::Float(f) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Float(f).into()).map_err(|_| ())?,
-            ))),
-            Promised::String(s) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::String(s).into()).map_err(|_| ())?,
-            ))),
-            Promised::Bytes(b) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Bytes(b).into()).map_err(|_| ())?,
-            ))),
-            Promised::Link(cid) => Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                T::try_from(Ipld::Link(cid).into()).map_err(|_| ())?,
-            ))),
-
-            Promised::List(list) => {
-                let vec: Vec<Ipld> = list.into_iter().try_fold(vec![], |mut acc, promised| {
-                    let ipld: Ipld = promised.try_into().map_err(|_| ())?;
-                    acc.push(ipld);
-                    Ok(acc)
-                })?;
-
-                Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                    ipld::Newtype(Ipld::List(vec)).try_into().map_err(|_| ())?,
-                )))
-            }
-
-            Promised::Map(map) => {
-                let btree: BTreeMap<String, Ipld> =
-                    map.into_iter()
-                        .try_fold(BTreeMap::new(), |mut acc, (k, v)| {
-                            let ipld: Ipld = v.try_into().map_err(|_| ())?;
-                            acc.insert(k, ipld);
-                            Ok(acc)
-                        })?;
-
-                Ok(Resolves::Ok(PromiseOk::Fulfilled(
-                    ipld::Newtype(Ipld::Map(btree)).try_into().map_err(|_| ())?,
-                )))
-            }
-        }
-    }
-}
-
-impl<T> From<Resolves<T>> for Promised
-where
-    Promised: From<T>,
-{
-    fn from(r: Resolves<T>) -> Promised {
-        match r {
-            Resolves::Ok(p_ok) => match p_ok {
-                PromiseOk::Fulfilled(val) => val.into(),
-                PromiseOk::Pending(cid) => Promised::WaitOk(cid),
-            },
-            Resolves::Err(p_err) => match p_err {
-                PromiseErr::Rejected(val) => val.into(),
-                PromiseErr::Pending(cid) => Promised::WaitErr(cid),
-            },
+            promise::Any::Resolved(ipld) => ipld.into(),
+            promise::Any::PendingOk(cid) => Promised::WaitOk(cid),
+            promise::Any::PendingErr(cid) => Promised::WaitErr(cid),
+            promise::Any::PendingAny(cid) => Promised::WaitAny(cid),
         }
     }
 }

@@ -4,10 +4,11 @@ mod named;
 
 pub use named::*;
 
-use crate::{invocation::promise::Resolves, ipld};
+use crate::ipld;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
+// FIXME just remove?
 // FIXME move under invoc::promise?
 // pub type Promised = Resolves<Named<ipld::Promised>>;
 //

@@ -2,7 +2,7 @@
 
 use crate::{
     ability::{arguments, command::Command},
-    invocation::{promise, promise::Resolves},
+    invocation::promise,
     ipld,
 };
 use libipld_core::ipld::Ipld;
@@ -90,11 +90,11 @@ pub struct Update {
 pub struct PromisedUpdate {
     /// An optional path to a sub-resource that is to be updated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    path: Option<promise::Resolves<PathBuf>>,
+    path: Option<promise::Any<PathBuf>>,
 
     /// Optional arguments to be passed in the update.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
+    args: Option<promise::Any<arguments::Named<ipld::Promised>>>,
 }
 
 const COMMAND: &'static str = "/crud/update";
@@ -121,26 +121,19 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedUpdate {
                         path = Some(pending.into());
                     }
                     Ok(ipld) => match ipld {
-                        Ipld::String(s) => path = Some(promise::Resolves::new(PathBuf::from(s))),
+                        Ipld::String(s) => path = Some(promise::Any::Resolved(PathBuf::from(s))),
                         other => return Err(FromPromisedArgsError::PathBodyNotAString(other)),
                     },
                 },
 
                 "args" => match prom {
                     ipld::Promised::Map(map) => {
-                        args = Some(promise::Resolves::new(arguments::Named(map)))
+                        args = Some(promise::Any::Resolved(arguments::Named(map)))
                     }
-                    ipld::Promised::WaitOk(_cid) => {
-                        // FIXME
-                        args = Some(promise::Resolves::new(arguments::Named::new()));
-                    }
-                    ipld::Promised::WaitErr(_cid) => {
-                        // FIXME
-                        args = Some(promise::Resolves::new(arguments::Named::new()));
-                    }
-                    ipld::Promised::WaitAny(_cid) => {
-                        // FIXME
-                        args = Some(promise::Resolves::new(arguments::Named::new()));
+                    ipld::Promised::WaitOk(cid) => args = Some(promise::Any::PendingOk(cid)),
+                    ipld::Promised::WaitErr(cid) => args = Some(promise::Any::PendingErr(cid)),
+                    ipld::Promised::WaitAny(cid) => {
+                        args = Some(promise::Any::PendingAny(cid));
                     }
                     _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                 },
@@ -214,12 +207,19 @@ impl TryFrom<Ipld> for Update {
             Ok(Update {
                 path: map
                     .get("path")
-                    .map(|ipld| (ipld::Newtype(ipld.clone())).try_into().map_err(TryFromIpldError::InvalidPath))
+                    .map(|ipld| {
+                        (ipld::Newtype(ipld.clone()))
+                            .try_into()
+                            .map_err(TryFromIpldError::InvalidPath)
+                    })
                     .transpose()?,
 
                 args: map
                     .get("args")
-                    .map(|ipld| arguments::Named::<Ipld>::try_from(ipld.clone()).map_err(|_| TryFromIpldError::InvalidArgs))
+                    .map(|ipld| {
+                        arguments::Named::<Ipld>::try_from(ipld.clone())
+                            .map_err(|_| TryFromIpldError::InvalidArgs)
+                    })
                     .transpose()?,
             })
         } else {
@@ -240,46 +240,13 @@ pub enum TryFromIpldError {
     InvalidPath(ipld::newtype::NotAString),
 
     #[error("Invalid args: not a map")]
-    InvalidArgs
-}
-
-impl TryFrom<PromisedUpdate> for arguments::Named<Ipld> {
-    type Error = FromPromisedUpdateError;
-
-    fn try_from(promised: PromisedUpdate) -> Result<Self, Self::Error> {
-        let mut named = arguments::Named::new();
-
-        if let Some(path_res) = promised.path {
-            named.insert(
-                "path".to_string(),
-                path_res.map(|p| ipld::Newtype::from(p).0).into(),
-            );
-        }
-
-        if let Some(args_res) = promised.args {
-            named.insert(
-                "args".to_string(),
-                args_res
-                    .try_resolve()
-                    .map_err(FromPromisedUpdateError::UnresolvedArgs)?
-                    .iter()
-                    .try_fold(BTreeMap::new(), |mut map, (k, v)| {
-                        map.insert(k.clone(), Ipld::try_from(v.clone())?); // FIXME double check
-                        Ok(map)
-                    })
-                    .map_err(FromPromisedUpdateError::ArgsPending)?
-                    .into(),
-            );
-        }
-
-        Ok(named)
-    }
+    InvalidArgs,
 }
 
 #[derive(Error, Debug, PartialEq, Clone)]
 pub enum FromPromisedUpdateError {
     #[error("Unresolved args")]
-    UnresolvedArgs(Resolves<arguments::Named<ipld::Promised>>),
+    UnresolvedArgs(promise::Any<arguments::Named<ipld::Promised>>),
 
     #[error("Args pending")]
     ArgsPending(<Ipld as TryFrom<ipld::Promised>>::Error),
@@ -291,11 +258,11 @@ pub enum FromPromisedUpdateError {
 impl From<Update> for PromisedUpdate {
     fn from(r: Update) -> PromisedUpdate {
         PromisedUpdate {
-            path: r
-                .path
-                .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
+            path: r.path.map(|inner_path| promise::Any::Resolved(inner_path)),
 
-            args: r.args.map(|inner_args| Resolves::new(inner_args.into())),
+            args: r
+                .args
+                .map(|inner_args| promise::Any::Resolved(inner_args.into())),
         }
     }
 }
@@ -309,11 +276,11 @@ impl From<PromisedUpdate> for arguments::Named<ipld::Promised> {
         let mut named = arguments::Named::new();
 
         if let Some(path) = promised.path {
-            named.insert("path".to_string(), path.into());
+            named.insert("path".to_string(), path.to_promised_ipld());
         }
 
         if let Some(args) = promised.args {
-            named.insert("args".to_string(), args.into());
+            named.insert("args".to_string(), args.to_promised_ipld());
         }
 
         named

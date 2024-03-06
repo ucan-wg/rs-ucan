@@ -84,11 +84,11 @@ pub struct Read {
 pub struct PromisedRead {
     /// An optional path to a sub-resource that is to be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<promise::Resolves<PathBuf>>,
+    pub path: Option<promise::Any<PathBuf>>,
 
     /// Optional arguments to modify the read request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub args: Option<promise::Resolves<arguments::Named<ipld::Promised>>>,
+    pub args: Option<promise::Any<arguments::Named<ipld::Promised>>>,
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
@@ -102,18 +102,16 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
             match k.as_str() {
                 "path" => match prom {
                     ipld::Promised::String(s) => {
-                        path = Some(promise::Resolves::Ok(
-                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
-                        ));
+                        path = Some(promise::Any::Resolved(PathBuf::from(s)).into());
                     }
                     ipld::Promised::WaitOk(cid) => {
-                        path = Some(promise::PromiseOk::Pending(cid).into());
+                        path = Some(promise::Any::PendingOk(cid).into());
                     }
                     ipld::Promised::WaitErr(cid) => {
-                        path = Some(promise::PromiseErr::Pending(cid).into());
+                        path = Some(promise::Any::PendingErr(cid).into());
                     }
                     ipld::Promised::WaitAny(cid) => {
-                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                        path = Some(promise::Any::PendingAny(cid).into());
                     }
                     _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
@@ -121,17 +119,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRead {
                 "args" => {
                     args = match prom {
                         ipld::Promised::Map(map) => {
-                            Some(promise::PromiseOk::Fulfilled(arguments::Named(map)).into())
+                            Some(promise::Any::Resolved(arguments::Named(map)).into())
                         }
-                        ipld::Promised::WaitOk(cid) => {
-                            Some(promise::PromiseOk::Pending(cid).into())
-                        }
-                        ipld::Promised::WaitErr(cid) => {
-                            Some(promise::PromiseErr::Pending(cid).into())
-                        }
-                        ipld::Promised::WaitAny(cid) => {
-                            todo!() // FIXME // Some(promise::PromiseAny::Pending(cid).into())
-                        }
+                        ipld::Promised::WaitOk(cid) => Some(promise::Any::PendingOk(cid).into()),
+                        ipld::Promised::WaitErr(cid) => Some(promise::Any::PendingErr(cid).into()),
+                        ipld::Promised::WaitAny(cid) => Some(promise::Any::PendingAny(cid).into()),
                         _ => return Err(FromPromisedArgsError::InvalidArgs(prom)),
                     }
                 }
@@ -231,11 +223,11 @@ impl From<PromisedRead> for arguments::Named<ipld::Promised> {
         let mut named = arguments::Named::new();
 
         if let Some(path_res) = promised.path {
-            named.insert("path".to_string(), path_res.into());
+            named.insert("path".to_string(), path_res.to_promised_ipld());
         }
 
         if let Some(args_res) = promised.args {
-            named.insert("args".to_string(), args_res.into());
+            named.insert("args".to_string(), args_res.to_promised_ipld());
         }
 
         named

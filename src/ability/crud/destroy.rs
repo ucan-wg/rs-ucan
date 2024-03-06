@@ -102,7 +102,7 @@ pub enum TryFromArgsError {
     NotAPathBuf,
 
     #[error("Invalid map key {0}")]
-    InvalidField(String)
+    InvalidField(String),
 }
 
 impl promise::Resolvable for Destroy {
@@ -146,7 +146,7 @@ impl promise::Resolvable for Destroy {
 pub struct PromisedDestroy {
     /// An optional path to a sub-resource that is to be destroyed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<promise::Resolves<PathBuf>>,
+    pub path: Option<promise::Any<PathBuf>>,
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedDestroy {
@@ -159,18 +159,16 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedDestroy {
             match k.as_str() {
                 "path" => match prom {
                     ipld::Promised::String(s) => {
-                        path = Some(promise::Resolves::Ok(
-                            promise::PromiseOk::Fulfilled(PathBuf::from(s)).into(),
-                        ));
+                        path = Some(promise::Any::Resolved(PathBuf::from(s)).into());
                     }
                     ipld::Promised::WaitOk(cid) => {
-                        path = Some(promise::PromiseOk::Pending(cid).into());
+                        path = Some(promise::Any::PendingOk(cid).into());
                     }
                     ipld::Promised::WaitErr(cid) => {
-                        path = Some(promise::PromiseErr::Pending(cid).into());
+                        path = Some(promise::Any::PendingErr(cid).into());
                     }
                     ipld::Promised::WaitAny(cid) => {
-                        todo!() // FIXME //  path = Some(promise::PromiseAny::Pending(cid).into());
+                        path = Some(promise::Any::PendingAny(cid).into());
                     }
                     _ => return Err(FromPromisedArgsError::InvalidPath(k)),
                 },
@@ -195,27 +193,27 @@ impl Command for PromisedDestroy {
     const COMMAND: &'static str = COMMAND;
 }
 
-impl From<PromisedDestroy> for arguments::Named<Ipld> {
-    fn from(promised: PromisedDestroy) -> Self {
-        let mut named = arguments::Named::new();
-
-        if let Some(path_res) = promised.path {
-            named.insert(
-                "path".to_string(),
-                path_res.map(|p| ipld::Newtype::from(p).0).into(),
-            );
-        }
-
-        named
-    }
-}
+// impl From<PromisedDestroy> for arguments::Named<Ipld> {
+//     fn from(promised: PromisedDestroy) -> Self {
+//         let mut named = arguments::Named::new();
+//
+//         if let Some(path_res) = promised.path {
+//             named.insert(
+//                 "path".to_string(),
+//                 path_res.map(|p| ipld::Newtype::from(p).0).into(),
+//             );
+//         }
+//
+//         named
+//     }
+// }
 
 impl From<Destroy> for PromisedDestroy {
     fn from(r: Destroy) -> PromisedDestroy {
         PromisedDestroy {
             path: r
                 .path
-                .map(|inner_path| promise::PromiseOk::Fulfilled(inner_path).into()),
+                .map(|inner_path| promise::Any::Resolved(inner_path).into()),
         }
     }
 }
@@ -225,7 +223,7 @@ impl From<PromisedDestroy> for arguments::Named<ipld::Promised> {
         let mut named = arguments::Named::new();
 
         if let Some(path) = promised.path {
-            named.insert("path".to_string(), path.into());
+            named.insert("path".to_string(), path.to_promised_ipld());
         }
 
         named

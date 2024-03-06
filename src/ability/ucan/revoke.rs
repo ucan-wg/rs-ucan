@@ -16,6 +16,7 @@ use std::fmt::Debug;
 pub struct Revoke {
     /// The UCAN to revoke
     pub ucan: Cid,
+    // FIXME pub witness
 }
 
 const COMMAND: &'static str = "/ucan/revoke";
@@ -44,14 +45,14 @@ impl promise::Resolvable for Revoke {
 
 impl From<PromisedRevoke> for arguments::Named<ipld::Promised> {
     fn from(promised: PromisedRevoke) -> Self {
-        arguments::Named::from_iter([("ucan".into(), promised.ucan.into())])
+        arguments::Named::from_iter([("ucan".into(), Ipld::from(promised.ucan).into())])
     }
 }
 
 /// A variant where arguments may be [`Promise`][crate::invocation::promise]s.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromisedRevoke {
-    pub ucan: promise::Resolves<Cid>,
+    pub ucan: promise::Any<Cid>,
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRevoke {
@@ -64,7 +65,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRevoke {
             match k.as_str() {
                 "ucan" => match Ipld::try_from(prom) {
                     Ok(Ipld::Link(cid)) => {
-                        ucan = Some(promise::Resolves::new(cid));
+                        ucan = Some(promise::Any::Resolved(cid));
                     }
                     Err(pending) => ucan = Some(pending.into()),
                     _ => return Err(()),
@@ -82,7 +83,7 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRevoke {
 impl From<Revoke> for PromisedRevoke {
     fn from(r: Revoke) -> PromisedRevoke {
         PromisedRevoke {
-            ucan: Ok(r.ucan).into(),
+            ucan: promise::Any::Resolved(r.ucan),
         }
     }
 }

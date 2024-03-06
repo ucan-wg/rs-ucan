@@ -74,14 +74,14 @@ impl ParsePromised for PromisedMsg {
     }
 }
 
-impl From<PromisedMsg> for arguments::Named<Ipld> {
-    fn from(promised: PromisedMsg) -> Self {
-        match promised {
-            PromisedMsg::Send(send) => send.into(),
-            PromisedMsg::Receive(receive) => receive.into(),
-        }
-    }
-}
+// impl From<PromisedMsg> for arguments::Named<Ipld> {
+//     fn from(promised: PromisedMsg) -> Self {
+//         match promised {
+//             PromisedMsg::Send(send) => send.into(),
+//             PromisedMsg::Receive(receive) => receive.into(),
+//         }
+//     }
+// }
 
 impl Resolvable for Msg {
     type Promised = PromisedMsg;

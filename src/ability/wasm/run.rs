@@ -79,9 +79,9 @@ impl promise::Resolvable for Run {
 /// A variant meant for linking together invocations with promises
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromisedRun {
-    pub module: promise::Resolves<Module>,
-    pub function: promise::Resolves<String>,
-    pub args: promise::Resolves<Vec<ipld::Promised>>,
+    pub module: promise::Any<Module>,
+    pub function: promise::Any<String>,
+    pub args: promise::Any<Vec<ipld::Promised>>,
 }
 
 impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRun {
@@ -94,11 +94,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRun {
 
         for (key, prom) in named {
             match key.as_str() {
-                "module" => module = Some(prom.try_into().map_err(|_| ())?),
-                "function" => function = Some(prom.try_into().map_err(|_| ())?),
+                "module" => module = Some(prom.to_promise_any().map_err(|_| ())?),
+                "function" => function = Some(prom.to_promise_any_string()?),
                 "args" => {
                     if let ipld::Promised::List(list) = prom.into() {
-                        args = Some(promise::Resolves::new(list));
+                        args = Some(promise::Any::Resolved(list));
                     } else {
                         return Err(());
                     }
@@ -116,15 +116,11 @@ impl TryFrom<arguments::Named<ipld::Promised>> for PromisedRun {
 }
 
 impl From<Run> for PromisedRun {
-    fn from(ready: Run) -> Self {
+    fn from(run: Run) -> Self {
         PromisedRun {
-            module: promise::Resolves::from(Ok(ready.module)),
-            function: promise::Resolves::from(Ok(ready.function)),
-            args: promise::Resolves::from(Ok(ready
-                .args
-                .iter()
-                .map(|ipld| ipld.clone().into())
-                .collect())),
+            module: promise::Any::Resolved(run.module),
+            function: promise::Any::Resolved(run.function),
+            args: promise::Any::Resolved(run.args.iter().map(|ipld| ipld.clone().into()).collect()),
         }
     }
 }
@@ -132,9 +128,9 @@ impl From<Run> for PromisedRun {
 impl From<PromisedRun> for arguments::Named<ipld::Promised> {
     fn from(promised: PromisedRun) -> Self {
         arguments::Named::from_iter([
-            ("module".into(), promised.module.into()),
-            ("function".into(), promised.function.into()),
-            ("args".into(), promised.args.into()),
+            ("module".into(), promised.module.to_promised_ipld()),
+            ("function".into(), promised.function.to_promised_ipld()),
+            ("args".into(), promised.args.to_promised_ipld()),
         ])
     }
 }
