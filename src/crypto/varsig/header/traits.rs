@@ -2,7 +2,7 @@ use libipld_core::codec::{Codec, Encode};
 use signature::Verifier;
 use thiserror::Error;
 
-pub trait Header<Enc: Codec + TryFrom<u32> + Into<u32>>:
+pub trait Header<Enc: Codec + TryFrom<u64> + Into<u64>>:
     for<'a> TryFrom<&'a [u8]> + Into<Vec<u8>>
 {
     type Signature: signature::SignatureEncoding;

@@ -1,5 +1,7 @@
-use enum_as_inner::EnumAsInner;
 use super::Signature;
+use crate::did::Did;
+use did_url::DID;
+use enum_as_inner::EnumAsInner;
 
 #[cfg(feature = "eddsa")]
 use ed25519_dalek;
@@ -25,15 +27,13 @@ use crate::crypto::rs512;
 #[cfg(feature = "bls")]
 use crate::crypto::bls12381;
 
-
-
 /// Signature types that are verifiable by `did:key` [`Verifier`]s.
 #[derive(Debug, Clone, PartialEq, Eq, EnumAsInner)]
 pub enum Signer {
     /// `EdDSA` signature.
     #[cfg(feature = "eddsa")]
     EdDsa(ed25519_dalek::SigningKey),
-
+    // FIXME
     // /// `ES256K` (`secp256k1`) signature.
     // #[cfg(feature = "es256k")]
     // Es256k(k256::ecdsa::Signer),
