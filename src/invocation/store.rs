@@ -5,7 +5,7 @@ use crate::{crypto::varsig, did::Did};
 use libipld_core::{cid::Cid, codec::Codec};
 use std::{collections::BTreeMap, convert::Infallible};
 
-pub trait Store<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>> {
+pub trait Store<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>> {
     type InvocationStoreError;
 
     fn get(
@@ -25,11 +25,11 @@ pub trait Store<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + Tr
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>> {
+pub struct MemoryStore<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>> {
     store: BTreeMap<Cid, Invocation<T, DID, V, Enc>>,
 }
 
-impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
+impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>>
     Store<T, DID, V, Enc> for MemoryStore<T, DID, V, Enc>
 {
     type InvocationStoreError = Infallible;

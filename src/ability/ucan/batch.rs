@@ -3,11 +3,11 @@
 // use std::collections::BTreeMap;
 //
 // #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-// pub struct Batch<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
+// pub struct Batch<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
 //     pub batch: Vec<Step<A, DID, V, Enc>>, // FIXME not quite right; would be nice to include meta etc
 // }
 //
-// pub struct Step<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
+// pub struct Step<A, DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
 //     pub subject: DID,
 //     pub audience: Option<DID>,
 //     pub ability: A, // FIXME promise version instead? Promised version shoudl be able to promise any field

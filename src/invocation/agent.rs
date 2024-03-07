@@ -37,7 +37,7 @@ pub struct Agent<
     P: promise::Store<T, DID>,
     D: delegation::store::Store<DID, V, C>,
     V: varsig::Header<C> + Clone,
-    C: Codec + Into<u32> + TryFrom<u32>,
+    C: Codec + Into<u64> + TryFrom<u64>,
 > {
     /// The agent's [`DID`].
     pub did: &'a DID,
@@ -66,7 +66,7 @@ where
     P: promise::Store<T, DID>,
     D: delegation::store::Store<DID, V, C>,
     V: varsig::Header<C> + Clone,
-    C: Codec + Into<u32> + TryFrom<u32>,
+    C: Codec + Into<u64> + TryFrom<u64>,
 {
     pub fn new(
         did: &'a DID,
@@ -300,7 +300,7 @@ pub enum ReceiveError<
     D,
     S: Store<T::Promised, DID, V, C>,
     V: varsig::Header<C>,
-    C: Codec + TryFrom<u32> + Into<u32>,
+    C: Codec + TryFrom<u64> + Into<u64>,
 > where
     <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
     <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,

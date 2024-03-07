@@ -42,7 +42,7 @@ impl<'a> TryFrom<&'a [u8]> for Preset {
     type Error = ();
 
     fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-        if let (encoding_info, &[]) = unsigned_varint::decode::u32(&bytes).map_err(|_| ())? {
+        if let (encoding_info, &[]) = unsigned_varint::decode::u64(&bytes).map_err(|_| ())? {
             return match encoding_info {
                 0x5f => Ok(Preset::Identity),
                 0x70 => Ok(Preset::DagPb),

@@ -22,7 +22,7 @@ pub struct Agent<
     DID: Did,
     S: Store<DID, V, Enc>,
     V: varsig::Header<Enc>,
-    Enc: Codec + TryFrom<u32> + Into<u32>,
+    Enc: Codec + TryFrom<u64> + Into<u64>,
 > {
     /// The [`Did`][Did] of the agent.
     pub did: &'a DID,
@@ -39,7 +39,7 @@ impl<
         DID: Did + ToString + Clone,
         S: Store<DID, V, Enc> + Clone,
         V: varsig::Header<Enc> + Clone,
-        Enc: Codec + TryFrom<u32> + Into<u32>,
+        Enc: Codec + TryFrom<u64> + Into<u64>,
     > Agent<'a, DID, S, V, Enc>
 where
     Ipld: Encode<Enc>,

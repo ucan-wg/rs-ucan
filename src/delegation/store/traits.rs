@@ -8,7 +8,7 @@ use nonempty::NonEmpty;
 use std::fmt::Debug;
 use web_time::SystemTime;
 
-pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u32> + Into<u32>> {
+pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
     type DelegationStoreError: Debug;
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError>;

@@ -41,7 +41,7 @@ use web_time::SystemTime;
 pub struct Delegation<
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
-    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
 > {
     pub varsig_header: V,
     pub payload: Payload<DID>,
@@ -53,18 +53,18 @@ pub struct Delegation<
 pub struct Proof<
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
-    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
 > {
     pub prf: Vec<Link<Delegation<DID, V, C>>>,
 }
 
-impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Capsule
+impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> Capsule
     for Proof<DID, V, C>
 {
     const TAG: &'static str = "ucan/prf";
 }
 
-impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>> Delegation<DID, V, C> {
+impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u64> + TryFrom<u64>> Delegation<DID, V, C> {
     pub fn new(
         varsig_header: V,
         signature: DID::Signature,
@@ -123,7 +123,7 @@ impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>> Delega
     }
 }
 
-impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>> Envelope
+impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>> Envelope
     for Delegation<DID, V, C>
 where
     Payload<DID>: TryFrom<Ipld>,
@@ -163,7 +163,7 @@ where
     }
 }
 
-impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>> Serialize
+impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>> Serialize
     for Delegation<DID, V, C>
 where
     Payload<DID>: TryFrom<Ipld>,
@@ -176,7 +176,7 @@ where
     }
 }
 
-impl<'de, DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>>
+impl<'de, DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>>
     Deserialize<'de> for Delegation<DID, V, C>
 where
     Payload<DID>: TryFrom<Ipld>,

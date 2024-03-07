@@ -27,7 +27,7 @@ pub struct Receipt<
     T: Responds,
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
-    C: Codec + Into<u32> + TryFrom<u32> = varsig::encoding::Preset,
+    C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
 > {
     pub varsig_header: V,
     pub signature: DID::Signature,
@@ -36,7 +36,7 @@ pub struct Receipt<
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<T: Responds, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>>
+impl<T: Responds, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
     did::Verifiable<DID> for Receipt<T, DID, V, C>
 {
     fn verifier(&self) -> &DID {
@@ -48,7 +48,7 @@ impl<
         T: Responds + Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > From<Receipt<T, DID, V, C>> for Ipld
 where
     Payload<T, DID>: TryFrom<Ipld>,
@@ -62,7 +62,7 @@ impl<
         T: Responds + Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Envelope for Receipt<T, DID, V, C>
 where
     Payload<T, DID>: TryFrom<Ipld>,
@@ -106,7 +106,7 @@ impl<
         T: Responds + Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Serialize for Receipt<T, DID, V, C>
 where
     Payload<T, DID>: TryFrom<Ipld>,
@@ -124,7 +124,7 @@ impl<
         T: Responds + Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Deserialize<'de> for Receipt<T, DID, V, C>
 where
     Payload<T, DID>: TryFrom<Ipld>,

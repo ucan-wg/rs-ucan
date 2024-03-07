@@ -51,7 +51,7 @@ pub struct Invocation<
     A,
     DID: did::Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
-    C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
 > {
     pub varsig_header: V,
     pub payload: Payload<A, DID>,
@@ -59,7 +59,7 @@ pub struct Invocation<
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<A: Clone, DID: Did + Clone, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>>
+impl<A: Clone, DID: Did + Clone, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
     Invocation<A, DID, V, C>
 where
     Ipld: Encode<C>,
@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> did::Verifiable<DID>
+impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> did::Verifiable<DID>
     for Invocation<A, DID, V, C>
 {
     fn verifier(&self) -> &DID {
@@ -129,7 +129,7 @@ impl<
         A: Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > From<Invocation<A, DID, V, C>> for Ipld
 where
     Payload<A, DID>: TryFrom<Ipld>,
@@ -143,7 +143,7 @@ impl<
         A: Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Envelope for Invocation<A, DID, V, C>
 where
     Payload<A, DID>: TryFrom<Ipld>,
@@ -187,7 +187,7 @@ impl<
         A: Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Serialize for Invocation<A, DID, V, C>
 where
     Payload<A, DID>: TryFrom<Ipld>,
@@ -205,7 +205,7 @@ impl<
         A: Clone,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
-        C: Codec + TryFrom<u32> + Into<u32>,
+        C: Codec + TryFrom<u64> + Into<u64>,
     > Deserialize<'de> for Invocation<A, DID, V, C>
 where
     Payload<A, DID>: TryFrom<Ipld>,

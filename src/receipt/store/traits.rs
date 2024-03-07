@@ -7,7 +7,7 @@ use crate::{
 use libipld_core::{codec::Codec, ipld::Ipld};
 
 /// A store for [`Receipt`]s indexed by their [`task::Id`]s.
-pub trait Store<T: Responds, DID: Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>> {
+pub trait Store<T: Responds, DID: Did, V: varsig::Header<C>, C: Codec + Into<u64> + TryFrom<u64>> {
     /// The error type representing all the ways a store operation can fail.
     type Error;
 

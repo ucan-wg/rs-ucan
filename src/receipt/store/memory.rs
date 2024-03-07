@@ -14,14 +14,14 @@ pub struct MemoryStore<
     T: Responds,
     DID: Did,
     V: varsig::Header<Enc>,
-    Enc: Codec + Into<u32> + TryFrom<u32>,
+    Enc: Codec + Into<u64> + TryFrom<u64>,
 > where
     T::Success: fmt::Debug + Clone + PartialEq,
 {
     store: BTreeMap<task::Id, Receipt<T, DID, V, Enc>>,
 }
 
-impl<T: Responds, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u32> + TryFrom<u32>>
+impl<T: Responds, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>>
     Store<T, DID, V, Enc> for MemoryStore<T, DID, V, Enc>
 where
     <T as Responds>::Success: TryFrom<Ipld> + Into<Ipld> + Clone + fmt::Debug + PartialEq,
