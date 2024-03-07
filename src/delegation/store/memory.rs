@@ -70,9 +70,9 @@ use web_time::SystemTime;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemoryStore<
-    DID: Did + Ord, // = did::preset::Verifier,
-    V: varsig::Header<C>,
-    C: Codec + TryFrom<u64> + Into<u64>,
+    DID: did::Did + Ord = did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
 > {
     ucans: BTreeMap<Cid, Delegation<DID, V, C>>,
     index: BTreeMap<Option<DID>, BTreeMap<DID, BTreeSet<Cid>>>,
