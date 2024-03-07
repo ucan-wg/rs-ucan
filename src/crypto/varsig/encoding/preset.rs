@@ -1,4 +1,6 @@
 use libipld_core::codec::Codec;
+use libipld_core::codec::Encode;
+use libipld_core::ipld::Ipld;
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,6 +11,23 @@ pub enum Preset {
     DagJson = 0x0129,
     Jwt = 0x6a77, // FIXME break out Jwt & EIP-191?
     Eip191 = 0xe191,
+}
+
+impl Encode<Preset> for Ipld {
+    fn encode<W: std::io::Write>(
+        &self,
+        c: Preset,
+        w: &mut W,
+    ) -> Result<(), libipld_core::error::Error> {
+        match c {
+            Preset::Identity => todo!(),
+            Preset::DagPb => todo!(),
+            Preset::DagCbor => self.encode(libipld_cbor::DagCborCodec, w),
+            Preset::DagJson => todo!(),
+            Preset::Jwt => todo!(),
+            Preset::Eip191 => todo!(),
+        }
+    }
 }
 
 impl TryFrom<u64> for Preset {
