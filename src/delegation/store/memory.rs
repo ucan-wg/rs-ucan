@@ -84,7 +84,7 @@ impl MemoryStore {
         Self::default()
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.ucans.is_empty() // FIXME acocunt for revocations?
     }
 }
