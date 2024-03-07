@@ -134,8 +134,8 @@ pub trait Envelope: Sized {
         ipld.encode(*varsig::header::Header::codec(&varsig_header), &mut buffer)
             .map_err(SignError::PayloadEncodingError)?;
 
-        let signature =
-            signature::Signer::try_sign(signer, &buffer).map_err(SignError::SignatureError)?;
+        let signature = todo!();
+        //  signature::Signer::try_sign(signer, &buffer).map_err(SignError::SignatureError)?;
 
         Ok(Self::construct(varsig_header, signature, payload))
     }
