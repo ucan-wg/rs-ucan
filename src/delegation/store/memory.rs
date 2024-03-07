@@ -79,6 +79,16 @@ pub struct MemoryStore<
     revocations: BTreeSet<Cid>,
 }
 
+impl MemoryStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.ucans.is_empty() // FIXME acocunt for revocations?
+    }
+}
+
 impl<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> Default
     for MemoryStore<DID, V, C>
 {
