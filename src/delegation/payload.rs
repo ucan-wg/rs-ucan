@@ -74,6 +74,23 @@ pub struct Payload<DID: Did> {
 }
 
 impl<DID: Did> Payload<DID> {
+    pub fn powerbox(issuer: DID, audience: DID, command: String, expiration: Timestamp) -> Self {
+        let mut seed = vec![];
+        let nonce = Nonce::generate_12(seed.as_mut());
+
+        Payload {
+            issuer,
+            subject: None,
+            audience,
+            command,
+            policy: vec![],
+            metadata: BTreeMap::new(),
+            nonce,
+            expiration,
+            not_before: None,
+        }
+    }
+
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
         let ts_now = &Timestamp::postel(now);
 

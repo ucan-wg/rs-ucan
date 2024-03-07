@@ -39,7 +39,12 @@ impl Timestamp {
     ///
     /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
     pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
-        if time.duration_since(UNIX_EPOCH).map_err(|_| OutOfRangeError{ tried: time })?.as_secs() > 0x1FFFFFFFFFFFFF {
+        if time
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| OutOfRangeError { tried: time })?
+            .as_secs()
+            > 0x1FFFFFFFFFFFFF
+        {
             Err(OutOfRangeError { tried: time })
         } else {
             Ok(Timestamp { time })
@@ -49,6 +54,11 @@ impl Timestamp {
     /// Get the current time in seconds since [`UNIX_EPOCH`] as a [`Timestamp`].
     pub fn now() -> Timestamp {
         Self::new(SystemTime::now())
+            .expect("the current time to be somtime in the 3rd millenium CE")
+    }
+
+    pub fn five_years_from_now() -> Timestamp {
+        Self::new(SystemTime::now() + Duration::from_secs(5 * 365 * 24 * 60 * 60))
             .expect("the current time to be somtime in the 3rd millenium CE")
     }
 
