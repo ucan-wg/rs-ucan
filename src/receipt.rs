@@ -10,7 +10,7 @@ mod responds;
 
 pub mod store;
 
-pub use payload::Payload;
+pub use payload::*;
 pub use responds::Responds;
 pub use store::Store;
 

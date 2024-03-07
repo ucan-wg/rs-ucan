@@ -57,6 +57,11 @@ impl Timestamp {
             .expect("the current time to be somtime in the 3rd millenium CE")
     }
 
+    pub fn five_minutes_from_now() -> Timestamp {
+        Self::new(SystemTime::now() + Duration::from_secs(5 * 60))
+            .expect("the current time to be somtime in the 3rd millenium CE")
+    }
+
     pub fn five_years_from_now() -> Timestamp {
         Self::new(SystemTime::now() + Duration::from_secs(5 * 365 * 24 * 60 * 60))
             .expect("the current time to be somtime in the 3rd millenium CE")

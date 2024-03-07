@@ -2,7 +2,7 @@ use super::promise::Resolvable;
 use crate::{
     ability::{arguments, command::ToCommand, parse::ParseAbility},
     capsule::Capsule,
-    crypto::Nonce,
+    crypto::{varsig, Nonce},
     delegation::{
         self,
         policy::{selector::SelectorError, Predicate},
@@ -10,7 +10,8 @@ use crate::{
     did::{Did, Verifiable},
     time::{Expired, Timestamp},
 };
-use libipld_core::{cid::Cid, ipld::Ipld};
+use derive_builder::Builder;
+use libipld_core::{cid::Cid, codec::Codec, ipld::Ipld};
 use serde::{
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
@@ -29,7 +30,7 @@ use crate::ipld;
 #[cfg(feature = "test_utils")]
 use crate::ipld::cid;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Builder)]
 pub struct Payload<A, DID: Did> {
     /// The subject of the [`Invocation`].
     ///
@@ -58,6 +59,7 @@ pub struct Payload<A, DID: Did> {
     ///
     /// Note that if this is the same as the [`subject`],
     /// this field may be omitted.
+    #[builder(default)]
     pub audience: Option<DID>,
 
     /// The [Ability] being invoked.
@@ -75,6 +77,7 @@ pub struct Payload<A, DID: Did> {
     ///
     /// [`Invocation`]: super::Invocation
     /// [`Delegation`]: crate::delegation::Delegation
+    #[builder(default)]
     pub proofs: Vec<Cid>,
 
     /// An optional [`Cid`] of the [`Receipt`] that requested this be invoked.
@@ -82,14 +85,17 @@ pub struct Payload<A, DID: Did> {
     /// This is helpful for provenance of calls.
     ///
     /// [`Receipt`]: crate::receipt::Receipt
+    #[builder(default)]
     pub cause: Option<Cid>,
 
     /// Extensible, free-form fields.
+    #[builder(default)]
     pub metadata: BTreeMap<String, Ipld>,
 
     /// A [cryptographic nonce] to ensure that the UCAN's [`Cid`] is unique.
     ///
     /// [cryptographic nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
+    #[builder(default = "Nonce::generate_16(&mut vec![])")]
     pub nonce: Nonce,
 
     /// An optional [Unix timestamp] (wall-clock time) at which this [`Invocation`]
@@ -101,6 +107,7 @@ pub struct Payload<A, DID: Did> {
     ///
     /// One way of thinking about this is as a `timeout`. It also guards against
     /// certain types of denial-of-service attacks.
+    #[builder(default = "Some(Timestamp::five_minutes_from_now())")]
     pub expiration: Option<Timestamp>,
 }
 
@@ -445,6 +452,18 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
         &self.issuer
     }
 }
+
+// impl<A: TryFrom<Ipld>, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
+//     type Error = ();
+//
+//     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+//         if let Ipld::Map(btree) = ipld {
+//             let payload = btree.get(A::COMMAND).map_err(|_| ())?;
+//         } else {
+//             Err(())
+//         }
+//     }
+// }
 
 /// A variant that accepts [`Promise`]s.
 ///

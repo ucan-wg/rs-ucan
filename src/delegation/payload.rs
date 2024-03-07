@@ -1,11 +1,12 @@
 use super::policy::Predicate;
 use crate::{
     capsule::Capsule,
-    crypto::Nonce,
+    crypto::{varsig, Nonce},
     did::{Did, Verifiable},
     time::{TimeBoundError, Timestamp},
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use derive_builder::Builder;
+use libipld_core::{codec::Codec, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 use web_time::SystemTime;
@@ -20,7 +21,7 @@ use crate::ipld;
 ///
 /// This contains the semantic information about the delegation, including the
 /// issuer, subject, audience, the delegated ability, time bounds, and so on.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
 pub struct Payload<DID: Did> {
     /// The subject of the [`Delegation`].
     ///
@@ -49,15 +50,18 @@ pub struct Payload<DID: Did> {
     pub command: String,
 
     /// Any [`Predicate`] policies that constrain the `args` on an [`Invocation`][crate::invocation::Invocation].
+    #[builder(default)]
     pub policy: Vec<Predicate>,
 
     /// Extensible, free-form fields.
+    #[builder(default)]
     pub metadata: BTreeMap<String, Ipld>,
 
     /// A [cryptographic nonce] to ensure that the UCAN's [`Cid`] is unique.
     ///
     /// [cryptograpgic nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
     /// [`Cid`]: libipld_core::cid::Cid ;
+    #[builder(default = "Nonce::generate_16(&mut vec![])")]
     pub nonce: Nonce,
 
     /// The latest wall-clock time that the UCAN is valid until,
@@ -70,27 +74,11 @@ pub struct Payload<DID: Did> {
     /// given as a [Unix timestamp].
     ///
     /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
+    #[builder(default)]
     pub not_before: Option<Timestamp>,
 }
 
 impl<DID: Did> Payload<DID> {
-    pub fn powerbox(issuer: DID, audience: DID, command: String, expiration: Timestamp) -> Self {
-        let mut seed = vec![];
-        let nonce = Nonce::generate_12(seed.as_mut());
-
-        Payload {
-            issuer,
-            subject: None,
-            audience,
-            command,
-            policy: vec![],
-            metadata: BTreeMap::new(),
-            nonce,
-            expiration,
-            not_before: None,
-        }
-    }
-
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
         let ts_now = &Timestamp::postel(now);
 

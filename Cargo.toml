@@ -48,6 +48,7 @@ ecdsa = { version = "0.16.8", features = ["alloc"], optional = true, default-fea
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"], optional = true }
 
 # Code Convenience
+derive_builder = "0.20"
 enum-as-inner = "0.6"
 getrandom = { version = "0.2", features = ["js", "rdrand"] }
 k256 = { version = "0.13.1", features = ["ecdsa"], optional = true, default-features = false }

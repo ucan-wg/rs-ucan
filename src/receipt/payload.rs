@@ -10,6 +10,7 @@ use crate::{
     did::{Did, Verifiable},
     time::Timestamp,
 };
+use derive_builder::Builder;
 use libipld_core::{cid::Cid, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{
     de::{self, MapAccess, Visitor},
@@ -36,7 +37,7 @@ impl<T: Responds, DID: Did> Verifiable<DID> for Payload<T, DID> {
 /// The payload (non-signature) portion of a response from an [`Invocation`].
 ///
 /// [`Invocation`]: crate::invocation::Invocation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Builder)]
 pub struct Payload<T: Responds, DID: Did> {
     /// The issuer of the [`Receipt`]. This [`Did`] *must* match the signature on
     /// the outer layer of [`Receipt`].
@@ -59,6 +60,7 @@ pub struct Payload<T: Responds, DID: Did> {
     /// requested to be queued next.
     ///
     /// [`Invocation`]: crate::invocation::Invocation
+    #[builder(default)]
     pub next: Vec<Cid>,
 
     /// An optional proof chain authorizing a different [`Did`] to
@@ -66,21 +68,25 @@ pub struct Payload<T: Responds, DID: Did> {
     /// [`Invocation`] that was run.
     ///
     /// [`Invocation`]: crate::invocation::Invocation
+    #[builder(default)]
     pub proofs: Vec<Cid>,
 
     /// Extensible, free-form fields.
+    #[builder(default)]
     pub metadata: BTreeMap<String, Ipld>,
 
     /// A [cryptographic nonce] to ensure that the UCAN's [`Cid`] is unique.
     ///
     /// [cryptographic nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
     /// [`Cid`]: libipld_core::cid::Cid
+    #[builder(default = "Nonce::generate_16(&mut vec![])")]
     pub nonce: Nonce,
 
     /// An optional [Unix timestamp] (wall-clock time) at which the
     /// receipt claims to have been issued at.
     ///
     /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
+    #[builder(default)]
     pub issued_at: Option<Timestamp>,
 }
 
