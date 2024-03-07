@@ -1,3 +1,5 @@
+use crate::crypto::signature::Envelope;
+use crate::delegation::Delegation;
 use libipld_core::codec::Codec;
 use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
@@ -27,6 +29,16 @@ impl Encode<Preset> for Ipld {
             Preset::Jwt => todo!(),
             Preset::Eip191 => todo!(),
         }
+    }
+}
+
+impl Encode<Preset> for Delegation {
+    fn encode<W: std::io::Write>(
+        &self,
+        c: Preset,
+        w: &mut W,
+    ) -> Result<(), libipld_core::error::Error> {
+        self.clone().to_ipld_envelope().encode(c, w)
     }
 }
 
