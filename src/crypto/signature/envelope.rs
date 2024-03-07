@@ -130,7 +130,7 @@ pub trait Envelope: Sized {
     {
         dbg!("try_sign_generic");
         let ipld: Ipld =
-            BTreeMap::from_iter([(Self::Payload::TAG.into(), payload.clone().into())]).into();
+            BTreeMap::from_iter([(Self::Payload::TAG.into(), Ipld::from(payload.clone()))]).into();
 
         dbg!("buffer");
         let mut buffer = vec![];

@@ -95,6 +95,59 @@ pub fn glob(input: &String, pattern: &String) -> bool {
     }
 }
 
+impl From<Predicate> for Ipld {
+    fn from(p: Predicate) -> Self {
+        match p {
+            Predicate::True => Ipld::Bool(true),
+            Predicate::False => Ipld::Bool(false),
+            Predicate::Equal(lhs, rhs) => {
+                Ipld::List(vec![Ipld::String("==".to_string()), lhs.into(), rhs.into()])
+            }
+            Predicate::GreaterThan(lhs, rhs) => {
+                Ipld::List(vec![Ipld::String(">".to_string()), lhs.into(), rhs.into()])
+            }
+            Predicate::GreaterThanOrEqual(lhs, rhs) => {
+                Ipld::List(vec![Ipld::String(">=".to_string()), lhs.into(), rhs.into()])
+            }
+            Predicate::LessThan(lhs, rhs) => {
+                Ipld::List(vec![Ipld::String("<".to_string()), lhs.into(), rhs.into()])
+            }
+            Predicate::LessThanOrEqual(lhs, rhs) => {
+                Ipld::List(vec![Ipld::String("<=".to_string()), lhs.into(), rhs.into()])
+            }
+            Predicate::Like(lhs, rhs) => Ipld::List(vec![
+                Ipld::String("like".to_string()),
+                lhs.into(),
+                rhs.into(),
+            ]),
+            Predicate::Not(inner) => {
+                let unboxed = *inner;
+                Ipld::List(vec![Ipld::String("not".to_string()), unboxed.into()])
+            }
+            Predicate::And(lhs, rhs) => Ipld::List(vec![
+                Ipld::String("and".to_string()),
+                (*lhs).into(),
+                (*rhs).into(),
+            ]),
+            Predicate::Or(lhs, rhs) => Ipld::List(vec![
+                Ipld::String("or".to_string()),
+                (*lhs).into(),
+                (*rhs).into(),
+            ]),
+            Predicate::Every(xs, p) => Ipld::List(vec![
+                Ipld::String("every".to_string()),
+                xs.into(),
+                (*p).into(),
+            ]),
+            Predicate::Some(xs, p) => Ipld::List(vec![
+                Ipld::String("some".to_string()),
+                xs.into(),
+                (*p).into(),
+            ]),
+        }
+    }
+}
+
 #[cfg(feature = "test_utils")]
 impl Arbitrary for Predicate {
     type Parameters = (); // FIXME?

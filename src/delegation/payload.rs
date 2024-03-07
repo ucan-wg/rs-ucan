@@ -114,9 +114,35 @@ impl<DID: Did + for<'de> Deserialize<'de>> TryFrom<Ipld> for Payload<DID> {
     }
 }
 
-impl<DID: Did> From<Payload<DID>> for Ipld {
+impl<DID: Did + ToString> From<Payload<DID>> for Ipld {
     fn from(payload: Payload<DID>) -> Self {
-        payload.into()
+        let mut btree: BTreeMap<String, Ipld> = BTreeMap::<String, Ipld>::from_iter([
+            ("iss".to_string(), Ipld::from(payload.issuer.to_string())),
+            ("aud".to_string(), payload.audience.to_string().into()),
+            ("cmd".to_string(), payload.command.into()),
+            (
+                "pol".to_string(),
+                Ipld::List(payload.policy.into_iter().map(|p| p.into()).collect()),
+            ),
+            ("nonce".to_string(), payload.nonce.into()),
+            ("exp".to_string(), payload.expiration.into()),
+        ]);
+
+        if let Some(subject) = payload.subject {
+            btree.insert("sub".to_string(), Ipld::from(subject.to_string()));
+        } else {
+            btree.insert("sub".to_string(), Ipld::Null);
+        }
+
+        if let Some(not_before) = payload.not_before {
+            btree.insert("nbf".to_string(), Ipld::from(not_before));
+        }
+
+        if !payload.metadata.is_empty() {
+            btree.insert("metadata".to_string(), Ipld::Map(payload.metadata));
+        }
+
+        Ipld::from(btree)
     }
 }
 

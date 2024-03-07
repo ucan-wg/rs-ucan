@@ -1,3 +1,4 @@
+use super::Selector; // FIXME cycle?
 use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorError};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,18 @@ use proptest::prelude::*;
 pub enum Select<T> {
     Get(Vec<Filter>),
     Pure(T),
+}
+
+impl<T> From<Select<T>> for Ipld
+where
+    Ipld: From<T>,
+{
+    fn from(s: Select<T>) -> Self {
+        match s {
+            Select::Get(ops) => Selector(ops).to_string().into(),
+            Select::Pure(inner) => inner.into(),
+        }
+    }
 }
 
 impl<T: Selectable> Select<T> {

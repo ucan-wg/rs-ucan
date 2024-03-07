@@ -36,7 +36,7 @@ pub struct Agent<
 
 impl<
         'a,
-        DID: Did + ToString + Clone,
+        DID: Did + Clone,
         S: Store<DID, V, Enc> + Clone,
         V: varsig::Header<Enc> + Clone,
         Enc: Codec + TryFrom<u64> + Into<u64>,

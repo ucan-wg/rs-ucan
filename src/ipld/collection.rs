@@ -1,4 +1,5 @@
 use crate::ipld;
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -9,6 +10,19 @@ use proptest::prelude::*;
 pub enum Collection {
     Array(Vec<ipld::Newtype>),
     Map(BTreeMap<String, ipld::Newtype>),
+}
+
+impl From<Collection> for Ipld {
+    fn from(collection: Collection) -> Self {
+        match collection {
+            Collection::Array(xs) => Ipld::List(xs.into_iter().map(Into::into).collect()),
+            Collection::Map(xs) => Ipld::Map(
+                xs.into_iter()
+                    .map(|(k, v)| (k, v.into()))
+                    .collect::<BTreeMap<String, Ipld>>(),
+            ),
+        }
+    }
 }
 
 impl Collection {
