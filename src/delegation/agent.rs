@@ -1,6 +1,6 @@
 use super::{payload::Payload, policy::Predicate, store::Store, Delegation};
 use crate::{
-    crypto::{varsig, Nonce},
+    crypto::{signature::Envelope, varsig, Nonce},
     did::Did,
     time::Timestamp,
 };
@@ -38,7 +38,7 @@ impl<
         'a,
         DID: Did + ToString + Clone,
         S: Store<DID, V, Enc> + Clone,
-        V: varsig::Header<Enc>,
+        V: varsig::Header<Enc> + Clone,
         Enc: Codec + TryFrom<u32> + Into<u32>,
     > Agent<'a, DID, S, V, Enc>
 where
@@ -64,7 +64,10 @@ where
         not_before: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
+    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>>
+    where
+        Payload<DID>: TryFrom<Ipld>,
+    {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
@@ -119,7 +122,10 @@ where
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
         delegation: Delegation<DID, V, Enc>,
-    ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
+    ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>>
+    where
+        Payload<DID>: TryFrom<Ipld>,
+    {
         if self.store.get(&cid).is_ok() {
             return Ok(());
         }

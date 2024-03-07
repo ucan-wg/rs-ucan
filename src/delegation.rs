@@ -23,15 +23,12 @@ pub use payload::*;
 
 use crate::{
     capsule::Capsule,
-    crypto::{signature, varsig, Nonce},
+    crypto::{signature::Envelope, varsig, Nonce},
     did::{self, Did},
     time::{TimeBoundError, Timestamp},
 };
-use libipld_core::{
-    cid::Cid,
-    codec::{Codec, Encode},
-    ipld::Ipld,
-};
+use libipld_core::link::Link;
+use libipld_core::{codec::Codec, ipld::Ipld};
 use policy::Predicate;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -45,15 +42,21 @@ pub struct Delegation<
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
     C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
->(signature::Envelope<Payload<DID>, DID, V, C>);
+> {
+    pub varsig_header: V,
+    pub payload: Payload<DID>,
+    pub signature: DID::Signature,
+    _marker: std::marker::PhantomData<C>,
+}
 
-// FIXME rename proofs?
 #[derive(Clone, Debug, PartialEq)]
 pub struct Proof<
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
     C: Codec + TryFrom<u32> + Into<u32> = varsig::encoding::Preset,
->(Vec<Delegation<DID, V, C>>);
+> {
+    pub prf: Vec<Link<Delegation<DID, V, C>>>,
+}
 
 impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Capsule
     for Proof<DID, V, C>
@@ -67,118 +70,114 @@ impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u32> + TryFrom<u32>> Delega
         signature: DID::Signature,
         payload: Payload<DID>,
     ) -> Delegation<DID, V, C> {
-        Delegation(signature::Envelope::new(varsig_header, signature, payload))
+        Delegation {
+            varsig_header,
+            payload,
+            signature,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     /// Retrive the `issuer` of a [`Delegation`]
     pub fn issuer(&self) -> &DID {
-        &self.0.payload.issuer
+        &self.payload.issuer
     }
 
     /// Retrive the `subject` of a [`Delegation`]
     pub fn subject(&self) -> &Option<DID> {
-        &self.0.payload.subject
+        &self.payload.subject
     }
 
     /// Retrive the `audience` of a [`Delegation`]
     pub fn audience(&self) -> &DID {
-        &self.0.payload.audience
+        &self.payload.audience
     }
 
     /// Retrive the `policy` of a [`Delegation`]
     pub fn policy(&self) -> &Vec<Predicate> {
-        &self.0.payload.policy
+        &self.payload.policy
     }
 
     /// Retrive the `metadata` of a [`Delegation`]
     pub fn metadata(&self) -> &BTreeMap<String, Ipld> {
-        &self.0.payload.metadata
+        &self.payload.metadata
     }
 
     /// Retrive the `nonce` of a [`Delegation`]
     pub fn nonce(&self) -> &Nonce {
-        &self.0.payload.nonce
+        &self.payload.nonce
     }
 
     /// Retrive the `not_before` of a [`Delegation`]
     pub fn not_before(&self) -> Option<&Timestamp> {
-        self.0.payload.not_before.as_ref()
+        self.payload.not_before.as_ref()
     }
 
     /// Retrive the `expiration` of a [`Delegation`]
     pub fn expiration(&self) -> &Timestamp {
-        &self.0.payload.expiration
+        &self.payload.expiration
     }
 
     pub fn check_time(&self, now: SystemTime) -> Result<(), TimeBoundError> {
-        self.0.payload.check_time(now)
-    }
-
-    pub fn payload(&self) -> &Payload<DID> {
-        &self.0.payload
-    }
-
-    pub fn varsig_header(&self) -> &V {
-        &self.0.varsig_header
-    }
-
-    pub fn varsig_encode(self, w: &mut Vec<u8>) -> Result<(), libipld_core::error::Error>
-    where
-        Ipld: Encode<C>,
-    {
-        self.0.varsig_encode(w)
-    }
-
-    pub fn signature(&self) -> &DID::Signature {
-        &self.0.signature
-    }
-
-    pub fn codec(&self) -> &C {
-        self.varsig_header().codec()
-    }
-
-    pub fn cid(&self) -> Result<Cid, libipld_core::error::Error>
-    where
-        signature::Envelope<Payload<DID>, DID, V, C>: Clone + Encode<C>,
-        Ipld: Encode<C>,
-    {
-        self.0.cid()
-    }
-
-    pub fn validate_signature(&self) -> Result<(), signature::ValidateError>
-    where
-        Payload<DID>: Clone,
-        Ipld: Encode<C>,
-    {
-        self.0.validate_signature()
-    }
-
-    pub fn try_sign(
-        signer: &DID::Signer,
-        varsig_header: V,
-        payload: Payload<DID>,
-    ) -> Result<Self, signature::SignError>
-    where
-        Ipld: Encode<C>,
-        Payload<DID>: Clone,
-    {
-        signature::Envelope::try_sign(signer, varsig_header, payload).map(Delegation)
+        self.payload.check_time(now)
     }
 }
 
-impl<DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Serialize
+impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>> Envelope
     for Delegation<DID, V, C>
+where
+    Payload<DID>: TryFrom<Ipld>,
+{
+    type DID = DID;
+    type Payload = Payload<DID>;
+    type VarsigHeader = V;
+    type Encoder = C;
+
+    fn construct(
+        varsig_header: V,
+        signature: DID::Signature,
+        payload: Payload<DID>,
+    ) -> Delegation<DID, V, C> {
+        Delegation {
+            varsig_header,
+            payload,
+            signature,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    fn varsig_header(&self) -> &V {
+        &self.varsig_header
+    }
+
+    fn payload(&self) -> &Payload<DID> {
+        &self.payload
+    }
+
+    fn signature(&self) -> &DID::Signature {
+        &self.signature
+    }
+
+    fn verifier(&self) -> &DID {
+        &self.payload.issuer
+    }
+}
+
+impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>> Serialize
+    for Delegation<DID, V, C>
+where
+    Payload<DID>: TryFrom<Ipld>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        self.0.serialize(serializer)
+        self.to_ipld_envelope().serialize(serializer)
     }
 }
 
-impl<'de, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Deserialize<'de>
-    for Delegation<DID, V, C>
+impl<'de, DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u32> + Into<u32>>
+    Deserialize<'de> for Delegation<DID, V, C>
 where
     Payload<DID>: TryFrom<Ipld>,
     <Payload<DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
@@ -187,6 +186,7 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        signature::Envelope::deserialize(deserializer).map(Delegation)
+        let ipld = Ipld::deserialize(deserializer)?;
+        Self::try_from_ipld_envelope(ipld).map_err(serde::de::Error::custom)
     }
 }

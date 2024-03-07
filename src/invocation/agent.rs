@@ -6,7 +6,10 @@ use super::{
 };
 use crate::{
     ability::{arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
-    crypto::{signature, varsig, Nonce},
+    crypto::{
+        signature::{self, Envelope},
+        varsig, Nonce,
+    },
     delegation,
     did::Did,
     invocation::promise,
@@ -30,11 +33,11 @@ pub struct Agent<
     'a,
     T: Resolvable,
     DID: Did,
-    S: Store<T::Promised, DID, V, Enc>,
+    S: Store<T::Promised, DID, V, C>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<DID, V, Enc>,
-    V: varsig::Header<Enc>,
-    Enc: Codec + Into<u32> + TryFrom<u32>,
+    D: delegation::store::Store<DID, V, C>,
+    V: varsig::Header<C> + Clone,
+    C: Codec + Into<u32> + TryFrom<u32>,
 > {
     /// The agent's [`DID`].
     pub did: &'a DID,
@@ -49,21 +52,21 @@ pub struct Agent<
     pub unresolved_promise_index: &'a mut P,
 
     signer: &'a <DID as Did>::Signer,
-    marker: PhantomData<(T, V, Enc)>,
+    marker: PhantomData<(T, V, C)>,
 }
 
-impl<'a, T, DID, S, P, D, V, Enc> Agent<'a, T, DID, S, P, D, V, Enc>
+impl<'a, T, DID, S, P, D, V, C> Agent<'a, T, DID, S, P, D, V, C>
 where
     T::Promised: Clone,
-    Ipld: Encode<Enc>,
+    Ipld: Encode<C>,
     delegation::Payload<DID>: Clone,
     T: Resolvable + Clone,
     DID: Did + Clone,
-    S: Store<T::Promised, DID, V, Enc>,
+    S: Store<T::Promised, DID, V, C>,
     P: promise::Store<T, DID>,
-    D: delegation::store::Store<DID, V, Enc>,
-    V: varsig::Header<Enc>,
-    Enc: Codec + Into<u32> + TryFrom<u32>,
+    D: delegation::store::Store<DID, V, C>,
+    V: varsig::Header<C> + Clone,
+    C: Codec + Into<u32> + TryFrom<u32>,
 {
     pub fn new(
         did: &'a DID,
@@ -94,12 +97,15 @@ where
         now: SystemTime,
         varsig_header: V,
     ) -> Result<
-        Invocation<T, DID, V, Enc>,
+        Invocation<T, DID, V, C>,
         InvokeError<
             D::DelegationStoreError,
             ParseAbilityError<()>, // FIXME argserror
         >,
-    > {
+    >
+    where
+        Payload<T, DID>: TryFrom<Ipld>,
+    {
         let proofs = self
             .delegation_store
             .get_chain(self.did, &Some(subject.clone()), vec![], now)
@@ -138,12 +144,15 @@ where
         now: SystemTime,
         varsig_header: V,
     ) -> Result<
-        Invocation<T::Promised, DID, V, Enc>,
+        Invocation<T::Promised, DID, V, C>,
         InvokeError<
             D::DelegationStoreError,
             ParseAbilityError<()>, // FIXME errs
         >,
-    > {
+    >
+    where
+        Payload<T::Promised, DID>: TryFrom<Ipld>,
+    {
         let proofs = self
             .delegation_store
             .get_chain(self.did, &Some(subject.clone()), vec![], now)
@@ -172,19 +181,15 @@ where
 
     pub fn receive(
         &mut self,
-        promised: Invocation<T::Promised, DID, V, Enc>,
+        promised: Invocation<T::Promised, DID, V, C>,
         now: &SystemTime,
-    ) -> Result<
-        Recipient<Payload<T, DID>>,
-        ReceiveError<T, P, DID, D::DelegationStoreError, S, V, Enc>,
-    >
+    ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, D::DelegationStoreError, S, V, C>>
     where
-        Enc: From<u32> + Into<u32>,
+        Payload<T::Promised, DID>: TryFrom<Ipld>,
         arguments::Named<Ipld>: From<T>,
-        Invocation<T::Promised, DID, V, Enc>: Clone,
+        Invocation<T::Promised, DID, V, C>: Clone + Encode<C>,
         <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
-        signature::Envelope<Payload<T::Promised, DID>, DID, V, Enc>: Clone,
-        <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
+        <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
     {
         let cid: Cid = promised.cid().map_err(ReceiveError::EncodingError)?;
         let _ = promised
@@ -211,15 +216,17 @@ where
             }
         };
 
-        let proof_payloads = self
+        let proof_payloads: Vec<&delegation::Payload<DID>> = self
             .delegation_store
             .get_many(&promised.proofs())
             .map_err(ReceiveError::DelegationStoreError)?
-            .into_iter()
-            .map(|d| d.payload())
-            .collect();
+            .iter()
+            .fold(vec![], |mut acc, d| {
+                acc.push(&d.payload);
+                acc
+            });
 
-        let resolved_payload = promised.payload().clone().map_ability(|_| resolved_ability);
+        let resolved_payload = promised.payload.clone().map_ability(|_| resolved_ability);
 
         let _ = &resolved_payload
             .check(proof_payloads, now)
@@ -240,9 +247,10 @@ where
         now: Timestamp,
         varsig_header: V,
         // FIXME return type
-    ) -> Result<Invocation<T, DID, V, Enc>, ()>
+    ) -> Result<Invocation<T, DID, V, C>, ()>
     where
         T: From<Revoke>,
+        Payload<T, DID>: TryFrom<Ipld>,
     {
         let ability: T = Revoke { ucan: cid.clone() }.into();
         let proofs = if &subject == self.did {
@@ -278,7 +286,7 @@ where
 
 #[derive(Debug)]
 pub enum Recipient<T> {
-    // FIXME change to status
+    // FIXME change to status?
     You(T),
     Other(T),
     Unresolved(Cid),
@@ -290,12 +298,12 @@ pub enum ReceiveError<
     P: promise::Store<T, DID>,
     DID: Did,
     D,
-    S: Store<T::Promised, DID, V, Enc>,
-    V: varsig::Header<Enc>,
-    Enc: Codec + From<u32> + Into<u32>,
+    S: Store<T::Promised, DID, V, C>,
+    V: varsig::Header<C>,
+    C: Codec + TryFrom<u32> + Into<u32>,
 > where
     <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
-    <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError: fmt::Debug,
+    <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
 {
     #[error("encoding error: {0}")]
     EncodingError(#[from] libipld_core::error::Error),
@@ -305,7 +313,7 @@ pub enum ReceiveError<
 
     #[error("invocation store error: {0}")]
     InvocationStoreError(
-        #[source] <S as Store<<T as Resolvable>::Promised, DID, V, Enc>>::InvocationStoreError,
+        #[source] <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError,
     ),
 
     #[error("promise store error: {0}")]
