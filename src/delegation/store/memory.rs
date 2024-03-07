@@ -69,14 +69,22 @@ use web_time::SystemTime;
 /// linkStyle 1 stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<
-    DID: Did + Ord,
-    V: varsig::Header<Enc>,
-    Enc: Codec + TryFrom<u32> + Into<u32>,
-> {
-    ucans: BTreeMap<Cid, Delegation<DID, V, Enc>>,
+pub struct MemoryStore<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> {
+    ucans: BTreeMap<Cid, Delegation<DID, V, C>>,
     index: BTreeMap<Option<DID>, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
+}
+
+impl<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u32> + Into<u32>> Default
+    for MemoryStore<DID, V, C>
+{
+    fn default() -> Self {
+        MemoryStore {
+            ucans: BTreeMap::new(),
+            index: BTreeMap::new(),
+            revocations: BTreeSet::new(),
+        }
+    }
 }
 
 // FIXME check that UCAN is valid
