@@ -460,7 +460,7 @@ impl<A: TryFrom<Ipld> + Command, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         if let Ipld::Map(btree) = ipld {
-            let payload_ipld = btree.get(A::COMMAND).ok_or(|_| ())?;
+            let payload_ipld = btree.get(A::COMMAND).ok_or(())?;
             payload_ipld.clone().try_into().map_err(|_| ())
         } else {
             Err(())
