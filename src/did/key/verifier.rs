@@ -1,12 +1,12 @@
 use super::Signature;
+use blst::BLST_ERROR;
+use did_url::DID;
 use enum_as_inner::EnumAsInner;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
-use std::{fmt::Display, str::FromStr};
-use serde::{Serialize, Deserialize};
-use thiserror::Error;
-use blst::BLST_ERROR;
+use serde::{Deserialize, Serialize};
 use signature as sig;
-use did_url::DID;
+use std::{fmt::Display, str::FromStr};
+use thiserror::Error;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -73,6 +73,18 @@ pub enum Verifier {
     /// `BLS 12-381` verifying key for the "min sig" variant.
     #[cfg(feature = "bls")]
     BlsMinSig(blst::min_sig::PublicKey),
+}
+
+impl PartialOrd for Verifier {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.to_string().partial_cmp(&other.to_string())
+    }
+}
+
+impl Ord for Verifier {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.to_string().cmp(&other.to_string())
+    }
 }
 
 impl signature::Verifier<Signature> for Verifier {
@@ -256,13 +268,17 @@ impl FromStr for Verifier {
                         word => return Err(FromStrError::UnexpectedPrefix([word].into())),
                     },
                     (word, _) => {
-                        return Err(FromStrError::UnexpectedPrefix(word.iter().map(|u| u.clone().into()).collect()));
+                        return Err(FromStrError::UnexpectedPrefix(
+                            word.iter().map(|u| u.clone().into()).collect(),
+                        ));
                     }
                 }
-            },
+            }
 
             (s, _) => {
-                return Err(FromStrError::UnexpectedPrefix(s.to_string().chars().map(|u| u as usize).collect()));
+                return Err(FromStrError::UnexpectedPrefix(
+                    s.to_string().chars().map(|u| u as usize).collect(),
+                ));
             }
         }
     }

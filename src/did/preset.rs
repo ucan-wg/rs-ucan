@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
 /// The set of [`Did`] types that ship with this library ("presets").
-#[derive(Debug, Clone, EnumAsInner, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, EnumAsInner, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Verifier {
     /// `did:key` DIDs.
