@@ -100,7 +100,7 @@ pub trait Envelope: Sized {
         payload: Self::Payload,
     ) -> Result<Self, SignError>
     where
-        Ipld: Encode<Self::Encoder> + From<Self::Payload>,
+        Ipld: Encode<Self::Encoder> + From<Self::Payload>, // FIXME force it to be named args not IPLD
     {
         Self::try_sign_generic(signer, varsig_header, payload)
     }

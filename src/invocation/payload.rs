@@ -453,17 +453,20 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
     }
 }
 
-// impl<A: TryFrom<Ipld>, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
-//     type Error = ();
-//
-//     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-//         if let Ipld::Map(btree) = ipld {
-//             let payload = btree.get(A::COMMAND).map_err(|_| ())?;
-//         } else {
-//             Err(())
-//         }
-//     }
-// }
+use crate::ability::command::Command;
+
+impl<A: TryFrom<Ipld> + Command, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        if let Ipld::Map(btree) = ipld {
+            let payload_ipld = btree.get(A::COMMAND).ok_or(|_| ())?;
+            payload_ipld.clone().try_into().map_err(|_| ())
+        } else {
+            Err(())
+        }
+    }
+}
 
 /// A variant that accepts [`Promise`]s.
 ///
