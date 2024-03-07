@@ -102,6 +102,7 @@ pub trait Envelope: Sized {
     where
         Ipld: Encode<Self::Encoder> + From<Self::Payload>, // FIXME force it to be named args not IPLD
     {
+        dbg!("try_sign");
         Self::try_sign_generic(signer, varsig_header, payload)
     }
 
@@ -127,16 +128,21 @@ pub trait Envelope: Sized {
     where
         Ipld: Encode<Self::Encoder> + From<Self::Payload>,
     {
+        dbg!("try_sign_generic");
         let ipld: Ipld =
             BTreeMap::from_iter([(Self::Payload::TAG.into(), payload.clone().into())]).into();
 
+        dbg!("buffer");
         let mut buffer = vec![];
+        dbg!("encode");
         ipld.encode(*varsig::header::Header::codec(&varsig_header), &mut buffer)
             .map_err(SignError::PayloadEncodingError)?;
 
-        let signature = todo!();
-        //  signature::Signer::try_sign(signer, &buffer).map_err(SignError::SignatureError)?;
+        dbg!("sign");
+        let signature =
+            signature::Signer::try_sign(signer, &buffer).map_err(SignError::SignatureError)?;
 
+        dbg!("construct");
         Ok(Self::construct(varsig_header, signature, payload))
     }
 
