@@ -100,6 +100,7 @@ pub struct Payload<A, DID: Did> {
 
     /// An optional [Unix timestamp] (wall-clock time) at which this [`Invocation`]
     /// was created.
+    #[builder(default)]
     pub issued_at: Option<Timestamp>,
 
     /// An optional [Unix timestamp] (wall-clock time) at which this [`Invocation`]
