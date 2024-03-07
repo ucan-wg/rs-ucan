@@ -105,10 +105,10 @@ impl<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> 
 impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>>
     Store<DID, V, Enc> for MemoryStore<DID, V, Enc>
 {
-    type DelegationStoreError = (); // FIXME misisng
+    type DelegationStoreError = String; // FIXME misisng
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError> {
-        self.ucans.get(cid).ok_or(())
+        self.ucans.get(cid).ok_or("nope".into())
     }
 
     fn insert(
