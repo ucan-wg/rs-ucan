@@ -21,6 +21,7 @@ pub mod store;
 pub use agent::Agent;
 pub use payload::*;
 
+use crate::ability::command::ToCommand;
 use crate::{
     crypto::{signature::Envelope, varsig},
     did::{self, Did},
@@ -126,12 +127,13 @@ impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> did
 }
 
 impl<
-        A: Clone,
+        A: Clone + ToCommand,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
     > From<Invocation<A, DID, V, C>> for Ipld
 where
+    Ipld: From<A>,
     Payload<A, DID>: TryFrom<Ipld>,
 {
     fn from(invocation: Invocation<A, DID, V, C>) -> Self {
@@ -140,12 +142,13 @@ where
 }
 
 impl<
-        A: Clone,
+        A: Clone + ToCommand,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
     > Envelope for Invocation<A, DID, V, C>
 where
+    Ipld: From<A>,
     Payload<A, DID>: TryFrom<Ipld>,
 {
     type DID = DID;
@@ -184,12 +187,13 @@ where
 }
 
 impl<
-        A: Clone,
+        A: Clone + ToCommand,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
     > Serialize for Invocation<A, DID, V, C>
 where
+    Ipld: From<A>,
     Payload<A, DID>: TryFrom<Ipld>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -202,12 +206,13 @@ where
 
 impl<
         'de,
-        A: Clone,
+        A: Clone + ToCommand,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
     > Deserialize<'de> for Invocation<A, DID, V, C>
 where
+    Ipld: From<A>,
     Payload<A, DID>: TryFrom<Ipld>,
     <Payload<A, DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
 {

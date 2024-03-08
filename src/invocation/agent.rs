@@ -4,6 +4,7 @@ use super::{
     store::Store,
     Invocation,
 };
+use crate::ability::command::ToCommand;
 use crate::{
     ability::{arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
     crypto::{
@@ -31,7 +32,7 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    T: Resolvable,
+    T: Resolvable + ToCommand,
     DID: Did,
     S: Store<T::Promised, DID, V, C>,
     P: promise::Store<T, DID>,
@@ -57,10 +58,10 @@ pub struct Agent<
 
 impl<'a, T, DID, S, P, D, V, C> Agent<'a, T, DID, S, P, D, V, C>
 where
-    T::Promised: Clone,
-    Ipld: Encode<C>,
+    Ipld: Encode<C> + From<T>,
     delegation::Payload<DID>: Clone,
-    T: Resolvable + Clone,
+    T: Resolvable + ToCommand + Clone,
+    T::Promised: Clone + ToCommand,
     DID: Did + Clone,
     S: Store<T::Promised, DID, V, C>,
     P: promise::Store<T, DID>,
@@ -104,6 +105,7 @@ where
         >,
     >
     where
+        Ipld: From<T>,
         Payload<T, DID>: TryFrom<Ipld>,
     {
         let proofs = self
@@ -151,6 +153,7 @@ where
         >,
     >
     where
+        Ipld: From<T::Promised>,
         Payload<T::Promised, DID>: TryFrom<Ipld>,
     {
         let proofs = self
@@ -185,6 +188,7 @@ where
         now: &SystemTime,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, D::DelegationStoreError, S, V, C>>
     where
+        Ipld: From<T> + From<T::Promised>,
         Payload<T::Promised, DID>: TryFrom<Ipld>,
         arguments::Named<Ipld>: From<T>,
         Invocation<T::Promised, DID, V, C>: Clone + Encode<C>,
@@ -249,6 +253,7 @@ where
         // FIXME return type
     ) -> Result<Invocation<T, DID, V, C>, ()>
     where
+        Ipld: From<T>,
         T: From<Revoke>,
         Payload<T, DID>: TryFrom<Ipld>,
     {

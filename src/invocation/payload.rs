@@ -236,8 +236,8 @@ impl<A, DID: Did> Capsule for Payload<A, DID> {
 impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld> {
     fn from(payload: Payload<A, DID>) -> Self {
         let mut args = arguments::Named::from_iter([
-            ("iss".into(), payload.issuer.into().to_string().into()),
-            ("sub".into(), payload.subject.into().to_string().into()),
+            ("iss".into(), payload.issuer.to_string().into()),
+            ("sub".into(), payload.subject.to_string().into()),
             ("cmd".into(), payload.ability.to_command().into()),
             ("args".into(), payload.ability.into()),
             (
@@ -474,9 +474,12 @@ impl<A: TryFrom<Ipld> + Command, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
 /// [`Promise`]: crate::invocation::promise::Promise
 pub type Promised<A, DID> = Payload<<A as Resolvable>::Promised, DID>;
 
-impl<A, DID: Did> From<Payload<A, DID>> for Ipld {
+impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Ipld
+where
+    Ipld: From<A>,
+{
     fn from(payload: Payload<A, DID>) -> Self {
-        payload.into()
+        arguments::Named::from(payload).into()
     }
 }
 
