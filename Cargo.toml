@@ -86,6 +86,9 @@ web-sys = { version = "0.3", features = ["Crypto", "CryptoKey", "CryptoKeyPair",
 
 [dev-dependencies]
 libipld = "0.16"
+rand = "0.8"
+testresult = "0.3"
+test-log = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = "0.4"

@@ -124,6 +124,22 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
             .insert(cid);
 
         self.ucans.insert(cid.clone(), delegation);
+
+        // dbg!(&self.ucans.keys().map(|k| k.to_string()).collect::<Vec<_>>());
+        // dbg!(&self
+        //     .index
+        //     .keys()
+        //     .map(|k| k.clone().map(|y| y.to_string()))
+        //     .collect::<Vec<_>>());
+        dbg!(self.ucans.len());
+        dbg!(self.index.len());
+        for (sub, inner) in self.index.clone() {
+            dbg!(sub.clone().map(|x| x.to_string()));
+            for (aud, cids) in inner {
+                dbg!(aud.to_string());
+                dbg!(cids.len());
+            }
+        }
         Ok(())
     }
 
@@ -139,65 +155,300 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
         policy: Vec<Predicate>, // FIXME
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
-        match self
-            .index
-            .get(subject) // FIXME probably need to rework this after last minbute chanegs
-            .and_then(|aud_map| aud_map.get(aud))
-        {
-            None => Ok(None),
-            Some(delegation_subtree) => {
-                #[derive(PartialEq)]
-                enum Status {
-                    Complete,
-                    Looking,
-                    NoPath,
-                }
+        dbg!("started get_chain");
+        dbg!(subject.clone().map(|x| x.to_string()).clone());
+        dbg!(aud.to_string().clone());
 
-                let mut status = Status::Looking;
-                let mut target_aud = aud;
-                let mut chain = vec![];
+        let blank_set = BTreeSet::new();
+        let blank_map = BTreeMap::new();
 
-                while status == Status::Looking {
-                    let found = delegation_subtree.iter().try_for_each(|cid| {
-                        if let Some(d) = self.ucans.get(cid) {
-                            if self.revocations.contains(cid) {
-                                return ControlFlow::Continue(());
-                            }
+        let all_powerlines = self.index.get(&None).unwrap_or(&blank_map);
+        let all_aud_for_subject = self.index.get(subject).unwrap_or(&blank_map);
+        let powerline_candidates = all_powerlines.get(aud).unwrap_or(&blank_set);
+        let sub_candidates = all_aud_for_subject.get(aud).unwrap_or(&blank_set);
 
-                            if d.check_time(now).is_err() {
-                                return ControlFlow::Continue(());
-                            }
+        let mut parent_candidate_stack = vec![];
+        let mut hypothesis_chain = vec![];
 
-                            target_aud = &d.audience();
+        dbg!(">>>>>>>>>>>>>>>.");
+        parent_candidate_stack.push(sub_candidates.iter().chain(powerline_candidates.iter()));
 
-                            chain.push((*cid, d));
+        let mut done = false;
+        while !done && !parent_candidate_stack.is_empty() {
+            dbg!("inner loop");
 
-                            if let Some(ref subject) = subject {
-                                if d.issuer() == subject {
-                                    status = Status::Complete;
-                                }
-                            } else {
-                                status = Status::Complete;
-                            }
+            let mut next = None;
+            if let Some(parent_cid_candidates) = parent_candidate_stack.last_mut() {
+                dbg!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                dbg!(parent_cid_candidates.clone().fold(0, |acc, _| acc + 1));
 
-                            ControlFlow::Break(())
-                        } else {
-                            ControlFlow::Continue(())
+                for cid in parent_cid_candidates {
+                    dbg!("##########################");
+                    dbg!(hypothesis_chain.len());
+                    if self.revocations.contains(cid) {
+                        dbg!("REVOKE");
+                        continue;
+                    }
+                    dbg!("@@@@@@@@@@@@@@@@@@@@@@@@2");
+
+                    if let Some(delegation) = self.ucans.get(cid) {
+                        if delegation.check_time(now).is_err() {
+                            dbg!("TIME");
+                            continue;
                         }
-                    });
 
-                    dbg!(found.clone());
+                        let issuer = delegation.issuer().clone();
+                        dbg!(issuer.to_string().clone());
+                        if &Some(issuer.clone()) == delegation.subject()
+                            && (&subject == &delegation.subject() || subject == &None)
+                        {
+                            dbg!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+                            hypothesis_chain.push((cid.clone(), delegation));
+                            done = true;
+                            break;
+                        }
 
-                    if found.is_continue() {
-                        status = Status::NoPath;
+                        let new_aud_candidates =
+                            all_aud_for_subject.get(&issuer).unwrap_or(&blank_set);
+                        let new_powerline_candidates =
+                            all_powerlines.get(&issuer).unwrap_or(&blank_set);
+
+                        dbg!("%%%%%%%%%%%%%%%%%%%%%%%%");
+                        hypothesis_chain.push((cid.clone(), delegation));
+
+                        if !new_aud_candidates.is_empty() && !new_powerline_candidates.is_empty() {
+                            next = Some(
+                                new_aud_candidates
+                                    .iter()
+                                    .chain(new_powerline_candidates.iter()),
+                            );
+                            // parent_candidate_stack.push(
+                            //     new_aud_candidates
+                            //         .iter()
+                            //         .chain(new_powerline_candidates.iter()),
+                            // );
+                            break;
+                        }
                     }
                 }
 
-                match status {
-                    Status::Complete => Ok(NonEmpty::from_vec(chain)),
-                    _ => Ok(None),
-                }
+                // Didn't find a match, so drop this candidate
+                parent_candidate_stack.pop();
+                hypothesis_chain.pop();
+            } else {
+                dbg!("done");
+                done = true; // FIXME pass up error?
+            }
+
+            if let Some(n) = next {
+                parent_candidate_stack.push(n);
             }
         }
+
+        dbg!(&hypothesis_chain
+            .iter()
+            .map(|(cid, _)| cid.to_string())
+            .collect::<Vec<_>>());
+
+        Ok(NonEmpty::from_vec(hypothesis_chain))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ability::command::Command;
+    use crate::crypto::signature::Envelope;
+    use crate::delegation::store::Store;
+    use libipld_core::ipld::Ipld;
+    use rand::thread_rng;
+    use testresult::TestResult;
+
+    #[test_log::test]
+    fn test_powerbox_ucan_resource() -> TestResult {
+        let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let server_signer =
+            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
+
+        let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+            server_sk.verifying_key(),
+        ));
+
+        let account_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let account = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+            account_sk.verifying_key(),
+        ));
+        let account_signer =
+            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(account_sk));
+
+        let dnslink_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let dnslink = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+            dnslink_sk.verifying_key(),
+        ));
+        let dnslink_signer =
+            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(dnslink_sk));
+
+        let device_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let device = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+            device_sk.verifying_key(),
+        ));
+        let device_signer =
+            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(device_sk));
+
+        // FIXME perhaps add this back upstream as a named const
+        let varsig_header = crate::crypto::varsig::header::Preset::EdDsa(
+            crate::crypto::varsig::header::EdDsaHeader {
+                codec: crate::crypto::varsig::encoding::Preset::DagCbor,
+            },
+        );
+
+        // 1.               account -*-> server
+        // 2.                            server -a-> device
+        // 3.  dnslink -d-> account
+        // 4. [dnslink -d-> account -*-> server -a-> device]
+
+        // Both of these UCANs just create ephemeral DIDs & delegate all of those
+        // DID's rights to the server
+        // let (account_did, _account_ucan) = server_create_resource(&server_ed_did_key)?;
+        // let (dnslink_did, _dnslink_ucan) = server_create_resource(&server_ed_did_key)?;
+
+        // 1.               account -*-> server
+        let account_pbox = crate::Delegation::try_sign(
+            &account_signer,
+            varsig_header.clone(),
+            crate::delegation::PayloadBuilder::default()
+                .subject(None)
+                .issuer(account.clone())
+                .audience(server.clone())
+                .command("/".into())
+                .expiration(crate::time::Timestamp::five_years_from_now())
+                .build()
+                .expect("FIXME"),
+        )
+        .expect("signature to work");
+
+        // 2.                            server -a-> device
+        let account_device_ucan = crate::Delegation::try_sign(
+            &server_signer,
+            varsig_header.clone(), // FIXME can also put this on a builder
+            crate::delegation::PayloadBuilder::default()
+                .subject(None) // FIXME needs a sibject when we figure out powerbox
+                .issuer(server.clone())
+                .audience(device.clone())
+                .command("/".into())
+                .expiration(crate::time::Timestamp::five_years_from_now())
+                .build()
+                .expect("FIXME"), // I don't love this is now failable
+        )
+        .expect("signature to work");
+
+        // 3.  dnslink -d-> account
+        let dnslink_ucan = crate::Delegation::try_sign(
+            &dnslink_signer,
+            varsig_header.clone(),
+            crate::delegation::PayloadBuilder::default()
+                .subject(Some(dnslink.clone()))
+                .issuer(dnslink.clone())
+                .audience(account.clone())
+                .command("/".into())
+                .expiration(crate::time::Timestamp::five_years_from_now())
+                .build()
+                .expect("FIXME"),
+        )
+        .expect("signature to work");
+
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct AccountInfo {}
+
+        impl Command for AccountInfo {
+            const COMMAND: &'static str = "/account/info";
+        }
+
+        impl From<Ipld> for AccountInfo {
+            fn from(_: Ipld) -> Self {
+                AccountInfo {}
+            }
+        }
+
+        impl From<AccountInfo> for Ipld {
+            fn from(_: AccountInfo) -> Self {
+                Ipld::Null
+            }
+        }
+
+        // #[derive(Debug, Clone, PartialEq)]
+        // pub struct DnsLinkUpdate {
+        //     pub cid: Cid,
+        // }
+
+        // impl From<Ipld> for DnsLinkUpdate {
+        //     fn from(_: Ipld) -> Self {
+        //         todo!()
+        //     }
+        // }
+
+        // 4. [dnslink -d-> account -*-> server -a-> device]
+        let account_invocation = crate::Invocation::try_sign(
+            &device_signer,
+            varsig_header,
+            crate::invocation::PayloadBuilder::default()
+                .subject(account.clone())
+                .issuer(device.clone())
+                .audience(Some(server.clone()))
+                .ability(AccountInfo {})
+                .proofs(vec![]) // FIXME
+                .build()
+                .expect("FIXME"),
+        )
+        .expect("FIXME");
+
+        // FIXME reenable
+        // let dnslink_invocation = crate::Invocation::try_sign(
+        //     &device,
+        //     varsig_header,
+        //     crate::invocation::PayloadBuilder::default()
+        //         .subject(dnslink)
+        //         .issuer(device)
+        //         .audience(Some(server))
+        //         .ability(DnsLinkUpdate { cid: todo!() })
+        //         .build()
+        //         .expect("FIXME"),
+        // )
+        // .expect("FIXME");
+
+        use crate::crypto::varsig;
+
+        let mut store: crate::delegation::store::MemoryStore<
+            crate::did::preset::Verifier,
+            varsig::header::Preset,
+            varsig::encoding::Preset,
+        > = Default::default();
+
+        let agent = crate::delegation::Agent::new(&server, &server_signer, &mut store);
+
+        let _ = store.insert(
+            account_device_ucan.cid().expect("FIXME"),
+            account_device_ucan.clone(),
+        );
+
+        let _ = store.insert(account_pbox.cid().expect("FIXME"), account_pbox.clone());
+
+        let _ = store.insert(dnslink_ucan.cid().expect("FIXME"), dnslink_ucan.clone());
+
+        use std::time::SystemTime;
+
+        dbg!(server.to_string().clone());
+        dbg!(device.to_string().clone());
+        dbg!(account.to_string().clone());
+        // let chainer = store.get_chain(&device, &None, vec![], SystemTime::now());
+        let chainer = store.get_chain(&device, &Some(dnslink), vec![], SystemTime::now());
+
+        // tracing::debug!(?account_pbox, "Capabilities");
+
+        // dbg!(store.clone());
+        dbg!(chainer.clone());
+
+        assert!(chainer?.is_some());
+
+        Ok(())
     }
 }
