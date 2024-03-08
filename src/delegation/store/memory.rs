@@ -1,4 +1,5 @@
 use super::Store;
+use crate::crypto::signature::Envelope;
 use crate::{
     crypto::varsig,
     delegation::{policy::Predicate, Delegation},
@@ -101,9 +102,20 @@ impl<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> 
     }
 }
 
+use crate::delegation;
+use libipld_core::codec::Encode;
+use libipld_core::ipld::Ipld;
+
 // FIXME check that UCAN is valid
-impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>>
-    Store<DID, V, Enc> for MemoryStore<DID, V, Enc>
+impl<
+        DID: Did + Ord + Clone,
+        V: varsig::Header<Enc> + Clone,
+        Enc: Codec + TryFrom<u64> + Into<u64>,
+    > Store<DID, V, Enc> for MemoryStore<DID, V, Enc>
+where
+    Ipld: From<delegation::Payload<DID>>,
+    delegation::Payload<DID>: TryFrom<Ipld>,
+    Delegation<DID, V, Enc>: Encode<Enc>,
 {
     type DelegationStoreError = String; // FIXME misisng
 
@@ -116,6 +128,8 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
         cid: Cid,
         delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
+        dbg!("^^^^^^^^^^^^^^^^^^^^^ inert");
+        dbg!(&cid.to_string());
         self.index
             .entry(delegation.subject().clone())
             .or_default()
@@ -125,12 +139,6 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
 
         self.ucans.insert(cid.clone(), delegation);
 
-        // dbg!(&self.ucans.keys().map(|k| k.to_string()).collect::<Vec<_>>());
-        // dbg!(&self
-        //     .index
-        //     .keys()
-        //     .map(|k| k.clone().map(|y| y.to_string()))
-        //     .collect::<Vec<_>>());
         dbg!(self.ucans.len());
         dbg!(self.index.len());
         for (sub, inner) in self.index.clone() {
@@ -152,10 +160,11 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
         &self,
         aud: &DID,
         subject: &Option<DID>,
+        // command: String, // FIXME
         policy: Vec<Predicate>, // FIXME
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
-        dbg!("started get_chain");
+        dbg!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> get chain");
         dbg!(subject.clone().map(|x| x.to_string()).clone());
         dbg!(aud.to_string().clone());
 
@@ -170,85 +179,101 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
         let mut parent_candidate_stack = vec![];
         let mut hypothesis_chain = vec![];
 
-        dbg!(">>>>>>>>>>>>>>>.");
         parent_candidate_stack.push(sub_candidates.iter().chain(powerline_candidates.iter()));
+        let mut next = None;
 
-        let mut done = false;
-        while !done && !parent_candidate_stack.is_empty() {
-            dbg!("inner loop");
-
-            let mut next = None;
+        'outer: loop {
+            dbg!("starting loop");
             if let Some(parent_cid_candidates) = parent_candidate_stack.last_mut() {
                 dbg!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                dbg!(parent_cid_candidates.clone().fold(0, |acc, _| acc + 1));
 
-                for cid in parent_cid_candidates {
-                    dbg!("##########################");
-                    dbg!(hypothesis_chain.len());
+                if parent_cid_candidates.clone().collect::<Vec<_>>().is_empty() {
+                    dbg!("EMPTY");
+                    parent_candidate_stack.pop();
+                    hypothesis_chain.pop();
+                    break 'outer;
+                }
+
+                'inner: for cid in parent_cid_candidates {
+                    next = None;
+
+                    dbg!(cid.to_string());
                     if self.revocations.contains(cid) {
-                        dbg!("REVOKE");
                         continue;
                     }
-                    dbg!("@@@@@@@@@@@@@@@@@@@@@@@@2");
 
                     if let Some(delegation) = self.ucans.get(cid) {
+                        dbg!(delegation.cid().expect("FIXME").to_string());
                         if delegation.check_time(now).is_err() {
-                            dbg!("TIME");
                             continue;
                         }
 
+                        hypothesis_chain.push((cid.clone(), delegation));
+                        dbg!(hypothesis_chain.len());
+
+                        // if hypothesis_chain.last().map(|x| x.1.issuer())
+                        //     == Some(delegation.issuer())
+                        // {
+                        //     break 'outer;
+                        // }
+
                         let issuer = delegation.issuer().clone();
-                        dbg!(issuer.to_string().clone());
+
+                        // Hit a root delegation, AKA base case
                         if &Some(issuer.clone()) == delegation.subject()
-                            && (&subject == &delegation.subject() || subject == &None)
+                        // && (&subject == &delegation.subject() || subject == &None)
                         {
-                            dbg!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-                            hypothesis_chain.push((cid.clone(), delegation));
-                            done = true;
-                            break;
+                            break 'outer;
                         }
 
+                        dbg!(issuer.to_string().clone());
                         let new_aud_candidates =
                             all_aud_for_subject.get(&issuer).unwrap_or(&blank_set);
+
                         let new_powerline_candidates =
                             all_powerlines.get(&issuer).unwrap_or(&blank_set);
 
-                        dbg!("%%%%%%%%%%%%%%%%%%%%%%%%");
-                        hypothesis_chain.push((cid.clone(), delegation));
+                        // keep looking until exhausted?
+                        // if subject == &None {
+                        //     dbg!("SUBJECT NONE");
+                        //     next = Some(
+                        //         new_aud_candidates
+                        //             .iter()
+                        //             .chain(new_powerline_candidates.iter()),
+                        //     );
+                        //     break 'inner;
+                        // }
 
-                        if !new_aud_candidates.is_empty() && !new_powerline_candidates.is_empty() {
+                        if !new_aud_candidates.is_empty() || !new_powerline_candidates.is_empty() {
+                            dbg!("MORE CANIDATES");
                             next = Some(
                                 new_aud_candidates
                                     .iter()
                                     .chain(new_powerline_candidates.iter()),
                             );
-                            // parent_candidate_stack.push(
-                            //     new_aud_candidates
-                            //         .iter()
-                            //         .chain(new_powerline_candidates.iter()),
-                            // );
-                            break;
+                            break 'inner;
+                        } else {
+                            // break 'outer;
                         }
                     }
                 }
 
-                // Didn't find a match, so drop this candidate
+                if let Some(ref n) = next {
+                    dbg!("NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNn");
+                    parent_candidate_stack.push(n.clone());
+                } else {
+                    dbg!("NO MORE CANDIDATES");
+                    // Didn't find a match, so drop this candidate
+                    // parent_candidate_stack.pop();
+                    // hypothesis_chain.pop();
+                    break 'outer;
+                }
+            } else {
+                dbg!("ELSE");
                 parent_candidate_stack.pop();
                 hypothesis_chain.pop();
-            } else {
-                dbg!("done");
-                done = true; // FIXME pass up error?
-            }
-
-            if let Some(n) = next {
-                parent_candidate_stack.push(n);
             }
         }
-
-        dbg!(&hypothesis_chain
-            .iter()
-            .map(|(cid, _)| cid.to_string())
-            .collect::<Vec<_>>());
 
         Ok(NonEmpty::from_vec(hypothesis_chain))
     }
@@ -305,11 +330,6 @@ mod tests {
         // 2.                            server -a-> device
         // 3.  dnslink -d-> account
         // 4. [dnslink -d-> account -*-> server -a-> device]
-
-        // Both of these UCANs just create ephemeral DIDs & delegate all of those
-        // DID's rights to the server
-        // let (account_did, _account_ucan) = server_create_resource(&server_ed_did_key)?;
-        // let (dnslink_did, _dnslink_ucan) = server_create_resource(&server_ed_did_key)?;
 
         // 1.               account -*-> server
         let account_pbox = crate::Delegation::try_sign(
@@ -436,18 +456,17 @@ mod tests {
 
         use std::time::SystemTime;
 
-        dbg!(server.to_string().clone());
         dbg!(device.to_string().clone());
+        dbg!(server.to_string().clone());
         dbg!(account.to_string().clone());
-        // let chainer = store.get_chain(&device, &None, vec![], SystemTime::now());
-        let chainer = store.get_chain(&device, &Some(dnslink), vec![], SystemTime::now());
+        dbg!(dnslink.to_string().clone());
+        let chain_for_powerline = store.get_chain(&device, &None, vec![], SystemTime::now());
+        let chain_for_dnslink = store.get_chain(&device, &Some(dnslink), vec![], SystemTime::now());
 
-        // tracing::debug!(?account_pbox, "Capabilities");
+        let powerline_len = chain_for_powerline.expect("FIXME").unwrap().len();
+        let dnslink_len = chain_for_dnslink.expect("FIXME").unwrap().len();
 
-        // dbg!(store.clone());
-        dbg!(chainer.clone());
-
-        assert!(chainer?.is_some());
+        assert_eq!((powerline_len, dnslink_len), (3, 3)); // FIXME
 
         Ok(())
     }

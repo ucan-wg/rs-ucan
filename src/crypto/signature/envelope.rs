@@ -174,7 +174,6 @@ pub trait Envelope: Sized {
 
     fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        // Ipld: Encode<Self::Encoder> + From<Self::Payload>,
         Self: Encode<Self::Encoder>,
     {
         let codec = varsig::header::Header::codec(self.varsig_header()).clone();
