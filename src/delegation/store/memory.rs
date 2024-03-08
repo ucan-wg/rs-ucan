@@ -186,6 +186,8 @@ impl<DID: Did + Ord + Clone, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> +
                         }
                     });
 
+                    dbg!(found.clone());
+
                     if found.is_continue() {
                         status = Status::NoPath;
                     }
