@@ -110,7 +110,7 @@ where
     {
         let proofs = self
             .delegation_store
-            .get_chain(self.did, &Some(subject.clone()), vec![], now)
+            .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now) // FIXME
             .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
@@ -158,7 +158,7 @@ where
     {
         let proofs = self
             .delegation_store
-            .get_chain(self.did, &Some(subject.clone()), vec![], now)
+            .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now)
             .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
@@ -261,11 +261,12 @@ where
         let proofs = if &subject == self.did {
             vec![]
         } else {
-            self.delegation_store
-                .get_chain(&subject, &Some(self.did.clone()), vec![], now.into())
-                .map_err(|_| ())?
-                .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
-                .unwrap_or(vec![])
+            todo!("update to latest trait interface"); // FIXME
+                                                       // self.delegation_store
+                                                       //     .get_chain(&subject, &Some(self.did.clone()), vec![], now.into())
+                                                       //     .map_err(|_| ())?
+                                                       //     .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
+                                                       //     .unwrap_or(vec![])
         };
 
         let payload = Payload {

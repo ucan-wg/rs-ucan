@@ -93,7 +93,7 @@ where
 
         let to_delegate = &self
             .store
-            .get_chain(&self.did, &subject, vec![], now)
+            .get_chain(&self.did, &subject, "/".into(), vec![], now)
             .map_err(DelegateError::StoreError)?
             .ok_or(DelegateError::ProofsNotFound)?
             .first()

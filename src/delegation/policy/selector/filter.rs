@@ -25,6 +25,20 @@ pub enum Filter {
     Try(Box<Filter>), // ?
 }
 
+impl Filter {
+    pub fn is_in(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Filter::ArrayIndex(a), Filter::ArrayIndex(b)) => a == b,
+            (Filter::Field(a), Filter::Field(b)) => a == b,
+            (Filter::Values, Filter::Values) => true,
+            (Filter::ArrayIndex(_a), Filter::Values) => true,
+            (Filter::Field(_k), Filter::Values) => true,
+            (Filter::Try(a), Filter::Try(b)) => a.is_in(b), // FIXME Try is basically == null?
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Filter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

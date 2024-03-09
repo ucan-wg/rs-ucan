@@ -2,6 +2,7 @@ use super::Selector; // FIXME cycle?
 use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorError};
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -12,19 +13,21 @@ pub enum Select<T> {
     Pure(T),
 }
 
-impl<T> From<Select<T>> for Ipld
-where
-    Ipld: From<T>,
-{
-    fn from(s: Select<T>) -> Self {
-        match s {
-            Select::Get(ops) => Selector(ops).to_string().into(),
-            Select::Pure(inner) => inner.into(),
+impl<T: Selectable + Clone> Select<T> {
+    pub fn is_related<U: Clone>(&self, other: &Select<U>) -> bool
+    where
+        Ipld: From<T> + From<U>,
+    {
+        match (self, other) {
+            (Select::Pure(lhs_val), Select::Pure(rhs_val)) => {
+                Ipld::from(lhs_val.clone()) == Ipld::from(rhs_val.clone())
+            }
+            (Select::Get(lhs_path), Select::Get(rhs_path)) => {
+                Selector(lhs_path.clone()).is_related(&Selector(rhs_path.clone()))
+            }
+            _ => false,
         }
     }
-}
-
-impl<T: Selectable> Select<T> {
     pub fn resolve(self, ctx: &Ipld) -> Result<T, SelectorError> {
         match self {
             Select::Pure(inner) => Ok(inner),
@@ -105,6 +108,36 @@ impl<T: Selectable> Select<T> {
                         T::try_select(ipld).map_err(|e| SelectorError::from_refs(path, e))
                     })
             }
+        }
+    }
+}
+
+impl<T> From<Select<T>> for Ipld
+where
+    Ipld: From<T>,
+{
+    fn from(s: Select<T>) -> Self {
+        match s {
+            Select::Get(ops) => Selector(ops).to_string().into(),
+            Select::Pure(inner) => inner.into(),
+        }
+    }
+}
+
+impl<T: PartialEq> PartialOrd for Select<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Select::Pure(inner), Select::Pure(other_inner)) => {
+                if inner == other_inner {
+                    Some(Ordering::Equal)
+                } else {
+                    None
+                }
+            }
+            (Select::Get(ops), Select::Get(other_ops)) => {
+                Selector(ops.clone()).partial_cmp(&Selector(other_ops.clone()))
+            }
+            _ => None,
         }
     }
 }

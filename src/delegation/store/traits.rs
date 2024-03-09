@@ -28,6 +28,7 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
         &self,
         audience: &DID,
         subject: &Option<DID>,
+        command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError>;
@@ -36,10 +37,11 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
         &self,
         issuer: DID,
         audience: &DID,
+        command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
     ) -> Result<bool, Self::DelegationStoreError> {
-        self.get_chain(audience, &Some(issuer), policy, now)
+        self.get_chain(audience, &Some(issuer), command, policy, now)
             .map(|chain| chain.is_some())
     }
 

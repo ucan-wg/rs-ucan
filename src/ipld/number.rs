@@ -41,10 +41,14 @@ impl From<Number> for Ipld {
 }
 
 impl TryFrom<Ipld> for Number {
-    type Error = SerdeError;
+    type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        match ipld {
+            Ipld::Integer(i) => Ok(Number::Integer(i)),
+            Ipld::Float(f) => Ok(Number::Float(f)),
+            _ => Err(()),
+        }
     }
 }
 

@@ -120,7 +120,7 @@ where
     type DelegationStoreError = String; // FIXME misisng
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError> {
-        self.ucans.get(cid).ok_or("nope".into())
+        self.ucans.get(cid).ok_or("nope".into()) // FIXME
     }
 
     fn insert(
@@ -128,7 +128,6 @@ where
         cid: Cid,
         delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
-        dbg!("^^^^^^^^^^^^^^^^^^^^^ inert");
         dbg!(&cid.to_string());
         self.index
             .entry(delegation.subject().clone())
@@ -160,14 +159,10 @@ where
         &self,
         aud: &DID,
         subject: &Option<DID>,
-        // command: String, // FIXME
+        command: String,
         policy: Vec<Predicate>, // FIXME
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
-        dbg!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> get chain");
-        dbg!(subject.clone().map(|x| x.to_string()).clone());
-        dbg!(aud.to_string().clone());
-
         let blank_set = BTreeSet::new();
         let blank_map = BTreeMap::new();
 
@@ -179,97 +174,93 @@ where
         let mut parent_candidate_stack = vec![];
         let mut hypothesis_chain = vec![];
 
+        let corrected_target_command = if command.ends_with('/') {
+            command
+        } else {
+            format!("{}/", command)
+        };
+
         parent_candidate_stack.push(sub_candidates.iter().chain(powerline_candidates.iter()));
         let mut next = None;
 
         'outer: loop {
-            dbg!("starting loop");
             if let Some(parent_cid_candidates) = parent_candidate_stack.last_mut() {
-                dbg!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
                 if parent_cid_candidates.clone().collect::<Vec<_>>().is_empty() {
-                    dbg!("EMPTY");
                     parent_candidate_stack.pop();
                     hypothesis_chain.pop();
                     break 'outer;
                 }
 
                 'inner: for cid in parent_cid_candidates {
-                    next = None;
-
-                    dbg!(cid.to_string());
                     if self.revocations.contains(cid) {
                         continue;
                     }
 
                     if let Some(delegation) = self.ucans.get(cid) {
-                        dbg!(delegation.cid().expect("FIXME").to_string());
                         if delegation.check_time(now).is_err() {
                             continue;
                         }
 
-                        hypothesis_chain.push((cid.clone(), delegation));
-                        dbg!(hypothesis_chain.len());
+                        // FIXME extract
+                        let corrected_delegation_command =
+                            if delegation.payload.command.ends_with('/') {
+                                delegation.payload.command.clone()
+                            } else {
+                                format!("{}/", delegation.payload.command)
+                            };
 
-                        // if hypothesis_chain.last().map(|x| x.1.issuer())
-                        //     == Some(delegation.issuer())
-                        // {
-                        //     break 'outer;
-                        // }
+                        if !corrected_delegation_command.starts_with(&corrected_target_command) {
+                            continue;
+                        }
+
+                        for target_pred in policy.iter() {
+                            for delegate_pred in delegation.payload.policy.iter() {
+                                let comparison =
+                                    target_pred.harmonize(delegate_pred, vec![], vec![]);
+
+                                if comparison.is_incompatible_predicate()
+                                    || comparison.is_rhs_narrower()
+                                {
+                                    continue 'inner;
+                                }
+                            }
+                        }
+
+                        hypothesis_chain.push((cid.clone(), delegation));
 
                         let issuer = delegation.issuer().clone();
 
                         // Hit a root delegation, AKA base case
-                        if &Some(issuer.clone()) == delegation.subject()
-                        // && (&subject == &delegation.subject() || subject == &None)
-                        {
+                        if &Some(issuer.clone()) == delegation.subject() {
                             break 'outer;
                         }
 
-                        dbg!(issuer.to_string().clone());
                         let new_aud_candidates =
                             all_aud_for_subject.get(&issuer).unwrap_or(&blank_set);
 
                         let new_powerline_candidates =
                             all_powerlines.get(&issuer).unwrap_or(&blank_set);
 
-                        // keep looking until exhausted?
-                        // if subject == &None {
-                        //     dbg!("SUBJECT NONE");
-                        //     next = Some(
-                        //         new_aud_candidates
-                        //             .iter()
-                        //             .chain(new_powerline_candidates.iter()),
-                        //     );
-                        //     break 'inner;
-                        // }
-
                         if !new_aud_candidates.is_empty() || !new_powerline_candidates.is_empty() {
-                            dbg!("MORE CANIDATES");
                             next = Some(
                                 new_aud_candidates
                                     .iter()
                                     .chain(new_powerline_candidates.iter()),
                             );
+
                             break 'inner;
-                        } else {
-                            // break 'outer;
                         }
                     }
                 }
 
                 if let Some(ref n) = next {
-                    dbg!("NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNn");
                     parent_candidate_stack.push(n.clone());
+                    next = None;
                 } else {
-                    dbg!("NO MORE CANDIDATES");
-                    // Didn't find a match, so drop this candidate
-                    // parent_candidate_stack.pop();
-                    // hypothesis_chain.pop();
+                    // Didn't find a match
                     break 'outer;
                 }
             } else {
-                dbg!("ELSE");
                 parent_candidate_stack.pop();
                 hypothesis_chain.pop();
             }
@@ -460,8 +451,17 @@ mod tests {
         dbg!(server.to_string().clone());
         dbg!(account.to_string().clone());
         dbg!(dnslink.to_string().clone());
-        let chain_for_powerline = store.get_chain(&device, &None, vec![], SystemTime::now());
-        let chain_for_dnslink = store.get_chain(&device, &Some(dnslink), vec![], SystemTime::now());
+
+        let chain_for_powerline =
+            store.get_chain(&device, &None, "/".into(), vec![], SystemTime::now());
+
+        let chain_for_dnslink = store.get_chain(
+            &device,
+            &Some(dnslink),
+            "/".into(),
+            vec![],
+            SystemTime::now(),
+        );
 
         let powerline_len = chain_for_powerline.expect("FIXME").unwrap().len();
         let dnslink_len = chain_for_dnslink.expect("FIXME").unwrap().len();

@@ -21,11 +21,22 @@ use nom::{
     IResult,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
 use std::{fmt, str::FromStr};
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Selector(pub Vec<Filter>);
+
+impl Selector {
+    pub fn new() -> Self {
+        Selector(vec![])
+    }
+
+    pub fn is_related(&self, other: &Selector) -> bool {
+        self.0.iter().zip(other.0.iter()).all(|(a, b)| a == b)
+    }
+}
 
 pub fn parse(input: &str) -> IResult<&str, Selector> {
     let without_this = many1(filter::parse);
@@ -104,5 +115,23 @@ impl SelectorError {
             selector: Selector(path_refs.iter().map(|op| (*op).clone()).collect()),
             reason,
         }
+    }
+}
+
+impl PartialOrd for Selector {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self == other {
+            return Some(Ordering::Equal);
+        }
+
+        if self.0.starts_with(&other.0) {
+            return Some(Ordering::Greater);
+        }
+
+        if other.0.starts_with(&self.0) {
+            return Some(Ordering::Less);
+        }
+
+        None
     }
 }

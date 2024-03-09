@@ -1,7 +1,10 @@
+use super::selector::filter::Filter;
 use super::selector::{Select, SelectorError};
 use crate::ipld;
+use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -16,15 +19,15 @@ pub enum Predicate {
     False,
 
     // Comparison
-    Equal(Select<ipld::Newtype>, Select<ipld::Newtype>),
+    Equal(Select<ipld::Newtype>, ipld::Newtype),
 
-    GreaterThan(Select<ipld::Number>, Select<ipld::Number>),
-    GreaterThanOrEqual(Select<ipld::Number>, Select<ipld::Number>),
+    GreaterThan(Select<ipld::Number>, ipld::Number),
+    GreaterThanOrEqual(Select<ipld::Number>, ipld::Number),
 
-    LessThan(Select<ipld::Number>, Select<ipld::Number>),
-    LessThanOrEqual(Select<ipld::Number>, Select<ipld::Number>),
+    LessThan(Select<ipld::Number>, ipld::Number),
+    LessThanOrEqual(Select<ipld::Number>, ipld::Number),
 
-    Like(Select<String>, Select<String>),
+    Like(Select<String>, String),
 
     // Connectives
     Not(Box<Predicate>),
@@ -36,17 +39,25 @@ pub enum Predicate {
     Some(Select<ipld::Collection>, Box<Predicate>),  // ∃x ∈ xs
 }
 
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
+pub enum Harmonization {
+    IncompatiblePredicate, // Failed check
+    IncomparablePath,      // LHS is ok
+    LhsNarrowerOrEqual,    // LHS succeeded
+    RhsNarrower,           // Succeeded, but RHS is narrower
+}
+
 impl Predicate {
     pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
         Ok(match self {
             Predicate::True => true,
             Predicate::False => false,
-            Predicate::Equal(lhs, rhs) => lhs.resolve(data)? == rhs.resolve(data)?,
-            Predicate::GreaterThan(lhs, rhs) => lhs.resolve(data)? > rhs.resolve(data)?,
-            Predicate::GreaterThanOrEqual(lhs, rhs) => lhs.resolve(data)? >= rhs.resolve(data)?,
-            Predicate::LessThan(lhs, rhs) => lhs.resolve(data)? < rhs.resolve(data)?,
-            Predicate::LessThanOrEqual(lhs, rhs) => lhs.resolve(data)? <= rhs.resolve(data)?,
-            Predicate::Like(lhs, rhs) => glob(&lhs.resolve(data)?, &rhs.resolve(data)?),
+            Predicate::Equal(lhs, rhs_data) => lhs.resolve(data)? == rhs_data,
+            Predicate::GreaterThan(lhs, rhs_data) => lhs.resolve(data)? > rhs_data,
+            Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.resolve(data)? >= rhs_data,
+            Predicate::LessThan(lhs, rhs_data) => lhs.resolve(data)? < rhs_data,
+            Predicate::LessThanOrEqual(lhs, rhs_data) => lhs.resolve(data)? <= rhs_data,
+            Predicate::Like(lhs, rhs_data) => glob(&lhs.resolve(data)?, &rhs_data),
             Predicate::Not(inner) => !inner.run(data)?,
             Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
             Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
@@ -64,6 +75,226 @@ impl Predicate {
                     .try_fold(true, |acc, nt| Ok(acc || pred.clone().run(&nt.0)?))?
             }
         })
+    }
+
+    // FIXME check paths are subsets, becase that changes some of these
+    pub fn harmonize(
+        &self,
+        other: &Self,
+        lhs_ctx: Vec<Filter>,
+        rhs_ctx: Vec<Filter>,
+    ) -> Harmonization {
+        match self {
+            Predicate::True => match other {
+                Predicate::True => Harmonization::LhsNarrowerOrEqual,
+                _ => todo!(),
+            },
+            // FIXME this should generally fail always? But how does it compare?
+            Predicate::False => match other {
+                // FIXME correct?
+                Predicate::False => Harmonization::LhsNarrowerOrEqual,
+                _ => todo!(),
+            },
+            Predicate::Equal(lhs_selector, lhs_ipld) => match other {
+                Predicate::Equal(rhs_selector, rhs_ipld) => {
+                    // FIXME include ctx in path?
+                    if lhs_selector.is_related(rhs_selector) {
+                        if lhs_ipld == rhs_ipld {
+                            Harmonization::LhsNarrowerOrEqual
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+
+                /************
+                 * Numerics *
+                 ************/
+                Predicate::GreaterThan(rhs_selector, rhs_num) => {
+                    if lhs_selector.is_related(rhs_selector) {
+                        if let Ok(lhs_num) = ipld::Number::try_from(lhs_ipld.0.clone()) {
+                            if lhs_num > *rhs_num {
+                                Harmonization::LhsNarrowerOrEqual
+                            } else {
+                                Harmonization::IncompatiblePredicate
+                            }
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+                Predicate::GreaterThanOrEqual(rhs_selector, rhs_num) => {
+                    if lhs_selector.is_related(rhs_selector) {
+                        if let Ok(lhs_num) = ipld::Number::try_from(lhs_ipld.0.clone()) {
+                            if lhs_num >= *rhs_num {
+                                Harmonization::LhsNarrowerOrEqual
+                            } else {
+                                Harmonization::IncompatiblePredicate
+                            }
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+                Predicate::LessThan(rhs_selector, rhs_num) => {
+                    if lhs_selector.is_related(rhs_selector) {
+                        if let Ok(lhs_num) = ipld::Number::try_from(lhs_ipld.0.clone()) {
+                            if lhs_num < *rhs_num {
+                                Harmonization::LhsNarrowerOrEqual
+                            } else {
+                                Harmonization::IncompatiblePredicate
+                            }
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+                Predicate::LessThanOrEqual(rhs_selector, rhs_num) => {
+                    if lhs_selector.is_related(rhs_selector) {
+                        if let Ok(lhs_num) = ipld::Number::try_from(lhs_ipld.0.clone()) {
+                            if lhs_num <= *rhs_num {
+                                Harmonization::LhsNarrowerOrEqual
+                            } else {
+                                Harmonization::IncompatiblePredicate
+                            }
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+                /**********
+                 * String *
+                 **********/
+                Predicate::Like(rhs_selector, rhs_str) => {
+                    if lhs_selector.is_related(rhs_selector) {
+                        if let Ok(lhs_str) = String::try_from(*lhs_ipld) {
+                            if glob(&lhs_str, rhs_str) {
+                                Harmonization::LhsNarrowerOrEqual
+                            } else {
+                                Harmonization::IncompatiblePredicate
+                            }
+                        } else {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    } else {
+                        Harmonization::IncomparablePath
+                    }
+                }
+
+                /***************
+                 * Connectives *
+                 ***************/
+                Predicate::Not(rhs_inner) => {
+                    let rhs_raw_pred: Predicate = **rhs_inner;
+                    match self.harmonize(&rhs_raw_pred, lhs_ctx, rhs_ctx) {
+                        Harmonization::LhsNarrowerOrEqual => Harmonization::RhsNarrower,
+                        Harmonization::RhsNarrower => Harmonization::LhsNarrowerOrEqual,
+                        Harmonization::IncomparablePath => Harmonization::IncomparablePath,
+                        // FIXME double check
+                        Harmonization::IncompatiblePredicate => Harmonization::LhsNarrowerOrEqual,
+                    }
+                }
+                Predicate::And(and_left, and_right) => {
+                    let rhs_raw_pred1: Predicate = **and_left;
+                    let rhs_raw_pred2: Predicate = **and_right;
+
+                    match (
+                        self.harmonize(&rhs_raw_pred1, lhs_ctx.clone(), rhs_ctx.clone()),
+                        self.harmonize(&rhs_raw_pred2, lhs_ctx, rhs_ctx),
+                    ) {
+                        (Harmonization::LhsNarrowerOrEqual, Harmonization::LhsNarrowerOrEqual) => {
+                            Harmonization::LhsNarrowerOrEqual
+                        }
+                        (Harmonization::RhsNarrower, Harmonization::RhsNarrower) => {
+                            Harmonization::RhsNarrower
+                        }
+                        (Harmonization::LhsNarrowerOrEqual, Harmonization::RhsNarrower) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                        (Harmonization::RhsNarrower, Harmonization::LhsNarrowerOrEqual) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                        (Harmonization::IncomparablePath, right) => right,
+                        (left, Harmonization::IncomparablePath) => left,
+                        (Harmonization::IncompatiblePredicate, _) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                        (_, Harmonization::IncompatiblePredicate) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    }
+                }
+                Predicate::Or(or_left, or_right) => {
+                    let rhs_raw_pred1: Predicate = *or_left.clone();
+                    let rhs_raw_pred2: Predicate = *or_right.clone();
+
+                    match (
+                        self.harmonize(&rhs_raw_pred1, lhs_ctx.clone(), rhs_ctx.clone()),
+                        self.harmonize(&rhs_raw_pred2, lhs_ctx, rhs_ctx),
+                    ) {
+                        (Harmonization::LhsNarrowerOrEqual, Harmonization::LhsNarrowerOrEqual) => {
+                            Harmonization::LhsNarrowerOrEqual
+                        }
+                        (Harmonization::RhsNarrower, Harmonization::RhsNarrower) => {
+                            Harmonization::RhsNarrower
+                        }
+                        (Harmonization::LhsNarrowerOrEqual, Harmonization::RhsNarrower) => {
+                            Harmonization::LhsNarrowerOrEqual
+                        }
+                        (Harmonization::RhsNarrower, Harmonization::LhsNarrowerOrEqual) => {
+                            Harmonization::LhsNarrowerOrEqual
+                        }
+                        (Harmonization::IncomparablePath, right) => right,
+                        (left, Harmonization::IncomparablePath) => left,
+                        (Harmonization::IncompatiblePredicate, _) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                        (_, Harmonization::IncompatiblePredicate) => {
+                            Harmonization::IncompatiblePredicate
+                        }
+                    }
+                }
+                /******************
+                 * Quantification *
+                 ******************/
+                Predicate::Every(rhs_selector, rhs_inner) => {
+                    let rhs_raw_pred: Predicate = *rhs_inner.clone();
+                    todo!()
+                    // match self.harmonize(&rhs_raw_pred, lhs_ctx, rhs_ctx) {
+                    //     Harmonization::LhsNarrowerOrEqual => Harmonization::LhsNarrowerOrEqual,
+                    //     Harmonization::RhsNarrower => Harmonization::RhsNarrower,
+                    //     Harmonization::IncomparablePath => Harmonization::IncomparablePath,
+                    //     Harmonization::IncompatiblePredicate => {
+                    //         Harmonization::IncompatiblePredicate
+                    //     }
+                    // }
+                }
+                Predicate::Some(rhs_selector, rhs_inner) => {
+                    let rhs_raw_pred: Predicate = *rhs_inner.clone();
+                    todo!()
+                    // match self.harmonize(&rhs_raw_pred, lhs_ctx, rhs_ctx) {
+                    //     Harmonization::LhsNarrowerOrEqual => Harmonization::LhsNarrowerOrEqual,
+                    //     Harmonization::RhsNarrower => Harmonization::RhsNarrower,
+                    //     Harmonization::IncomparablePath => Harmonization::IncomparablePath,
+                    //     Harmonization::IncompatiblePredicate => {
+                    //         Harmonization::IncompatiblePredicate
+                    //     }
+                    // }
+                }
+                _ => todo!(), // FIXME
+            },
+            _ => todo!(),
+        }
     }
 }
 
