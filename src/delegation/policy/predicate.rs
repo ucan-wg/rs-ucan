@@ -14,10 +14,6 @@ use proptest::prelude::*;
 // FIXME rename constraint or validation or expression or something?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Predicate {
-    // Booleans
-    True,
-    False,
-
     // Comparison
     Equal(Select<ipld::Newtype>, ipld::Newtype),
 
@@ -50,8 +46,6 @@ pub enum Harmonization {
 impl Predicate {
     pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
         Ok(match self {
-            Predicate::True => true,
-            Predicate::False => false,
             Predicate::Equal(lhs, rhs_data) => lhs.resolve(data)? == rhs_data,
             Predicate::GreaterThan(lhs, rhs_data) => lhs.resolve(data)? > rhs_data,
             Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.resolve(data)? >= rhs_data,
@@ -85,16 +79,6 @@ impl Predicate {
         rhs_ctx: Vec<Filter>,
     ) -> Harmonization {
         match self {
-            Predicate::True => match other {
-                Predicate::True => Harmonization::LhsNarrowerOrEqual,
-                _ => todo!(),
-            },
-            // FIXME this should generally fail always? But how does it compare?
-            Predicate::False => match other {
-                // FIXME correct?
-                Predicate::False => Harmonization::LhsNarrowerOrEqual,
-                _ => todo!(),
-            },
             Predicate::Equal(lhs_selector, lhs_ipld) => match other {
                 Predicate::Equal(rhs_selector, rhs_ipld) => {
                     // FIXME include ctx in path?
@@ -177,7 +161,7 @@ impl Predicate {
                  **********/
                 Predicate::Like(rhs_selector, rhs_str) => {
                     if lhs_selector.is_related(rhs_selector) {
-                        if let Ok(lhs_str) = String::try_from(*lhs_ipld) {
+                        if let Ok(lhs_str) = String::try_from(lhs_ipld.clone()) {
                             if glob(&lhs_str, rhs_str) {
                                 Harmonization::LhsNarrowerOrEqual
                             } else {
@@ -195,7 +179,7 @@ impl Predicate {
                  * Connectives *
                  ***************/
                 Predicate::Not(rhs_inner) => {
-                    let rhs_raw_pred: Predicate = **rhs_inner;
+                    let rhs_raw_pred: Predicate = *rhs_inner.clone();
                     match self.harmonize(&rhs_raw_pred, lhs_ctx, rhs_ctx) {
                         Harmonization::LhsNarrowerOrEqual => Harmonization::RhsNarrower,
                         Harmonization::RhsNarrower => Harmonization::LhsNarrowerOrEqual,
@@ -205,8 +189,8 @@ impl Predicate {
                     }
                 }
                 Predicate::And(and_left, and_right) => {
-                    let rhs_raw_pred1: Predicate = **and_left;
-                    let rhs_raw_pred2: Predicate = **and_right;
+                    let rhs_raw_pred1: Predicate = *and_left.clone();
+                    let rhs_raw_pred2: Predicate = *and_right.clone();
 
                     match (
                         self.harmonize(&rhs_raw_pred1, lhs_ctx.clone(), rhs_ctx.clone()),
@@ -329,8 +313,6 @@ pub fn glob(input: &String, pattern: &String) -> bool {
 impl From<Predicate> for Ipld {
     fn from(p: Predicate) -> Self {
         match p {
-            Predicate::True => Ipld::Bool(true),
-            Predicate::False => Ipld::Bool(false),
             Predicate::Equal(lhs, rhs) => {
                 Ipld::List(vec![Ipld::String("==".to_string()), lhs.into(), rhs.into()])
             }
