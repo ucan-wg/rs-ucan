@@ -218,9 +218,7 @@ where
                                 let comparison =
                                     target_pred.harmonize(delegate_pred, vec![], vec![]);
 
-                                if comparison.is_incompatible_predicate()
-                                    || comparison.is_rhs_narrower()
-                                {
+                                if comparison.is_conflict() || comparison.is_lhs_weaker() {
                                     continue 'inner;
                                 }
                             }
