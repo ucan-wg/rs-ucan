@@ -6,13 +6,13 @@ use super::{
 };
 use crate::ability::command::ToCommand;
 use crate::{
-    ability::{arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
+    ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
     crypto::{
         signature::{self, Envelope},
         varsig, Nonce,
     },
     delegation,
-    did::Did,
+    did::{self, Did},
     invocation::promise,
     time::Timestamp,
 };
@@ -32,13 +32,13 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    T: Resolvable + ToCommand,
-    DID: Did,
     S: Store<T::Promised, DID, V, C>,
     P: promise::Store<T, DID>,
     D: delegation::store::Store<DID, V, C>,
-    V: varsig::Header<C> + Clone,
-    C: Codec + Into<u64> + TryFrom<u64>,
+    T: Resolvable + ToCommand = ability::preset::Preset,
+    DID: Did = did::preset::Verifier,
+    V: varsig::Header<C> + Clone = varsig::header::Preset,
+    C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
 > {
     /// The agent's [`DID`].
     pub did: &'a DID,
@@ -56,7 +56,7 @@ pub struct Agent<
     marker: PhantomData<(T, V, C)>,
 }
 
-impl<'a, T, DID, S, P, D, V, C> Agent<'a, T, DID, S, P, D, V, C>
+impl<'a, T, DID, S, P, D, V, C> Agent<'a, S, P, D, T, DID, V, C>
 where
     Ipld: Encode<C> + From<T>,
     delegation::Payload<DID>: Clone,
