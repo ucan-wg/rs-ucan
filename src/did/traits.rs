@@ -2,7 +2,7 @@ use did_url::DID;
 use std::fmt;
 
 pub trait Did:
-    PartialEq + ToString + TryFrom<DID> + Into<DID> + signature::Verifier<Self::Signature>
+    PartialEq + ToString + TryFrom<DID> + Into<DID> + signature::Verifier<Self::Signature> + Ord
 {
     type Signature: signature::SignatureEncoding + PartialEq + fmt::Debug;
     type Signer: signature::Signer<Self::Signature> + fmt::Debug;

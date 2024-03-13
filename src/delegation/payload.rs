@@ -46,6 +46,10 @@ pub struct Payload<DID: Did> {
     /// The agent being delegated to.
     pub audience: DID,
 
+    /// A [`Did`] that must be in the delegation chain at invocation time.
+    #[builder(default)]
+    pub via: Option<DID>,
+
     /// The command being delegated.
     pub command: String,
 

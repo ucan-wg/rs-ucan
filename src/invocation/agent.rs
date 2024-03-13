@@ -329,7 +329,7 @@ pub enum ReceiveError<
     DelegationStoreError(#[source] D),
 
     #[error("delegation validation error: {0}")]
-    ValidationError(#[source] ValidationError),
+    ValidationError(#[source] ValidationError<DID>),
 }
 
 #[derive(Debug, Error)]

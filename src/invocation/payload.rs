@@ -17,6 +17,7 @@ use serde::{
     ser::SerializeStruct,
     Deserialize, Serialize, Serializer,
 };
+use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt};
 use thiserror::Error;
 use web_time::SystemTime;
@@ -147,7 +148,7 @@ impl<A, DID: Did> Payload<A, DID> {
         &self,
         proofs: Vec<&delegation::Payload<DID>>,
         now: &SystemTime,
-    ) -> Result<(), ValidationError>
+    ) -> Result<(), ValidationError<DID>>
     where
         A: ToCommand + Clone,
         DID: Clone,
@@ -160,45 +161,57 @@ impl<A, DID: Did> Payload<A, DID> {
             cmd.push('/');
         }
 
-        proofs.into_iter().try_fold(&self.issuer, |iss, proof| {
-            if *iss != proof.audience {
-                return Err(ValidationError::InvalidSubject.into());
-            }
-
-            if let Some(proof_subject) = &proof.subject {
-                if self.subject != *proof_subject {
-                    return Err(ValidationError::MisalignedIssAud.into());
+        let (_, vias) = proofs.into_iter().try_fold(
+            (&self.issuer, BTreeSet::new()),
+            |(iss, mut vias), proof| {
+                if *iss != proof.audience {
+                    return Err(ValidationError::InvalidSubject.into());
                 }
-            }
 
-            if SystemTime::from(proof.expiration.clone()) > *now {
-                return Err(ValidationError::Expired.into());
-            }
-
-            if let Some(nbf) = proof.not_before.clone() {
-                if SystemTime::from(nbf) > *now {
-                    return Err(ValidationError::NotYetValid.into());
+                if let Some(proof_subject) = &proof.subject {
+                    if self.subject != *proof_subject {
+                        return Err(ValidationError::MisalignedIssAud.into());
+                    }
                 }
-            }
 
-            if !cmd.starts_with(&proof.command) {
-                return Err(ValidationError::CommandMismatch(proof.command.clone()));
-            }
-
-            let ipld_args = Ipld::from(args.clone());
-
-            for predicate in proof.policy.iter() {
-                if !predicate
-                    .clone()
-                    .run(&ipld_args)
-                    .map_err(ValidationError::SelectorError)?
-                {
-                    return Err(ValidationError::FailedPolicy(predicate.clone()));
+                if SystemTime::from(proof.expiration.clone()) > *now {
+                    return Err(ValidationError::Expired.into());
                 }
-            }
 
-            Ok(&proof.issuer)
-        })?;
+                if let Some(nbf) = proof.not_before.clone() {
+                    if SystemTime::from(nbf) > *now {
+                        return Err(ValidationError::NotYetValid.into());
+                    }
+                }
+
+                vias.remove(&iss);
+                if let Some(via_did) = &proof.via {
+                    vias.insert(via_did);
+                }
+
+                if !cmd.starts_with(&proof.command) {
+                    return Err(ValidationError::CommandMismatch(proof.command.clone()));
+                }
+
+                let ipld_args = Ipld::from(args.clone());
+
+                for predicate in proof.policy.iter() {
+                    if !predicate
+                        .clone()
+                        .run(&ipld_args)
+                        .map_err(ValidationError::SelectorError)?
+                    {
+                        return Err(ValidationError::FailedPolicy(predicate.clone()));
+                    }
+                }
+
+                Ok((&proof.issuer, vias))
+            },
+        )?;
+
+        if !vias.is_empty() {
+            todo!()
+        }
 
         Ok(())
     }
@@ -206,7 +219,7 @@ impl<A, DID: Did> Payload<A, DID> {
 
 /// Delegation validation errors.
 #[derive(Debug, Clone, PartialEq, Error)]
-pub enum ValidationError {
+pub enum ValidationError<DID: Did> {
     #[error("The subject of the delegation is invalid")]
     InvalidSubject,
 
@@ -227,6 +240,9 @@ pub enum ValidationError {
 
     #[error(transparent)]
     SelectorError(#[from] SelectorError),
+
+    #[error("via field constraint was unfulfilled: {0:?}")]
+    UnfulfilledViaConstraint(BTreeSet<DID>),
 }
 
 impl<A, DID: Did> Capsule for Payload<A, DID> {
