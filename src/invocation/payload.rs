@@ -163,7 +163,7 @@ impl<A, DID: Did> Payload<A, DID> {
             cmd.push('/');
         }
 
-        let (_, vias) = proofs.into_iter().try_fold(
+        let (final_iss, vias) = proofs.into_iter().try_fold(
             (&self.issuer, BTreeSet::new()),
             |(iss, mut vias), proof| {
                 if *iss != proof.audience {
@@ -211,8 +211,14 @@ impl<A, DID: Did> Payload<A, DID> {
             },
         )?;
 
+        if self.subject != *final_iss {
+            return Err(ValidationError::DidNotTerminateInSubject);
+        }
+
         if !vias.is_empty() {
-            todo!()
+            return Err(ValidationError::UnfulfilledViaConstraint(
+                vias.into_iter().cloned().collect(),
+            ));
         }
 
         Ok(())
@@ -245,6 +251,9 @@ pub enum ValidationError<DID: Did> {
 
     #[error("via field constraint was unfulfilled: {0:?}")]
     UnfulfilledViaConstraint(BTreeSet<DID>),
+
+    #[error("The chain did not terminate in the expected subject")]
+    DidNotTerminateInSubject,
 }
 
 impl<A, DID: Did> Capsule for Payload<A, DID> {
@@ -478,11 +487,7 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
     }
 }
 
-impl<A: std::fmt::Debug + TryFrom<arguments::Named<Ipld>> + Command, DID: Did>
-    TryFrom<arguments::Named<Ipld>> for Payload<A, DID>
-where
-    <A as TryFrom<arguments::Named<Ipld>>>::Error: fmt::Debug,
-{
+impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, DID> {
     type Error = (); // FIXME
 
     fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {

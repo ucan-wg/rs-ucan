@@ -125,7 +125,6 @@ where
         cid: Cid,
         delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
-        dbg!(&cid.to_string());
         self.index
             .entry(delegation.subject().clone())
             .or_default()
@@ -135,15 +134,6 @@ where
 
         self.ucans.insert(cid.clone(), delegation);
 
-        dbg!(self.ucans.len());
-        dbg!(self.index.len());
-        for (sub, inner) in self.index.clone() {
-            dbg!(sub.clone().map(|x| x.to_string()));
-            for (aud, cids) in inner {
-                dbg!(aud.to_string());
-                dbg!(cids.len());
-            }
-        }
         Ok(())
     }
 
@@ -267,10 +257,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::ability::arguments::Named;
-    use crate::ability::command::Command;
-    use crate::crypto::signature::Envelope;
-    use crate::delegation::store::Store;
+    use crate::{
+        ability::{arguments::Named, command::Command},
+        crypto::signature::Envelope,
+        delegation::store::Store,
+        invocation::promise::{CantResolve, Resolvable},
+        ipld,
+    };
     use libipld_core::ipld::Ipld;
     use rand::thread_rng;
     use testresult::TestResult;
@@ -360,9 +353,9 @@ mod tests {
         #[derive(Debug, Clone, PartialEq)]
         pub struct AccountManage;
 
-        use crate::invocation::promise::CantResolve;
-        use crate::invocation::promise::Resolvable;
-        use crate::ipld;
+        impl Command for AccountManage {
+            const COMMAND: &'static str = "/account/info";
+        }
 
         impl From<AccountManage> for Named<Ipld> {
             fn from(_: AccountManage) -> Self {
@@ -408,21 +401,6 @@ mod tests {
             }
         }
 
-        impl Command for AccountManage {
-            const COMMAND: &'static str = "/account/info";
-        }
-
-        // #[derive(Debug, Clone, PartialEq)]
-        // pub struct DnsLinkUpdate {
-        //     pub cid: Cid,
-        // }
-
-        // impl From<Ipld> for DnsLinkUpdate {
-        //     fn from(_: Ipld) -> Self {
-        //         todo!()
-        //     }
-        // }
-
         // 4. [dnslink -d-> account -*-> server -a-> device]
         let account_invocation = crate::Invocation::try_sign(
             &device_signer,
@@ -458,7 +436,7 @@ mod tests {
             varsig::encoding::Preset,
         > = Default::default();
 
-        let del_agent = crate::delegation::Agent::new(&server, &server_signer, &mut store);
+        // let del_agent = crate::delegation::Agent::new(&server, &server_signer, &mut store);
 
         let _ = store.insert(
             account_device_ucan.cid().expect("FIXME"),
@@ -466,22 +444,16 @@ mod tests {
         );
 
         let _ = store.insert(account_pbox.cid().expect("FIXME"), account_pbox.clone());
-
         let _ = store.insert(dnslink_ucan.cid().expect("FIXME"), dnslink_ucan.clone());
 
         use std::time::SystemTime;
-
-        dbg!(device.to_string().clone());
-        dbg!(server.to_string().clone());
-        dbg!(account.to_string().clone());
-        dbg!(dnslink.to_string().clone());
 
         let chain_for_powerline =
             store.get_chain(&device, &None, "/".into(), vec![], SystemTime::now());
 
         let chain_for_dnslink = store.get_chain(
             &device,
-            &Some(dnslink),
+            &Some(dnslink.clone()),
             "/".into(),
             vec![],
             SystemTime::now(),
@@ -496,30 +468,24 @@ mod tests {
 
         let mut inv_store = crate::invocation::store::MemoryStore::default();
         let mut del_store = crate::delegation::store::MemoryStore::default();
-        let mut prom_store = crate::invocation::promise::store::MemoryStore::default();
 
         let mut agent: Agent<
             '_,
             crate::invocation::store::MemoryStore<AccountManage>,
             crate::delegation::store::MemoryStore,
-            crate::invocation::promise::store::MemoryStore,
             AccountManage,
-        > = Agent::new(
-            &server,
-            &server_signer,
-            &mut inv_store,
-            &mut del_store,
-            &mut prom_store,
-        );
+        > = Agent::new(&server, &server_signer, &mut inv_store, &mut del_store);
 
-        let observed = agent.receive(account_invocation, &SystemTime::now());
+        let observed = agent.receive(account_invocation);
+
+        dbg!(&observed);
         assert!(observed.is_ok());
 
         let not_account_invocation = crate::Invocation::try_sign(
             &device_signer,
             varsig_header,
             crate::invocation::PayloadBuilder::default()
-                .subject(account.clone())
+                .subject(dnslink.clone())
                 .issuer(server.clone())
                 .audience(Some(device.clone()))
                 .ability(AccountManage)
@@ -527,7 +493,9 @@ mod tests {
                 .build()?,
         )?;
 
-        let observed_other = agent.receive(not_account_invocation, &SystemTime::now());
+        dbg!(not_account_invocation.clone());
+
+        let observed_other = agent.receive(not_account_invocation);
         assert!(observed_other.is_err());
 
         Ok(())

@@ -33,7 +33,7 @@ pub trait Store<
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemoryStore<
-    T = crate::ability::preset::PromisedPreset,
+    T = crate::ability::preset::Preset,
     DID: crate::did::Did = crate::did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
     C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,

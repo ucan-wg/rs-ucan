@@ -23,6 +23,7 @@ pub use payload::*;
 
 use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
+use crate::ability::parse::ParseAbility;
 use crate::{
     crypto::{signature::Envelope, varsig},
     did::{self, Did},
@@ -62,7 +63,7 @@ pub struct Invocation<
 }
 
 impl<
-        A: Clone + ToCommand,
+        A: Clone + ToCommand + ParseAbility,
         DID: Clone + did::Did,
         V: Clone + varsig::Header<C>,
         C: Codec + TryFrom<u64> + Into<u64>,
@@ -71,14 +72,19 @@ where
     Ipld: Encode<C>,
     Named<Ipld>: From<A> + From<Payload<A, DID>>,
     Payload<A, DID>: TryFrom<Named<Ipld>>,
+    // <A as TryFrom<Named<Ipld>>>::Error: std::fmt::Debug,
 {
     fn encode<W: std::io::Write>(&self, c: C, w: &mut W) -> Result<(), libipld_core::error::Error> {
         self.to_ipld_envelope().encode(c, w)
     }
 }
 
-impl<A: Clone, DID: Did + Clone, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
-    Invocation<A, DID, V, C>
+impl<
+        A: Clone + ToCommand + ParseAbility,
+        DID: Did + Clone,
+        V: varsig::Header<C>,
+        C: Codec + TryFrom<u64> + Into<u64>,
+    > Invocation<A, DID, V, C>
 where
     Ipld: Encode<C>,
 {
@@ -110,6 +116,7 @@ where
     pub fn map_ability<F, Z: Clone>(self, f: F) -> Invocation<Z, DID, V, C>
     where
         F: FnOnce(A) -> Z,
+        Z: ParseAbility + ToCommand,
     {
         Invocation::new(
             self.varsig_header,
@@ -144,7 +151,7 @@ impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> did
 }
 
 impl<
-        A: Clone + ToCommand,
+        A: Clone + ToCommand + ParseAbility,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
@@ -159,7 +166,7 @@ where
 }
 
 impl<
-        A: Clone + ToCommand,
+        A: Clone + ToCommand + ParseAbility,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
@@ -204,7 +211,7 @@ where
 }
 
 impl<
-        A: Clone + ToCommand,
+        A: Clone + ToCommand + ParseAbility,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,
@@ -223,7 +230,7 @@ where
 
 impl<
         'de,
-        A: Clone + ToCommand,
+        A: Clone + ToCommand + ParseAbility,
         DID: Did + Clone,
         V: varsig::Header<C> + Clone,
         C: Codec + TryFrom<u64> + Into<u64>,

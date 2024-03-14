@@ -1,11 +1,11 @@
 use super::{
     payload::{Payload, ValidationError},
-    promise::Resolvable,
     store::Store,
     Invocation,
 };
 use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
+use crate::ability::parse::ParseAbility;
 use crate::{
     ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
     crypto::{
@@ -14,7 +14,6 @@ use crate::{
     },
     delegation,
     did::{self, Did},
-    invocation::promise,
     time::Timestamp,
 };
 use libipld_core::{
@@ -33,10 +32,9 @@ use web_time::SystemTime;
 #[derive(Debug)]
 pub struct Agent<
     'a,
-    S: Store<T::Promised, DID, V, C>,
+    S: Store<T, DID, V, C>,
     D: delegation::store::Store<DID, V, C>,
-    P: promise::Store,
-    T: Resolvable + ToCommand = ability::preset::Preset,
+    T: ToCommand = ability::preset::Preset,
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> + Clone = varsig::header::Preset,
     C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
@@ -50,39 +48,35 @@ pub struct Agent<
     /// A [`Store`][Store] for the agent's [`Invocation`]s.
     pub invocation_store: &'a mut S,
 
-    /// A [`promise::Store`] for the agent's unresolved promises.
-    pub unresolved_promise_index: &'a mut P,
-
     signer: &'a <DID as Did>::Signer,
     marker: PhantomData<(T, V, C)>,
 }
 
-impl<'a, T, DID, S, P, D, V, C> Agent<'a, S, D, P, T, DID, V, C>
+impl<'a, T, DID, S, D, V, C> Agent<'a, S, D, T, DID, V, C>
 where
     Ipld: Encode<C>,
+    T: ToCommand + Clone + ParseAbility,
     Named<Ipld>: From<T>,
+    Payload<T, DID>: TryFrom<Named<Ipld>>,
     delegation::Payload<DID>: Clone,
-    T: Resolvable + ToCommand + Clone,
-    T::Promised: Clone + ToCommand,
     DID: Did + Clone,
-    S: Store<T::Promised, DID, V, C>,
+    S: Store<T, DID, V, C>,
     D: delegation::store::Store<DID, V, C>,
-    P: promise::Store,
     V: varsig::Header<C> + Clone,
     C: Codec + Into<u64> + TryFrom<u64>,
+    <S as Store<T, DID, V, C>>::InvocationStoreError: fmt::Debug,
+    <D as delegation::store::Store<DID, V, C>>::DelegationStoreError: fmt::Debug,
 {
     pub fn new(
         did: &'a DID,
         signer: &'a <DID as Did>::Signer,
         invocation_store: &'a mut S,
         delegation_store: &'a mut D,
-        unresolved_promise_index: &'a mut P,
     ) -> Self {
         Self {
             did,
             invocation_store,
             delegation_store,
-            unresolved_promise_index,
             signer,
             marker: PhantomData,
         }
@@ -99,17 +93,7 @@ where
         issued_at: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<
-        Invocation<T, DID, V, C>,
-        InvokeError<
-            D::DelegationStoreError,
-            ParseAbilityError<()>, // FIXME argserror
-        >,
-    >
-    where
-        Named<Ipld>: From<T>,
-        Payload<T, DID>: TryFrom<Named<Ipld>>,
-    {
+    ) -> Result<Invocation<T, DID, V, C>, InvokeError<D::DelegationStoreError>> {
         let proofs = self
             .delegation_store
             .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now) // FIXME
@@ -136,95 +120,85 @@ where
             .map_err(InvokeError::SignError)?)
     }
 
-    pub fn invoke_promise(
-        &mut self,
-        audience: Option<&DID>,
-        subject: DID,
-        ability: T::Promised,
-        metadata: BTreeMap<String, Ipld>,
-        cause: Option<Cid>,
-        expiration: Option<Timestamp>,
-        issued_at: Option<Timestamp>,
-        now: SystemTime,
-        varsig_header: V,
-    ) -> Result<
-        Invocation<T::Promised, DID, V, C>,
-        InvokeError<
-            D::DelegationStoreError,
-            ParseAbilityError<()>, // FIXME errs
-        >,
-    >
-    where
-        Named<Ipld>: From<T::Promised>,
-        Payload<T::Promised, DID>: TryFrom<Named<Ipld>>,
-    {
-        let proofs = self
-            .delegation_store
-            .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now)
-            .map_err(InvokeError::DelegationStoreError)?
-            .map(|chain| chain.map(|(cid, _)| cid).into())
-            .unwrap_or(vec![]);
+    // pub fn invoke_promise(
+    //     &mut self,
+    //     audience: Option<&DID>,
+    //     subject: DID,
+    //     ability: T::Promised,
+    //     metadata: BTreeMap<String, Ipld>,
+    //     cause: Option<Cid>,
+    //     expiration: Option<Timestamp>,
+    //     issued_at: Option<Timestamp>,
+    //     now: SystemTime,
+    //     varsig_header: V,
+    // ) -> Result<
+    //     Invocation<T::Promised, DID, V, C>,
+    //     InvokeError<
+    //         D::DelegationStoreError,
+    //         ParseAbilityError<()>, // FIXME errs
+    //     >,
+    // >
+    // where
+    //     Named<Ipld>: From<T::Promised>,
+    //     Payload<T::Promised, DID>: TryFrom<Named<Ipld>>,
+    // {
+    //     let proofs = self
+    //         .delegation_store
+    //         .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now)
+    //         .map_err(InvokeError::DelegationStoreError)?
+    //         .map(|chain| chain.map(|(cid, _)| cid).into())
+    //         .unwrap_or(vec![]);
 
-        let mut seed = vec![];
+    //     let mut seed = vec![];
 
-        let payload = Payload {
-            issuer: self.did.clone(),
-            subject,
-            audience: audience.cloned(),
-            ability,
-            proofs,
-            metadata,
-            nonce: Nonce::generate_12(&mut seed),
-            cause,
-            expiration,
-            issued_at,
-        };
+    //     let payload = Payload {
+    //         issuer: self.did.clone(),
+    //         subject,
+    //         audience: audience.cloned(),
+    //         ability,
+    //         proofs,
+    //         metadata,
+    //         nonce: Nonce::generate_12(&mut seed),
+    //         cause,
+    //         expiration,
+    //         issued_at,
+    //     };
 
-        Ok(Invocation::try_sign(self.signer, varsig_header, payload)
-            .map_err(InvokeError::SignError)?)
-    }
+    //     Ok(Invocation::try_sign(self.signer, varsig_header, payload)
+    //         .map_err(InvokeError::SignError)?)
+    // }
 
     pub fn receive(
         &mut self,
-        promised: Invocation<T::Promised, DID, V, C>,
-        now: &SystemTime,
-    ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, D::DelegationStoreError, S, V, C>>
+        invocation: Invocation<T, DID, V, C>,
+    ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>
     where
-        arguments::Named<Ipld>: From<T> + From<T::Promised>,
-        Payload<T::Promised, DID>: TryFrom<Named<Ipld>>,
-        Invocation<T::Promised, DID, V, C>: Clone + Encode<C>,
-        <P as promise::Store>::PromiseStoreError: fmt::Debug,
-        <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
+        arguments::Named<Ipld>: From<T>,
+        Payload<T, DID>: TryFrom<Named<Ipld>>,
+        Invocation<T, DID, V, C>: Clone + Encode<C>,
     {
-        let cid: Cid = promised.cid().map_err(ReceiveError::EncodingError)?;
+        self.generic_receive(invocation, &SystemTime::now())
+    }
 
-        let _ = promised
-            .validate_signature()
-            .map_err(ReceiveError::SigVerifyError)?;
+    pub fn generic_receive(
+        &mut self,
+        invocation: Invocation<T, DID, V, C>,
+        now: &SystemTime,
+    ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>
+    where
+        arguments::Named<Ipld>: From<T>,
+        Payload<T, DID>: TryFrom<Named<Ipld>>,
+        Invocation<T, DID, V, C>: Clone + Encode<C>,
+    {
+        let cid: Cid = invocation.cid().map_err(ReceiveError::EncodingError)?;
 
         self.invocation_store
-            .put(cid.clone(), promised.clone())
+            .put(cid.clone(), invocation.clone())
             .map_err(ReceiveError::InvocationStoreError)?;
-
-        let resolved_ability: T = match Resolvable::try_resolve(promised.ability().clone()) {
-            Ok(resolved) => resolved,
-            Err(cant_resolve) => {
-                let waiting_on: BTreeSet<Cid> = T::get_all_pending(cant_resolve.promised);
-
-                self.unresolved_promise_index
-                    .put_waiting(
-                        promised.cid()?,
-                        waiting_on.into_iter().collect::<Vec<Cid>>(),
-                    )
-                    .map_err(ReceiveError::PromiseStoreError)?;
-
-                return Ok(Recipient::Unresolved(cid));
-            }
-        };
 
         let proof_payloads: Vec<&delegation::Payload<DID>> = self
             .delegation_store
-            .get_many(&promised.proofs())
+            .get_many(&invocation.proofs())
             .map_err(ReceiveError::DelegationStoreError)?
             .iter()
             .fold(vec![], |mut acc, d| {
@@ -232,64 +206,63 @@ where
                 acc
             });
 
-        let resolved_payload = promised.payload.clone().map_ability(|_| resolved_ability);
-
-        let _ = &resolved_payload
+        &invocation
+            .payload
             .check(proof_payloads, now)
             .map_err(ReceiveError::ValidationError)?;
 
-        if promised.audience() != &Some(self.did.clone()) {
-            return Ok(Recipient::Other(resolved_payload));
-        }
-
-        Ok(Recipient::You(resolved_payload))
-    }
-
-    pub fn revoke(
-        &mut self,
-        subject: DID,
-        cause: Option<Cid>,
-        cid: Cid,
-        now: Timestamp,
-        varsig_header: V,
-        // FIXME return type
-    ) -> Result<Invocation<T, DID, V, C>, ()>
-    where
-        Named<Ipld>: From<T>,
-        T: From<Revoke>,
-        Payload<T, DID>: TryFrom<Named<Ipld>>,
-    {
-        let ability: T = Revoke { ucan: cid.clone() }.into();
-        let proofs = if &subject == self.did {
-            vec![]
+        Ok(if *invocation.audience() != Some(self.did.clone()) {
+            Recipient::Other(invocation.payload)
         } else {
-            todo!("update to latest trait interface"); // FIXME
-                                                       // self.delegation_store
-                                                       //     .get_chain(&subject, &Some(self.did.clone()), vec![], now.into())
-                                                       //     .map_err(|_| ())?
-                                                       //     .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
-                                                       //     .unwrap_or(vec![])
-        };
-
-        let payload = Payload {
-            issuer: self.did.clone(),
-            subject: self.did.clone(),
-            audience: Some(self.did.clone()),
-            ability,
-            proofs,
-            cause,
-            metadata: BTreeMap::new(),
-            nonce: Nonce::generate_12(&mut vec![]),
-            expiration: None,
-            issued_at: None,
-        };
-
-        let invocation =
-            Invocation::try_sign(self.signer, varsig_header, payload).map_err(|_| ())?;
-
-        self.delegation_store.revoke(cid).map_err(|_| ())?;
-        Ok(invocation)
+            Recipient::You(invocation.payload)
+        })
     }
+
+    // pub fn revoke(
+    //     &mut self,
+    //     subject: DID,
+    //     cause: Option<Cid>,
+    //     cid: Cid,
+    //     now: Timestamp,
+    //     varsig_header: V,
+    //     // FIXME return type
+    // ) -> Result<Invocation<T, DID, V, C>, ()>
+    // where
+    //     Named<Ipld>: From<T>,
+    //     T: From<Revoke>,
+    //     Payload<T, DID>: TryFrom<Named<Ipld>>,
+    // {
+    //     let ability: T = Revoke { ucan: cid.clone() }.into();
+    //     let proofs = if &subject == self.did {
+    //         vec![]
+    //     } else {
+    //         todo!("update to latest trait interface"); // FIXME
+    //                                                    // self.delegation_store
+    //                                                    //     .get_chain(&subject, &Some(self.did.clone()), vec![], now.into())
+    //                                                    //     .map_err(|_| ())?
+    //                                                    //     .map(|chain| chain.map(|(index_cid, _)| index_cid).into())
+    //                                                    //     .unwrap_or(vec![])
+    //     };
+
+    //     let payload = Payload {
+    //         issuer: self.did.clone(),
+    //         subject: self.did.clone(),
+    //         audience: Some(self.did.clone()),
+    //         ability,
+    //         proofs,
+    //         cause,
+    //         metadata: BTreeMap::new(),
+    //         nonce: Nonce::generate_12(&mut vec![]),
+    //         expiration: None,
+    //         issued_at: None,
+    //     };
+
+    //     let invocation =
+    //         Invocation::try_sign(self.signer, varsig_header, payload).map_err(|_| ())?;
+
+    //     self.delegation_store.revoke(cid).map_err(|_| ())?;
+    //     Ok(invocation)
+    // }
 }
 
 #[derive(Debug)]
@@ -302,16 +275,14 @@ pub enum Recipient<T> {
 
 #[derive(Debug, Error)]
 pub enum ReceiveError<
-    T: Resolvable,
-    P: promise::Store,
+    T,
     DID: Did,
     D,
-    S: Store<T::Promised, DID, V, C>,
+    S: Store<T, DID, V, C>,
     V: varsig::Header<C>,
     C: Codec + TryFrom<u64> + Into<u64>,
 > where
-    <P as promise::Store>::PromiseStoreError: fmt::Debug,
-    <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
+    <S as Store<T, DID, V, C>>::InvocationStoreError: fmt::Debug,
 {
     #[error("encoding error: {0}")]
     EncodingError(#[from] libipld_core::error::Error),
@@ -320,12 +291,7 @@ pub enum ReceiveError<
     SigVerifyError(#[from] signature::ValidateError),
 
     #[error("invocation store error: {0}")]
-    InvocationStoreError(
-        #[source] <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError,
-    ),
-
-    #[error("promise store error: {0:?}")] // FIXME
-    PromiseStoreError(<P as promise::Store>::PromiseStoreError),
+    InvocationStoreError(#[source] <S as Store<T, DID, V, C>>::InvocationStoreError),
 
     #[error("delegation store error: {0}")]
     DelegationStoreError(#[source] D),
@@ -335,15 +301,12 @@ pub enum ReceiveError<
 }
 
 #[derive(Debug, Error)]
-pub enum InvokeError<D, ArgsErr> {
+pub enum InvokeError<D> {
     #[error("delegation store error: {0}")]
     DelegationStoreError(#[source] D),
 
-    #[error("promise store error: {0}")]
+    #[error("store error: {0}")]
     SignError(#[source] signature::SignError),
-
-    #[error("promise store error: {0}")]
-    PromiseResolveError(#[source] ArgsErr),
 }
 
 #[cfg(test)]
@@ -352,40 +315,66 @@ mod tests {
     use rand::thread_rng;
     use testresult::TestResult;
 
-    #[test_log::test]
-    fn test_agent_creation<'a>() -> TestResult {
-        let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
-        let server_signer =
-            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
+    //  fn setup<'a>(
+    //      inv_store: &'a mut crate::invocation::store::MemoryStore,
+    //      del_store: &'a mut crate::delegation::store::MemoryStore,
+    //  ) -> (
+    //      crate::did::preset::Verifier,
+    //      crate::did::preset::Signer,
+    //      Agent<'a, crate::invocation::store::MemoryStore, crate::delegation::store::MemoryStore>,
+    //  ) {
+    //      let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+    //      let server_signer =
+    //          crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
 
-        let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
-            server_sk.verifying_key(),
-        ));
+    //      let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+    //          server_sk.verifying_key(),
+    //      ));
 
-        let mut inv_store = crate::invocation::store::MemoryStore::default();
-        let mut del_store = crate::delegation::store::MemoryStore::default();
-        let mut prom_store = crate::invocation::promise::store::MemoryStore::default();
+    //      let agent =
+    //          crate::invocation::agent::Agent::new(&server, &server_signer, inv_store, del_store);
 
-        let agent: crate::invocation::agent::Agent<
-            '_,
-            crate::invocation::store::MemoryStore,
-            crate::delegation::store::MemoryStore,
-            crate::invocation::promise::store::MemoryStore,
-        > = Agent::new(
-            &server,
-            &server_signer,
-            &mut inv_store,
-            &mut del_store,
-            &mut prom_store,
-        );
+    //      (server, server_signer, agent)
+    //  }
 
-        assert!(false);
+    //  mod receive {
+    //      use super::*;
+    //      use crate::ability::crud::{read::Read, Crud};
+    //      use crate::ability::preset::Preset;
+    //      use crate::crypto::varsig;
 
-        //         assert_eq!(agent.did, &did);
-        //         assert_eq!(agent.invocation_store, &invocation_store);
-        //         assert_eq!(agent.delegation_store, &delegation_store);
-        //         assert_eq!(agent.unresolved_promise_index, &unresolved_promise_index);
+    //      #[test_log::test]
+    //      fn test_happy_path() -> TestResult {
+    //          let mut inv_store = crate::invocation::store::MemoryStore::default();
+    //          let mut del_store = crate::delegation::store::MemoryStore::default();
 
-        Ok(())
-    }
+    //          let (_, _, mut agent) = setup(&mut inv_store, &mut del_store);
+    //          let invocation = agent.invoke(
+    //              None,
+    //              agent.did.clone(),
+    //              // FIXME flatten
+    //              Preset::Crud(Crud::Read(Read {
+    //                  path: None,
+    //                  args: None,
+    //              })),
+    //              BTreeMap::new(),
+    //              None,
+    //              None,
+    //              None,
+    //              SystemTime::now(),
+    //              varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
+    //                  codec: varsig::encoding::Preset::DagCbor,
+    //              }),
+    //          )?;
+
+    //          let unknown_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+    //          let unknown_did = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+    //              unknown_sk.verifying_key(),
+    //          ));
+
+    //          agent.receive(invocation)?;
+
+    //          Ok(())
+    //      }
+    //  }
 }
