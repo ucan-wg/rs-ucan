@@ -7,6 +7,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `msg/send` ability.
@@ -49,6 +50,16 @@ pub struct Send {
 
     /// The main body of the message
     pub message: String,
+}
+
+impl From<Send> for arguments::Named<Ipld> {
+    fn from(send: Send) -> Self {
+        arguments::Named::from_iter([
+            ("to".to_string(), send.to.into()),
+            ("from".to_string(), send.from.into()),
+            ("message".to_string(), send.message.into()),
+        ])
+    }
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]

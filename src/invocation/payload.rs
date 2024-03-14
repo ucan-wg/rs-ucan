@@ -1,4 +1,6 @@
 use super::promise::Resolvable;
+use crate::ability::command::Command;
+use crate::invocation::Named;
 use crate::{
     ability::{arguments, command::ToCommand, parse::ParseAbility},
     capsule::Capsule,
@@ -249,13 +251,19 @@ impl<A, DID: Did> Capsule for Payload<A, DID> {
     const TAG: &'static str = "ucan/i@1.0.0-rc.1";
 }
 
-impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld> {
+impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld>
+where
+    arguments::Named<Ipld>: From<A>,
+{
     fn from(payload: Payload<A, DID>) -> Self {
         let mut args = arguments::Named::from_iter([
             ("iss".into(), payload.issuer.to_string().into()),
             ("sub".into(), payload.subject.to_string().into()),
             ("cmd".into(), payload.ability.to_command().into()),
-            ("args".into(), payload.ability.into()),
+            (
+                "args".into(),
+                arguments::Named::<Ipld>::from(payload.ability).into(),
+            ),
             (
                 "prf".into(),
                 Ipld::List(payload.proofs.iter().map(Into::into).collect()),
@@ -264,7 +272,7 @@ impl<A: ToCommand + Into<Ipld>, DID: Did> From<Payload<A, DID>> for arguments::N
         ]);
 
         if let Some(aud) = payload.audience {
-            args.insert("aud".into(), aud.into().to_string().into());
+            args.insert("aud".into(), aud.to_string().into());
         }
 
         if let Some(iat) = payload.issued_at {
@@ -470,18 +478,108 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
     }
 }
 
-use crate::ability::command::Command;
-
-impl<A: TryFrom<Ipld> + Command, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
+impl<A: std::fmt::Debug + TryFrom<arguments::Named<Ipld>> + Command, DID: Did>
+    TryFrom<arguments::Named<Ipld>> for Payload<A, DID>
+where
+    <A as TryFrom<arguments::Named<Ipld>>>::Error: fmt::Debug,
+{
     type Error = (); // FIXME
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        if let Ipld::Map(btree) = ipld {
-            let payload_ipld = btree.get(A::COMMAND).ok_or(())?;
-            payload_ipld.clone().try_into().map_err(|_| ())
-        } else {
-            Err(())
+    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut subject = None;
+        let mut issuer = None;
+        let mut audience = None;
+        let mut via = None;
+        let mut command = None;
+        let mut args = None;
+        let mut metadata = None;
+        let mut nonce = None;
+        let mut expiration = None;
+        let mut proofs = None;
+        let mut issued_at = None;
+
+        for (k, v) in named {
+            match k.as_str() {
+                "sub" => {
+                    subject = Some(
+                        match v {
+                            Ipld::Null => None,
+                            Ipld::String(s) => Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                            _ => return Err(()),
+                        }
+                        .ok_or(())?,
+                    )
+                }
+                "iss" => match v {
+                    Ipld::String(s) => issuer = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "aud" => match v {
+                    Ipld::String(s) => audience = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "via" => match v {
+                    Ipld::String(s) => via = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "cmd" => match v {
+                    Ipld::String(s) => command = Some(s),
+                    _ => return Err(()),
+                },
+                "args" => match v.try_into() {
+                    Ok(a) => args = Some(a),
+                    Err(_) => return Err(()),
+                },
+                "meta" => match v {
+                    Ipld::Map(m) => metadata = Some(m),
+                    _ => return Err(()),
+                },
+                "nonce" => match v {
+                    Ipld::Bytes(b) => nonce = Some(Nonce::from(b)),
+                    _ => return Err(()),
+                },
+                "exp" => match v {
+                    Ipld::Integer(i) => expiration = Some(i.try_into().map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "iat" => match v {
+                    Ipld::Integer(i) => issued_at = Some(i.try_into().map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "prf" => match v {
+                    Ipld::List(xs) => {
+                        proofs = Some(
+                            xs.into_iter()
+                                .map(|x| match x {
+                                    Ipld::Link(cid) => Ok(cid),
+                                    _ => Err(()),
+                                })
+                                .collect::<Result<Vec<Cid>, ()>>()
+                                .map_err(|_| ())?,
+                        )
+                    }
+                    _ => return Err(()),
+                },
+                _ => return Err(()),
+            }
         }
+
+        let cmd = command.ok_or(())?;
+        let some_args = args.ok_or(())?;
+        let ability = <A as ParseAbility>::try_parse(cmd.as_str(), some_args).map_err(|_| ())?;
+
+        Ok(Payload {
+            issuer: issuer.ok_or(())?,
+            subject: subject.ok_or(())?,
+            audience,
+            ability,
+            proofs: proofs.ok_or(())?,
+            cause: None,
+            metadata: metadata.ok_or(())?,
+            nonce: nonce.ok_or(())?,
+            issued_at,
+            expiration,
+        })
     }
 }
 
@@ -490,14 +588,14 @@ impl<A: TryFrom<Ipld> + Command, DID: Did> TryFrom<Ipld> for Payload<A, DID> {
 /// [`Promise`]: crate::invocation::promise::Promise
 pub type Promised<A, DID> = Payload<<A as Resolvable>::Promised, DID>;
 
-impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Ipld
-where
-    Ipld: From<A>,
-{
-    fn from(payload: Payload<A, DID>) -> Self {
-        arguments::Named::from(payload).into()
-    }
-}
+// impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Ipld
+// where
+//     Named<Ipld>: From<A>,
+// {
+//     fn from(payload: Payload<A, DID>) -> Self {
+//         arguments::Named::from(payload).into()
+//     }
+// }
 
 #[cfg(feature = "test_utils")]
 impl<T: Arbitrary + fmt::Debug, DID: Did + Arbitrary + 'static> Arbitrary for Payload<T, DID>

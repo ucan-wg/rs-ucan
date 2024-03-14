@@ -21,6 +21,7 @@ pub mod store;
 pub use agent::Agent;
 pub use payload::*;
 
+use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
 use crate::{
     crypto::{signature::Envelope, varsig},
@@ -58,6 +59,22 @@ pub struct Invocation<
     pub payload: Payload<A, DID>,
     pub signature: DID::Signature,
     _marker: std::marker::PhantomData<C>,
+}
+
+impl<
+        A: Clone + ToCommand,
+        DID: Clone + did::Did,
+        V: Clone + varsig::Header<C>,
+        C: Codec + TryFrom<u64> + Into<u64>,
+    > Encode<C> for Invocation<A, DID, V, C>
+where
+    Ipld: Encode<C>,
+    Named<Ipld>: From<A> + From<Payload<A, DID>>,
+    Payload<A, DID>: TryFrom<Named<Ipld>>,
+{
+    fn encode<W: std::io::Write>(&self, c: C, w: &mut W) -> Result<(), libipld_core::error::Error> {
+        self.to_ipld_envelope().encode(c, w)
+    }
 }
 
 impl<A: Clone, DID: Did + Clone, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
@@ -133,8 +150,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > From<Invocation<A, DID, V, C>> for Ipld
 where
-    Ipld: From<A>,
-    Payload<A, DID>: TryFrom<Ipld>,
+    Named<Ipld>: From<A>,
+    Payload<A, DID>: TryFrom<Named<Ipld>>,
 {
     fn from(invocation: Invocation<A, DID, V, C>) -> Self {
         invocation.to_ipld_envelope()
@@ -148,8 +165,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Envelope for Invocation<A, DID, V, C>
 where
-    Ipld: From<A>,
-    Payload<A, DID>: TryFrom<Ipld>,
+    Named<Ipld>: From<A>,
+    Payload<A, DID>: TryFrom<Named<Ipld>>,
 {
     type DID = DID;
     type Payload = Payload<A, DID>;
@@ -193,8 +210,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Serialize for Invocation<A, DID, V, C>
 where
-    Ipld: From<A>,
-    Payload<A, DID>: TryFrom<Ipld>,
+    Named<Ipld>: From<A>,
+    Payload<A, DID>: TryFrom<Named<Ipld>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -212,9 +229,9 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Deserialize<'de> for Invocation<A, DID, V, C>
 where
-    Ipld: From<A>,
-    Payload<A, DID>: TryFrom<Ipld>,
-    <Payload<A, DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
+    Named<Ipld>: From<A>,
+    Payload<A, DID>: TryFrom<Named<Ipld>>,
+    <Payload<A, DID> as TryFrom<Named<Ipld>>>::Error: std::fmt::Display,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

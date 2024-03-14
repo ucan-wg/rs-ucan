@@ -36,6 +36,17 @@ impl ToCommand for Preset {
     }
 }
 
+impl From<Preset> for arguments::Named<Ipld> {
+    fn from(preset: Preset) -> Self {
+        match preset {
+            Preset::Crud(crud) => crud.into(),
+            Preset::Msg(msg) => msg.into(),
+            Preset::Ucan(ucan) => ucan.into(),
+            Preset::Wasm(wasm) => wasm.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)] //, Serialize, Deserialize)]
 pub enum PromisedPreset {
     Crud(PromisedCrud),

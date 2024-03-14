@@ -9,6 +9,7 @@ use crate::{
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 /// The fully resolved variant: ready to execute.
@@ -17,6 +18,12 @@ pub struct Revoke {
     /// The UCAN to revoke
     pub ucan: Cid,
     // FIXME pub witness
+}
+
+impl From<Revoke> for arguments::Named<Ipld> {
+    fn from(revoke: Revoke) -> Self {
+        arguments::Named::from_iter([("ucan".to_string(), Ipld::Link(revoke.ucan).into())])
+    }
 }
 
 const COMMAND: &'static str = "/ucan/revoke";

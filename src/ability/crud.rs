@@ -70,6 +70,17 @@ pub enum Crud {
     Destroy(Destroy),
 }
 
+impl From<Crud> for arguments::Named<Ipld> {
+    fn from(crud: Crud) -> Self {
+        match crud {
+            Crud::Create(create) => create.into(),
+            Crud::Read(read) => read.into(),
+            Crud::Update(update) => update.into(),
+            Crud::Destroy(destroy) => destroy.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PromisedCrud {
     Create(PromisedCreate),

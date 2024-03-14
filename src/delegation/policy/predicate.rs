@@ -1,11 +1,10 @@
 use super::selector::filter::Filter;
-use super::selector::{Select, SelectorError};
+use super::selector::{Select, Selector, SelectorError};
 use crate::ipld;
 use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
-use multihash::Hasher;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{fmt, str::FromStr};
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -13,7 +12,7 @@ use proptest::prelude::*;
 // FIXME Normal form?
 // FIXME exract domain gen selectors first?
 // FIXME rename constraint or validation or expression or something?
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {
     // Comparison
     Equal(Select<ipld::Newtype>, ipld::Newtype),
@@ -73,24 +72,24 @@ impl Harmonization {
 impl Predicate {
     pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
         Ok(match self {
-            Predicate::Equal(lhs, rhs_data) => lhs.resolve(data)? == rhs_data,
-            Predicate::GreaterThan(lhs, rhs_data) => lhs.resolve(data)? > rhs_data,
-            Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.resolve(data)? >= rhs_data,
-            Predicate::LessThan(lhs, rhs_data) => lhs.resolve(data)? < rhs_data,
-            Predicate::LessThanOrEqual(lhs, rhs_data) => lhs.resolve(data)? <= rhs_data,
-            Predicate::Like(lhs, rhs_data) => glob(&lhs.resolve(data)?, &rhs_data),
+            Predicate::Equal(lhs, rhs_data) => lhs.get(data)? == rhs_data,
+            Predicate::GreaterThan(lhs, rhs_data) => lhs.get(data)? > rhs_data,
+            Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.get(data)? >= rhs_data,
+            Predicate::LessThan(lhs, rhs_data) => lhs.get(data)? < rhs_data,
+            Predicate::LessThanOrEqual(lhs, rhs_data) => lhs.get(data)? <= rhs_data,
+            Predicate::Like(lhs, rhs_data) => glob(&lhs.get(data)?, &rhs_data),
             Predicate::Not(inner) => !inner.run(data)?,
             Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
             Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
             Predicate::Every(xs, p) => xs
-                .resolve(data)?
+                .get(data)?
                 .to_vec()
                 .iter()
                 .try_fold(true, |acc, nt| Ok(acc && p.clone().run(&nt.0)?))?,
             Predicate::Some(xs, p) => {
                 let pred = p.clone();
 
-                xs.resolve(data)?
+                xs.get(data)?
                     .to_vec()
                     .iter()
                     .try_fold(true, |acc, nt| Ok(acc || pred.clone().run(&nt.0)?))?
@@ -688,6 +687,91 @@ pub fn glob(input: &String, pattern: &String) -> bool {
             (None, None) => {
                 return true;
             }
+        }
+    }
+}
+
+impl TryFrom<Ipld> for Predicate {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            Ipld::List(v) => match v.as_slice() {
+                [Ipld::String(s), inner] if s == "not" => {
+                    let inner = Box::new(Predicate::try_from(inner.clone())?);
+                    Ok(Predicate::Not(inner))
+                }
+                [Ipld::String(op_str), Ipld::String(sel_str), val] => match op_str.as_str() {
+                    "==" => {
+                        let sel =
+                            Select::<ipld::Newtype>::from_str(sel_str.as_str()).map_err(|_| ())?;
+
+                        Ok(Predicate::Equal(sel, ipld::Newtype(val.clone())))
+                    }
+                    ">" => {
+                        let sel =
+                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
+
+                        let num = ipld::Number::try_from(val.clone())?;
+                        Ok(Predicate::GreaterThan(sel, num))
+                    }
+                    ">=" => {
+                        let sel =
+                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let num = ipld::Number::try_from(val.clone())?;
+                        Ok(Predicate::GreaterThanOrEqual(sel, num))
+                    }
+                    "<" => {
+                        let sel =
+                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let num = ipld::Number::try_from(val.clone())?;
+                        Ok(Predicate::LessThan(sel, num))
+                    }
+                    "<=" => {
+                        let sel =
+                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let num = ipld::Number::try_from(val.clone())?;
+                        Ok(Predicate::LessThanOrEqual(sel, num))
+                    }
+                    "like" => {
+                        let sel = Select::<String>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        if let Ipld::String(s) = val {
+                            Ok(Predicate::Like(sel, s.to_string()))
+                        } else {
+                            Err(())
+                        }
+                    }
+                    "every" => {
+                        let sel = Select::<ipld::Collection>::from_str(sel_str.as_str())
+                            .map_err(|_| ())?;
+
+                        let p = Box::new(Predicate::try_from(val.clone())?);
+                        Ok(Predicate::Every(sel, p))
+                    }
+                    "some" => {
+                        let sel = Select::<ipld::Collection>::from_str(sel_str.as_str())
+                            .map_err(|_| ())?;
+                        let p = Box::new(Predicate::try_from(val.clone())?);
+                        Ok(Predicate::Some(sel, p))
+                    }
+                    _ => Err(()),
+                },
+                [Ipld::String(op_str), lhs, rhs] => match op_str.as_str() {
+                    "and" => {
+                        let lhs = Box::new(Predicate::try_from(lhs.clone())?);
+                        let rhs = Box::new(Predicate::try_from(rhs.clone())?);
+                        Ok(Predicate::And(lhs, rhs))
+                    }
+                    "or" => {
+                        let lhs = Box::new(Predicate::try_from(lhs.clone())?);
+                        let rhs = Box::new(Predicate::try_from(rhs.clone())?);
+                        Ok(Predicate::Or(lhs, rhs))
+                    }
+                    _ => Err(()),
+                },
+                _ => Err(()),
+            },
+            _ => Err(()),
         }
     }
 }

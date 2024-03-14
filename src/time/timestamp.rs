@@ -126,6 +126,30 @@ impl From<Timestamp> for Ipld {
     }
 }
 
+impl TryFrom<Ipld> for Timestamp {
+    type Error = ();
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            // FIXME do bounds checking
+            Ipld::Integer(secs) => Ok(Timestamp::new(
+                UNIX_EPOCH + Duration::from_secs(secs as u64),
+            )
+            .map_err(|_| ())?),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<i128> for Timestamp {
+    type Error = OutOfRangeError;
+
+    fn try_from(secs: i128) -> Result<Self, Self::Error> {
+        // FIXME do bounds checking
+        Timestamp::new(UNIX_EPOCH + Duration::from_secs(secs as u64))
+    }
+}
+
 impl Serialize for Timestamp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

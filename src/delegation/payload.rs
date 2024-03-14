@@ -1,10 +1,12 @@
 use super::policy::Predicate;
+use crate::ability::arguments::Named;
 use crate::{
     capsule::Capsule,
     crypto::{varsig, Nonce},
     did::{Did, Verifiable},
     time::{TimeBoundError, Timestamp},
 };
+use core::str::FromStr;
 use derive_builder::Builder;
 use libipld_core::{codec::Codec, error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
@@ -21,7 +23,7 @@ use crate::ipld;
 ///
 /// This contains the semantic information about the delegation, including the
 /// issuer, subject, audience, the delegated ability, time bounds, and so on.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
+#[derive(Debug, Clone, PartialEq, Builder)] // FIXME Serialize, Deserialize, Builder)]
 pub struct Payload<DID: Did> {
     /// The subject of the [`Delegation`].
     ///
@@ -110,17 +112,96 @@ impl<DID: Did> Verifiable<DID> for Payload<DID> {
     }
 }
 
-impl<DID: Did + for<'de> Deserialize<'de>> TryFrom<Ipld> for Payload<DID> {
-    type Error = SerdeError;
+impl<DID: Did + FromStr> TryFrom<Named<Ipld>> for Payload<DID> {
+    type Error = (); // FIXME
 
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+    fn try_from(args: Named<Ipld>) -> Result<Self, Self::Error> {
+        let mut subject = None;
+        let mut issuer = None;
+        let mut audience = None;
+        let mut via = None;
+        let mut command = None;
+        let mut policy = None;
+        let mut metadata = None;
+        let mut nonce = None;
+        let mut expiration = None;
+        let mut not_before = None;
+
+        for (k, ipld) in args {
+            match k.as_str() {
+                "sub" => {
+                    subject = Some(
+                        match ipld {
+                            Ipld::Null => None,
+                            Ipld::String(s) => Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                            _ => return Err(()),
+                        }
+                        .ok_or(())?,
+                    )
+                }
+                "iss" => match ipld {
+                    Ipld::String(s) => issuer = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "aud" => match ipld {
+                    Ipld::String(s) => audience = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "via" => match ipld {
+                    Ipld::String(s) => via = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "cmd" => match ipld {
+                    Ipld::String(s) => command = Some(s),
+                    _ => return Err(()),
+                },
+                "pol" => match ipld {
+                    Ipld::List(xs) => {
+                        policy = xs
+                            .iter()
+                            .map(|x| Predicate::try_from(x.clone()).ok())
+                            .collect();
+                    }
+                    _ => return Err(()),
+                },
+                "metadata" => match ipld {
+                    Ipld::Map(m) => metadata = Some(m),
+                    _ => return Err(()),
+                },
+                "nonce" => match ipld {
+                    Ipld::Bytes(b) => nonce = Some(Nonce::from(b).into()),
+                    _ => return Err(()),
+                },
+                "exp" => match ipld {
+                    Ipld::Integer(i) => expiration = Some(Timestamp::try_from(i).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                "nbf" => match ipld {
+                    Ipld::Integer(i) => not_before = Some(Timestamp::try_from(i).map_err(|_| ())?),
+                    _ => return Err(()),
+                },
+                _ => (),
+            }
+        }
+
+        Ok(Payload {
+            subject,
+            issuer: issuer.ok_or(())?,
+            audience: audience.ok_or(())?,
+            via,
+            command: command.ok_or(())?,
+            policy: policy.ok_or(())?,
+            metadata: metadata.ok_or(())?,
+            nonce: nonce.ok_or(())?,
+            expiration: expiration.ok_or(())?,
+            not_before,
+        })
     }
 }
 
-impl<DID: Did + ToString> From<Payload<DID>> for Ipld {
+impl<DID: Did> From<Payload<DID>> for Named<Ipld> {
     fn from(payload: Payload<DID>) -> Self {
-        let mut btree: BTreeMap<String, Ipld> = BTreeMap::<String, Ipld>::from_iter([
+        let mut args = Named::<Ipld>::from_iter([
             ("iss".to_string(), Ipld::from(payload.issuer.to_string())),
             ("aud".to_string(), payload.audience.to_string().into()),
             ("cmd".to_string(), payload.command.into()),
@@ -133,20 +214,20 @@ impl<DID: Did + ToString> From<Payload<DID>> for Ipld {
         ]);
 
         if let Some(subject) = payload.subject {
-            btree.insert("sub".to_string(), Ipld::from(subject.to_string()));
+            args.insert("sub".to_string(), Ipld::from(subject.to_string()));
         } else {
-            btree.insert("sub".to_string(), Ipld::Null);
+            args.insert("sub".to_string(), Ipld::Null);
         }
 
         if let Some(not_before) = payload.not_before {
-            btree.insert("nbf".to_string(), Ipld::from(not_before));
+            args.insert("nbf".to_string(), Ipld::from(not_before));
         }
 
         if !payload.metadata.is_empty() {
-            btree.insert("metadata".to_string(), Ipld::Map(payload.metadata));
+            args.insert("meta".to_string(), Ipld::Map(payload.metadata));
         }
 
-        Ipld::from(btree)
+        args
     }
 }
 

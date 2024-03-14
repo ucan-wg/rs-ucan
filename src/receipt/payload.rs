@@ -94,6 +94,47 @@ impl<T: Responds, DID: Did> Capsule for Payload<T, DID> {
     const TAG: &'static str = "ucan/r@1.0.0-rc.1";
 }
 
+impl<T: Responds, DID: Did> From<Payload<T, DID>> for arguments::Named<Ipld>
+where
+    Ipld: From<T::Success>,
+{
+    fn from(payload: Payload<T, DID>) -> Self {
+        let out_ipld = match payload.out {
+            Ok(ok) => BTreeMap::from_iter([("ok".to_string(), Ipld::from(ok))]).into(),
+            Err(err) => BTreeMap::from_iter([("err".to_string(), err.0.into())]).into(),
+        };
+
+        let mut args = arguments::Named::<Ipld>::from_iter([
+            ("iss".to_string(), Ipld::String(payload.issuer.to_string())),
+            ("ran".to_string(), payload.ran.into()),
+            ("out".to_string(), out_ipld),
+            (
+                "next".to_string(),
+                Ipld::List(
+                    payload
+                        .next
+                        .clone()
+                        .into_iter()
+                        .map(|x| Ipld::Link(x))
+                        .collect(),
+                ),
+            ),
+            (
+                "prf".to_string(),
+                Ipld::List(payload.next.into_iter().map(|x| Ipld::Link(x)).collect()),
+            ),
+            ("meta".to_string(), payload.metadata.into()),
+            ("nonce".to_string(), payload.nonce.into()),
+        ]);
+
+        if let Some(issued_at) = payload.issued_at {
+            args.insert("iat".to_string(), issued_at.into());
+        }
+
+        args
+    }
+}
+
 impl<T: Responds, DID: Did + Clone> Serialize for Payload<T, DID>
 where
     T::Success: Serialize,
@@ -106,7 +147,7 @@ where
 
         let mut state = serializer.serialize_struct("receipt::Payload", field_count)?;
 
-        state.serialize_field("iss", &self.issuer.clone().into().as_str())?;
+        state.serialize_field("iss", &self.issuer.to_string().as_str())?;
         state.serialize_field("ran", &self.ran)?;
         state.serialize_field("out", &self.out)?;
         state.serialize_field("next", &self.next)?;

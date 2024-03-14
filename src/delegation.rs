@@ -21,6 +21,7 @@ mod payload;
 pub use agent::Agent;
 pub use payload::*;
 
+use crate::ability::arguments::Named;
 use crate::{
     capsule::Capsule,
     crypto::{signature::Envelope, varsig, Nonce},
@@ -126,7 +127,8 @@ impl<DID: Did, V: varsig::Header<C>, C: Codec + Into<u64> + TryFrom<u64>> Delega
 impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>> Envelope
     for Delegation<DID, V, C>
 where
-    Payload<DID>: TryFrom<Ipld>,
+    Payload<DID>: TryFrom<Named<Ipld>>,
+    Named<Ipld>: From<Payload<DID>>,
 {
     type DID = DID;
     type Payload = Payload<DID>;
@@ -166,7 +168,7 @@ where
 impl<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>> Serialize
     for Delegation<DID, V, C>
 where
-    Payload<DID>: TryFrom<Ipld>,
+    Payload<DID>: TryFrom<Named<Ipld>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -179,8 +181,8 @@ where
 impl<'de, DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>>
     Deserialize<'de> for Delegation<DID, V, C>
 where
-    Payload<DID>: TryFrom<Ipld>,
-    <Payload<DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
+    Payload<DID>: TryFrom<Named<Ipld>>,
+    <Payload<DID> as TryFrom<Named<Ipld>>>::Error: std::fmt::Display,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

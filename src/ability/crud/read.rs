@@ -7,6 +7,7 @@ use crate::{
 };
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -47,6 +48,22 @@ pub struct Read {
     /// Optional arguments to modify the read request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub args: Option<arguments::Named<Ipld>>,
+}
+
+impl From<Read> for Ipld {
+    fn from(ready: Read) -> Self {
+        let mut map = BTreeMap::new();
+
+        if let Some(path) = ready.path {
+            map.insert("path".to_string(), Ipld::String(path.display().to_string()));
+        }
+
+        if let Some(args) = ready.args {
+            map.insert("args".to_string(), args.into());
+        }
+
+        map.into()
+    }
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]

@@ -8,7 +8,14 @@ use nonempty::NonEmpty;
 use std::fmt::Debug;
 use web_time::SystemTime;
 
-pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
+pub trait Store<
+
+
+
+    DID: Did = crate::did::preset::Verifier,
+    V: varsig::Header<Enc> = varsig::header::Preset,
+    Enc: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
+        > {
     type DelegationStoreError: Debug;
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError>;

@@ -33,6 +33,16 @@ pub struct Run {
     pub args: Vec<Ipld>,
 }
 
+impl From<Run> for arguments::Named<Ipld> {
+    fn from(run: Run) -> Self {
+        arguments::Named::from_iter([
+            ("mod".into(), Ipld::from(run.module)),
+            ("fun".into(), run.function.into()),
+            ("args".into(), run.args.into()),
+        ])
+    }
+}
+
 impl TryFrom<arguments::Named<Ipld>> for Run {
     type Error = ();
 

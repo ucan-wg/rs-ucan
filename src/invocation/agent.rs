@@ -4,6 +4,7 @@ use super::{
     store::Store,
     Invocation,
 };
+use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
 use crate::{
     ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
@@ -33,8 +34,8 @@ use web_time::SystemTime;
 pub struct Agent<
     'a,
     S: Store<T::Promised, DID, V, C>,
-    P: promise::Store<T, DID>,
     D: delegation::store::Store<DID, V, C>,
+    P: promise::Store,
     T: Resolvable + ToCommand = ability::preset::Preset,
     DID: Did = did::preset::Verifier,
     V: varsig::Header<C> + Clone = varsig::header::Preset,
@@ -56,16 +57,17 @@ pub struct Agent<
     marker: PhantomData<(T, V, C)>,
 }
 
-impl<'a, T, DID, S, P, D, V, C> Agent<'a, S, P, D, T, DID, V, C>
+impl<'a, T, DID, S, P, D, V, C> Agent<'a, S, D, P, T, DID, V, C>
 where
-    Ipld: Encode<C> + From<T>,
+    Ipld: Encode<C>,
+    Named<Ipld>: From<T>,
     delegation::Payload<DID>: Clone,
     T: Resolvable + ToCommand + Clone,
     T::Promised: Clone + ToCommand,
     DID: Did + Clone,
     S: Store<T::Promised, DID, V, C>,
-    P: promise::Store<T, DID>,
     D: delegation::store::Store<DID, V, C>,
+    P: promise::Store,
     V: varsig::Header<C> + Clone,
     C: Codec + Into<u64> + TryFrom<u64>,
 {
@@ -105,8 +107,8 @@ where
         >,
     >
     where
-        Ipld: From<T>,
-        Payload<T, DID>: TryFrom<Ipld>,
+        Named<Ipld>: From<T>,
+        Payload<T, DID>: TryFrom<Named<Ipld>>,
     {
         let proofs = self
             .delegation_store
@@ -153,8 +155,8 @@ where
         >,
     >
     where
-        Ipld: From<T::Promised>,
-        Payload<T::Promised, DID>: TryFrom<Ipld>,
+        Named<Ipld>: From<T::Promised>,
+        Payload<T::Promised, DID>: TryFrom<Named<Ipld>>,
     {
         let proofs = self
             .delegation_store
@@ -188,14 +190,14 @@ where
         now: &SystemTime,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, P, DID, D::DelegationStoreError, S, V, C>>
     where
-        Ipld: From<T> + From<T::Promised>,
-        Payload<T::Promised, DID>: TryFrom<Ipld>,
-        arguments::Named<Ipld>: From<T>,
+        arguments::Named<Ipld>: From<T> + From<T::Promised>,
+        Payload<T::Promised, DID>: TryFrom<Named<Ipld>>,
         Invocation<T::Promised, DID, V, C>: Clone + Encode<C>,
-        <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
+        <P as promise::Store>::PromiseStoreError: fmt::Debug,
         <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
     {
         let cid: Cid = promised.cid().map_err(ReceiveError::EncodingError)?;
+
         let _ = promised
             .validate_signature()
             .map_err(ReceiveError::SigVerifyError)?;
@@ -253,9 +255,9 @@ where
         // FIXME return type
     ) -> Result<Invocation<T, DID, V, C>, ()>
     where
-        Ipld: From<T>,
+        Named<Ipld>: From<T>,
         T: From<Revoke>,
-        Payload<T, DID>: TryFrom<Ipld>,
+        Payload<T, DID>: TryFrom<Named<Ipld>>,
     {
         let ability: T = Revoke { ucan: cid.clone() }.into();
         let proofs = if &subject == self.did {
@@ -301,14 +303,14 @@ pub enum Recipient<T> {
 #[derive(Debug, Error)]
 pub enum ReceiveError<
     T: Resolvable,
-    P: promise::Store<T, DID>,
+    P: promise::Store,
     DID: Did,
     D,
     S: Store<T::Promised, DID, V, C>,
     V: varsig::Header<C>,
     C: Codec + TryFrom<u64> + Into<u64>,
 > where
-    <P as promise::Store<T, DID>>::PromiseStoreError: fmt::Debug,
+    <P as promise::Store>::PromiseStoreError: fmt::Debug,
     <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError: fmt::Debug,
 {
     #[error("encoding error: {0}")]
@@ -322,8 +324,8 @@ pub enum ReceiveError<
         #[source] <S as Store<<T as Resolvable>::Promised, DID, V, C>>::InvocationStoreError,
     ),
 
-    #[error("promise store error: {0}")]
-    PromiseStoreError(#[source] <P as promise::Store<T, DID>>::PromiseStoreError),
+    #[error("promise store error: {0:?}")] // FIXME
+    PromiseStoreError(<P as promise::Store>::PromiseStoreError),
 
     #[error("delegation store error: {0}")]
     DelegationStoreError(#[source] D),
@@ -342,4 +344,48 @@ pub enum InvokeError<D, ArgsErr> {
 
     #[error("promise store error: {0}")]
     PromiseResolveError(#[source] ArgsErr),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::thread_rng;
+    use testresult::TestResult;
+
+    #[test_log::test]
+    fn test_agent_creation<'a>() -> TestResult {
+        let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let server_signer =
+            crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
+
+        let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+            server_sk.verifying_key(),
+        ));
+
+        let mut inv_store = crate::invocation::store::MemoryStore::default();
+        let mut del_store = crate::delegation::store::MemoryStore::default();
+        let mut prom_store = crate::invocation::promise::store::MemoryStore::default();
+
+        let agent: crate::invocation::agent::Agent<
+            '_,
+            crate::invocation::store::MemoryStore,
+            crate::delegation::store::MemoryStore,
+            crate::invocation::promise::store::MemoryStore,
+        > = Agent::new(
+            &server,
+            &server_signer,
+            &mut inv_store,
+            &mut del_store,
+            &mut prom_store,
+        );
+
+        assert!(false);
+
+        //         assert_eq!(agent.did, &did);
+        //         assert_eq!(agent.invocation_store, &invocation_store);
+        //         assert_eq!(agent.delegation_store, &delegation_store);
+        //         assert_eq!(agent.unresolved_promise_index, &unresolved_promise_index);
+
+        Ok(())
+    }
 }

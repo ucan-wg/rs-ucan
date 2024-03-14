@@ -2,7 +2,7 @@ use crate::{did::Did, invocation::promise::Resolvable};
 use libipld_core::cid::Cid;
 use std::collections::BTreeSet;
 
-pub trait Store<T: Resolvable, DID: Did> {
+pub trait Store {
     type PromiseStoreError;
 
     fn put_waiting(

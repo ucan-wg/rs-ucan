@@ -1,3 +1,4 @@
+use crate::ability::arguments::Named;
 use crate::{capsule::Capsule, crypto::varsig, did::Did};
 use libipld_core::{
     cid::Cid,
@@ -6,14 +7,14 @@ use libipld_core::{
     ipld::Ipld,
     multihash::{Code, MultihashDigest},
 };
+use signature::SignatureEncoding;
 use signature::Verifier;
-use signature::{SignatureEncoding, Signer};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
 pub trait Envelope: Sized {
     type DID: Did;
-    type Payload: Clone + Capsule + TryFrom<Ipld> + Into<Ipld>;
+    type Payload: Clone + Capsule + TryFrom<Named<Ipld>> + Into<Named<Ipld>>;
     type VarsigHeader: varsig::Header<Self::Encoder> + Clone;
     type Encoder: Codec + TryFrom<u64> + Into<u64>;
 
@@ -29,9 +30,11 @@ pub trait Envelope: Sized {
     ) -> Self;
 
     fn to_ipld_envelope(&self) -> Ipld {
+        let inner_args: Named<Ipld> = self.payload().clone().into();
+        let inner_ipld: Ipld = inner_args.into();
+
         let wrapped_payload: Ipld =
-            BTreeMap::from_iter([(Self::Payload::TAG.into(), self.payload().clone().into())])
-                .into();
+            BTreeMap::from_iter([(Self::Payload::TAG.into(), inner_ipld)]).into();
 
         let header_bytes: Vec<u8> = (*self.varsig_header()).clone().into();
         let header: Ipld = vec![header_bytes.into(), wrapped_payload].into();
@@ -42,15 +45,15 @@ pub trait Envelope: Sized {
 
     fn try_from_ipld_envelope(
         ipld: Ipld,
-    ) -> Result<Self, FromIpldError<<Self::Payload as TryFrom<Ipld>>::Error>> {
+    ) -> Result<Self, FromIpldError<<Self::Payload as TryFrom<Named<Ipld>>>::Error>> {
         if let Ipld::List(list) = ipld {
             if let [Ipld::Bytes(sig), Ipld::List(inner)] = list.as_slice() {
                 if let [Ipld::Bytes(varsig_header), Ipld::Map(btree)] = inner.as_slice() {
-                    if let (1, Some(inner)) = (
+                    if let (1, Some(Ipld::Map(inner))) = (
                         btree.len(),
                         btree.get(<Self::Payload as Capsule>::TAG.into()),
                     ) {
-                        let payload = Self::Payload::try_from(inner.clone())
+                        let payload = Self::Payload::try_from(Named(inner.clone()))
                             .map_err(FromIpldError::CannotParsePayload)?;
 
                         let varsig_header = Self::VarsigHeader::try_from(varsig_header.as_slice())
@@ -100,7 +103,8 @@ pub trait Envelope: Sized {
         payload: Self::Payload,
     ) -> Result<Self, SignError>
     where
-        Ipld: Encode<Self::Encoder> + From<Self::Payload>, // FIXME force it to be named args not IPLD
+        Ipld: Encode<Self::Encoder>,
+        Named<Ipld>: From<Self::Payload>,
     {
         Self::try_sign_generic(signer, varsig_header, payload)
     }
@@ -125,10 +129,14 @@ pub trait Envelope: Sized {
         payload: Self::Payload,
     ) -> Result<Self, SignError>
     where
-        Ipld: Encode<Self::Encoder> + From<Self::Payload>,
+        Ipld: Encode<Self::Encoder>,
+        Named<Ipld>: From<Self::Payload>,
     {
-        let ipld: Ipld =
-            BTreeMap::from_iter([(Self::Payload::TAG.into(), Ipld::from(payload.clone()))]).into();
+        let ipld: Ipld = BTreeMap::from_iter([(
+            Self::Payload::TAG.into(),
+            Named::<Ipld>::from(payload.clone()).into(),
+        )])
+        .into();
 
         let mut buffer = vec![];
         ipld.encode(*varsig::header::Header::codec(&varsig_header), &mut buffer)
@@ -155,12 +163,16 @@ pub trait Envelope: Sized {
     /// FIXME
     fn validate_signature(&self) -> Result<(), ValidateError>
     where
-        Ipld: Encode<Self::Encoder> + From<Self::Payload>,
+        Ipld: Encode<Self::Encoder>,
+        Named<Ipld>: From<Self::Payload>,
     {
         let mut encoded = vec![];
-        let ipld: Ipld =
-            BTreeMap::from_iter([(Self::Payload::TAG.into(), self.payload().clone().into())])
-                .into();
+        let ipld: Ipld = BTreeMap::from_iter([(
+            Self::Payload::TAG.to_string(),
+            Named::<Ipld>::from(self.payload().clone()).into(),
+        )])
+        .into();
+
         ipld.encode(
             *varsig::header::Header::codec(self.varsig_header()),
             &mut encoded,

@@ -6,12 +6,12 @@ use std::{
     convert::Infallible,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MemoryStore {
     pub index: BTreeMap<Cid, BTreeSet<Cid>>,
 }
 
-impl<T: Resolvable, DID: Did> Store<T, DID> for MemoryStore {
+impl Store for MemoryStore {
     type PromiseStoreError = Infallible;
 
     fn put_waiting(

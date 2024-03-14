@@ -7,6 +7,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -51,6 +52,22 @@ pub struct Create {
     /// Optional arguments for creation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub args: Option<arguments::Named<Ipld>>,
+}
+
+impl From<Create> for Ipld {
+    fn from(create: Create) -> Self {
+        let mut map = BTreeMap::new();
+
+        if let Some(path) = create.path {
+            map.insert("path".to_string(), path.display().to_string().into());
+        }
+
+        if let Some(args) = create.args {
+            map.insert("args".to_string(), args.into());
+        }
+
+        Ipld::Map(map)
+    }
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]

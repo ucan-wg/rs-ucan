@@ -14,6 +14,7 @@ pub use payload::*;
 pub use responds::Responds;
 pub use store::Store;
 
+use crate::ability::arguments;
 use crate::{
     crypto::{signature::Envelope, varsig},
     did::{self, Did},
@@ -51,7 +52,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > From<Receipt<T, DID, V, C>> for Ipld
 where
-    Payload<T, DID>: TryFrom<Ipld>,
+    Ipld: From<T::Success>,
+    Payload<T, DID>: TryFrom<arguments::Named<Ipld>>,
 {
     fn from(rec: Receipt<T, DID, V, C>) -> Self {
         rec.to_ipld_envelope()
@@ -65,7 +67,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Envelope for Receipt<T, DID, V, C>
 where
-    Payload<T, DID>: TryFrom<Ipld>,
+    Ipld: From<T::Success>,
+    Payload<T, DID>: TryFrom<arguments::Named<Ipld>>,
 {
     type DID = DID;
     type Payload = Payload<T, DID>;
@@ -109,7 +112,8 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Serialize for Receipt<T, DID, V, C>
 where
-    Payload<T, DID>: TryFrom<Ipld>,
+    Ipld: From<T::Success>,
+    Payload<T, DID>: TryFrom<arguments::Named<Ipld>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -127,8 +131,9 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Deserialize<'de> for Receipt<T, DID, V, C>
 where
-    Payload<T, DID>: TryFrom<Ipld>,
-    <Payload<T, DID> as TryFrom<Ipld>>::Error: std::fmt::Display,
+    Ipld: From<T::Success>,
+    Payload<T, DID>: TryFrom<arguments::Named<Ipld>>,
+    <Payload<T, DID> as TryFrom<arguments::Named<Ipld>>>::Error: std::fmt::Display,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

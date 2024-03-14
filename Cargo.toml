@@ -86,6 +86,7 @@ web-sys = { version = "0.3", features = ["Crypto", "CryptoKey", "CryptoKeyPair",
 
 [dev-dependencies]
 libipld = "0.16"
+pretty_assertions = "1.4"
 rand = "0.8"
 testresult = "0.3"
 test-log = "0.2"

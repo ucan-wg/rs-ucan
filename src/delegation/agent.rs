@@ -1,4 +1,5 @@
 use super::{payload::Payload, policy::Predicate, store::Store, Delegation};
+use crate::ability::arguments::Named;
 use crate::{
     crypto::{signature::Envelope, varsig, Nonce},
     did::Did,
@@ -43,6 +44,8 @@ impl<
     > Agent<'a, DID, S, V, Enc>
 where
     Ipld: Encode<Enc>,
+    Payload<DID>: TryFrom<Named<Ipld>>,
+    Named<Ipld>: From<Payload<DID>>,
 {
     pub fn new(did: &'a DID, signer: &'a <DID as Did>::Signer, store: &'a mut S) -> Self {
         Self {
@@ -65,10 +68,7 @@ where
         not_before: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>>
-    where
-        Payload<DID>: TryFrom<Ipld>,
-    {
+    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
@@ -125,10 +125,7 @@ where
         &mut self,
         cid: Cid, // FIXME remove and generate from the capsule header?
         delegation: Delegation<DID, V, Enc>,
-    ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>>
-    where
-        Payload<DID>: TryFrom<Ipld>,
-    {
+    ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());
         }

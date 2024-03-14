@@ -27,6 +27,15 @@ pub enum Msg {
     Receive(Receive),
 }
 
+impl From<Msg> for arguments::Named<Ipld> {
+    fn from(msg: Msg) -> Self {
+        match msg {
+            Msg::Send(send) => send.into(),
+            Msg::Receive(receive) => receive.into(),
+        }
+    }
+}
+
 /// A promised version of the [`Msg`] ability.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PromisedMsg {

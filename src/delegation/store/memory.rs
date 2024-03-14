@@ -1,5 +1,5 @@
 use super::Store;
-use crate::crypto::signature::Envelope;
+use crate::ability::arguments::Named;
 use crate::{
     crypto::varsig,
     delegation::{policy::Predicate, Delegation},
@@ -7,10 +7,7 @@ use crate::{
 };
 use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::ControlFlow,
-};
+use std::collections::{BTreeMap, BTreeSet};
 use web_time::SystemTime;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -113,8 +110,8 @@ impl<
         Enc: Codec + TryFrom<u64> + Into<u64>,
     > Store<DID, V, Enc> for MemoryStore<DID, V, Enc>
 where
-    Ipld: From<delegation::Payload<DID>>,
-    delegation::Payload<DID>: TryFrom<Ipld>,
+    Named<Ipld>: From<delegation::Payload<DID>>,
+    delegation::Payload<DID>: TryFrom<Named<Ipld>>,
     Delegation<DID, V, Enc>: Encode<Enc>,
 {
     type DelegationStoreError = String; // FIXME misisng
@@ -270,6 +267,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::ability::arguments::Named;
     use crate::ability::command::Command;
     use crate::crypto::signature::Envelope;
     use crate::delegation::store::Store;
@@ -330,10 +328,8 @@ mod tests {
                 .audience(server.clone())
                 .command("/".into())
                 .expiration(crate::time::Timestamp::five_years_from_now())
-                .build()
-                .expect("FIXME"),
-        )
-        .expect("signature to work");
+                .build()?,
+        )?;
 
         // 2.                            server -a-> device
         let account_device_ucan = crate::Delegation::try_sign(
@@ -345,10 +341,8 @@ mod tests {
                 .audience(device.clone())
                 .command("/".into())
                 .expiration(crate::time::Timestamp::five_years_from_now())
-                .build()
-                .expect("FIXME"), // I don't love this is now failable
-        )
-        .expect("signature to work");
+                .build()?, // I don't love this is now failable
+        )?;
 
         // 3.  dnslink -d-> account
         let dnslink_ucan = crate::Delegation::try_sign(
@@ -360,28 +354,62 @@ mod tests {
                 .audience(account.clone())
                 .command("/".into())
                 .expiration(crate::time::Timestamp::five_years_from_now())
-                .build()
-                .expect("FIXME"),
-        )
-        .expect("signature to work");
+                .build()?,
+        )?;
 
         #[derive(Debug, Clone, PartialEq)]
-        pub struct AccountInfo {}
+        pub struct AccountManage;
 
-        impl Command for AccountInfo {
+        use crate::invocation::promise::CantResolve;
+        use crate::invocation::promise::Resolvable;
+        use crate::ipld;
+
+        impl From<AccountManage> for Named<Ipld> {
+            fn from(_: AccountManage) -> Self {
+                Default::default()
+            }
+        }
+
+        impl TryFrom<Named<Ipld>> for AccountManage {
+            type Error = ();
+
+            fn try_from(args: Named<Ipld>) -> Result<Self, ()> {
+                if args == Default::default() {
+                    Ok(AccountManage)
+                } else {
+                    Err(())
+                }
+            }
+        }
+
+        impl From<AccountManage> for Named<ipld::Promised> {
+            fn from(_: AccountManage) -> Self {
+                Default::default()
+            }
+        }
+
+        impl TryFrom<Named<ipld::Promised>> for AccountManage {
+            type Error = ();
+
+            fn try_from(args: Named<ipld::Promised>) -> Result<Self, ()> {
+                if args == Default::default() {
+                    Ok(AccountManage)
+                } else {
+                    Err(())
+                }
+            }
+        }
+
+        impl Resolvable for AccountManage {
+            type Promised = AccountManage;
+
+            fn try_resolve(promised: Self::Promised) -> Result<Self, CantResolve<Self>> {
+                Ok(promised)
+            }
+        }
+
+        impl Command for AccountManage {
             const COMMAND: &'static str = "/account/info";
-        }
-
-        impl From<Ipld> for AccountInfo {
-            fn from(_: Ipld) -> Self {
-                AccountInfo {}
-            }
-        }
-
-        impl From<AccountInfo> for Ipld {
-            fn from(_: AccountInfo) -> Self {
-                Ipld::Null
-            }
         }
 
         // #[derive(Debug, Clone, PartialEq)]
@@ -398,17 +426,15 @@ mod tests {
         // 4. [dnslink -d-> account -*-> server -a-> device]
         let account_invocation = crate::Invocation::try_sign(
             &device_signer,
-            varsig_header,
+            varsig_header.clone(),
             crate::invocation::PayloadBuilder::default()
                 .subject(account.clone())
                 .issuer(device.clone())
                 .audience(Some(server.clone()))
-                .ability(AccountInfo {})
+                .ability(AccountManage)
                 .proofs(vec![]) // FIXME
-                .build()
-                .expect("FIXME"),
-        )
-        .expect("FIXME");
+                .build()?,
+        )?;
 
         // FIXME reenable
         // let dnslink_invocation = crate::Invocation::try_sign(
@@ -432,7 +458,7 @@ mod tests {
             varsig::encoding::Preset,
         > = Default::default();
 
-        let agent = crate::delegation::Agent::new(&server, &server_signer, &mut store);
+        let del_agent = crate::delegation::Agent::new(&server, &server_signer, &mut store);
 
         let _ = store.insert(
             account_device_ucan.cid().expect("FIXME"),
@@ -461,10 +487,48 @@ mod tests {
             SystemTime::now(),
         );
 
+        use crate::invocation::Agent;
+
         let powerline_len = chain_for_powerline.expect("FIXME").unwrap().len();
         let dnslink_len = chain_for_dnslink.expect("FIXME").unwrap().len();
 
         assert_eq!((powerline_len, dnslink_len), (3, 3)); // FIXME
+
+        let mut inv_store = crate::invocation::store::MemoryStore::default();
+        let mut del_store = crate::delegation::store::MemoryStore::default();
+        let mut prom_store = crate::invocation::promise::store::MemoryStore::default();
+
+        let mut agent: Agent<
+            '_,
+            crate::invocation::store::MemoryStore<AccountManage>,
+            crate::delegation::store::MemoryStore,
+            crate::invocation::promise::store::MemoryStore,
+            AccountManage,
+        > = Agent::new(
+            &server,
+            &server_signer,
+            &mut inv_store,
+            &mut del_store,
+            &mut prom_store,
+        );
+
+        let observed = agent.receive(account_invocation, &SystemTime::now());
+        assert!(observed.is_ok());
+
+        let not_account_invocation = crate::Invocation::try_sign(
+            &device_signer,
+            varsig_header,
+            crate::invocation::PayloadBuilder::default()
+                .subject(account.clone())
+                .issuer(server.clone())
+                .audience(Some(device.clone()))
+                .ability(AccountManage)
+                .proofs(vec![]) // FIXME
+                .build()?,
+        )?;
+
+        let observed_other = agent.receive(not_account_invocation, &SystemTime::now());
+        assert!(observed_other.is_err());
 
         Ok(())
     }

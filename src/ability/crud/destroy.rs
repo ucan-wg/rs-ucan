@@ -7,6 +7,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -47,6 +48,18 @@ pub struct Destroy {
     /// An optional path to a sub-resource that is to be destroyed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
+}
+
+impl From<Destroy> for Ipld {
+    fn from(destroy: Destroy) -> Self {
+        let mut map = BTreeMap::new();
+
+        if let Some(path) = destroy.path {
+            map.insert("path".to_string(), path.display().to_string().into());
+        }
+
+        Ipld::Map(map)
+    }
 }
 
 const COMMAND: &'static str = "/crud/destroy";

@@ -189,9 +189,19 @@ impl TryFrom<arguments::Named<Ipld>> for Update {
     }
 }
 
-impl From<Update> for Ipld {
+impl From<Update> for arguments::Named<Ipld> {
     fn from(create: Update) -> Self {
-        create.into()
+        let mut named = arguments::Named::<Ipld>::new();
+
+        if let Some(path) = create.path {
+            named.insert("path".to_string(), Ipld::String(path.display().to_string()));
+        }
+
+        if let Some(args) = create.args {
+            named.insert("args".to_string(), args.into());
+        }
+
+        named
     }
 }
 

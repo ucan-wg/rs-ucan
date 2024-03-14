@@ -8,7 +8,9 @@ pub use error::{ParseError, SelectorErrorReason};
 pub use select::Select;
 pub use selectable::Selectable;
 
+use crate::ipld;
 use filter::Filter;
+use libipld_core::ipld::Ipld;
 use nom::{
     self,
     branch::alt,
@@ -36,6 +38,86 @@ impl Selector {
     pub fn is_related(&self, other: &Selector) -> bool {
         self.0.iter().zip(other.0.iter()).all(|(a, b)| a == b)
     }
+
+    //     pub fn get(&self, ctx: &Ipld) -> Result<ipld::Newtype, SelectorError> {
+    //         let ipld: Ipld = self
+    //             .0
+    //             .iter()
+    //             .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
+    //                 seen_ops.push(op);
+    //
+    //                 match op {
+    //                     Filter::Try(inner) => {
+    //                         let op: Filter = *inner.clone();
+    //                         let ipld: Ipld = Select::Get::<Ipld>(vec![op])
+    //                             .resolve(ctx)
+    //                             .unwrap_or(Ipld::Null);
+    //
+    //                         Ok((ipld, seen_ops))
+    //                     }
+    //                     Filter::ArrayIndex(i) => {
+    //                         let result = {
+    //                             match ipld {
+    //                                 Ipld::List(xs) => {
+    //                                     if i.abs() as usize > xs.len() {
+    //                                         return Err(SelectorError::from_refs(
+    //                                             &seen_ops,
+    //                                             SelectorErrorReason::IndexOutOfBounds,
+    //                                         ));
+    //                                     };
+    //
+    //                                     xs.get((xs.len() as i32 + *i) as usize)
+    //                                         .ok_or(SelectorError::from_refs(
+    //                                             &seen_ops,
+    //                                             SelectorErrorReason::IndexOutOfBounds,
+    //                                         ))
+    //                                         .cloned()
+    //                                 }
+    //                                 // FIXME behaviour on maps? type error
+    //                                 _ => Err(SelectorError::from_refs(
+    //                                     &seen_ops,
+    //                                     SelectorErrorReason::NotAList,
+    //                                 )),
+    //                             }
+    //                         };
+    //
+    //                         Ok((result?, seen_ops))
+    //                     }
+    //                     Filter::Field(k) => {
+    //                         let result = match ipld {
+    //                             Ipld::Map(xs) => xs
+    //                                 .get(k)
+    //                                 .ok_or(SelectorError::from_refs(
+    //                                     &seen_ops,
+    //                                     SelectorErrorReason::KeyNotFound,
+    //                                 ))
+    //                                 .cloned(),
+    //                             _ => Err(SelectorError::from_refs(
+    //                                 &seen_ops,
+    //                                 SelectorErrorReason::NotAMap,
+    //                             )),
+    //                         };
+    //
+    //                         Ok((result?, seen_ops))
+    //                     }
+    //                     Filter::Values => {
+    //                         let result = match ipld {
+    //                             Ipld::List(xs) => Ok(Ipld::List(xs)),
+    //                             Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
+    //                             _ => Err(SelectorError::from_refs(
+    //                                 &seen_ops,
+    //                                 SelectorErrorReason::NotACollection,
+    //                             )),
+    //                         };
+    //
+    //                         Ok((result?, seen_ops))
+    //                     }
+    //                 }
+    //             })?
+    //             .0;
+    //
+    //         Ok(ipld::Newtype(ipld))
+    //     }
 }
 
 pub fn parse(input: &str) -> IResult<&str, Selector> {

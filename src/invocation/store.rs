@@ -1,11 +1,18 @@
 //! Storage for [`Invocation`]s.
 
 use super::Invocation;
+use crate::ability;
 use crate::{crypto::varsig, did::Did};
 use libipld_core::{cid::Cid, codec::Codec};
 use std::{collections::BTreeMap, convert::Infallible};
 
-pub trait Store<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>> {
+pub trait Store<
+    T = crate::ability::preset::Preset,
+    DID: Did = crate::did::preset::Verifier,
+    V: varsig::Header<Enc> = varsig::header::Preset,
+    Enc: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
+>
+{
     type InvocationStoreError;
 
     fn get(
@@ -25,8 +32,23 @@ pub trait Store<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + Tr
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MemoryStore<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>> {
-    store: BTreeMap<Cid, Invocation<T, DID, V, Enc>>,
+pub struct MemoryStore<
+    T = crate::ability::preset::PromisedPreset,
+    DID: crate::did::Did = crate::did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
+> {
+    store: BTreeMap<Cid, Invocation<T, DID, V, C>>,
+}
+
+impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>> Default
+    for MemoryStore<T, DID, V, Enc>
+{
+    fn default() -> Self {
+        Self {
+            store: BTreeMap::new(),
+        }
+    }
 }
 
 impl<T, DID: Did, V: varsig::Header<Enc>, Enc: Codec + Into<u64> + TryFrom<u64>>

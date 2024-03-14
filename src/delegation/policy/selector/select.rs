@@ -3,112 +3,108 @@ use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorErro
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::str::FromStr;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Select<T> {
-    Get(Vec<Filter>),
-    Pure(T),
+#[derive(Debug, Clone, PartialEq)]
+pub struct Select<T> {
+    filters: Vec<Filter>,
+    _marker: std::marker::PhantomData<T>,
 }
 
 impl<T: Selectable + Clone> Select<T> {
+    pub fn new(filters: Vec<Filter>) -> Self {
+        Self {
+            filters,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
     pub fn is_related<U: Clone>(&self, other: &Select<U>) -> bool
     where
         Ipld: From<T> + From<U>,
     {
-        match (self, other) {
-            (Select::Pure(lhs_val), Select::Pure(rhs_val)) => {
-                Ipld::from(lhs_val.clone()) == Ipld::from(rhs_val.clone())
-            }
-            (Select::Get(lhs_path), Select::Get(rhs_path)) => {
-                Selector(lhs_path.clone()).is_related(&Selector(rhs_path.clone()))
-            }
-            _ => false,
-        }
+        Selector(self.filters.clone()).is_related(&Selector(other.filters.clone()))
     }
-    pub fn resolve(self, ctx: &Ipld) -> Result<T, SelectorError> {
-        match self {
-            Select::Pure(inner) => Ok(inner),
-            Select::Get(ops) => {
-                ops.iter()
-                    .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
-                        seen_ops.push(op);
 
-                        match op {
-                            Filter::Try(inner) => {
-                                let op: Filter = *inner.clone();
-                                let ipld: Ipld = Select::Get::<Ipld>(vec![op])
-                                    .resolve(ctx)
-                                    .unwrap_or(Ipld::Null);
+    pub fn get(self, ctx: &Ipld) -> Result<T, SelectorError> {
+        self.filters
+            .iter()
+            .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
+                seen_ops.push(op);
 
-                                Ok((ipld, seen_ops))
-                            }
-                            Filter::ArrayIndex(i) => {
-                                let result = {
-                                    match ipld {
-                                        Ipld::List(xs) => {
-                                            if i.abs() as usize > xs.len() {
-                                                return Err(SelectorError::from_refs(
-                                                    &seen_ops,
-                                                    SelectorErrorReason::IndexOutOfBounds,
-                                                ));
-                                            };
+                match op {
+                    Filter::Try(inner) => {
+                        let op: Filter = *inner.clone();
+                        let ipld: Ipld =
+                            Select::<Ipld>::new(vec![op]).get(ctx).unwrap_or(Ipld::Null);
 
-                                            xs.get((xs.len() as i32 + *i) as usize)
-                                                .ok_or(SelectorError::from_refs(
-                                                    &seen_ops,
-                                                    SelectorErrorReason::IndexOutOfBounds,
-                                                ))
-                                                .cloned()
-                                        }
-                                        // FIXME behaviour on maps? type error
-                                        _ => Err(SelectorError::from_refs(
+                        Ok((ipld, seen_ops))
+                    }
+                    Filter::ArrayIndex(i) => {
+                        let result = {
+                            match ipld {
+                                Ipld::List(xs) => {
+                                    if i.abs() as usize > xs.len() {
+                                        return Err(SelectorError::from_refs(
                                             &seen_ops,
-                                            SelectorErrorReason::NotAList,
-                                        )),
-                                    }
-                                };
+                                            SelectorErrorReason::IndexOutOfBounds,
+                                        ));
+                                    };
 
-                                Ok((result?, seen_ops))
-                            }
-                            Filter::Field(k) => {
-                                let result = match ipld {
-                                    Ipld::Map(xs) => xs
-                                        .get(k)
+                                    xs.get((xs.len() as i32 + *i) as usize)
                                         .ok_or(SelectorError::from_refs(
                                             &seen_ops,
-                                            SelectorErrorReason::KeyNotFound,
+                                            SelectorErrorReason::IndexOutOfBounds,
                                         ))
-                                        .cloned(),
-                                    _ => Err(SelectorError::from_refs(
-                                        &seen_ops,
-                                        SelectorErrorReason::NotAMap,
-                                    )),
-                                };
-
-                                Ok((result?, seen_ops))
+                                        .cloned()
+                                }
+                                // FIXME behaviour on maps? type error
+                                _ => Err(SelectorError::from_refs(
+                                    &seen_ops,
+                                    SelectorErrorReason::NotAList,
+                                )),
                             }
-                            Filter::Values => {
-                                let result = match ipld {
-                                    Ipld::List(xs) => Ok(Ipld::List(xs)),
-                                    Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
-                                    _ => Err(SelectorError::from_refs(
-                                        &seen_ops,
-                                        SelectorErrorReason::NotACollection,
-                                    )),
-                                };
+                        };
 
-                                Ok((result?, seen_ops))
-                            }
-                        }
-                    })
-                    .and_then(|(ipld, ref path)| {
-                        T::try_select(ipld).map_err(|e| SelectorError::from_refs(path, e))
-                    })
-            }
-        }
+                        Ok((result?, seen_ops))
+                    }
+                    Filter::Field(k) => {
+                        let result = match ipld {
+                            Ipld::Map(xs) => xs
+                                .get(k)
+                                .ok_or(SelectorError::from_refs(
+                                    &seen_ops,
+                                    SelectorErrorReason::KeyNotFound,
+                                ))
+                                .cloned(),
+                            _ => Err(SelectorError::from_refs(
+                                &seen_ops,
+                                SelectorErrorReason::NotAMap,
+                            )),
+                        };
+
+                        Ok((result?, seen_ops))
+                    }
+                    Filter::Values => {
+                        let result = match ipld {
+                            Ipld::List(xs) => Ok(Ipld::List(xs)),
+                            Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
+                            _ => Err(SelectorError::from_refs(
+                                &seen_ops,
+                                SelectorErrorReason::NotACollection,
+                            )),
+                        };
+
+                        Ok((result?, seen_ops))
+                    }
+                }
+            })
+            .and_then(|(ipld, ref path)| {
+                T::try_select(ipld).map_err(|e| SelectorError::from_refs(path, e))
+            })
     }
 }
 
@@ -117,28 +113,25 @@ where
     Ipld: From<T>,
 {
     fn from(s: Select<T>) -> Self {
-        match s {
-            Select::Get(ops) => Selector(ops).to_string().into(),
-            Select::Pure(inner) => inner.into(),
-        }
+        Selector(s.filters).to_string().into()
+    }
+}
+
+impl<T> FromStr for Select<T> {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let selector = Selector::from_str(s).map_err(|_| ())?;
+        Ok(Select {
+            filters: selector.0,
+            _marker: std::marker::PhantomData,
+        })
     }
 }
 
 impl<T: PartialEq> PartialOrd for Select<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (Select::Pure(inner), Select::Pure(other_inner)) => {
-                if inner == other_inner {
-                    Some(Ordering::Equal)
-                } else {
-                    None
-                }
-            }
-            (Select::Get(ops), Select::Get(other_ops)) => {
-                Selector(ops.clone()).partial_cmp(&Selector(other_ops.clone()))
-            }
-            _ => None,
-        }
+        Selector(self.filters.clone()).partial_cmp(&Selector(other.filters.clone()))
     }
 }
 
