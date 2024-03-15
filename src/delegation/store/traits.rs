@@ -33,6 +33,18 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError>;
 
+    fn get_chain_cids(
+        &self,
+        audience: &DID,
+        subject: &Option<DID>,
+        command: String,
+        policy: Vec<Predicate>,
+        now: SystemTime,
+    ) -> Result<Option<NonEmpty<Cid>>, Self::DelegationStoreError> {
+        self.get_chain(audience, subject, command, policy, now)
+            .map(|chain| chain.map(|chain| chain.map(|(cid, _)| cid)))
+    }
+
     fn can_delegate(
         &self,
         issuer: DID,

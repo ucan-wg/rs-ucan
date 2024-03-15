@@ -156,6 +156,12 @@ impl<A, DID: Did> Payload<A, DID> {
         DID: Clone,
         arguments::Named<Ipld>: From<A>,
     {
+        if let Some(ref exp) = self.expiration {
+            if SystemTime::from(exp.clone()) < *now {
+                return Err(ValidationError::Expired);
+            }
+        }
+
         let args: arguments::Named<Ipld> = self.ability.clone().into();
 
         let mut cmd = self.ability.to_command();

@@ -81,6 +81,30 @@ impl From<Crud> for arguments::Named<Ipld> {
     }
 }
 
+impl From<Create> for Crud {
+    fn from(create: Create) -> Self {
+        Crud::Create(create)
+    }
+}
+
+impl From<Read> for Crud {
+    fn from(read: Read) -> Self {
+        Crud::Read(read)
+    }
+}
+
+impl From<Update> for Crud {
+    fn from(update: Update) -> Self {
+        Crud::Update(update)
+    }
+}
+
+impl From<Destroy> for Crud {
+    fn from(destroy: Destroy) -> Self {
+        Crud::Destroy(destroy)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PromisedCrud {
     Create(PromisedCreate),

@@ -263,16 +263,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::invocation::{payload::ValidationError, Agent};
     use crate::{
         ability::{arguments::Named, command::Command},
         crypto::signature::Envelope,
         delegation::store::Store,
         invocation::promise::{CantResolve, Resolvable},
         ipld,
-    };
-    use crate::{
-        crypto::varsig,
-        invocation::{payload::ValidationError, Agent},
     };
     use libipld_core::{cid::Cid, ipld::Ipld};
     use rand::thread_rng;

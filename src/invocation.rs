@@ -101,6 +101,14 @@ where
         &self.payload.audience
     }
 
+    pub fn normalized_audience(&self) -> &DID {
+        if let Some(audience) = &self.payload.audience {
+            audience
+        } else {
+            &self.payload.subject
+        }
+    }
+
     pub fn issuer(&self) -> &DID {
         &self.payload.issuer
     }

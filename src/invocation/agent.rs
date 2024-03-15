@@ -6,6 +6,7 @@ use super::{
 use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
 use crate::ability::parse::ParseAbility;
+use crate::invocation::payload::PayloadBuilder;
 use crate::{
     ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
     crypto::{
@@ -210,7 +211,7 @@ where
             .check(proof_payloads, now)
             .map_err(ReceiveError::ValidationError)?;
 
-        Ok(if *invocation.audience() != Some(self.did.clone()) {
+        Ok(if invocation.normalized_audience() != self.did {
             Recipient::Other(invocation.payload)
         } else {
             Recipient::You(invocation.payload)
@@ -311,8 +312,21 @@ pub enum InvokeError<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions as pretty;
     use rand::thread_rng;
+    use std::ops::Add;
+    use std::ops::Sub;
+    use std::time::Duration;
     use testresult::TestResult;
+
+    fn gen_did() -> (crate::did::preset::Verifier, crate::did::preset::Signer) {
+        let sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+        let verifier =
+            crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(sk.verifying_key()));
+        let signer = crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(sk));
+
+        (verifier, signer)
+    }
 
     fn setup_agent<'a>(
         did: &'a crate::did::preset::Verifier,
@@ -325,48 +339,146 @@ mod tests {
         crate::invocation::agent::Agent::new(did, signer, inv_store, del_store)
     }
 
+    fn setup_valid_time() -> (Timestamp, Timestamp, Timestamp) {
+        let now = SystemTime::UNIX_EPOCH.add(Duration::from_secs(60 * 60 * 24 * 30));
+        let exp = now.add(std::time::Duration::from_secs(60));
+        let nbf = now.sub(std::time::Duration::from_secs(60));
+
+        (
+            nbf.try_into().expect("valid nbf time"),
+            now.try_into().expect("valid now time"),
+            exp.try_into().expect("valid exp time"),
+        )
+    }
+
     mod receive {
         use super::*;
-        use crate::ability::crud::{read::Read, Crud};
-        use crate::ability::preset::Preset;
+        use crate::ability::crud::read::Read;
         use crate::crypto::varsig;
 
         #[test_log::test]
-        fn test_happy_path() -> TestResult {
-            let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
-            let server_signer =
-                crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
-
-            let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
-                server_sk.verifying_key(),
-            ));
-
+        fn test_invoker_is_sub_implicit_aud() -> TestResult {
+            let (_nbf, now, exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
             let mut agent = setup_agent(&server, &server_signer);
+
             let invocation = agent.invoke(
                 None,
                 agent.did.clone(),
-                // FIXME flatten
-                Preset::Crud(Crud::Read(Read {
+                Read {
                     path: None,
                     args: None,
-                })),
+                }
+                .into(),
                 BTreeMap::new(),
                 None,
-                None,
-                None,
-                SystemTime::now(),
+                Some(exp.try_into()?),
+                Some(now.try_into()?),
+                now.into(),
                 varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
                     codec: varsig::encoding::Preset::DagCbor,
                 }),
             )?;
 
-            let unknown_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
-            let unknown_did = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
-                unknown_sk.verifying_key(),
-            ));
+            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            pretty::assert_eq!(observed, Recipient::You(invocation.payload));
+            Ok(())
+        }
 
-            agent.receive(invocation)?;
+        #[test_log::test]
+        fn test_invoker_is_sub_and_aud() -> TestResult {
+            let (_nbf, now, exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
+            let mut agent = setup_agent(&server, &server_signer);
 
+            let invocation = agent.invoke(
+                Some(agent.did.clone()),
+                agent.did.clone(),
+                Read {
+                    path: None,
+                    args: None,
+                }
+                .into(),
+                BTreeMap::new(),
+                None,
+                Some(exp.try_into()?),
+                Some(now.try_into()?),
+                now.into(),
+                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
+                    codec: varsig::encoding::Preset::DagCbor,
+                }),
+            )?;
+
+            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            pretty::assert_eq!(observed, Recipient::You(invocation.payload));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_other_recipient() -> TestResult {
+            let (_nbf, now, exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
+            let mut agent = setup_agent(&server, &server_signer);
+
+            let (not_server, _) = gen_did();
+
+            let invocation = agent.invoke(
+                Some(not_server),
+                agent.did.clone(),
+                Read {
+                    path: None,
+                    args: None,
+                }
+                .into(),
+                BTreeMap::new(),
+                None,
+                Some(exp.try_into()?),
+                Some(now.try_into()?),
+                now.into(),
+                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
+                    codec: varsig::encoding::Preset::DagCbor,
+                }),
+            )?;
+
+            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            pretty::assert_eq!(observed, Recipient::Other(invocation.payload));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_expired() -> TestResult {
+            let (past, now, _exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
+            let mut agent = setup_agent(&server, &server_signer);
+
+            let (not_server, _) = gen_did();
+
+            let invocation = agent.invoke(
+                Some(not_server),
+                agent.did.clone(),
+                Read {
+                    path: None,
+                    args: None,
+                }
+                .into(),
+                BTreeMap::new(),
+                None,
+                Some(past.try_into()?),
+                Some(now.try_into()?),
+                now.into(),
+                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
+                    codec: varsig::encoding::Preset::DagCbor,
+                }),
+            )?;
+
+            let observed = agent.generic_receive(invocation.clone(), &now.into());
+            pretty::assert_eq!(
+                observed
+                    .unwrap_err()
+                    .as_validation_error()
+                    .ok_or("not a validation error")?,
+                &ValidationError::Expired
+            );
             Ok(())
         }
     }

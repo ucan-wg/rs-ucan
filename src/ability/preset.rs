@@ -25,6 +25,15 @@ pub enum Preset {
     Wasm(wasm::Run),
 }
 
+impl<T> From<T> for Preset
+where
+    Crud: From<T>,
+{
+    fn from(t: T) -> Self {
+        Preset::Crud(Crud::from(t))
+    }
+}
+
 impl ToCommand for Preset {
     fn to_command(&self) -> String {
         match self {
