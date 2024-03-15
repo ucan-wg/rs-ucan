@@ -8,14 +8,7 @@ use nonempty::NonEmpty;
 use std::fmt::Debug;
 use web_time::SystemTime;
 
-pub trait Store<
-
-
-
-    DID: Did = crate::did::preset::Verifier,
-    V: varsig::Header<Enc> = varsig::header::Preset,
-    Enc: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
-        > {
+pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
     type DelegationStoreError: Debug;
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError>;
@@ -57,9 +50,41 @@ pub trait Store<
         cids: &[Cid],
     ) -> Result<Vec<&Delegation<DID, V, Enc>>, Self::DelegationStoreError> {
         cids.iter().try_fold(vec![], |mut acc, cid| {
-            let d: &Delegation<DID, V, Enc> = self.get(cid)?;
-            acc.push(d);
+            acc.push(self.get(cid)?);
             Ok(acc)
         })
+    }
+}
+
+impl<T: Store<DID, V, C>, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
+    Store<DID, V, C> for &mut T
+{
+    type DelegationStoreError = <T as Store<DID, V, C>>::DelegationStoreError;
+
+    fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, C>, Self::DelegationStoreError> {
+        (**self).get(cid)
+    }
+
+    fn insert(
+        &mut self,
+        cid: Cid,
+        delegation: Delegation<DID, V, C>,
+    ) -> Result<(), Self::DelegationStoreError> {
+        (**self).insert(cid, delegation)
+    }
+
+    fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
+        (**self).revoke(cid)
+    }
+
+    fn get_chain(
+        &self,
+        audience: &DID,
+        subject: &Option<DID>,
+        command: String,
+        policy: Vec<Predicate>,
+        now: SystemTime,
+    ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, C>)>>, Self::DelegationStoreError> {
+        (**self).get_chain(audience, subject, command, policy, now)
     }
 }

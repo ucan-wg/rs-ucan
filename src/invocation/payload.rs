@@ -166,17 +166,19 @@ impl<A, DID: Did> Payload<A, DID> {
         let (final_iss, vias) = proofs.into_iter().try_fold(
             (&self.issuer, BTreeSet::new()),
             |(iss, mut vias), proof| {
+                dbg!("$$$$$$$$$$$$$$");
+                dbg!(proof.audience.to_string(), iss.to_string());
                 if *iss != proof.audience {
-                    return Err(ValidationError::InvalidSubject.into());
+                    return Err(ValidationError::MisalignedIssAud.into());
                 }
 
                 if let Some(proof_subject) = &proof.subject {
                     if self.subject != *proof_subject {
-                        return Err(ValidationError::MisalignedIssAud.into());
+                        return Err(ValidationError::InvalidSubject.into());
                     }
                 }
 
-                if SystemTime::from(proof.expiration.clone()) > *now {
+                if SystemTime::from(proof.expiration.clone()) < *now {
                     return Err(ValidationError::Expired.into());
                 }
 

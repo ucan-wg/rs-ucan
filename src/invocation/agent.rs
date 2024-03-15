@@ -16,6 +16,7 @@ use crate::{
     did::{self, Did},
     time::Timestamp,
 };
+use enum_as_inner::EnumAsInner;
 use libipld_core::{
     cid::Cid,
     codec::{Codec, Encode},
@@ -43,10 +44,10 @@ pub struct Agent<
     pub did: &'a DID,
 
     /// A [`delegation::Store`][delegation::store::Store].
-    pub delegation_store: &'a mut D,
+    pub delegation_store: D,
 
     /// A [`Store`][Store] for the agent's [`Invocation`]s.
-    pub invocation_store: &'a mut S,
+    pub invocation_store: S,
 
     signer: &'a <DID as Did>::Signer,
     marker: PhantomData<(T, V, C)>,
@@ -70,8 +71,8 @@ where
     pub fn new(
         did: &'a DID,
         signer: &'a <DID as Did>::Signer,
-        invocation_store: &'a mut S,
-        delegation_store: &'a mut D,
+        invocation_store: S,
+        delegation_store: D,
     ) -> Self {
         Self {
             did,
@@ -96,7 +97,7 @@ where
     ) -> Result<Invocation<T, DID, V, C>, InvokeError<D::DelegationStoreError>> {
         let proofs = self
             .delegation_store
-            .get_chain(self.did, &Some(subject.clone()), "/".into(), vec![], now) // FIXME
+            .get_chain(&self.did, &Some(subject.clone()), "/".into(), vec![], now) // FIXME
             .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
@@ -116,7 +117,7 @@ where
             issued_at,
         };
 
-        Ok(Invocation::try_sign(self.signer, varsig_header, payload)
+        Ok(Invocation::try_sign(&self.signer, varsig_header, payload)
             .map_err(InvokeError::SignError)?)
     }
 
@@ -201,12 +202,10 @@ where
             .get_many(&invocation.proofs())
             .map_err(ReceiveError::DelegationStoreError)?
             .iter()
-            .fold(vec![], |mut acc, d| {
-                acc.push(&d.payload);
-                acc
-            });
+            .map(|d| &d.payload)
+            .collect();
 
-        &invocation
+        let _ = &invocation
             .payload
             .check(proof_payloads, now)
             .map_err(ReceiveError::ValidationError)?;
@@ -265,7 +264,7 @@ where
     // }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Recipient<T> {
     // FIXME change to status?
     You(T),
@@ -273,7 +272,7 @@ pub enum Recipient<T> {
     Unresolved(Cid),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, EnumAsInner)]
 pub enum ReceiveError<
     T,
     DID: Did,
@@ -315,66 +314,60 @@ mod tests {
     use rand::thread_rng;
     use testresult::TestResult;
 
-    //  fn setup<'a>(
-    //      inv_store: &'a mut crate::invocation::store::MemoryStore,
-    //      del_store: &'a mut crate::delegation::store::MemoryStore,
-    //  ) -> (
-    //      crate::did::preset::Verifier,
-    //      crate::did::preset::Signer,
-    //      Agent<'a, crate::invocation::store::MemoryStore, crate::delegation::store::MemoryStore>,
-    //  ) {
-    //      let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
-    //      let server_signer =
-    //          crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
+    fn setup_agent<'a>(
+        did: &'a crate::did::preset::Verifier,
+        signer: &'a crate::did::preset::Signer,
+    ) -> Agent<'a, crate::invocation::store::MemoryStore, crate::delegation::store::MemoryStore>
+    {
+        let inv_store = crate::invocation::store::MemoryStore::default();
+        let del_store = crate::delegation::store::MemoryStore::default();
 
-    //      let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
-    //          server_sk.verifying_key(),
-    //      ));
+        crate::invocation::agent::Agent::new(did, signer, inv_store, del_store)
+    }
 
-    //      let agent =
-    //          crate::invocation::agent::Agent::new(&server, &server_signer, inv_store, del_store);
+    mod receive {
+        use super::*;
+        use crate::ability::crud::{read::Read, Crud};
+        use crate::ability::preset::Preset;
+        use crate::crypto::varsig;
 
-    //      (server, server_signer, agent)
-    //  }
+        #[test_log::test]
+        fn test_happy_path() -> TestResult {
+            let server_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+            let server_signer =
+                crate::did::preset::Signer::Key(crate::did::key::Signer::EdDsa(server_sk.clone()));
 
-    //  mod receive {
-    //      use super::*;
-    //      use crate::ability::crud::{read::Read, Crud};
-    //      use crate::ability::preset::Preset;
-    //      use crate::crypto::varsig;
+            let server = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+                server_sk.verifying_key(),
+            ));
 
-    //      #[test_log::test]
-    //      fn test_happy_path() -> TestResult {
-    //          let mut inv_store = crate::invocation::store::MemoryStore::default();
-    //          let mut del_store = crate::delegation::store::MemoryStore::default();
+            let mut agent = setup_agent(&server, &server_signer);
+            let invocation = agent.invoke(
+                None,
+                agent.did.clone(),
+                // FIXME flatten
+                Preset::Crud(Crud::Read(Read {
+                    path: None,
+                    args: None,
+                })),
+                BTreeMap::new(),
+                None,
+                None,
+                None,
+                SystemTime::now(),
+                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
+                    codec: varsig::encoding::Preset::DagCbor,
+                }),
+            )?;
 
-    //          let (_, _, mut agent) = setup(&mut inv_store, &mut del_store);
-    //          let invocation = agent.invoke(
-    //              None,
-    //              agent.did.clone(),
-    //              // FIXME flatten
-    //              Preset::Crud(Crud::Read(Read {
-    //                  path: None,
-    //                  args: None,
-    //              })),
-    //              BTreeMap::new(),
-    //              None,
-    //              None,
-    //              None,
-    //              SystemTime::now(),
-    //              varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
-    //                  codec: varsig::encoding::Preset::DagCbor,
-    //              }),
-    //          )?;
+            let unknown_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
+            let unknown_did = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
+                unknown_sk.verifying_key(),
+            ));
 
-    //          let unknown_sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
-    //          let unknown_did = crate::did::preset::Verifier::Key(crate::did::key::Verifier::EdDsa(
-    //              unknown_sk.verifying_key(),
-    //          ));
+            agent.receive(invocation)?;
 
-    //          agent.receive(invocation)?;
-
-    //          Ok(())
-    //      }
-    //  }
+            Ok(())
+        }
+    }
 }

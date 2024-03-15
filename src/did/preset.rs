@@ -31,7 +31,7 @@ pub enum Signer {
 
 impl Did for Verifier {
     type Signature = key::Signature;
-    type Signer = Signer;
+    type Signer = self::Signer;
 }
 
 impl TryFrom<DID> for Verifier {

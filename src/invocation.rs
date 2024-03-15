@@ -12,8 +12,8 @@
 //! - [`Agent`] is a high-level interface for sessions that will involve more than one invoctaion.
 //! - [`store`] is an interface for caching [`Invocation`]s.
 
-mod agent;
-mod payload;
+pub mod agent;
+pub mod payload;
 
 pub mod promise;
 pub mod store;

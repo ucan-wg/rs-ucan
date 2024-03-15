@@ -6,28 +6,49 @@ use crate::{crypto::varsig, did::Did};
 use libipld_core::{cid::Cid, codec::Codec};
 use std::{collections::BTreeMap, convert::Infallible};
 
-pub trait Store<
-    T = crate::ability::preset::Preset,
-    DID: Did = crate::did::preset::Verifier,
-    V: varsig::Header<Enc> = varsig::header::Preset,
-    Enc: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
->
-{
+pub trait Store<T, DID: Did, V: varsig::Header<C>, C: Codec + Into<u64> + TryFrom<u64>> {
     type InvocationStoreError;
 
     fn get(
         &self,
         cid: Cid,
-    ) -> Result<Option<&Invocation<T, DID, V, Enc>>, Self::InvocationStoreError>;
+    ) -> Result<Option<&Invocation<T, DID, V, C>>, Self::InvocationStoreError>;
 
     fn put(
         &mut self,
         cid: Cid,
-        invocation: Invocation<T, DID, V, Enc>,
+        invocation: Invocation<T, DID, V, C>,
     ) -> Result<(), Self::InvocationStoreError>;
 
     fn has(&self, cid: Cid) -> Result<bool, Self::InvocationStoreError> {
         Ok(self.get(cid).is_ok())
+    }
+}
+
+impl<
+        S: Store<T, DID, V, C>,
+        T,
+        DID: Did,
+        V: varsig::Header<C>,
+        C: Codec + Into<u64> + TryFrom<u64>,
+    > Store<T, DID, V, C> for &mut S
+{
+    type InvocationStoreError = <S as Store<T, DID, V, C>>::InvocationStoreError;
+
+    fn get(
+        &self,
+        cid: Cid,
+    ) -> Result<Option<&Invocation<T, DID, V, C>>, <S as Store<T, DID, V, C>>::InvocationStoreError>
+    {
+        (*self).get(cid)
+    }
+
+    fn put(
+        &mut self,
+        cid: Cid,
+        invocation: Invocation<T, DID, V, C>,
+    ) -> Result<(), <S as Store<T, DID, V, C>>::InvocationStoreError> {
+        (*self).put(cid, invocation)
     }
 }
 
