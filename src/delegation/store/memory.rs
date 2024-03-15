@@ -120,8 +120,6 @@ where
     type DelegationStoreError = String; // FIXME misisng
 
     fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError> {
-        dbg!("@@@@@@@@@@@@@@@");
-        dbg!(cid);
         self.ucans
             .get(cid)
             .ok_or(format!("not found in delegation memstore: {:?}", cid).into())
@@ -463,11 +461,16 @@ mod tests {
             &device_signer,
             varsig_header.clone(),
             crate::invocation::PayloadBuilder::default()
-                .subject(account.clone())
+                .subject(dnslink.clone())
                 .issuer(device.clone())
                 .audience(Some(server.clone()))
                 .ability(AccountManage)
-                .proofs(proofs_for_powerline.clone())
+                .proofs(vec![
+                    account_device_ucan.cid()?,
+                    account_pbox.cid()?,
+                    dnslink_ucan.cid()?,
+                ])
+                // .proofs(proofs_for_powerline.clone())
                 .build()?,
         )?;
 
@@ -484,7 +487,6 @@ mod tests {
         > = Agent::new(&server, &server_signer, &mut inv_store, &mut del_store);
 
         let observed = agent.receive(account_invocation.clone());
-        dbg!(&observed);
         assert!(observed.is_ok());
 
         let not_account_invocation = crate::Invocation::try_sign(

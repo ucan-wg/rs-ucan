@@ -166,8 +166,6 @@ impl<A, DID: Did> Payload<A, DID> {
         let (final_iss, vias) = proofs.into_iter().try_fold(
             (&self.issuer, BTreeSet::new()),
             |(iss, mut vias), proof| {
-                dbg!("$$$$$$$$$$$$$$");
-                dbg!(proof.audience.to_string(), iss.to_string());
                 if *iss != proof.audience {
                     return Err(ValidationError::MisalignedIssAud.into());
                 }
