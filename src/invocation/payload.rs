@@ -502,7 +502,6 @@ impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, D
         let mut subject = None;
         let mut issuer = None;
         let mut audience = None;
-        let mut via = None;
         let mut command = None;
         let mut args = None;
         let mut metadata = None;
@@ -529,10 +528,6 @@ impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, D
                 },
                 "aud" => match v {
                     Ipld::String(s) => audience = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
-                    _ => return Err(()),
-                },
-                "via" => match v {
-                    Ipld::String(s) => via = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
                     _ => return Err(()),
                 },
                 "cmd" => match v {

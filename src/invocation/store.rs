@@ -40,7 +40,7 @@ impl<
         cid: Cid,
     ) -> Result<Option<&Invocation<T, DID, V, C>>, <S as Store<T, DID, V, C>>::InvocationStoreError>
     {
-        (*self).get(cid)
+        (**self).get(cid)
     }
 
     fn put(
@@ -48,7 +48,7 @@ impl<
         cid: Cid,
         invocation: Invocation<T, DID, V, C>,
     ) -> Result<(), <S as Store<T, DID, V, C>>::InvocationStoreError> {
-        (*self).put(cid, invocation)
+        (**self).put(cid, invocation)
     }
 }
 

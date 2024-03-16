@@ -154,7 +154,7 @@ impl<A, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> did
     for Invocation<A, DID, V, C>
 {
     fn verifier(&self) -> &DID {
-        &self.verifier()
+        &self.payload.verifier()
     }
 }
 
