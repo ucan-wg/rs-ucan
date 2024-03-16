@@ -13,6 +13,36 @@ pub enum Preset {
     // FIXME Es384 needs varsig specs
 }
 
+impl From<eddsa::EdDsaHeader<encoding::Preset>> for Preset {
+    fn from(ed: eddsa::EdDsaHeader<encoding::Preset>) -> Self {
+        Preset::EdDsa(ed)
+    }
+}
+
+impl From<rs256::Rs256Header<encoding::Preset>> for Preset {
+    fn from(rs256: rs256::Rs256Header<encoding::Preset>) -> Self {
+        Preset::Rs256(rs256)
+    }
+}
+
+impl From<rs512::Rs512Header<encoding::Preset>> for Preset {
+    fn from(rs512: rs512::Rs512Header<encoding::Preset>) -> Self {
+        Preset::Rs512(rs512)
+    }
+}
+
+impl From<es256::Es256Header<encoding::Preset>> for Preset {
+    fn from(es256: es256::Es256Header<encoding::Preset>) -> Self {
+        Preset::Es256(es256)
+    }
+}
+
+impl From<es256k::Es256kHeader<encoding::Preset>> for Preset {
+    fn from(es256k: es256k::Es256kHeader<encoding::Preset>) -> Self {
+        Preset::Es256k(es256k)
+    }
+}
+
 impl From<Preset> for Vec<u8> {
     fn from(preset: Preset) -> Vec<u8> {
         match preset {

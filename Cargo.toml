@@ -85,6 +85,7 @@ wasm-bindgen-derive = "0.2"
 web-sys = { version = "0.3", features = ["Crypto", "CryptoKey", "CryptoKeyPair", "SubtleCrypto"] }
 
 [dev-dependencies]
+assert_matches = "1.5"
 libipld = "0.16"
 pretty_assertions = "1.4"
 rand = "0.8"

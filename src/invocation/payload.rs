@@ -149,15 +149,17 @@ impl<A, DID: Did> Payload<A, DID> {
     pub fn check(
         &self,
         proofs: Vec<&delegation::Payload<DID>>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<(), ValidationError<DID>>
     where
         A: ToCommand + Clone,
         DID: Clone,
         arguments::Named<Ipld>: From<A>,
     {
-        if let Some(ref exp) = self.expiration {
-            if SystemTime::from(exp.clone()) < *now {
+        let now_ts = Timestamp::postel(now);
+
+        if let Some(exp) = self.expiration {
+            if exp < now_ts {
                 return Err(ValidationError::Expired);
             }
         }
@@ -182,12 +184,12 @@ impl<A, DID: Did> Payload<A, DID> {
                     }
                 }
 
-                if SystemTime::from(proof.expiration.clone()) < *now {
+                if proof.expiration < now_ts {
                     return Err(ValidationError::Expired.into());
                 }
 
                 if let Some(nbf) = proof.not_before.clone() {
-                    if SystemTime::from(nbf) > *now {
+                    if nbf > now_ts {
                         return Err(ValidationError::NotYetValid.into());
                     }
                 }

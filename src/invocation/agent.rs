@@ -179,13 +179,13 @@ where
         Payload<T, DID>: TryFrom<Named<Ipld>>,
         Invocation<T, DID, V, C>: Clone + Encode<C>,
     {
-        self.generic_receive(invocation, &SystemTime::now())
+        self.generic_receive(invocation, SystemTime::now())
     }
 
     pub fn generic_receive(
         &mut self,
         invocation: Invocation<T, DID, V, C>,
-        now: &SystemTime,
+        now: SystemTime,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>
     where
         arguments::Named<Ipld>: From<T>,
@@ -193,6 +193,12 @@ where
         Invocation<T, DID, V, C>: Clone + Encode<C>,
     {
         let cid: Cid = invocation.cid().map_err(ReceiveError::EncodingError)?;
+
+        invocation
+            .validate_signature()
+            .map_err(ReceiveError::SigVerifyError)?;
+
+        // FIXME validate signature directly in inv store
 
         self.invocation_store
             .put(cid.clone(), invocation.clone())
@@ -312,12 +318,75 @@ pub enum InvokeError<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ability::crud::read::Read;
+    use crate::crypto::varsig;
+    use crate::crypto::varsig::encoding;
+    use crate::crypto::varsig::header;
+    use crate::invocation::{payload::ValidationError, Agent};
+    use crate::{
+        ability::{arguments::Named, command::Command},
+        crypto::signature::Envelope,
+        delegation::store::Store,
+        invocation::promise::{CantResolve, Resolvable},
+        ipld,
+    };
+    use libipld_core::{cid::Cid, ipld::Ipld};
     use pretty_assertions as pretty;
     use rand::thread_rng;
-    use std::ops::Add;
-    use std::ops::Sub;
-    use std::time::Duration;
+    use std::ops::{Add, Sub};
+    use std::time::{Duration, SystemTime};
     use testresult::TestResult;
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AccountManage;
+
+    impl Command for AccountManage {
+        const COMMAND: &'static str = "/account/info";
+    }
+
+    impl From<AccountManage> for Named<Ipld> {
+        fn from(_: AccountManage) -> Self {
+            Default::default()
+        }
+    }
+
+    impl TryFrom<Named<Ipld>> for AccountManage {
+        type Error = ();
+
+        fn try_from(args: Named<Ipld>) -> Result<Self, ()> {
+            if args == Default::default() {
+                Ok(AccountManage)
+            } else {
+                Err(())
+            }
+        }
+    }
+
+    impl From<AccountManage> for Named<ipld::Promised> {
+        fn from(_: AccountManage) -> Self {
+            Default::default()
+        }
+    }
+
+    impl TryFrom<Named<ipld::Promised>> for AccountManage {
+        type Error = ();
+
+        fn try_from(args: Named<ipld::Promised>) -> Result<Self, ()> {
+            if args == Default::default() {
+                Ok(AccountManage)
+            } else {
+                Err(())
+            }
+        }
+    }
+
+    impl Resolvable for AccountManage {
+        type Promised = AccountManage;
+
+        fn try_resolve(promised: Self::Promised) -> Result<Self, CantResolve<Self>> {
+            Ok(promised)
+        }
+    }
 
     fn gen_did() -> (crate::did::preset::Verifier, crate::did::preset::Signer) {
         let sk = ed25519_dalek::SigningKey::generate(&mut thread_rng());
@@ -353,8 +422,7 @@ mod tests {
 
     mod receive {
         use super::*;
-        use crate::ability::crud::read::Read;
-        use crate::crypto::varsig;
+        use assert_matches::assert_matches;
 
         #[test_log::test]
         fn test_invoker_is_sub_implicit_aud() -> TestResult {
@@ -380,7 +448,7 @@ mod tests {
                 }),
             )?;
 
-            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            let observed = agent.generic_receive(invocation.clone(), now.into())?;
             pretty::assert_eq!(observed, Recipient::You(invocation.payload));
             Ok(())
         }
@@ -404,13 +472,14 @@ mod tests {
                 Some(exp.try_into()?),
                 Some(now.try_into()?),
                 now.into(),
-                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
-                    codec: varsig::encoding::Preset::DagCbor,
+                header::Preset::EdDsa(header::EdDsaHeader {
+                    codec: encoding::Preset::DagCbor,
                 }),
             )?;
 
-            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            let observed = agent.generic_receive(invocation.clone(), now.into())?;
             pretty::assert_eq!(observed, Recipient::You(invocation.payload));
+
             Ok(())
         }
 
@@ -440,7 +509,7 @@ mod tests {
                 }),
             )?;
 
-            let observed = agent.generic_receive(invocation.clone(), &now.into())?;
+            let observed = agent.generic_receive(invocation.clone(), now.into())?;
             pretty::assert_eq!(observed, Recipient::Other(invocation.payload));
             Ok(())
         }
@@ -451,10 +520,8 @@ mod tests {
             let (server, server_signer) = gen_did();
             let mut agent = setup_agent(&server, &server_signer);
 
-            let (not_server, _) = gen_did();
-
             let invocation = agent.invoke(
-                Some(not_server),
+                None,
                 agent.did.clone(),
                 Read {
                     path: None,
@@ -466,12 +533,13 @@ mod tests {
                 Some(past.try_into()?),
                 Some(now.try_into()?),
                 now.into(),
-                varsig::header::Preset::EdDsa(varsig::header::EdDsaHeader {
-                    codec: varsig::encoding::Preset::DagCbor,
-                }),
+                header::EdDsaHeader {
+                    codec: encoding::Preset::DagCbor,
+                }
+                .into(),
             )?;
 
-            let observed = agent.generic_receive(invocation.clone(), &now.into());
+            let observed = agent.generic_receive(invocation.clone(), now.into());
             pretty::assert_eq!(
                 observed
                     .unwrap_err()
@@ -479,6 +547,256 @@ mod tests {
                     .ok_or("not a validation error")?,
                 &ValidationError::Expired
             );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_invalid_sig() -> TestResult {
+            let (_past, now, _exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
+            let mut agent = setup_agent(&server, &server_signer);
+
+            let mut invocation = agent.invoke(
+                None,
+                agent.did.clone(),
+                Read {
+                    path: None,
+                    args: None,
+                }
+                .into(),
+                BTreeMap::new(),
+                None,
+                None,
+                Some(now.try_into()?),
+                now.into(),
+                header::EdDsaHeader {
+                    codec: encoding::Preset::DagCbor,
+                }
+                .into(),
+            )?;
+
+            let (not_server, _) = gen_did();
+
+            invocation.payload.issuer = not_server.clone();
+            invocation.payload.audience = Some(server.clone());
+            invocation.payload.subject = not_server;
+
+            let observed = agent.generic_receive(invocation, now.into());
+
+            assert_matches!(
+                observed,
+                Err(ReceiveError::SigVerifyError(
+                    crate::crypto::signature::ValidateError::VerifyError(_)
+                ))
+            );
+
+            Ok(())
+        }
+    }
+
+    mod chain {
+        use super::*;
+        use assert_matches::assert_matches;
+
+        struct Ctx {
+            varsig_header: crate::crypto::varsig::header::Preset,
+            powerline_len: usize,
+            dnslink_len: usize,
+            inv_store: crate::invocation::store::MemoryStore<AccountManage>,
+            del_store: crate::delegation::store::MemoryStore,
+            account_invocation: Invocation<AccountManage>,
+            server: crate::did::preset::Verifier,
+            server_signer: crate::did::preset::Signer,
+            device: crate::did::preset::Verifier,
+            device_signer: crate::did::preset::Signer,
+            dnslink: crate::did::preset::Verifier,
+            dnslink_signer: crate::did::preset::Signer,
+        }
+
+        fn setup_test_chain() -> Result<Ctx, Box<dyn std::error::Error>> {
+            let (_nbf, now, exp) = setup_valid_time();
+            let (server, server_signer) = gen_did();
+            let (account, account_signer) = gen_did();
+            let (device, device_signer) = gen_did();
+            let (dnslink, dnslink_signer) = gen_did();
+
+            let varsig_header = crate::crypto::varsig::header::Preset::EdDsa(
+                crate::crypto::varsig::header::EdDsaHeader {
+                    codec: crate::crypto::varsig::encoding::Preset::DagCbor,
+                },
+            );
+
+            let inv_store = crate::invocation::store::MemoryStore::default();
+            let mut del_store = crate::delegation::store::MemoryStore::default();
+
+            // Scenario
+            // ========
+            //
+            // Delegations
+            // 1.               account -*-> server
+            // 2.                            server -a-> device
+            // 3.  dnslink -d-> account
+            //
+            // Invocation
+            // 4. [dnslink -d-> account -*-> server -a-> device]
+
+            // 1.               account -*-> server
+            let account_pbox = crate::Delegation::try_sign(
+                &account_signer,
+                varsig_header.clone(),
+                crate::delegation::PayloadBuilder::default()
+                    .subject(None)
+                    .issuer(account.clone())
+                    .audience(server.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?,
+            )?;
+
+            // 2.                            server -a-> device
+            let account_device_ucan = crate::Delegation::try_sign(
+                &server_signer,
+                varsig_header.clone(), // FIXME can also put this on a builder
+                crate::delegation::PayloadBuilder::default()
+                    .subject(None) // FIXME needs a sibject when we figure out powerbox
+                    .issuer(server.clone())
+                    .audience(device.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?, // I don't love this is now failable
+            )?;
+
+            // 3.  dnslink -d-> account
+            let dnslink_ucan = crate::Delegation::try_sign(
+                &dnslink_signer,
+                varsig_header.clone(),
+                crate::delegation::PayloadBuilder::default()
+                    .subject(Some(dnslink.clone()))
+                    .issuer(dnslink.clone())
+                    .audience(account.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?,
+            )?;
+
+            drop(del_store.insert(account_device_ucan.cid()?, account_device_ucan.clone()));
+            drop(del_store.insert(account_pbox.cid()?, account_pbox.clone()));
+            drop(del_store.insert(dnslink_ucan.cid()?, dnslink_ucan.clone()));
+
+            let proofs_for_powerline: Vec<Cid> = del_store
+                .get_chain(&device, &None, "/".into(), vec![], SystemTime::now())?
+                .ok_or("FIXME")?
+                .iter()
+                .map(|x| x.0.clone())
+                .collect();
+
+            let chain_for_dnslink = del_store.get_chain(
+                &device,
+                &Some(dnslink.clone()),
+                "/".into(),
+                vec![],
+                SystemTime::now(),
+            );
+
+            // 4. [dnslink -d-> account -*-> server -a-> device]
+            let account_invocation = crate::Invocation::try_sign(
+                &device_signer,
+                varsig_header.clone(),
+                crate::invocation::PayloadBuilder::default()
+                    .subject(dnslink.clone())
+                    .issuer(device.clone())
+                    .audience(Some(server.clone()))
+                    .ability(AccountManage)
+                    .proofs(vec![
+                        account_device_ucan.cid()?,
+                        account_pbox.cid()?,
+                        dnslink_ucan.cid()?,
+                    ])
+                    // .proofs(proofs_for_powerline.clone())
+                    .build()?,
+            )?;
+
+            let powerline_len = proofs_for_powerline.len();
+            let dnslink_len = chain_for_dnslink?.ok_or("FIXME")?.len();
+
+            Ok(Ctx {
+                varsig_header,
+                powerline_len,
+                dnslink_len,
+                inv_store,
+                del_store,
+                account_invocation,
+                server,
+                server_signer,
+                device,
+                device_signer,
+                dnslink,
+                dnslink_signer,
+            })
+        }
+
+        #[test_log::test]
+        fn test_chain_len() -> TestResult {
+            let ctx = setup_test_chain()?;
+            assert_eq!((ctx.powerline_len, ctx.dnslink_len), (3, 3));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_chain_ok() -> TestResult {
+            let mut ctx = setup_test_chain()?;
+
+            let mut agent: Agent<
+                '_,
+                &mut crate::invocation::store::MemoryStore<AccountManage>,
+                &mut crate::delegation::store::MemoryStore,
+                AccountManage,
+            > = Agent::new(
+                &ctx.server,
+                &ctx.server_signer,
+                &mut ctx.inv_store,
+                &mut ctx.del_store,
+            );
+
+            let observed = agent.receive(ctx.account_invocation.clone());
+            assert!(observed.is_ok());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_chain_wrong_sub() -> TestResult {
+            let mut ctx = setup_test_chain()?;
+
+            let mut agent: Agent<
+                '_,
+                &mut crate::invocation::store::MemoryStore<AccountManage>,
+                &mut crate::delegation::store::MemoryStore,
+                AccountManage,
+            > = Agent::new(
+                &ctx.server,
+                &ctx.server_signer,
+                &mut ctx.inv_store,
+                &mut ctx.del_store,
+            );
+
+            let not_account_invocation = crate::Invocation::try_sign(
+                &ctx.device_signer,
+                ctx.varsig_header,
+                crate::invocation::PayloadBuilder::default()
+                    .subject(ctx.dnslink.clone())
+                    .issuer(ctx.server.clone())
+                    .audience(Some(ctx.device.clone()))
+                    .ability(AccountManage)
+                    .proofs(vec![]) // FIXME
+                    .build()?,
+            )?;
+
+            let observed_other = agent.receive(not_account_invocation);
+            assert_eq!(
+                observed_other.unwrap_err().as_validation_error(),
+                Some(&ValidationError::DidNotTerminateInSubject)
+            );
+
             Ok(())
         }
     }
