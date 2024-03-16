@@ -6,5 +6,5 @@
 
 pub mod selector;
 
-mod predicate;
+pub mod predicate;
 pub use predicate::*;

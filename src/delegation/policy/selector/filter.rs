@@ -37,6 +37,20 @@ impl Filter {
             _ => false,
         }
     }
+
+    pub fn is_dot_field(&self) -> bool {
+        match self {
+            Filter::Field(k) => {
+                if let Some(first) = k.chars().next() {
+                    (first.is_alphabetic() || first == '_')
+                        && k.chars().all(|c| char::is_alphanumeric(c) || c == '_')
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Filter {
@@ -45,7 +59,10 @@ impl fmt::Display for Filter {
             Filter::ArrayIndex(i) => write!(f, "[{}]", i),
             Filter::Field(k) => {
                 if let Some(first) = k.chars().next() {
-                    if first.is_alphabetic() && k.chars().all(char::is_alphanumeric) {
+                    if (first.is_alphabetic() || first == '_')
+                        && k.is_ascii()
+                        && k.chars().all(|c| char::is_alphanumeric(c) || c == '_')
+                    {
                         write!(f, ".{}", k)
                     } else {
                         write!(f, "[\"{}\"]", k)
@@ -61,16 +78,19 @@ impl fmt::Display for Filter {
 }
 
 pub fn parse(input: &str) -> IResult<&str, Filter> {
+    dbg!("PARSE", input);
     let p = alt((parse_try, parse_non_try));
     context("selector_op", p)(input)
 }
 
 pub fn parse_non_try(input: &str) -> IResult<&str, Filter> {
+    dbg!("NON_TRY", input);
     let p = alt((parse_values, parse_array_index, parse_field));
     context("non_try", p)(input)
 }
 
 pub fn parse_try(input: &str) -> IResult<&str, Filter> {
+    dbg!("TRY", input);
     let p = map_res(terminated(parse_non_try, tag("?")), |found: Filter| {
         Ok::<Filter, ()>(Filter::Try(Box::new(found)))
     });
@@ -79,12 +99,11 @@ pub fn parse_try(input: &str) -> IResult<&str, Filter> {
 }
 
 pub fn parse_array_index(input: &str) -> IResult<&str, Filter> {
-    let num = map_opt(tag("-"), |s: &str| {
-        let (_rest, matched) = digit1::<&str, ()>(s).ok()?;
-        matched.parse::<i32>().ok()
-    });
+    dbg!("ARRAY_INDEX", input);
+    let num = nom::combinator::recognize(preceded(nom::combinator::opt(tag("-")), digit1));
 
-    let array_index = map_res(delimited(char('['), num, char(']')), |idx| {
+    let array_index = map_res(delimited(char('['), num, char(']')), |found| {
+        let idx = i32::from_str(found).map_err(|_| ())?;
         Ok::<Filter, ()>(Filter::ArrayIndex(idx))
     });
 
@@ -92,21 +111,26 @@ pub fn parse_array_index(input: &str) -> IResult<&str, Filter> {
 }
 
 pub fn parse_values(input: &str) -> IResult<&str, Filter> {
+    dbg!("VALUES", input);
     context("values", tag("[]"))(input).map(|(rest, _)| (rest, Filter::Values))
 }
 
 pub fn parse_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("FIELD", input);
     let p = alt((parse_delim_field, parse_dot_field));
 
     context("map_field", p)(input)
 }
 
 pub fn parse_dot_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("DOT", input);
     let p = alt((parse_dot_alpha_field, parse_dot_underscore_field));
+
     context("dot_field", p)(input)
 }
 
 pub fn parse_dot_alpha_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("DOT_ALPHA", input);
     let p = map_res(preceded(char('.'), alphanumeric1), |found: &str| {
         Ok::<Filter, ()>(Filter::Field(found.to_string()))
     });
@@ -115,6 +139,7 @@ pub fn parse_dot_alpha_field(input: &str) -> IResult<&str, Filter> {
 }
 
 pub fn parse_dot_underscore_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("DOT_UNDERSCORE", input);
     let p = map_res(preceded(tag("._"), alphanumeric1), |found: &str| {
         let key = format!("{}{}", '_', found);
         Ok::<Filter, ()>(Filter::Field(key))
@@ -123,13 +148,34 @@ pub fn parse_dot_underscore_field(input: &str) -> IResult<&str, Filter> {
     context("dot_field", p)(input)
 }
 
-pub fn parse_delim_field(input: &str) -> IResult<&str, Filter> {
-    let p = map_res(delimited(tag("[\""), many1(anychar), tag("\"]")), |found| {
-        let field = String::from_iter(found);
-        Ok::<Filter, ()>(Filter::Field(field))
+pub fn parse_empty_quotes_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("EMPTY_QUOTES", input);
+    let p = map_res(tag("[\"\"]"), |_: &str| {
+        Ok::<Filter, ()>(Filter::Field("".to_string()))
     });
 
-    context("delimited_field", p)(input)
+    context("empty_quotes_field", p)(input)
+}
+
+pub fn unicode_or_whitespace(input: &str) -> IResult<&str, Vec<char>> {
+    nom::multi::many0(nom::character::complete::satisfy(|c| {
+        nom_unicode::is_alphanumeric(c) || c == ' '
+    }))(input)
+}
+
+pub fn parse_delim_field(input: &str) -> IResult<&str, Filter> {
+    dbg!("DELIM", input);
+    let p = map_res(
+        delimited(tag("[\""), unicode_or_whitespace, tag("\"]")),
+        |found: Vec<char>| {
+            dbg!("$$$$$$$$$$$$$$$$$$$", &found);
+
+            let field = found.iter().collect::<String>();
+            Ok::<Filter, ()>(Filter::Field(field))
+        },
+    );
+
+    context("delimited_field", alt((p, parse_empty_quotes_field)))(input)
 }
 
 impl FromStr for Filter {
@@ -137,8 +183,10 @@ impl FromStr for Filter {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match parse(s).map_err(|e| nom::Err::Failure(ParseError::UnknownPattern(e.to_string())))? {
-            ("", found) => Ok(found),
-            (rest, _) => Err(nom::Err::Failure(ParseError::TrailingInput(rest.into()))),
+            (_, found) => Ok(found),
+            // ("", found) => Ok(found),
+            // FIXME
+            // (rest, _) => Err(nom::Err::Failure(ParseError::TrailingInput(rest.into()))),
         }
     }
 }
@@ -164,9 +212,29 @@ impl Arbitrary for Filter {
         prop_oneof![
             i32::arbitrary().prop_map(|i| Filter::ArrayIndex(i)),
             String::arbitrary().prop_map(Filter::Field),
+            "[a-zA-Z_][a-zA-Z0-9_]*".prop_map(Filter::Field),
             Just(Filter::Values),
             // FIXME prop_recursive::lazy(|_| { Filter::arbitrary_with(()).prop_map(Filter::Try) }),
         ]
         .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    mod serialization {
+        use super::*;
+
+        proptest! {
+            #[test]
+            fn test_filter_round_trip(filter: Filter) {
+                let serialized = filter.to_string();
+                let deserialized = serialized.parse();
+                prop_assert_eq!(Ok(filter), deserialized);
+            }
+        }
     }
 }

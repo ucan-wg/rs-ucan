@@ -3,6 +3,7 @@
 use enum_as_inner::EnumAsInner;
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde_derive::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -44,16 +45,20 @@ impl From<Number> for Ipld {
 }
 
 impl TryFrom<Ipld> for Number {
-    type Error = (); // FIXME
+    type Error = NotANumber;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
             Ipld::Integer(i) => Ok(Number::Integer(i)),
             Ipld::Float(f) => Ok(Number::Float(f)),
-            _ => Err(()),
+            _ => Err(NotANumber(ipld)),
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Error)]
+#[error("Expected Ipld numeric, got: {0:?}")]
+pub struct NotANumber(Ipld);
 
 impl From<i128> for Number {
     fn from(i: i128) -> Number {

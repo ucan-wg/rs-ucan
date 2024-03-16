@@ -1,4 +1,4 @@
-use super::policy::Predicate;
+use super::policy::{predicate, Predicate};
 use crate::ability::arguments::Named;
 use crate::time;
 use crate::{
@@ -169,10 +169,14 @@ where
                 },
                 "pol" => match ipld {
                     Ipld::List(xs) => {
-                        policy = xs
-                            .iter()
-                            .map(|x| Predicate::try_from(x.clone()).ok())
-                            .collect();
+                        let result: Result<Vec<Predicate>, ParseError<DID>> =
+                            xs.iter().try_fold(vec![], |mut acc, ipld| {
+                                let pred = Predicate::try_from(ipld.clone())?;
+                                acc.push(pred);
+                                Ok(acc)
+                            });
+
+                        policy = Some(result?);
                     }
                     bad => return Err(ParseError::WrongTypeForField("pol".to_string(), bad)),
                 },
@@ -252,6 +256,9 @@ where
 
     #[error("Cannot parse timestamp: {0}")]
     BadTimestamp(#[from] time::OutOfRangeError),
+
+    #[error("Cannot parse policy predicate: {0}")]
+    InvalidPolicy(#[from] predicate::FromIpldError),
 }
 
 impl<DID: Did> From<Payload<DID>> for Ipld {
@@ -435,9 +442,7 @@ mod tests {
                 let ipld: Ipld = payload.clone().into();
                 let parsed = Payload::<crate::did::preset::Verifier>::try_from(ipld);
 
-                dbg!(parsed);
-
-                // assert_matches!(parsed, Ok(payload));
+                assert_matches!(parsed, Ok(payload));
             });
 
             Ok(())

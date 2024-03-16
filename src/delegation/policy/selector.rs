@@ -147,7 +147,11 @@ impl fmt::Display for Selector {
         let mut ops = self.0.iter();
 
         if let Some(field) = ops.next() {
-            field.fmt(f)?;
+            if !field.is_dot_field() {
+                write!(f, ".")?;
+            }
+
+            write!(f, "{}", field)?;
         } else {
             write!(f, ".")?;
         }
@@ -164,10 +168,27 @@ impl FromStr for Selector {
     type Err = nom::Err<ParseError>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse(s).map_err(|e| nom::Err::Failure(ParseError::UnknownPattern(e.to_string())))? {
-            ("", selector) => Ok(selector),
-            (rest, _) => Err(nom::Err::Failure(ParseError::TrailingInput(rest.into()))),
+        if s == "." {
+            return Ok(Selector(vec![]));
         }
+
+        todo!();
+
+        // let mut working = s;
+        // let mut acc = vec![];
+
+        // alt((parse_dot_field, tag('.'));
+
+        // match many0(filter::parse)(s) {
+        //     Ok((rest, ops)) => {
+        //         dbg!(rest);
+        //         dbg!(&ops);
+        //         Ok(Selector(ops))
+        //     }
+        //     // Ok(("", ops)) => Ok(Selector(ops)),
+        //     // Ok((rest, _)) => Err(nom::Err::Error(ParseError::TrailingInput(rest.to_string()))),
+        //     Err(err) => Err(err.map(|input| ParseError::UnknownPattern(input.to_string()))),
+        // }
     }
 }
 

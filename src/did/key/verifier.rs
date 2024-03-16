@@ -178,8 +178,6 @@ impl Display for Verifier {
                 let point = p521_key.0.to_encoded_point(true);
                 payload.extend_from_slice(point.as_bytes());
 
-                dbg!(&payload);
-
                 multibase::encode(Base::Base58Btc, payload)
             }
             Verifier::Rs256(rsa2048_key) => {
@@ -241,14 +239,7 @@ impl FromStr for Verifier {
 
         match s.split_at(8) {
             ("did:key:", more) => {
-                match multibase::decode(more) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        dbg!(more);
-                    }
-                }
                 let (_base, varint_bytes): (multibase::Base, Vec<u8>) = multibase::decode(more)?;
-
                 let (tag, rest) = unsigned_varint::decode::u16(&varint_bytes)?;
 
                 // FIXME also check max length on bytes

@@ -5,6 +5,7 @@ use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
+use thiserror::Error;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -692,7 +693,7 @@ pub fn glob(input: &String, pattern: &String) -> bool {
 }
 
 impl TryFrom<Ipld> for Predicate {
-    type Error = (); // FIXME
+    type Error = FromIpldError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
@@ -703,58 +704,71 @@ impl TryFrom<Ipld> for Predicate {
                 }
                 [Ipld::String(op_str), Ipld::String(sel_str), val] => match op_str.as_str() {
                     "==" => {
-                        let sel =
-                            Select::<ipld::Newtype>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let sel = Select::<ipld::Newtype>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidIpldSelector)?;
 
                         Ok(Predicate::Equal(sel, ipld::Newtype(val.clone())))
                     }
                     ">" => {
-                        let sel =
-                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let sel = Select::<ipld::Number>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidNumberSelector)?;
 
-                        let num = ipld::Number::try_from(val.clone())?;
+                        let num = ipld::Number::try_from(val.clone())
+                            .map_err(FromIpldError::CannotParseIpldNumber)?;
+
                         Ok(Predicate::GreaterThan(sel, num))
                     }
                     ">=" => {
-                        let sel =
-                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
-                        let num = ipld::Number::try_from(val.clone())?;
+                        let sel = Select::<ipld::Number>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidNumberSelector)?;
+
+                        let num = ipld::Number::try_from(val.clone())
+                            .map_err(FromIpldError::CannotParseIpldNumber)?;
                         Ok(Predicate::GreaterThanOrEqual(sel, num))
                     }
                     "<" => {
-                        let sel =
-                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
-                        let num = ipld::Number::try_from(val.clone())?;
+                        let sel = Select::<ipld::Number>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidNumberSelector)?;
+
+                        let num = ipld::Number::try_from(val.clone())
+                            .map_err(FromIpldError::CannotParseIpldNumber)?;
+
                         Ok(Predicate::LessThan(sel, num))
                     }
                     "<=" => {
-                        let sel =
-                            Select::<ipld::Number>::from_str(sel_str.as_str()).map_err(|_| ())?;
-                        let num = ipld::Number::try_from(val.clone())?;
+                        let sel = Select::<ipld::Number>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidNumberSelector)?;
+
+                        let num = ipld::Number::try_from(val.clone())
+                            .map_err(FromIpldError::CannotParseIpldNumber)?;
+
                         Ok(Predicate::LessThanOrEqual(sel, num))
                     }
                     "like" => {
-                        let sel = Select::<String>::from_str(sel_str.as_str()).map_err(|_| ())?;
+                        let sel = Select::<String>::from_str(sel_str.as_str())
+                            .map_err(FromIpldError::InvalidStringSelector)?;
+
                         if let Ipld::String(s) = val {
                             Ok(Predicate::Like(sel, s.to_string()))
                         } else {
-                            Err(())
+                            Err(FromIpldError::NotAString(val.clone()))
                         }
                     }
                     "every" => {
                         let sel = Select::<ipld::Collection>::from_str(sel_str.as_str())
-                            .map_err(|_| ())?;
+                            .map_err(FromIpldError::InvalidCollectionSelector)?;
 
                         let p = Box::new(Predicate::try_from(val.clone())?);
                         Ok(Predicate::Every(sel, p))
                     }
                     "some" => {
                         let sel = Select::<ipld::Collection>::from_str(sel_str.as_str())
-                            .map_err(|_| ())?;
+                            .map_err(FromIpldError::InvalidCollectionSelector)?;
+
                         let p = Box::new(Predicate::try_from(val.clone())?);
                         Ok(Predicate::Some(sel, p))
                     }
-                    _ => Err(()),
+                    _ => Err(FromIpldError::UnrecognizedTripleTag(op_str.to_string())),
                 },
                 [Ipld::String(op_str), lhs, rhs] => match op_str.as_str() {
                     "and" => {
@@ -767,13 +781,43 @@ impl TryFrom<Ipld> for Predicate {
                         let rhs = Box::new(Predicate::try_from(rhs.clone())?);
                         Ok(Predicate::Or(lhs, rhs))
                     }
-                    _ => Err(()),
+                    _ => Err(FromIpldError::UnrecognizedTripleTag(op_str.to_string())),
                 },
-                _ => Err(()),
+                _ => Err(FromIpldError::UnrecognizedShape),
             },
-            _ => Err(()),
+            _ => Err(FromIpldError::NotATuple(ipld)),
         }
     }
+}
+
+#[derive(Debug, PartialEq, Error)]
+pub enum FromIpldError {
+    #[error("Invalid Ipld selector {0:?}")]
+    InvalidIpldSelector(<Select<ipld::Newtype> as FromStr>::Err),
+
+    #[error("Invalid ipld::Number selector {0:?}")]
+    InvalidNumberSelector(<Select<ipld::Number> as FromStr>::Err),
+
+    #[error("Invalid ipld::Collection selector {0:?}")]
+    InvalidCollectionSelector(<Select<ipld::Collection> as FromStr>::Err),
+
+    #[error("Invalid String selector {0:?}")]
+    InvalidStringSelector(<Select<ipld::Collection> as FromStr>::Err),
+
+    #[error("Cannot parse ipld::Number {0:?}")]
+    CannotParseIpldNumber(<ipld::Number as TryFrom<Ipld>>::Error),
+
+    #[error("Not a string: {0:?}")]
+    NotAString(Ipld),
+
+    #[error("Unrecognized triple tag {0}")]
+    UnrecognizedTripleTag(String),
+
+    #[error("Unrecognized shape")]
+    UnrecognizedShape,
+
+    #[error("Not a predicate tuple {0:?}")]
+    NotATuple(Ipld),
 }
 
 impl From<Predicate> for Ipld {

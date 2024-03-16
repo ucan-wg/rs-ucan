@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
+use thiserror::Error;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
@@ -133,16 +134,20 @@ where
 }
 
 impl<T> FromStr for Select<T> {
-    type Err = ();
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let selector = Selector::from_str(s).map_err(|_| ())?;
+        let selector = Selector::from_str(s).map_err(ParseError)?;
         Ok(Select {
             filters: selector.0,
             _marker: std::marker::PhantomData,
         })
     }
 }
+
+#[derive(Debug, PartialEq, Error)]
+#[error("Failed to parse selector: {0}")]
+pub struct ParseError(#[from] nom::Err<super::error::ParseError>);
 
 impl<T> PartialOrd for Select<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
