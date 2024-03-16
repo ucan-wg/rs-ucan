@@ -131,50 +131,96 @@ impl Display for Verifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inner = match self {
             Verifier::EdDsa(ed25519_pk) => {
-                let mut bytes = ed25519_pk.to_bytes().to_vec();
-                let mut inner = vec![0xed];
-                inner.append(&mut bytes);
-                multibase::encode(Base::Base58Btc, inner)
+                let mut buf = [0u8; 2];
+                let tag = unsigned_varint::encode::u8(0xed, &mut buf);
+
+                let mut payload: Vec<u8> = tag.to_vec();
+                let bytes = ed25519_pk.to_bytes();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
             Verifier::Es256k(secp256k1_pk) => {
-                let mut bytes = secp256k1_pk.to_sec1_bytes().to_vec();
-                let mut inner = vec![0xed];
-                inner.append(&mut bytes);
-                multibase::encode(Base::Base58Btc, inner)
+                let mut buf = [0u8; 2];
+                let tag = unsigned_varint::encode::u8(0xe7, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let bytes = secp256k1_pk.to_sec1_bytes();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
             Verifier::P256(p256_key) => {
-                multibase::encode(Base::Base58Btc, p256_key.to_sec1_bytes())
+                let mut buf = [0u8; 3];
+                let tag = unsigned_varint::encode::u16(0x1200, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let bytes = p256_key.to_sec1_bytes();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
             Verifier::P384(p384_key) => {
-                multibase::encode(Base::Base58Btc, p384_key.to_sec1_bytes())
+                let mut buf = [0u8; 3];
+                let tag = unsigned_varint::encode::u16(0x1201, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let bytes = p384_key.to_sec1_bytes();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
-            Verifier::P521(p521_key) => multibase::encode(
-                Base::Base58Btc,
-                p521_key.0.to_encoded_point(true).as_bytes(),
-            ),
+            Verifier::P521(p521_key) => {
+                let mut buf = [0u8; 3];
+                let tag = unsigned_varint::encode::u16(0x1202, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let raw = p521_key.0.to_encoded_point(true);
+                payload.extend_from_slice(raw.as_bytes());
+
+                multibase::encode(Base::Base58Btc, payload)
+            }
             Verifier::Rs256(rsa2048_key) => {
-                multibase::encode(
-                    Base::Base58Btc,
-                    rsa2048_key
-                        .0
-                        .to_pkcs1_der()
-                        .map_err(|_| std::fmt::Error)? // NOTE: technically should never fail
-                        .as_bytes(),
-                )
+                let mut buf = [0u8; 3];
+                let tag = unsigned_varint::encode::u16(0x1205, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let raw = rsa2048_key.0.to_pkcs1_der().map_err(|_| std::fmt::Error)?; // NOTE: technically should never fail
+                payload.extend_from_slice(raw.as_bytes());
+
+                multibase::encode(Base::Base58Btc, payload)
             }
-            Verifier::Rs512(rsa4096_key) => multibase::encode(
-                Base::Base58Btc,
-                rsa4096_key
-                    .0
-                    .to_pkcs1_der()
-                    .map_err(|_| std::fmt::Error)? // NOTE: technically should never fail
-                    .as_bytes(),
-            ),
+            Verifier::Rs512(rsa4096_key) => {
+                let mut buf = [0u8; 3];
+                let tag = unsigned_varint::encode::u16(0x1205, &mut buf);
+
+                let mut payload = tag.to_vec();
+                let raw = rsa4096_key.0.to_pkcs1_der().map_err(|_| std::fmt::Error)?; // NOTE: technically should never fail
+                payload.extend_from_slice(raw.as_bytes());
+
+                multibase::encode(Base::Base58Btc, payload)
+            }
             Verifier::BlsMinPk(bls_minpk_pk) => {
-                multibase::encode(Base::Base58Btc, bls_minpk_pk.serialize())
+                let bytes = bls_minpk_pk.compress();
+
+                let mut buf = [0u8; 2];
+                let tag = unsigned_varint::encode::u8(0xeb, &mut buf);
+
+                let mut payload = tag.to_vec();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
             Verifier::BlsMinSig(bls_minsig_pk) => {
-                multibase::encode(Base::Base58Btc, bls_minsig_pk.serialize())
+                let bytes = bls_minsig_pk.compress();
+
+                let mut buf = [0u8; 2];
+                let tag = unsigned_varint::encode::u8(0xeb, &mut buf);
+
+                let mut payload = tag.to_vec();
+                payload.extend_from_slice(&bytes);
+
+                multibase::encode(Base::Base58Btc, payload)
             }
         };
 
@@ -196,92 +242,80 @@ impl FromStr for Verifier {
                 let (_base, varint_bytes): (multibase::Base, Vec<u8>) =
                     multibase::decode(more).map_err(|_| FromStrError::CannotDecodeMultibase)?;
 
-                let bytes = varint_bytes.as_slice();
+                let (tag, rest) = unsigned_varint::decode::u16(&varint_bytes)
+                    .map_err(|_| FromStrError::CannotDecodeMultibase)?;
 
                 // FIXME also check max length on bytes
-                match varint_bytes.split_at(2) {
-                    ([0xed, _], _) => {
-                        let mut buf = vec![];
+                match tag {
+                    0xed => {
+                        let arr: [u8; 32] = rest.try_into().map_err(|_| FromStrError::TooShort)?;
 
-                        let mut working: Vec<u8> = varint_bytes[1..].to_vec();
-
-                        while !working.is_empty() {
-                            let (x, xs) =
-                                unsigned_varint::decode::u8(working.as_slice()).expect("FIXME");
-                            buf.push(x);
-                            working = xs.to_vec();
-                        }
-
-                        dbg!(buf.clone().len());
-
-                        let vk = ed25519_dalek::VerifyingKey::try_from(buf.as_slice())
+                        let vk = ed25519_dalek::VerifyingKey::from_bytes(&arr)
                             .map_err(FromStrError::CannotParseEdDsa)?;
 
                         Ok(Verifier::EdDsa(vk))
                     }
-                    ([0xe7, _], _) => {
-                        let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&bytes[1..])
+                    0xe7 => {
+                        let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&rest)
                             .map_err(FromStrError::CannotParseEs256k)?;
 
                         Ok(Verifier::Es256k(vk))
                     }
-                    ([0x12, 0x00], key_bytes) => {
-                        let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                    0x1200 => {
+                        let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(rest)
                             .map_err(FromStrError::CannotParseP256)?;
 
                         Ok(Verifier::P256(vk))
                     }
-                    ([0x12, 0x01], key_bytes) => {
-                        let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                    0x1201 => {
+                        let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(rest)
                             .map_err(FromStrError::CannotParseP384)?;
 
                         Ok(Verifier::P384(vk))
                     }
-                    ([0x12, 0x02], key_bytes) => {
-                        let vk = p521::ecdsa::VerifyingKey::from_sec1_bytes(key_bytes)
+                    0x1202 => {
+                        let vk = p521::ecdsa::VerifyingKey::from_sec1_bytes(rest)
                             .map_err(FromStrError::CannotParseP521)?;
 
                         Ok(Verifier::P521(es512::VerifyingKey(vk)))
                     }
-                    ([0x12, 0x05], key_bytes) => match key_bytes.len() {
-                        2048 => {
-                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
+                    0x1205 => match rest.len() {
+                        // 256-bytes plus params
+                        270 => {
+                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(rest)
                                 .map_err(FromStrError::CannotParseRs256)?;
 
                             Ok(Verifier::Rs256(rs256::VerifyingKey(vk)))
                         }
-                        4096 => {
-                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(key_bytes)
+                        // 512-bytes plus params
+                        526 => {
+                            let vk = rsa::pkcs1v15::VerifyingKey::from_pkcs1_der(rest)
                                 .map_err(FromStrError::CannotParseRs512)?;
 
                             Ok(Verifier::Rs512(rs512::VerifyingKey(vk)))
                         }
-                        word => Err(FromStrError::NotADidKey(word)),
+                        len => Err(FromStrError::InvalidRsaLength(len)),
                     },
-                    ([0xeb, 0x01], pk_bytes) => match pk_bytes.len() {
+                    0xeb => match rest.len() {
                         48 => {
-                            let pk = blst::min_pk::PublicKey::deserialize(pk_bytes)
+                            let pk = blst::min_pk::PublicKey::deserialize(rest)
                                 .map_err(FromStrError::CannotParseBlsMinPk)?;
 
                             Ok(Verifier::BlsMinPk(pk))
                         }
                         96 => {
-                            let pk = blst::min_sig::PublicKey::deserialize(pk_bytes)
+                            let pk = blst::min_sig::PublicKey::deserialize(rest)
                                 .map_err(FromStrError::CannotParseBlsMinSig)?;
 
                             Ok(Verifier::BlsMinSig(pk))
                         }
-                        word => Err(FromStrError::UnexpectedPrefix([word].into())),
+                        len => Err(FromStrError::InvalidBlsLength(len)),
                     },
-                    (word, _) => Err(FromStrError::UnexpectedPrefix(
-                        word.iter().map(|u| u.clone().into()).collect(),
-                    )),
+                    word => Err(FromStrError::UnexpectedPrefix(word)),
                 }
             }
 
-            (s, _) => Err(FromStrError::UnexpectedPrefix(
-                s.to_string().chars().map(|u| u as usize).collect(),
-            )),
+            (s, _) => Err(FromStrError::UnexpectedHeader(s.to_string())),
         }
     }
 }
@@ -310,7 +344,16 @@ pub enum FromStrError {
     NotADidKey(usize),
 
     #[error("unexpected prefix: {0:?}")]
-    UnexpectedPrefix(Vec<usize>),
+    UnexpectedPrefix(u16),
+
+    #[error("unexpected header: {0}")]
+    UnexpectedHeader(String),
+
+    #[error("unexpected BLS length: {0}")]
+    InvalidBlsLength(usize),
+
+    #[error("Invalid RSA length: {0}")]
+    InvalidRsaLength(usize),
 
     #[error("key too short")]
     TooShort,
@@ -421,31 +464,31 @@ impl Arbitrary for Verifier {
             // ed25519
             Just("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"),
             // secp256k1
-            // Just("did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme"),
-            // Just("did:key:zQ3shtxV1FrJfhqE1dvxYRcCknWNjHc3c5X1y3ZSoPDi2aur2"),
-            // Just("did:key:zQ3shZc2QzApp2oymGvQbzP8eKheVshBHbU4ZYjeXqwSKEn6N"),
+            Just("did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme"),
+            Just("did:key:zQ3shtxV1FrJfhqE1dvxYRcCknWNjHc3c5X1y3ZSoPDi2aur2"),
+            Just("did:key:zQ3shZc2QzApp2oymGvQbzP8eKheVshBHbU4ZYjeXqwSKEn6N"),
 
-            // // BLS
-            // Just("did:key:zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAkERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY"),
-            // Just("did:key:zUC7KKoJk5ttwuuc8pmQDiUmtckEPTwcaFVZe4DSFV7fURuoRnD17D3xkBK3A9tZqdADkTTMKSwNkhjo9Hs6HfgNUXo48TNRaxU6XPLSPdRgMc15jCD5DfN34ixjoVemY62JxnW"),
+            // BLS
+            Just("did:key:zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAkERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY"),
+            Just("did:key:zUC7KKoJk5ttwuuc8pmQDiUmtckEPTwcaFVZe4DSFV7fURuoRnD17D3xkBK3A9tZqdADkTTMKSwNkhjo9Hs6HfgNUXo48TNRaxU6XPLSPdRgMc15jCD5DfN34ixjoVemY62JxnW"),
 
-            // // P-256
-            // Just("did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169"),
-            // Just("did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"),
+            // P-256
+            Just("did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169"),
+            Just("did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"),
 
-            // // P-384
-            // Just("did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9"),
-            // Just("did:key:z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54"),
+            // P-384
+            Just("did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9"),
+            Just("did:key:z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54"),
 
-            // // P-521
-            // Just("did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7"),
-            // Just("did:key:z2J9gcGdb2nEyMDmzQYv2QZQcM1vXktvy1Pw4MduSWxGabLZ9XESSWLQgbuPhwnXN7zP7HpTzWqrMTzaY5zWe6hpzJ2jnw4f"),
+            // P-521
+            Just("did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7"),
+            Just("did:key:z2J9gcGdb2nEyMDmzQYv2QZQcM1vXktvy1Pw4MduSWxGabLZ9XESSWLQgbuPhwnXN7zP7HpTzWqrMTzaY5zWe6hpzJ2jnw4f"),
 
-            // // RSA-2048
-            // Just("did:key:z4MXj1wBzi9jUstyPMS4jQqB6KdJaiatPkAtVtGc6bQEQEEsKTic4G7Rou3iBf9vPmT5dbkm9qsZsuVNjq8HCuW1w24nhBFGkRE4cd2Uf2tfrB3N7h4mnyPp1BF3ZttHTYv3DLUPi1zMdkULiow3M1GfXkoC6DoxDUm1jmN6GBj22SjVsr6dxezRVQc7aj9TxE7JLbMH1wh5X3kA58H3DFW8rnYMakFGbca5CB2Jf6CnGQZmL7o5uJAdTwXfy2iiiyPxXEGerMhHwhjTA1mKYobyk2CpeEcmvynADfNZ5MBvcCS7m3XkFCMNUYBS9NQ3fze6vMSUPsNa6GVYmKx2x6JrdEjCk3qRMMmyjnjCMfR4pXbRMZa3i"),
+            // RSA-2048
+            Just("did:key:z4MXj1wBzi9jUstyPMS4jQqB6KdJaiatPkAtVtGc6bQEQEEsKTic4G7Rou3iBf9vPmT5dbkm9qsZsuVNjq8HCuW1w24nhBFGkRE4cd2Uf2tfrB3N7h4mnyPp1BF3ZttHTYv3DLUPi1zMdkULiow3M1GfXkoC6DoxDUm1jmN6GBj22SjVsr6dxezRVQc7aj9TxE7JLbMH1wh5X3kA58H3DFW8rnYMakFGbca5CB2Jf6CnGQZmL7o5uJAdTwXfy2iiiyPxXEGerMhHwhjTA1mKYobyk2CpeEcmvynADfNZ5MBvcCS7m3XkFCMNUYBS9NQ3fze6vMSUPsNa6GVYmKx2x6JrdEjCk3qRMMmyjnjCMfR4pXbRMZa3i"),
 
-            // // RSA-4096
-            // Just("did:key:zgghBUVkqmWS8e1ioRVp2WN9Vw6x4NvnE9PGAyQsPqM3fnfPf8EdauiRVfBTcVDyzhqM5FFC7ekAvuV1cJHawtfgB9wDcru1hPDobk3hqyedijhgWmsYfJCmodkiiFnjNWATE7PvqTyoCjcmrc8yMRXmFPnoASyT5beUd4YZxTE9VfgmavcPy3BSouNmASMQ8xUXeiRwjb7xBaVTiDRjkmyPD7NYZdXuS93gFhyDFr5b3XLg7Rfj9nHEqtHDa7NmAX7iwDAbMUFEfiDEf9hrqZmpAYJracAjTTR8Cvn6mnDXMLwayNG8dcsXFodxok2qksYF4D8ffUxMRmyyQVQhhhmdSi4YaMPqTnC1J6HTG9Yfb98yGSVaWi4TApUhLXFow2ZvB6vqckCNhjCRL2R4MDUSk71qzxWHgezKyDeyThJgdxydrn1osqH94oSeA346eipkJvKqYREXBKwgB5VL6WF4qAK6sVZxJp2dQBfCPVZ4EbsBQaJXaVK7cNcWG8tZBFWZ79gG9Cu6C4u8yjBS8Ux6dCcJPUTLtixQu4z2n5dCsVSNdnP1EEs8ZerZo5pBgc68w4Yuf9KL3xVxPnAB1nRCBfs9cMU6oL1EdyHbqrTfnjE8HpY164akBqe92LFVsk8RusaGsVPrMekT8emTq5y8v8CabuZg5rDs3f9NPEtogjyx49wiub1FecM5B7QqEcZSYiKHgF4mfkteT2")
+            // RSA-4096
+            Just("did:key:zgghBUVkqmWS8e1ioRVp2WN9Vw6x4NvnE9PGAyQsPqM3fnfPf8EdauiRVfBTcVDyzhqM5FFC7ekAvuV1cJHawtfgB9wDcru1hPDobk3hqyedijhgWmsYfJCmodkiiFnjNWATE7PvqTyoCjcmrc8yMRXmFPnoASyT5beUd4YZxTE9VfgmavcPy3BSouNmASMQ8xUXeiRwjb7xBaVTiDRjkmyPD7NYZdXuS93gFhyDFr5b3XLg7Rfj9nHEqtHDa7NmAX7iwDAbMUFEfiDEf9hrqZmpAYJracAjTTR8Cvn6mnDXMLwayNG8dcsXFodxok2qksYF4D8ffUxMRmyyQVQhhhmdSi4YaMPqTnC1J6HTG9Yfb98yGSVaWi4TApUhLXFow2ZvB6vqckCNhjCRL2R4MDUSk71qzxWHgezKyDeyThJgdxydrn1osqH94oSeA346eipkJvKqYREXBKwgB5VL6WF4qAK6sVZxJp2dQBfCPVZ4EbsBQaJXaVK7cNcWG8tZBFWZ79gG9Cu6C4u8yjBS8Ux6dCcJPUTLtixQu4z2n5dCsVSNdnP1EEs8ZerZo5pBgc68w4Yuf9KL3xVxPnAB1nRCBfs9cMU6oL1EdyHbqrTfnjE8HpY164akBqe92LFVsk8RusaGsVPrMekT8emTq5y8v8CabuZg5rDs3f9NPEtogjyx49wiub1FecM5B7QqEcZSYiKHgF4mfkteT2")
         ]
         .prop_map(|s: &str| Verifier::from_str(s).expect("did:key spec test vectors to work"))
         .boxed()
@@ -466,8 +509,6 @@ mod tests {
         #[test_log::test]
         fn test_string_round_trip() -> TestResult {
             proptest!(ProptestConfig::with_cases(100), |(v: Verifier)| {
-                dbg!(v.clone());
-                dbg!(v.to_string());
                 let s = v.to_string();
                 let observed = Verifier::from_str(&s);
                 pretty::assert_eq!(Ok(v), observed);
