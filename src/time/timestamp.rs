@@ -175,6 +175,11 @@ impl Arbitrary for Timestamp {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        any::<SystemTime>().prop_map(Timestamp::postel).boxed()
+        (0..(u64::pow(2, 53) - 1))
+            .prop_map(|secs| {
+                Timestamp::new(UNIX_EPOCH + Duration::from_secs(secs))
+                    .expect("the current time to be somtime in the 3rd millenium CE")
+            })
+            .boxed()
     }
 }

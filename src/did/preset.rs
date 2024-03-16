@@ -2,8 +2,12 @@ use super::key;
 use super::Did;
 use did_url::DID;
 use enum_as_inner::EnumAsInner;
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
+
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
 
 /// The set of [`Did`] types that ship with this library ("presets").
 #[derive(Debug, Clone, EnumAsInner, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
@@ -13,6 +17,24 @@ pub enum Verifier {
     Key(key::Verifier),
     //
     // FIXME Dns(did_url::DID),
+}
+
+impl From<Verifier> for Ipld {
+    fn from(verifier: Verifier) -> Self {
+        match verifier {
+            Verifier::Key(verifier) => verifier.into(),
+        }
+    }
+}
+
+impl TryFrom<Ipld> for Verifier {
+    type Error = (); // FIXME
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        key::Verifier::try_from(ipld)
+            .map(Verifier::Key)
+            .map_err(|_| ())
+    }
 }
 
 impl From<Verifier> for DID {
@@ -71,5 +93,19 @@ impl FromStr for Verifier {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         key::Verifier::from_str(s).map(Verifier::Key)
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Verifier {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            key::Verifier::arbitrary().prop_map(Verifier::Key),
+            // FIXME did_url::DID::arbitrary().prop_map(Verifier::Dns),
+        ]
+        .boxed()
     }
 }

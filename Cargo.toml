@@ -36,11 +36,11 @@ path = "examples/counterparts.rs"
 aquamarine = { version = "0.5", optional = true }
 
 # Encoding
+multibase = "0.9"
 base64 = "0.21"
 
 # Crypto
 blst = { version = "0.3.11", optional = true, default-features = false }
-bs58 = "0.5"
 
 # Web Stack
 did_url = "0.1"

@@ -36,7 +36,10 @@ impl PartialOrd for Number {
 
 impl From<Number> for Ipld {
     fn from(number: Number) -> Self {
-        number.into()
+        match number {
+            Number::Float(f) => Ipld::Float(f),
+            Number::Integer(i) => Ipld::Integer(i),
+        }
     }
 }
 

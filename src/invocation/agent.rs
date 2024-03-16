@@ -608,13 +608,10 @@ mod tests {
             server: crate::did::preset::Verifier,
             server_signer: crate::did::preset::Signer,
             device: crate::did::preset::Verifier,
-            device_signer: crate::did::preset::Signer,
             dnslink: crate::did::preset::Verifier,
-            dnslink_signer: crate::did::preset::Signer,
         }
 
         fn setup_test_chain() -> Result<Ctx, Box<dyn std::error::Error>> {
-            let (_nbf, now, exp) = setup_valid_time();
             let (server, server_signer) = gen_did();
             let (account, account_signer) = gen_did();
             let (device, device_signer) = gen_did();
@@ -729,9 +726,7 @@ mod tests {
                 server,
                 server_signer,
                 device,
-                device_signer,
                 dnslink,
-                dnslink_signer,
             })
         }
 

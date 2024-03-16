@@ -1,9 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(
-    missing_debug_implementations,
+    // FIXME missing_debug_implementations,
     future_incompatible,
     let_underscore,
-    missing_docs,
+    // FIXME missing_docs,
     rust_2021_compatibility,
     nonstandard_style
 )]

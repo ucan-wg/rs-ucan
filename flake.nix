@@ -163,7 +163,7 @@
             "${cargo} watch --clear --exec 'clippy -- -W clippy::pedantic'";
 
           "watch:test:host" = cmd "Run all host tests on save"
-            "${cargo} watch --clear --exec 'test --features=mermaid_docs'";
+            "${cargo} watch --clear --exec 'test --features=mermaid_docs,test_utils'";
 
           "watch:test:wasm" = cmd "Run all Wasm tests on save"
             "${cargo} watch --clear --exec 'test --target=wasm32-unknown-unknown'";
@@ -174,7 +174,7 @@
             "test:host && test:docs && test:wasm";
 
           "test:host" = cmd "Run Cargo tests for host target"
-            "${cargo} test";
+            "${cargo} test --features=test_utils";
 
           "test:wasm" = cmd "Run wasm-pack tests on all targets"
             "test:wasm:node && test:wasm:chrome";
@@ -186,7 +186,7 @@
             "${wasm-pack} test --headless --chrome";
 
           "test:docs" = cmd "Run Cargo doctests"
-            "${cargo} test --doc --features=mermaid_docs";
+            "${cargo} test --doc --features=mermaid_docs,test_utils";
         };
 
         docs = {

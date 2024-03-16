@@ -125,7 +125,8 @@ impl<T> IntoIterator for Named<T> {
 
 impl<T> FromIterator<(String, T)> for Named<T> {
     fn from_iter<I: IntoIterator<Item = (String, T)>>(iter: I) -> Self {
-        Named(iter.into_iter().collect())
+        let btree: BTreeMap<String, T> = iter.into_iter().collect();
+        Named(btree)
     }
 }
 

@@ -834,19 +834,17 @@ impl Arbitrary for Predicate {
 
     fn arbitrary_with(_params: Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
-            Just(Predicate::True),
-            Just(Predicate::False),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), ipld::Newtype::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::Equal(lhs, rhs) }),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), ipld::Number::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::GreaterThan(lhs, rhs) }),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), ipld::Number::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::GreaterThanOrEqual(lhs, rhs) }),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), ipld::Number::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::LessThan(lhs, rhs) }),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), ipld::Number::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::LessThanOrEqual(lhs, rhs) }),
-            (Select::arbitrary(), Select::arbitrary())
+            (Select::arbitrary(), String::arbitrary())
                 .prop_map(|(lhs, rhs)| { Predicate::Like(lhs, rhs) })
         ];
 

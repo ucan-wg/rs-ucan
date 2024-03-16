@@ -3,18 +3,31 @@ use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorErro
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::fmt;
 use std::str::FromStr;
 
 #[cfg(feature = "test_utils")]
 use proptest::prelude::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Select<T> {
     filters: Vec<Filter>,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: Selectable + Clone> Select<T> {
+impl<T> fmt::Debug for Select<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Select({:?})", self.filters)
+    }
+}
+
+impl<T> PartialEq for Select<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Selector(self.filters.clone()) == Selector(other.filters.clone())
+    }
+}
+
+impl<T> Select<T> {
     pub fn new(filters: Vec<Filter>) -> Self {
         Self {
             filters,
@@ -28,7 +41,9 @@ impl<T: Selectable + Clone> Select<T> {
     {
         Selector(self.filters.clone()).is_related(&Selector(other.filters.clone()))
     }
+}
 
+impl<T: Selectable> Select<T> {
     pub fn get(self, ctx: &Ipld) -> Result<T, SelectorError> {
         self.filters
             .iter()
@@ -129,23 +144,20 @@ impl<T> FromStr for Select<T> {
     }
 }
 
-impl<T: PartialEq> PartialOrd for Select<T> {
+impl<T> PartialOrd for Select<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Selector(self.filters.clone()).partial_cmp(&Selector(other.filters.clone()))
     }
 }
 
 #[cfg(feature = "test_utils")]
-impl<T: Arbitrary + 'static> Arbitrary for Select<T> {
-    type Parameters = T::Parameters;
+impl<T: 'static> Arbitrary for Select<T> {
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
-    fn arbitrary_with(t_params: Self::Parameters) -> Self::Strategy {
-        prop_oneof![
-            T::arbitrary_with(t_params).prop_map(Select::Pure),
-            // FIXME add params that make this actually correspond to data
-            prop::collection::vec(Filter::arbitrary(), 1..10).prop_map(Select::Get),
-        ]
-        .boxed()
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop::collection::vec(Filter::arbitrary(), 1..10)
+            .prop_map(Select::new)
+            .boxed()
     }
 }
