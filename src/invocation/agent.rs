@@ -780,7 +780,7 @@ mod tests {
             );
 
             let not_account_invocation = crate::Invocation::try_sign(
-                &ctx.device_signer,
+                &ctx.server_signer,
                 ctx.varsig_header,
                 crate::invocation::PayloadBuilder::default()
                     .subject(ctx.dnslink.clone())
@@ -792,9 +792,11 @@ mod tests {
             )?;
 
             let observed_other = agent.receive(not_account_invocation);
-            assert_eq!(
-                observed_other.unwrap_err().as_validation_error(),
-                Some(&ValidationError::DidNotTerminateInSubject)
+            assert_matches!(
+                observed_other,
+                Err(ReceiveError::ValidationError(
+                    ValidationError::DidNotTerminateInSubject
+                ))
             );
 
             Ok(())
