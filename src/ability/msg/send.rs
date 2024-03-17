@@ -67,7 +67,8 @@ impl From<Send> for arguments::Named<Ipld> {
 
 impl From<Send> for Ipld {
     fn from(send: Send) -> Self {
-        arguments::Named::from(send).into()
+        let args = arguments::Named::from(send);
+        Ipld::Map(args.0)
     }
 }
 

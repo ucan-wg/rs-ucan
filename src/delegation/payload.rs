@@ -404,7 +404,9 @@ mod tests {
         fn test_ipld_round_trip(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
             let observed: Ipld = payload.clone().into();
             let parsed = Payload::<crate::did::preset::Verifier>::try_from(observed);
-            prop_assert!(matches!(parsed, Ok(payload)));
+
+            prop_assert!(parsed.is_ok());
+            prop_assert_eq!(parsed.unwrap(), payload);
         }
 
         #[test_log::test]
@@ -412,21 +414,20 @@ mod tests {
             let observed: Ipld = payload.clone().into();
 
             if let Ipld::Map(named) = observed {
+                prop_assert!(named.len() >= 6);
                 prop_assert!(named.len() <= 10);
 
                 for key in named.keys() {
                     prop_assert!(matches!(key.as_str(), "sub" | "iss" | "aud" | "via" | "cmd" | "pol" | "meta" | "nonce" | "exp" | "nbf"));
                 }
             } else {
-                panic!("Expected Ipld::Map, got {:?}", observed);
+                prop_assert!(false, "ipld map");
             }
         }
 
         #[test_log::test]
         fn test_ipld_field_types(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
             let named: Named<Ipld> = payload.clone().into();
-
-            prop_assert!(named.len() <= 10);
 
             let iss = named.get("iss".into());
             let aud = named.get("aud".into());

@@ -5,7 +5,7 @@ use crate::{
     invocation::promise,
     ipld, url,
 };
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "test_utils")]
@@ -48,7 +48,7 @@ pub struct Receive {
     pub from: Option<url::Newtype>,
 }
 
-const COMMAND: &'static str = "/msg/send";
+const COMMAND: &'static str = "/msg/receive";
 
 impl Command for Receive {
     const COMMAND: &'static str = COMMAND;
@@ -91,15 +91,19 @@ impl From<Receive> for arguments::Named<Ipld> {
 
 impl From<Receive> for Ipld {
     fn from(receive: Receive) -> Self {
-        receive.into()
+        arguments::Named::<Ipld>::from(receive).into()
     }
 }
 
 impl TryFrom<Ipld> for Receive {
-    type Error = SerdeError;
+    type Error = (); // FIXME
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        ipld_serde::from_ipld(ipld)
+        if let Ipld::Map(map) = ipld {
+            arguments::Named::<Ipld>(map).try_into().map_err(|_| ())
+        } else {
+            Err(())
+        }
     }
 }
 

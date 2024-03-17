@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 use proptest::prelude::*;
 
 /// Known [`Nonce`] types
-#[derive(Clone, Debug, PartialEq, EnumAsInner, Serialize, Deserialize)]
+#[derive(Clone, Debug, EnumAsInner, Serialize, Deserialize)]
 pub enum Nonce {
     /// 96-bit, 12-byte nonce
     Nonce12([u8; 12]),
@@ -29,6 +29,45 @@ pub enum Nonce {
 
     /// Dynamic sized nonce
     Custom(Vec<u8>),
+}
+
+impl PartialEq for Nonce {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Nonce::Nonce12(a), Nonce::Nonce12(b)) => a == b,
+            (Nonce::Nonce16(a), Nonce::Nonce16(b)) => a == b,
+            (Nonce::Custom(a), Nonce::Custom(b)) => a == b,
+            (Nonce::Custom(a), Nonce::Nonce12(b)) => {
+                if a.len() == 12 {
+                    a.as_slice() == b
+                } else {
+                    false
+                }
+            }
+            (Nonce::Custom(a), Nonce::Nonce16(b)) => {
+                if a.len() == 16 {
+                    a.as_slice() == b
+                } else {
+                    false
+                }
+            }
+            (Nonce::Nonce12(a), Nonce::Custom(b)) => {
+                if b.len() == 12 {
+                    a == b.as_slice()
+                } else {
+                    false
+                }
+            }
+            (Nonce::Nonce16(a), Nonce::Custom(b)) => {
+                if b.len() == 16 {
+                    a == b.as_slice()
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
 }
 
 impl From<[u8; 12]> for Nonce {
@@ -55,19 +94,15 @@ impl From<Nonce> for Vec<u8> {
 
 impl From<Vec<u8>> for Nonce {
     fn from(nonce: Vec<u8>) -> Self {
-        match nonce.len() {
-            12 => Nonce::Nonce12(
-                nonce
-                    .try_into()
-                    .expect("12 bytes because we checked in the match"),
-            ),
-            16 => Nonce::Nonce16(
-                nonce
-                    .try_into()
-                    .expect("16 bytes because we checked in the match"),
-            ),
-            _ => Nonce::Custom(nonce),
+        if let Ok(twelve) = <[u8; 12]>::try_from(nonce.clone()) {
+            return twelve.into();
         }
+
+        if let Ok(sixteen) = <[u8; 16]>::try_from(nonce.clone()) {
+            return sixteen.into();
+        }
+
+        Nonce::Custom(nonce)
     }
 }
 

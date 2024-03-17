@@ -303,7 +303,7 @@ impl Arbitrary for Named<Ipld> {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..256)
+        prop::collection::btree_map(".*", ipld::Newtype::arbitrary(), 0..20)
             .prop_map(|newtype_map| {
                 newtype_map
                     .into_iter()
