@@ -115,7 +115,7 @@ impl<DID: Did> Verifiable<DID> for Payload<DID> {
     }
 }
 
-impl<DID: Did + FromStr> TryFrom<Named<Ipld>> for Payload<DID>
+impl<DID: Did> TryFrom<Named<Ipld>> for Payload<DID>
 where
     <DID as FromStr>::Err: Debug,
 {
@@ -317,6 +317,10 @@ impl<DID: Did> From<Payload<DID>> for Named<Ipld> {
             args.insert("sub".to_string(), Ipld::Null);
         }
 
+        if let Some(via) = payload.via {
+            args.insert("via".to_string(), Ipld::String(via.to_string()));
+        }
+
         if let Some(not_before) = payload.not_before {
             args.insert("nbf".to_string(), Ipld::from(not_before));
         }
@@ -393,64 +397,91 @@ mod tests {
     use proptest::prelude::*;
     use testresult::TestResult;
 
-    mod serialization {
-        use super::*;
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
 
         #[test_log::test]
-        fn test_into_ipld() -> TestResult {
-            proptest!(ProptestConfig::with_cases(100), |(payload: Payload<crate::did::preset::Verifier>)| {
-                let named: Named<Ipld> = payload.clone().into();
-                let sub = named.get("sub".into());
+        fn test_ipld_round_trip(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
+            let observed: Ipld = payload.clone().into();
+            let parsed = Payload::<crate::did::preset::Verifier>::try_from(observed);
+            prop_assert!(matches!(parsed, Ok(payload)));
+        }
 
-                if let Some(ref subject) = payload.subject {
-                    let sub_ipld = &Ipld::String(subject.to_string());
-                    pretty::assert_eq!(sub, Some(sub_ipld));
-                } else {
-                    pretty::assert_eq!(sub, Some(&Ipld::Null));
+        #[test_log::test]
+        fn test_ipld_has_correct_fields(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
+            let observed: Ipld = payload.clone().into();
+
+            if let Ipld::Map(named) = observed {
+                prop_assert!(named.len() <= 10);
+
+                for key in named.keys() {
+                    prop_assert!(matches!(key.as_str(), "sub" | "iss" | "aud" | "via" | "cmd" | "pol" | "meta" | "nonce" | "exp" | "nbf"));
                 }
-            });
-
-            // proptest! {
-            //     #![proptest_config(ProptestConfig {
-            //         cases: 100, .. ProptestConfig::default()
-            //     })]
-
-            //     #[test_log::test]
-            //     fn test_into_ipld(payload: Payload<crate::did::preset::Verifier>) {
-            //         dbg!(payload.clone());
-
-            //         prop_assert_eq!(payload.clone(), payload.clone())
-            //     }
-
-            //     // #[test_log::test]
-            //     // fn test_roundtrip_ipld() -> TestResult {
-            //     //     Ok(())
-            //     // }
-            // }
-
-            Ok(())
+            } else {
+                panic!("Expected Ipld::Map, got {:?}", observed);
+            }
         }
 
         #[test_log::test]
-        fn test_from_ipld() -> TestResult {
-            Ok(())
+        fn test_ipld_field_types(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
+            let named: Named<Ipld> = payload.clone().into();
+
+            prop_assert!(named.len() <= 10);
+
+            let iss = named.get("iss".into());
+            let aud = named.get("aud".into());
+            let cmd = named.get("cmd".into());
+            let pol = named.get("pol".into());
+            let nonce = named.get("nonce".into());
+            let exp = named.get("exp".into());
+
+            // Required Fields
+            prop_assert_eq!(iss.unwrap(), &Ipld::String(payload.issuer.to_string()));
+            prop_assert_eq!(aud.unwrap(), &Ipld::String(payload.audience.to_string()));
+            prop_assert_eq!(cmd.unwrap(), &Ipld::String(payload.command.clone()));
+            prop_assert_eq!(pol.unwrap(), &Ipld::List(payload.policy.clone().into_iter().map(|p| p.into()).collect()));
+            prop_assert_eq!(nonce.unwrap(), &payload.nonce.into());
+            prop_assert_eq!(exp.unwrap(), &payload.expiration.into());
+
+            // Optional Fields
+            match (payload.subject, named.get("sub")) {
+                (Some(sub), Some(Ipld::String(s))) => {
+                    prop_assert_eq!(&sub.to_string(), s);
+                }
+                (None, Some(Ipld::Null)) => prop_assert!(true),
+                _ => prop_assert!(false)
+            }
+
+            match (payload.via, named.get("via")) {
+                (Some(via), Some(Ipld::String(s))) => {
+                    prop_assert_eq!(&via.to_string(), s);
+                }
+                (None, None) => prop_assert!(true),
+                _ => prop_assert!(false)
+            }
+
+            match (payload.metadata.is_empty(), named.get("meta")) {
+                (false, Some(Ipld::Map(btree))) => {
+                    prop_assert_eq!(&payload.metadata, btree);
+                }
+                (true, None) => prop_assert!(true),
+                _ => prop_assert!(false)
+            }
+
+            match (payload.not_before, named.get("nbf")) {
+                (Some(nbf), Some(Ipld::Integer(i))) => {
+                    prop_assert_eq!(&i128::from(nbf), i);
+                }
+                (None, None) => prop_assert!(true),
+                _ => prop_assert!(false)
+            }
         }
 
         #[test_log::test]
-        fn test_ipld_round_trip() -> TestResult {
-            proptest!(ProptestConfig::with_cases(1), |(payload: Payload<crate::did::preset::Verifier>)| {
-                let ipld: Ipld = payload.clone().into();
-                let parsed = Payload::<crate::did::preset::Verifier>::try_from(ipld);
-
-                assert_matches!(parsed, Ok(payload));
-            });
-
-            Ok(())
-        }
-
-        #[test_log::test]
-        fn test_from_invalid_ipld() -> TestResult {
-            Ok(())
+        fn test_non_payload(ipld in ipld::Newtype::arbitrary()) {
+            // Just ensuring that a negative test shows up
+            let parsed = Payload::<crate::did::preset::Verifier>::try_from(ipld.0);
+            prop_assert!(parsed.is_err())
         }
     }
 }

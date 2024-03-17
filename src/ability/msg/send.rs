@@ -7,7 +7,9 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+
+#[cfg(feature = "test_utils")]
+use proptest_derive::Arbitrary;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The executable/dispatchable variant of the `msg/send` ability.
@@ -37,6 +39,7 @@ use std::collections::BTreeMap;
 ///     style sendrun stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "test_utils", derive(Arbitrary))]
 #[serde(deny_unknown_fields)]
 pub struct Send {
     /// The recipient of the message
@@ -59,6 +62,12 @@ impl From<Send> for arguments::Named<Ipld> {
             ("from".to_string(), send.from.into()),
             ("message".to_string(), send.message.into()),
         ])
+    }
+}
+
+impl From<Send> for Ipld {
+    fn from(send: Send) -> Self {
+        arguments::Named::from(send).into()
     }
 }
 

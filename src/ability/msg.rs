@@ -17,8 +17,15 @@ use receive::{PromisedReceive, Receive};
 use send::{PromisedSend, Send};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
+#[cfg(feature = "test_utils")]
+use proptest_derive::Arbitrary;
+
 /// A family of abilities for sending and receiving messages.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "test_utils", derive(Arbitrary))]
 pub enum Msg {
     /// The ability for sending messages.
     Send(Send),
@@ -28,6 +35,15 @@ pub enum Msg {
 }
 
 impl From<Msg> for arguments::Named<Ipld> {
+    fn from(msg: Msg) -> Self {
+        match msg {
+            Msg::Send(send) => send.into(),
+            Msg::Receive(receive) => receive.into(),
+        }
+    }
+}
+
+impl From<Msg> for Ipld {
     fn from(msg: Msg) -> Self {
         match msg {
             Msg::Send(send) => send.into(),
@@ -83,15 +99,6 @@ impl ParsePromised for PromisedMsg {
     }
 }
 
-// impl From<PromisedMsg> for arguments::Named<Ipld> {
-//     fn from(promised: PromisedMsg) -> Self {
-//         match promised {
-//             PromisedMsg::Send(send) => send.into(),
-//             PromisedMsg::Receive(receive) => receive.into(),
-//         }
-//     }
-// }
-
 impl Resolvable for Msg {
     type Promised = PromisedMsg;
 }
@@ -123,3 +130,16 @@ impl ParseAbility for Msg {
         Err(ParseAbilityError::UnknownCommand(cmd.to_string()))
     }
 }
+
+// #[cfg(feature = "test_utils")]
+// impl<T: Arbitrary + fmt::Debug, DID: Did + Arbitrary + 'static> Arbitrary for Payload<T, DID>
+// where
+//     T::Strategy: 'static,
+//     DID::Parameters: Clone,
+// {
+//     type Parameters = (T::Parameters, DID::Parameters);
+//     type Strategy = BoxedStrategy<Self>;
+//
+//     fn arbitrary_with((t_args, did_args): Self::Parameters) -> Self::Strategy {
+//     }
+// }

@@ -141,6 +141,12 @@ impl TryFrom<Ipld> for Timestamp {
     }
 }
 
+impl From<Timestamp> for i128 {
+    fn from(timestamp: Timestamp) -> i128 {
+        timestamp.to_unix() as i128
+    }
+}
+
 impl TryFrom<i128> for Timestamp {
     type Error = OutOfRangeError;
 

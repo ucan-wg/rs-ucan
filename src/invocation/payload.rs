@@ -1,6 +1,9 @@
 use super::promise::Resolvable;
 use crate::ability::command::Command;
+use crate::ability::parse::ParseAbilityError;
+use crate::delegation::policy::selector;
 use crate::invocation::Named;
+use crate::time;
 use crate::{
     ability::{arguments, command::ToCommand, parse::ParseAbility},
     capsule::Capsule,
@@ -20,6 +23,7 @@ use serde::{
     Deserialize, Serialize, Serializer,
 };
 use std::collections::BTreeSet;
+use std::str::FromStr;
 use std::{collections::BTreeMap, fmt};
 use thiserror::Error;
 use web_time::SystemTime;
@@ -274,17 +278,15 @@ where
 {
     fn from(payload: Payload<A, DID>) -> Self {
         let mut args = arguments::Named::from_iter([
-            ("iss".into(), payload.issuer.to_string().into()),
-            ("sub".into(), payload.subject.to_string().into()),
-            ("cmd".into(), payload.ability.to_command().into()),
-            (
-                "args".into(),
-                arguments::Named::<Ipld>::from(payload.ability).into(),
-            ),
-            (
-                "prf".into(),
-                Ipld::List(payload.proofs.iter().map(Into::into).collect()),
-            ),
+            ("iss".into(), { payload.issuer.to_string().into() }),
+            ("sub".into(), { payload.subject.to_string().into() }),
+            ("cmd".into(), { payload.ability.to_command().into() }),
+            ("args".into(), {
+                Ipld::Map(arguments::Named::<Ipld>::from(payload.ability).0)
+            }),
+            ("prf".into(), {
+                Ipld::List(payload.proofs.iter().map(Into::into).collect())
+            }),
             ("nonce".into(), payload.nonce.into()),
         ]);
 
@@ -301,6 +303,15 @@ where
         }
 
         args
+    }
+}
+
+impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Ipld
+where
+    arguments::Named<Ipld>: From<Payload<A, DID>>,
+{
+    fn from(payload: Payload<A, DID>) -> Self {
+        arguments::Named::from(payload).into()
     }
 }
 
@@ -495,8 +506,12 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
     }
 }
 
-impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, DID> {
-    type Error = (); // FIXME
+impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, DID>
+where
+    <A as ParseAbility>::ArgsErr: fmt::Debug,
+    <DID as FromStr>::Err: fmt::Debug,
+{
+    type Error = ParseError<A, DID>;
 
     fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
         let mut subject = None;
@@ -513,82 +528,129 @@ impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, D
         for (k, v) in named {
             match k.as_str() {
                 "sub" => {
-                    subject = Some(
-                        match v {
-                            Ipld::Null => None,
-                            Ipld::String(s) => Some(DID::from_str(s.as_str()).map_err(|_| ())?),
-                            _ => return Err(()),
+                    subject = Some(match v {
+                        Ipld::String(s) => {
+                            DID::from_str(s.as_str()).map_err(ParseError::DidParseError)?
                         }
-                        .ok_or(())?,
-                    )
+                        _ => Err(ParseError::WrongTypeForField(k, v))?,
+                    })
                 }
                 "iss" => match v {
-                    Ipld::String(s) => issuer = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
-                    _ => return Err(()),
+                    Ipld::String(s) => {
+                        issuer = Some(DID::from_str(s.as_str()).map_err(ParseError::DidParseError)?)
+                    }
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "aud" => match v {
-                    Ipld::String(s) => audience = Some(DID::from_str(s.as_str()).map_err(|_| ())?),
-                    _ => return Err(()),
+                    Ipld::String(s) => {
+                        audience =
+                            Some(DID::from_str(s.as_str()).map_err(ParseError::DidParseError)?)
+                    }
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "cmd" => match v {
                     Ipld::String(s) => command = Some(s),
-                    _ => return Err(()),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "args" => match v.try_into() {
                     Ok(a) => args = Some(a),
-                    Err(_) => return Err(()),
+                    _ => Err(ParseError::ArgsNotAMap)?,
                 },
                 "meta" => match v {
                     Ipld::Map(m) => metadata = Some(m),
-                    _ => return Err(()),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "nonce" => match v {
                     Ipld::Bytes(b) => nonce = Some(Nonce::from(b)),
-                    _ => return Err(()),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "exp" => match v {
-                    Ipld::Integer(i) => expiration = Some(i.try_into().map_err(|_| ())?),
-                    _ => return Err(()),
+                    Ipld::Integer(i) => expiration = Some(i.try_into()?),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
                 "iat" => match v {
-                    Ipld::Integer(i) => issued_at = Some(i.try_into().map_err(|_| ())?),
-                    _ => return Err(()),
+                    Ipld::Integer(i) => issued_at = Some(i.try_into()?),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
-                "prf" => match v {
+                "prf" => match &v {
                     Ipld::List(xs) => {
                         proofs = Some(
-                            xs.into_iter()
+                            xs.iter()
                                 .map(|x| match x {
-                                    Ipld::Link(cid) => Ok(cid),
-                                    _ => Err(()),
+                                    Ipld::Link(cid) => Ok(*cid),
+                                    _ => Err(ParseError::WrongTypeForField(k.clone(), v.clone())),
                                 })
-                                .collect::<Result<Vec<Cid>, ()>>()
-                                .map_err(|_| ())?,
+                                .collect::<Result<Vec<Cid>, ParseError<A, DID>>>()?,
                         )
                     }
-                    _ => return Err(()),
+                    _ => Err(ParseError::WrongTypeForField(k, v))?,
                 },
-                _ => return Err(()),
+                _ => Err(ParseError::UnknownField(k.to_string()))?,
             }
         }
 
-        let cmd = command.ok_or(())?;
-        let some_args = args.ok_or(())?;
-        let ability = <A as ParseAbility>::try_parse(cmd.as_str(), some_args).map_err(|_| ())?;
+        let cmd = command.ok_or(ParseError::MissingCmd)?;
+        let some_args = args.ok_or(ParseError::MissingArgs)?;
+        let ability = <A as ParseAbility>::try_parse(cmd.as_str(), some_args)
+            .map_err(|e| ParseError::AbilityError(e))?;
 
         Ok(Payload {
-            issuer: issuer.ok_or(())?,
-            subject: subject.ok_or(())?,
+            issuer: issuer.ok_or(ParseError::MissingIss)?,
+            subject: subject.ok_or(ParseError::MissingSub)?,
             audience,
             ability,
-            proofs: proofs.ok_or(())?,
+            proofs: proofs.ok_or(ParseError::MissingProofsField)?,
             cause: None,
-            metadata: metadata.ok_or(())?,
-            nonce: nonce.ok_or(())?,
+            metadata: metadata.unwrap_or_default(),
+            nonce: nonce.ok_or(ParseError::MissingNonce)?,
             issued_at,
             expiration,
         })
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ParseError<A: ParseAbility, DID: FromStr>
+where
+    <A as ParseAbility>::ArgsErr: fmt::Debug,
+    <DID as FromStr>::Err: fmt::Debug,
+{
+    #[error("Unknown field: {0}")]
+    UnknownField(String),
+
+    #[error("Missing sub field")]
+    MissingSub,
+
+    #[error("Missing iss field")]
+    MissingIss,
+
+    #[error("Missing cmd field")]
+    MissingCmd,
+
+    #[error("Missing args field")]
+    MissingArgs,
+
+    #[error("Unable to parse ability: {0:?}")]
+    AbilityError(ParseAbilityError<<A as ParseAbility>::ArgsErr>),
+
+    #[error("Missing nonce field")]
+    MissingNonce,
+
+    #[error("Wrong type for field {0}: {1:?}")]
+    WrongTypeForField(String, Ipld),
+
+    #[error("Cannot parse DID")]
+    DidParseError(<DID as FromStr>::Err),
+
+    // FIXME
+    #[error("Cannot parse timestamp: {0}")]
+    BadTimestamp(#[from] time::OutOfRangeError),
+
+    #[error("Args are not a map")]
+    ArgsNotAMap,
+
+    #[error("Misisng proofs field")]
+    MissingProofsField,
 }
 
 /// A variant that accepts [`Promise`]s.
@@ -659,5 +721,107 @@ where
                 },
             )
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ability::msg::Msg;
+    use assert_matches::assert_matches;
+    use pretty_assertions as pretty;
+    use proptest::prelude::*;
+    use testresult::TestResult;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test_log::test]
+        fn test_inv_ipld_round_trip(payload in Payload::<Msg, crate::did::preset::Verifier>::arbitrary()) {
+            let observed: Named<Ipld> = payload.clone().into();
+            let parsed = Payload::<Msg, crate::did::preset::Verifier>::try_from(observed);
+
+            dbg!(&parsed);
+            prop_assert!(matches!(parsed, Ok(payload)));
+        }
+
+        // #[test_log::test]
+        // fn test_ipld_has_correct_fields(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
+        //     let observed: Ipld = payload.clone().into();
+
+        //     if let Ipld::Map(named) = observed {
+        //         prop_assert!(named.len() <= 10);
+
+        //         for key in named.keys() {
+        //             prop_assert!(matches!(key.as_str(), "sub" | "iss" | "aud" | "via" | "cmd" | "pol" | "meta" | "nonce" | "exp" | "nbf"));
+        //         }
+        //     } else {
+        //         panic!("Expected Ipld::Map, got {:?}", observed);
+        //     }
+        // }
+
+        // #[test_log::test]
+        // fn test_ipld_field_types(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {
+        //     let named: Named<Ipld> = payload.clone().into();
+
+        //     dbg!(payload.issuer.to_string());
+
+        //     prop_assert!(named.len() <= 10);
+
+        //     let iss = named.get("iss".into());
+        //     let aud = named.get("aud".into());
+        //     let cmd = named.get("cmd".into());
+        //     let pol = named.get("pol".into());
+        //     let nonce = named.get("nonce".into());
+        //     let exp = named.get("exp".into());
+
+        //     // Required Fields
+        //     prop_assert_eq!(iss.unwrap(), &Ipld::String(payload.issuer.to_string()));
+        //     prop_assert_eq!(aud.unwrap(), &Ipld::String(payload.audience.to_string()));
+        //     prop_assert_eq!(cmd.unwrap(), &Ipld::String(payload.command.clone()));
+        //     prop_assert_eq!(pol.unwrap(), &Ipld::List(payload.policy.clone().into_iter().map(|p| p.into()).collect()));
+        //     prop_assert_eq!(nonce.unwrap(), &payload.nonce.into());
+        //     prop_assert_eq!(exp.unwrap(), &payload.expiration.into());
+
+        //     // Optional Fields
+        //     match (payload.subject, named.get("sub")) {
+        //         (Some(sub), Some(Ipld::String(s))) => {
+        //             prop_assert_eq!(&sub.to_string(), s);
+        //         }
+        //         (None, Some(Ipld::Null)) => prop_assert!(true),
+        //         _ => prop_assert!(false)
+        //     }
+
+        //     match (payload.via, named.get("via")) {
+        //         (Some(via), Some(Ipld::String(s))) => {
+        //             prop_assert_eq!(&via.to_string(), s);
+        //         }
+        //         (None, None) => prop_assert!(true),
+        //         _ => prop_assert!(false)
+        //     }
+
+        //     match (payload.metadata.is_empty(), named.get("meta")) {
+        //         (false, Some(Ipld::Map(btree))) => {
+        //             prop_assert_eq!(&payload.metadata, btree);
+        //         }
+        //         (true, None) => prop_assert!(true),
+        //         _ => prop_assert!(false)
+        //     }
+
+        //     match (payload.not_before, named.get("nbf")) {
+        //         (Some(nbf), Some(Ipld::Integer(i))) => {
+        //             prop_assert_eq!(&i128::from(nbf), i);
+        //         }
+        //         (None, None) => prop_assert!(true),
+        //         _ => prop_assert!(false)
+        //     }
+        // }
+
+        // #[test_log::test]
+        // fn test_non_payload(ipld in ipld::Newtype::arbitrary()) {
+        //     // Just ensuring that a negative test shows up
+        //     let parsed = Payload::<crate::did::preset::Verifier>::try_from(ipld.0);
+        //     prop_assert!(parsed.is_err())
+        // }
     }
 }

@@ -8,6 +8,9 @@ use crate::{
 use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "test_utils")]
+use proptest_derive::Arbitrary;
+
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// The ability to receive messages
 ///
@@ -37,6 +40,7 @@ use serde::{Deserialize, Serialize};
 ///     style rec stroke:orange;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "test_utils", derive(Arbitrary))]
 #[serde(deny_unknown_fields)]
 pub struct Receive {
     /// An *optional* URL (e.g. email, DID, socket) to receive messages from.

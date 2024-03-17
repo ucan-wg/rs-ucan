@@ -51,7 +51,7 @@ impl fmt::Display for Newtype {
 
 impl From<Newtype> for Ipld {
     fn from(newtype: Newtype) -> Self {
-        newtype.into()
+        Ipld::String(newtype.to_string())
     }
 }
 
@@ -86,7 +86,7 @@ impl Arbitrary for Newtype {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        let url_regex: &str = &"\\w+:(\\/?\\/?)[^\\s]+";
+        let url_regex: &str = &r#"[a-zA-Z]+[a-zA-Z0-9]*:(//)?[a-zA-Z0-9._]+(#)?[a-zA-Z0-9_]"#;
         url_regex
             .prop_map(|s| {
                 Newtype(Url::parse(&s).expect("the regex generator to create valid URLs"))
