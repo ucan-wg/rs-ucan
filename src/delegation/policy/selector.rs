@@ -27,6 +27,9 @@ use std::cmp::Ordering;
 use std::{fmt, str::FromStr};
 use thiserror::Error;
 
+#[cfg(feature = "test_utils")]
+use proptest::prelude::*;
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Selector(pub Vec<Filter>);
 
@@ -168,30 +171,39 @@ impl FromStr for Selector {
     type Err = nom::Err<ParseError>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "." {
-            return Ok(Selector(vec![]));
+        if !s.starts_with(".") {
+            return Err(nom::Err::Error(ParseError::MissingStartingDot(
+                s.to_string(),
+            )));
         }
 
-        todo!();
+        if s.len() == 0 {
+            return Err(nom::Err::Error(ParseError::MissingStartingDot(
+                s.to_string(),
+            )));
+        }
 
-        // let mut working = s;
-        // let mut acc = vec![];
+        let working;
+        let mut acc = vec![];
 
-        // alt((parse_dot_field, tag('.'));
+        if let Ok((more, found)) = filter::parse_dot_field(s) {
+            working = more;
+            acc.push(found);
+        } else {
+            working = &s[1..];
+        }
 
-        // match many0(filter::parse)(s) {
-        //     Ok((rest, ops)) => {
-        //         dbg!(rest);
-        //         dbg!(&ops);
-        //         Ok(Selector(ops))
-        //     }
-        //     // Ok(("", ops)) => Ok(Selector(ops)),
-        //     // Ok((rest, _)) => Err(nom::Err::Error(ParseError::TrailingInput(rest.to_string()))),
-        //     Err(err) => Err(err.map(|input| ParseError::UnknownPattern(input.to_string()))),
-        // }
+        match many0(filter::parse)(working) {
+            Ok(("", ops)) => {
+                let mut mut_ops = ops.clone();
+                acc.append(&mut mut_ops);
+                Ok(Selector(acc))
+            }
+            Ok((more, _ops)) => Err(nom::Err::Error(ParseError::TrailingInput(more.to_string()))),
+            Err(err) => Err(err.map(|input| ParseError::UnknownPattern(input.to_string()))),
+        }
     }
 }
-
 impl Serialize for Selector {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.to_string().serialize(serializer)
@@ -236,5 +248,36 @@ impl PartialOrd for Selector {
         }
 
         None
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl Arbitrary for Selector {
+    type Parameters = <Filter as Arbitrary>::Parameters;
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        prop::collection::vec(Filter::arbitrary_with(args), 0..12)
+            .prop_map(|ops| Selector(ops))
+            .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    mod serialization {
+        use super::*;
+
+        proptest! {
+            #[test]
+            fn test_selector_round_trip(sel: Selector) {
+                let serialized = sel.to_string();
+                let deserialized = serialized.parse();
+                prop_assert_eq!(Ok(sel), deserialized);
+            }
+        }
     }
 }

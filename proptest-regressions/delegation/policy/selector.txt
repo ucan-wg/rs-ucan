@@ -4,5 +4,5 @@
 #
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
-cc e85947ad7c94a9c29fc57391d4e52cc023b1648997f55f55b2e980afaa3616db # shrinks to filter = ArrayIndex(0)
-cc 86f7fcbfdc14a9aa56666c04370cbb2d82532c332ef68e6f4657edc672991bf7 # shrinks to filter = Field("A_")
+cc 7d58a6b190e172b6e8336a5ee53de75608728b67f299b38738cac62d7bfc9633 # shrinks to sel = Selector([ArrayIndex(0)])
+cc a896af81439f52a08c2a281bfeebaf4427d3ee97a99f77440deee54c8a8ae7ff # shrinks to sel = Selector([Field("_")])

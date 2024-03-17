@@ -8,6 +8,9 @@ pub enum ParseError {
 
     #[error("unknown pattern: {0}")]
     UnknownPattern(String),
+
+    #[error("missing starting dot: {0}")]
+    MissingStartingDot(String),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
