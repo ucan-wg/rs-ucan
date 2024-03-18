@@ -1,6 +1,4 @@
 use super::Signature;
-use crate::did::Did;
-use did_url::DID;
 use enum_as_inner::EnumAsInner;
 
 #[cfg(feature = "eddsa")]
@@ -27,50 +25,49 @@ use crate::crypto::rs512;
 #[cfg(feature = "bls")]
 use crate::crypto::bls12381;
 
-/// Signature types that are verifiable by `did:key` [`Verifier`]s.
-#[derive(Debug, Clone, PartialEq, Eq, EnumAsInner)]
+/// Signer types that are verifiable by `did:key` [`Verifier`]s.
+#[derive(Clone, EnumAsInner)]
 pub enum Signer {
-    /// `EdDSA` signature.
+    /// `EdDSA` signer.
     #[cfg(feature = "eddsa")]
     EdDsa(ed25519_dalek::SigningKey),
-    // FIXME
-    // /// `ES256K` (`secp256k1`) signature.
-    // #[cfg(feature = "es256k")]
-    // Es256k(k256::ecdsa::Signer),
 
-    // /// `P-256` signature.
-    // #[cfg(feature = "es256")]
-    // P256(p256::ecdsa::Signer),
+    /// `ES256K` (`secp256k1`) signer.
+    #[cfg(feature = "es256k")]
+    Es256k(k256::ecdsa::SigningKey),
 
-    // /// `P-384` signature.
-    // #[cfg(feature = "es384")]
-    // P384(p384::ecdsa::Signer),
+    /// `P-256` signer.
+    #[cfg(feature = "es256")]
+    P256(p256::ecdsa::SigningKey),
 
-    // /// `P-521` signature.
-    // #[cfg(feature = "es512")]
-    // P521(ext_p521::ecdsa::Signer),
+    /// `P-384` signer.
+    #[cfg(feature = "es384")]
+    P384(p384::ecdsa::SigningKey),
 
-    // /// `RS256` signature.
-    // #[cfg(feature = "rs256")]
-    // Rs256(rs256::Signer),
+    /// `P-521` signer.
+    #[cfg(feature = "es512")]
+    P521(ext_p521::ecdsa::SigningKey),
 
-    // /// `RS512` signature.
-    // #[cfg(feature = "rs512")]
-    // Rs512(rs512::Signer),
+    /// `RS256` signer.
+    #[cfg(feature = "rs256")]
+    Rs256(rs256::SigningKey),
 
-    // /// `BLS 12-381` signature for the "min pub key" variant.
-    // #[cfg(feature = "bls")]
-    // BlsMinPk(bls12381::min_pk::Signer),
+    /// `RS512` signer.
+    #[cfg(feature = "rs512")]
+    Rs512(rs512::SigningKey),
 
-    // /// `BLS 12-381` signature for the "min sig" variant.
-    // #[cfg(feature = "bls")]
-    // BlsMinSig(bls12381::min_sig::Signer),
+    /// `BLS 12-381` signer for the "min pub key" variant.
+    #[cfg(feature = "bls")]
+    BlsMinPk(blst::min_pk::SecretKey),
 
-    // /// An unknown signature type.
+    /// `BLS 12-381` signer for the "min sig" variant.
+    #[cfg(feature = "bls")]
+    BlsMinSig(blst::min_sig::SecretKey),
+    // /// An unknown signer type.
     // ///
     // /// This is primarily for parsing, where reification is delayed
     // /// until the DID method is known.
-    // Unknown(Vec<u8>),
+    // FIXME rmeove Unknown(Vec<u8>),
 }
 
 impl signature::Signer<Signature> for Signer {
@@ -80,6 +77,54 @@ impl signature::Signer<Signature> for Signer {
             Signer::EdDsa(signer) => {
                 let sig = signer.sign(msg);
                 Ok(Signature::EdDsa(sig))
+            }
+
+            #[cfg(feature = "es256k")]
+            Signer::Es256k(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::Es256k(sig))
+            }
+
+            #[cfg(feature = "es256")]
+            Signer::P256(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::P256(sig))
+            }
+
+            #[cfg(feature = "es384")]
+            Signer::P384(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::P384(sig))
+            }
+
+            #[cfg(feature = "es512")]
+            Signer::P521(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::P521(sig))
+            }
+
+            #[cfg(feature = "rs256")]
+            Signer::Rs256(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::Rs256(sig))
+            }
+
+            #[cfg(feature = "rs512")]
+            Signer::Rs512(signer) => {
+                let sig = signer.sign(msg);
+                Ok(Signature::Rs512(sig))
+            }
+
+            #[cfg(feature = "bls")]
+            Signer::BlsMinPk(signer) => {
+                let sig = signer.try_sign(msg)?;
+                Ok(Signature::BlsMinPk(sig))
+            }
+
+            #[cfg(feature = "bls")]
+            Signer::BlsMinSig(signer) => {
+                let sig = signer.try_sign(msg)?;
+                Ok(Signature::BlsMinSig(sig))
             }
         }
     }

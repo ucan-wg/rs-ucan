@@ -45,10 +45,18 @@ impl From<Verifier> for DID {
     }
 }
 
-#[derive(Debug, Clone, EnumAsInner, PartialEq, Eq)]
+#[derive(Clone, EnumAsInner)]
 pub enum Signer {
     Key(key::Signer),
     // FIXME Dns(did_url::DID),
+}
+
+impl std::fmt::Debug for Signer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Signer::Key(signer) => write!(f, "Signer::Key(HIDDEN)"),
+        }
+    }
 }
 
 impl Did for Verifier {
@@ -102,10 +110,6 @@ impl Arbitrary for Verifier {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        prop_oneof![
-            key::Verifier::arbitrary().prop_map(Verifier::Key),
-            // FIXME did_url::DID::arbitrary().prop_map(Verifier::Dns),
-        ]
-        .boxed()
+        key::Verifier::arbitrary().prop_map(Verifier::Key).boxed()
     }
 }

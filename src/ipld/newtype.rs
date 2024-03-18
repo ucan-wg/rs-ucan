@@ -53,12 +53,47 @@ impl From<Ipld> for Newtype {
     }
 }
 
+impl From<i128> for Newtype {
+    fn from(i: i128) -> Self {
+        Newtype(Ipld::Integer(i))
+    }
+}
+
+impl From<f64> for Newtype {
+    fn from(f: f64) -> Self {
+        Newtype(Ipld::Float(f))
+    }
+}
+
+impl From<&str> for Newtype {
+    fn from(s: &str) -> Self {
+        Newtype(Ipld::String(s.to_string()))
+    }
+}
+
+impl From<String> for Newtype {
+    fn from(s: String) -> Self {
+        Newtype(Ipld::String(s))
+    }
+}
+
 impl TryFrom<Newtype> for String {
     type Error = ();
 
     fn try_from(nt: Newtype) -> Result<String, ()> {
         match nt.0 {
             Ipld::String(s) => Ok(s),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<Newtype> for i128 {
+    type Error = ();
+
+    fn try_from(nt: Newtype) -> Result<i128, ()> {
+        match nt.0 {
+            Ipld::Integer(i) => Ok(i),
             _ => Err(()),
         }
     }

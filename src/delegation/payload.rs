@@ -398,7 +398,7 @@ mod tests {
     use testresult::TestResult;
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(100))]
+        // #![proptest_config(ProptestConfig::with_cases(200))]
 
         #[test_log::test]
         fn test_ipld_round_trip(payload in Payload::<crate::did::preset::Verifier>::arbitrary()) {

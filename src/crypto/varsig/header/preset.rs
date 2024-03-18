@@ -100,7 +100,7 @@ impl Header<encoding::Preset> for Preset {
             Preset::Es256(es256) => es256.codec(),
             Preset::Es256k(es256k) => es256k.codec(),
             Preset::Es512(es512) => es512.codec(),
-            // BLS?
+            // Preset::Bls
         }
     }
 }
