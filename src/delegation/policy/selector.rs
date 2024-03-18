@@ -40,20 +40,6 @@ impl Selector {
     }
 }
 
-pub fn parse(input: &str) -> IResult<&str, Selector> {
-    if input.starts_with("..") {
-        return Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Count,
-        )));
-    }
-
-    let with_try_this = preceded(char('.'), preceded(many0(char('?')), many0(filter::parse)));
-    let p = map_res(with_try_this, |found| Ok::<Selector, ()>(Selector(found)));
-
-    context("selector", p)(input)
-}
-
 impl fmt::Display for Selector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut ops = self.0.iter();
@@ -86,8 +72,8 @@ impl FromStr for Selector {
             )));
         }
 
-        if s.len() == 0 {
-            return Err(nom::Err::Error(ParseError::MissingStartingDot(
+        if s.starts_with("..") {
+            return Err(nom::Err::Error(ParseError::StartsWithDoubleDot(
                 s.to_string(),
             )));
         }
@@ -95,14 +81,16 @@ impl FromStr for Selector {
         let working;
         let mut acc = vec![];
 
-        if let Ok((more, found)) = filter::parse_dot_field(s) {
+        if let Ok((more, found)) =
+            nom::branch::alt((filter::parse_try_dot_field, filter::parse_dot_field))(s)
+        {
             working = more;
             acc.push(found);
         } else {
             working = &s[1..];
         }
 
-        match many0(filter::parse)(working) {
+        match preceded(many0(char('?')), many0(filter::parse))(working) {
             Ok(("", ops)) => {
                 let mut mut_ops = ops.clone();
                 acc.append(&mut mut_ops);

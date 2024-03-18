@@ -67,6 +67,7 @@ impl Harmonization {
 }
 
 impl Predicate {
+    // FIXME make &self?
     pub fn run(self, data: &Ipld) -> Result<bool, SelectorError> {
         Ok(match self {
             Predicate::Equal(lhs, rhs_data) => lhs.get(data)? == rhs_data,
@@ -78,21 +79,22 @@ impl Predicate {
             Predicate::Not(inner) => !inner.run(data)?,
             Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
             Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
-            Predicate::Every(xs, p) => xs
-                .get(data)?
-                .to_vec()
-                .iter()
-                .try_fold(true, |acc, each_datum| {
-                    Ok(acc && p.clone().run(&each_datum.0)?)
-                })?,
+            Predicate::Every(xs, p) => {
+                xs.get(data)?
+                    .to_vec()
+                    .iter()
+                    .try_fold(true, |acc, each_datum| {
+                        dbg!("every", &p, acc, each_datum);
+                        Ok(acc && p.clone().run(&each_datum.0)?)
+                    })?
+            }
             Predicate::Some(xs, p) => {
-                let pred = p.clone();
-
                 xs.get(data)?
                     .to_vec()
                     .iter()
                     .try_fold(false, |acc, each_datum| {
-                        Ok(acc || pred.clone().run(&each_datum.0)?)
+                        dbg!("some", &p, acc, each_datum);
+                        Ok(acc || p.clone().run(&each_datum.0)?)
                     })?
             }
         })
@@ -1117,6 +1119,58 @@ mod tests {
         }
 
         #[test_log::test]
+        fn test_eq_try_null() -> TestResult {
+            let p = Predicate::Equal(Select::from_str(".not_from?").unwrap(), Ipld::Null.into());
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_eq_dot_field_ending_try_null() -> TestResult {
+            let p = Predicate::Equal(Select::from_str(".from.not?").unwrap(), Ipld::Null.into());
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_eq_dot_field_inner_try_null() -> TestResult {
+            // FIXME double check against jq
+            let p = Predicate::Equal(Select::from_str(".nope?.not").unwrap(), Ipld::Null.into());
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_eq_root_try_not_null() -> TestResult {
+            let p = Predicate::Equal(Select::from_str(".?").unwrap(), Ipld::Null.into());
+
+            assert!(!p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_eq_try_not_null() -> TestResult {
+            let p = Predicate::Equal(
+                Select::from_str(".from?").unwrap(),
+                "alice@example.com".into(),
+            );
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_eq_nested_try_null() -> TestResult {
+            let p = Predicate::Equal(Select::from_str(".from?.not?").unwrap(), Ipld::Null.into());
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
         fn test_eq_fail_same_type() -> TestResult {
             let p = Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into());
 
@@ -1476,7 +1530,154 @@ mod tests {
         }
 
         #[test_log::test]
+        fn test_alternate_every_and_some() -> TestResult {
+            // ["every", ".a", ["some", ".b[]", ["==", ".", 0]]]
+            let p = Predicate::Every(
+                Select::from_str(".a").unwrap(),
+                Box::new(Predicate::Some(
+                    Select::from_str(".b[]").unwrap(),
+                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                )),
+            );
+
+            let nested_data = ipld!(
+                {
+                    "a": [
+                        {
+                            "b": {
+                                "c": 0, // Yep
+                                "d": 0, // Yep
+                                "e": 1  // Nope, but ok because "some"
+                            },
+                            "not-b": "ignore"
+                        },
+                        {
+                            "also-not-b": "ignore",
+                            "b": [-1, 0, 1]
+                        }
+                    ]
+                }
+            );
+
+            assert!(p.run(&nested_data)?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_alternate_fail_every_and_some() -> TestResult {
+            // ["every", ".a", ["some", ".b[]", ["==", ".", 0]]]
+            let p = Predicate::Every(
+                Select::from_str(".a").unwrap(),
+                Box::new(Predicate::Some(
+                    Select::from_str(".b[]").unwrap(),
+                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                )),
+            );
+
+            let nested_data = ipld!(
+                {
+                    "a": [
+                        {
+                            "b": {
+                                "c": 0, // Yep
+                                "d": 0, // Yep
+                                "e": 1  // Nope, but ok because "some"
+                            },
+                            "not-b": "ignore"
+                        },
+                        {
+                            "also-not-b": "ignore",
+                            "b": [-1, 42, 1] // No 0, so fail "every"
+                        }
+                    ]
+                }
+            );
+
+            assert!(!p.run(&nested_data)?);
+            Ok(())
+        }
+
+        // FIXME
+        #[test_log::test]
+        fn test_alternate_some_and_every() -> TestResult {
+            // ["some", ".a", ["every", ".b[]", ["==", ".", 0]]]
+            let p = Predicate::Some(
+                Select::from_str(".a").unwrap(),
+                Box::new(Predicate::Every(
+                    Select::from_str(".b[]").unwrap(),
+                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                )),
+            );
+
+            let nested_data = ipld!(
+                {
+                    "a": [
+                        {
+                            "b": {
+                                "c": 0, // Yep
+                                "d": 0, // Yep
+                                "e": 1  // Nope, so fail this every, but...
+                            },
+                            "not-b": "ignore"
+                        },
+                        {
+                            "also-not-b": "ignore",
+                            "b": [0, 0, 0] // This every succeeds, so the outer "some" succeeds
+                        }
+                    ]
+                }
+            );
+
+            assert!(p.run(&nested_data)?);
+            Ok(())
+        }
+
+        // FIXME
+        #[test_log::test]
+        fn test_alternate_fail_some_and_every() -> TestResult {
+            // ["some", ".a", ["every", ".b[]", ["==", ".", 0]]]
+            let p = Predicate::Some(
+                Select::from_str(".a").unwrap(),
+                Box::new(Predicate::Every(
+                    Select::from_str(".b[]").unwrap(),
+                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                )),
+            );
+
+            let nested_data = ipld!(
+                {
+                    "a": [
+                        {
+                            "b": {
+                                "c": 0, // Yep
+                                "d": 0, // Yep
+                                "e": 1  // Nope
+                            },
+                            "not-b": "ignore"
+                        },
+                        {
+                            "also-not-b": "ignore",
+                            "b": [-1, 42, 1] // Also nope, so fail
+                        }
+                    ]
+                }
+            );
+
+            assert!(!p.run(&nested_data)?);
+            Ok(())
+        }
+
+        #[test_log::test]
         fn test_deeply_alternate_some_and_every() -> TestResult {
+            // ["some", ".a",
+            //   ["every", ".b.c[]",
+            //     ["some", ".d",
+            //       ["every", ".e[]",
+            //         ["==", ".f.g", 0]
+            //       ]
+            //     ]
+            //   ]
+            // ]
             let p = Predicate::Some(
                 Select::from_str(".a").unwrap(),
                 Box::new(Predicate::Every(
@@ -1500,8 +1701,8 @@ mod tests {
                     "a": [
                         {
                             "b": {
-                                // Every
                                 "c": {
+                                    // Every
                                     "c1": {
                                         // Some
                                         "d": [
@@ -1510,14 +1711,14 @@ mod tests {
                                                 "e": {
                                                     "e1": {
                                                         "f": {
-                                                            "g": 42
+                                                            "g": 0
                                                         },
                                                         "nope": -10
                                                     },
                                                     "e2": {
                                                         "_": "not selected",
                                                         "f": {
-                                                            "g": 99
+                                                            "g": 0
                                                         },
                                                     }
                                                 }
@@ -1527,20 +1728,20 @@ mod tests {
                                     "c2": {
                                         // Some
                                         "*": "avoid",
-                                        "_": [
+                                        "d": [
                                             {
                                                 // Every
                                                 "e": {
                                                     "e1": {
                                                         "f": {
-                                                            "g": 42
+                                                            "g": 0
                                                         },
                                                         "nope": -10
                                                     },
                                                     "e2": {
                                                         "_": "not selected",
                                                         "f": {
-                                                            "g": 99
+                                                            "g": 0
                                                         },
                                                     }
                                                 }

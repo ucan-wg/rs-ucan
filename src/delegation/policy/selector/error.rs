@@ -11,6 +11,9 @@ pub enum ParseError {
 
     #[error("missing starting dot: {0}")]
     MissingStartingDot(String),
+
+    #[error("starts with double dot: {0}")]
+    StartsWithDoubleDot(String),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]

@@ -75,19 +75,27 @@ pub fn parse(input: &str) -> IResult<&str, Filter> {
     context("selector_op", p)(input)
 }
 
-pub fn parse_non_try(input: &str) -> IResult<&str, Filter> {
-    let p = alt((parse_values, parse_field, parse_array_index));
-    context("non_try", p)(input)
-}
-
 pub fn parse_try(input: &str) -> IResult<&str, Filter> {
     let p = map_res(
         terminated(parse_non_try, many1(tag("?"))),
-        // FIXME old code: terminated(parse_non_try, tag("?")),
         |found: Filter| Ok::<Filter, ()>(Filter::Try(Box::new(found))),
     );
 
     context("try", p)(input)
+}
+
+pub fn parse_try_dot_field(input: &str) -> IResult<&str, Filter> {
+    let p = map_res(
+        terminated(parse_dot_field, many1(tag("?"))),
+        |found: Filter| Ok::<Filter, ()>(Filter::Try(Box::new(found))),
+    );
+
+    context("try", p)(input)
+}
+
+pub fn parse_non_try(input: &str) -> IResult<&str, Filter> {
+    let p = alt((parse_values, parse_field, parse_array_index));
+    context("non_try", p)(input)
 }
 
 pub fn parse_array_index(input: &str) -> IResult<&str, Filter> {
@@ -244,8 +252,6 @@ impl FromStr for Filter {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match parse(s).map_err(|e| nom::Err::Failure(ParseError::UnknownPattern(e.to_string())))? {
             ("", found) => Ok(found),
-            // ("", found) => Ok(found),
-            // FIXME
             (rest, _) => Err(nom::Err::Failure(ParseError::TrailingInput(rest.into()))),
         }
     }
@@ -493,12 +499,87 @@ mod tests {
         }
 
         #[test_log::test]
-        fn test_multiple_tries() -> TestResult {
-            let got = Filter::from_str(".foo???????????????????");
+        fn test_parse_try() -> TestResult {
+            let got = parse(".foo?");
             pretty::assert_eq!(
                 got,
+                Ok(("", Filter::Try(Box::new(Filter::Field("foo".to_string())))))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_tries_after_dot_field() -> TestResult {
+            pretty::assert_eq!(
+                Filter::from_str(".foo???????????????????"),
                 Ok(Filter::Try(Box::new(Filter::Field("foo".to_string()))))
             );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_parse_multiple_tries_after_dot_field() -> TestResult {
+            pretty::assert_eq!(
+                parse(".foo???????????????????"),
+                Ok(("", Filter::Try(Box::new(Filter::Field("foo".to_string())))))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_parse_multiple_tries_after_dot_field_trailing() -> TestResult {
+            pretty::assert_eq!(
+                parse(".foo???????????????????abc"),
+                Ok((
+                    "abc",
+                    Filter::Try(Box::new(Filter::Field("foo".to_string())))
+                ))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_parse_many0_multiple_tries_after_dot_field() -> TestResult {
+            pretty::assert_eq!(
+                nom::multi::many0(parse)(".foo???????????????????abc"),
+                Ok((
+                    "abc",
+                    vec![Filter::Try(Box::new(Filter::Field("foo".to_string())))]
+                ))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_tries_after_delim_field() -> TestResult {
+            pretty::assert_eq!(
+                Filter::from_str(r#"["foo"]???????"#),
+                Ok(Filter::Try(Box::new(Filter::Field("foo".to_string()))))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_tries_after_delim_field_inner_questionmarks() -> TestResult {
+            let got = Filter::from_str(r#"["f?o"]???????"#);
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Try(Box::new(Filter::Field("f?o".to_string()))))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_tries_after_values() -> TestResult {
+            let got = Filter::from_str("[]???????");
+            pretty::assert_eq!(got, Ok(Filter::Try(Box::new(Filter::Values))));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_tries_after_index() -> TestResult {
+            let got = Filter::from_str("[42]???????");
+            pretty::assert_eq!(got, Ok(Filter::Try(Box::new(Filter::ArrayIndex(42)))));
             Ok(())
         }
 
