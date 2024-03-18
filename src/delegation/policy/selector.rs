@@ -8,12 +8,9 @@ pub use error::{ParseError, SelectorErrorReason};
 pub use select::Select;
 pub use selectable::Selectable;
 
-use crate::ipld;
 use filter::Filter;
-use libipld_core::ipld::Ipld;
 use nom::{
     self,
-    branch::alt,
     bytes::complete::tag,
     character::complete::char,
     combinator::map_res,
@@ -41,108 +38,20 @@ impl Selector {
     pub fn is_related(&self, other: &Selector) -> bool {
         self.0.iter().zip(other.0.iter()).all(|(a, b)| a == b)
     }
-
-    //     pub fn get(&self, ctx: &Ipld) -> Result<ipld::Newtype, SelectorError> {
-    //         let ipld: Ipld = self
-    //             .0
-    //             .iter()
-    //             .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
-    //                 seen_ops.push(op);
-    //
-    //                 match op {
-    //                     Filter::Try(inner) => {
-    //                         let op: Filter = *inner.clone();
-    //                         let ipld: Ipld = Select::Get::<Ipld>(vec![op])
-    //                             .resolve(ctx)
-    //                             .unwrap_or(Ipld::Null);
-    //
-    //                         Ok((ipld, seen_ops))
-    //                     }
-    //                     Filter::ArrayIndex(i) => {
-    //                         let result = {
-    //                             match ipld {
-    //                                 Ipld::List(xs) => {
-    //                                     if i.abs() as usize > xs.len() {
-    //                                         return Err(SelectorError::from_refs(
-    //                                             &seen_ops,
-    //                                             SelectorErrorReason::IndexOutOfBounds,
-    //                                         ));
-    //                                     };
-    //
-    //                                     xs.get((xs.len() as i32 + *i) as usize)
-    //                                         .ok_or(SelectorError::from_refs(
-    //                                             &seen_ops,
-    //                                             SelectorErrorReason::IndexOutOfBounds,
-    //                                         ))
-    //                                         .cloned()
-    //                                 }
-    //                                 // FIXME behaviour on maps? type error
-    //                                 _ => Err(SelectorError::from_refs(
-    //                                     &seen_ops,
-    //                                     SelectorErrorReason::NotAList,
-    //                                 )),
-    //                             }
-    //                         };
-    //
-    //                         Ok((result?, seen_ops))
-    //                     }
-    //                     Filter::Field(k) => {
-    //                         let result = match ipld {
-    //                             Ipld::Map(xs) => xs
-    //                                 .get(k)
-    //                                 .ok_or(SelectorError::from_refs(
-    //                                     &seen_ops,
-    //                                     SelectorErrorReason::KeyNotFound,
-    //                                 ))
-    //                                 .cloned(),
-    //                             _ => Err(SelectorError::from_refs(
-    //                                 &seen_ops,
-    //                                 SelectorErrorReason::NotAMap,
-    //                             )),
-    //                         };
-    //
-    //                         Ok((result?, seen_ops))
-    //                     }
-    //                     Filter::Values => {
-    //                         let result = match ipld {
-    //                             Ipld::List(xs) => Ok(Ipld::List(xs)),
-    //                             Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
-    //                             _ => Err(SelectorError::from_refs(
-    //                                 &seen_ops,
-    //                                 SelectorErrorReason::NotACollection,
-    //                             )),
-    //                         };
-    //
-    //                         Ok((result?, seen_ops))
-    //                     }
-    //                 }
-    //             })?
-    //             .0;
-    //
-    //         Ok(ipld::Newtype(ipld))
-    //     }
 }
 
 pub fn parse(input: &str) -> IResult<&str, Selector> {
-    let without_this = many1(filter::parse);
-    let with_this = preceded(char('.'), many0(filter::parse));
+    if input.starts_with("..") {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Count,
+        )));
+    }
 
-    // NOTE: must try without_this this first, to disambiguate `.field` from `.`
-    let p = map_res(alt((without_this, with_this)), |found| {
-        Ok::<Selector, ()>(Selector(found))
-    });
+    let with_try_this = preceded(char('.'), preceded(many0(char('?')), many0(filter::parse)));
+    let p = map_res(with_try_this, |found| Ok::<Selector, ()>(Selector(found)));
 
     context("selector", p)(input)
-}
-
-pub fn parse_this(input: &str) -> IResult<&str, Selector> {
-    let p = map_res(tag("."), |_| Ok::<Selector, ()>(Selector(vec![])));
-    context("this", p)(input)
-}
-
-pub fn parse_selector_ops(input: &str) -> IResult<&str, Vec<Filter>> {
-    let p = many1(filter::parse);
-    context("filters", p)(input)
 }
 
 impl fmt::Display for Selector {
@@ -266,7 +175,9 @@ impl Arbitrary for Selector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions as pretty;
     use proptest::prelude::*;
+    use testresult::TestResult;
 
     mod serialization {
         use super::*;
@@ -278,6 +189,145 @@ mod tests {
                 let deserialized = serialized.parse();
                 prop_assert_eq!(Ok(sel), deserialized);
             }
+        }
+
+        #[test_log::test]
+        fn test_bare_dot() -> TestResult {
+            pretty::assert_eq!(Selector::from_str("."), Ok(Selector(vec![])));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_dot_try() -> TestResult {
+            pretty::assert_eq!(Selector::from_str(".?"), Ok(Selector(vec![])));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_dot_many_tries() -> TestResult {
+            pretty::assert_eq!(
+                Selector::from_str(".?????????????????????"),
+                Ok(Selector(vec![]))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_dot_many_tries_and_dot_field() -> TestResult {
+            pretty::assert_eq!(
+                Selector::from_str(".?????????????????????.foo"),
+                Ok(Selector(vec![Filter::Field("foo".to_string())]))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_question_marks() -> TestResult {
+            pretty::assert_eq!(
+                Selector::from_str(".foo??????????????"),
+                Ok(Selector(vec![Filter::Try(Box::new(Filter::Field(
+                    "foo".to_string()
+                )))]))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fails_trailing_dot() -> TestResult {
+            let got = Selector::from_str(".foo.");
+            assert!(got.is_err());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fails_leading_double_dot() -> TestResult {
+            let got = Selector::from_str("..foo");
+            assert!(got.is_err());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fails_inner_double_dot() -> TestResult {
+            let got = Selector::from_str(".foo..bar");
+            assert!(got.is_err());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fails_multiple_leading_dots() -> TestResult {
+            let got = Selector::from_str("..");
+            assert!(got.is_err());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fail_missing_leading_dot() -> TestResult {
+            let got = Selector::from_str("[22]");
+            assert!(got.is_err());
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_dot_field() -> TestResult {
+            let got = Selector::from_str(".foo");
+            pretty::assert_eq!(got, Ok(Selector(vec![Filter::Field("foo".to_string())])));
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_multiple_dot_fields() -> TestResult {
+            let got = Selector::from_str(".foo.bar.baz");
+            pretty::assert_eq!(
+                got,
+                Ok(Selector(vec![
+                    Filter::Field("foo".to_string()),
+                    Filter::Field("bar".to_string()),
+                    Filter::Field("baz".to_string())
+                ]))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_fairly_complex() -> TestResult {
+            let got = Selector::from_str(r#".foo.bar[].baz[0][]["42"]._quux?[8]"#);
+            pretty::assert_eq!(
+                got,
+                Ok(Selector(vec![
+                    Filter::Field("foo".to_string()),
+                    Filter::Field("bar".to_string()),
+                    Filter::Values,
+                    Filter::Field("baz".to_string()),
+                    Filter::ArrayIndex(0),
+                    Filter::Values,
+                    Filter::Field("42".to_string()),
+                    Filter::Try(Box::new(Filter::Field("_quux".to_string()))),
+                    Filter::ArrayIndex(8)
+                ]))
+            );
+
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_very_complex() -> TestResult {
+            let got = Selector::from_str(r#".???.foo.bar[].baz[0][]["42"]._quux??[8]"#);
+            pretty::assert_eq!(
+                got,
+                Ok(Selector(vec![
+                    Filter::Field("foo".to_string()),
+                    Filter::Field("bar".to_string()),
+                    Filter::Values,
+                    Filter::Field("baz".to_string()),
+                    Filter::ArrayIndex(0),
+                    Filter::Values,
+                    Filter::Field("42".to_string()),
+                    Filter::Try(Box::new(Filter::Field("_quux".to_string()))),
+                    Filter::ArrayIndex(8)
+                ]))
+            );
+
+            Ok(())
         }
     }
 }

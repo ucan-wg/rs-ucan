@@ -1089,11 +1089,11 @@ mod tests {
 
         fn email() -> Ipld {
             ipld!({
-                "from": "alice@example.com".to_string(),
-                "to": ["bob@example.com".to_string(), "fraud@example.com".to_string()],
-                "cc": ["carol@example.com".to_string()],
-                "subject": "Quarterly Reports".to_string(),
-                "body": "Here's Q2 the reports ...".to_string()
+                "from": "alice@example.com",
+                "to": ["bob@example.com", "fraud@example.com"],
+                "cc": ["carol@example.com"],
+                "subject": "Quarterly Reports",
+                "body": "Here's Q2 the reports ..."
             })
         }
 
@@ -1240,6 +1240,17 @@ mod tests {
                 Select::from_str(".from").unwrap(),
                 "NOPE".into(),
             )));
+
+            assert!(p.run(&email())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_double_negative() -> TestResult {
+            let p = Predicate::Not(Box::new(Predicate::Not(Box::new(Predicate::Equal(
+                Select::from_str(".from").unwrap(),
+                "alice@example.com".into(),
+            )))));
 
             assert!(p.run(&email())?);
             Ok(())
@@ -1461,6 +1472,90 @@ mod tests {
             );
 
             assert!(!p.run(&wasm())?);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_deeply_alternate_some_and_every() -> TestResult {
+            let p = Predicate::Some(
+                Select::from_str(".a").unwrap(),
+                Box::new(Predicate::Every(
+                    Select::from_str(".b.c[]").unwrap(),
+                    Box::new(Predicate::Some(
+                        Select::from_str(".d").unwrap(),
+                        Box::new(Predicate::Every(
+                            Select::from_str(".e[]").unwrap(),
+                            Box::new(Predicate::Equal(
+                                Select::from_str(".f.g").unwrap(),
+                                0.into(),
+                            )),
+                        )),
+                    )),
+                )),
+            );
+
+            let deeply_nested_data = ipld!(
+                {
+                    // Some
+                    "a": [
+                        {
+                            "b": {
+                                // Every
+                                "c": {
+                                    "c1": {
+                                        // Some
+                                        "d": [
+                                            {
+                                                // Every
+                                                "e": {
+                                                    "e1": {
+                                                        "f": {
+                                                            "g": 42
+                                                        },
+                                                        "nope": -10
+                                                    },
+                                                    "e2": {
+                                                        "_": "not selected",
+                                                        "f": {
+                                                            "g": 99
+                                                        },
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "c2": {
+                                        // Some
+                                        "*": "avoid",
+                                        "_": [
+                                            {
+                                                // Every
+                                                "e": {
+                                                    "e1": {
+                                                        "f": {
+                                                            "g": 42
+                                                        },
+                                                        "nope": -10
+                                                    },
+                                                    "e2": {
+                                                        "_": "not selected",
+                                                        "f": {
+                                                            "g": 99
+                                                        },
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "z": "doesn't read this"
+                }
+            );
+
+            assert!(p.run(&deeply_nested_data)?);
             Ok(())
         }
     }
