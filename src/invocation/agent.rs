@@ -27,13 +27,13 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
     marker::PhantomData,
+    sync::Arc,
 };
 use thiserror::Error;
 use web_time::SystemTime;
 
 #[derive(Debug)]
 pub struct Agent<
-    'a,
     S: Store<T, DID, V, C>,
     D: delegation::store::Store<DID, V, C>,
     T: ToCommand = ability::preset::Preset,
@@ -42,7 +42,7 @@ pub struct Agent<
     C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
 > {
     /// The agent's [`DID`].
-    pub did: &'a DID,
+    pub did: DID,
 
     /// A [`delegation::Store`][delegation::store::Store].
     pub delegation_store: D,
@@ -50,11 +50,11 @@ pub struct Agent<
     /// A [`Store`][Store] for the agent's [`Invocation`]s.
     pub invocation_store: S,
 
-    signer: &'a <DID as Did>::Signer,
+    signer: <DID as Did>::Signer,
     marker: PhantomData<(T, V, C)>,
 }
 
-impl<'a, T, DID, S, D, V, C> Agent<'a, S, D, T, DID, V, C>
+impl<T, DID, S, D, V, C> Agent<S, D, T, DID, V, C>
 where
     Ipld: Encode<C>,
     T: ToCommand + Clone + ParseAbility,
@@ -70,8 +70,8 @@ where
     <D as delegation::store::Store<DID, V, C>>::DelegationStoreError: fmt::Debug,
 {
     pub fn new(
-        did: &'a DID,
-        signer: &'a <DID as Did>::Signer,
+        did: DID,
+        signer: <DID as Did>::Signer,
         invocation_store: S,
         delegation_store: D,
     ) -> Self {
@@ -85,7 +85,7 @@ where
     }
 
     pub fn invoke(
-        &mut self,
+        &self,
         audience: Option<DID>,
         subject: DID,
         ability: T,
@@ -171,7 +171,7 @@ where
     // }
 
     pub fn receive(
-        &mut self,
+        &self,
         invocation: Invocation<T, DID, V, C>,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>
     where
@@ -183,7 +183,7 @@ where
     }
 
     pub fn generic_receive(
-        &mut self,
+        &self,
         invocation: Invocation<T, DID, V, C>,
         now: SystemTime,
     ) -> Result<Recipient<Payload<T, DID>>, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>
@@ -204,20 +204,27 @@ where
             .put(cid.clone(), invocation.clone())
             .map_err(ReceiveError::InvocationStoreError)?;
 
-        let proof_payloads: Vec<&delegation::Payload<DID>> = self
+        let proofs = &self
             .delegation_store
             .get_many(&invocation.proofs())
-            .map_err(ReceiveError::DelegationStoreError)?
+            .map_err(ReceiveError::DelegationStoreError)?;
+        let proof_payloads: Vec<&delegation::Payload<DID>> = proofs
             .iter()
-            .map(|d| &d.payload)
-            .collect();
+            .zip(invocation.proofs().iter())
+            .map(|(d, cid)| {
+                Ok(&d
+                    .as_ref()
+                    .ok_or(ReceiveError::MissingDelegation(*cid))?
+                    .payload)
+            })
+            .collect::<Result<_, ReceiveError<T, DID, D::DelegationStoreError, S, V, C>>>()?;
 
         let _ = &invocation
             .payload
             .check(proof_payloads, now)
             .map_err(ReceiveError::ValidationError)?;
 
-        Ok(if invocation.normalized_audience() != self.did {
+        Ok(if invocation.normalized_audience() != &self.did {
             Recipient::Other(invocation.payload)
         } else {
             Recipient::You(invocation.payload)
@@ -225,7 +232,7 @@ where
     }
 
     // pub fn revoke(
-    //     &mut self,
+    //     &self,
     //     subject: DID,
     //     cause: Option<Cid>,
     //     cid: Cid,
@@ -290,6 +297,9 @@ pub enum ReceiveError<
 > where
     <S as Store<T, DID, V, C>>::InvocationStoreError: fmt::Debug,
 {
+    #[error("missing delegation: {0}")]
+    MissingDelegation(Cid),
+
     #[error("encoding error: {0}")]
     EncodingError(#[from] libipld_core::error::Error),
 
@@ -397,11 +407,9 @@ mod tests {
         (verifier, signer)
     }
 
-    fn setup_agent<'a>(
-        did: &'a crate::did::preset::Verifier,
-        signer: &'a crate::did::preset::Signer,
-    ) -> Agent<'a, crate::invocation::store::MemoryStore, crate::delegation::store::MemoryStore>
-    {
+    fn setup_agent(
+    ) -> Agent<crate::invocation::store::MemoryStore, crate::delegation::store::MemoryStore> {
+        let (did, signer) = gen_did();
         let inv_store = crate::invocation::store::MemoryStore::default();
         let del_store = crate::delegation::store::MemoryStore::default();
 
@@ -427,8 +435,7 @@ mod tests {
         #[test_log::test]
         fn test_invoker_is_sub_implicit_aud() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let (server, server_signer) = gen_did();
-            let mut agent = setup_agent(&server, &server_signer);
+            let mut agent = setup_agent();
 
             let invocation = agent.invoke(
                 None,
@@ -456,8 +463,7 @@ mod tests {
         #[test_log::test]
         fn test_invoker_is_sub_and_aud() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let (server, server_signer) = gen_did();
-            let mut agent = setup_agent(&server, &server_signer);
+            let mut agent = setup_agent();
 
             let invocation = agent.invoke(
                 Some(agent.did.clone()),
@@ -486,8 +492,7 @@ mod tests {
         #[test_log::test]
         fn test_other_recipient() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let (server, server_signer) = gen_did();
-            let mut agent = setup_agent(&server, &server_signer);
+            let mut agent = setup_agent();
 
             let (not_server, _) = gen_did();
 
@@ -517,8 +522,7 @@ mod tests {
         #[test_log::test]
         fn test_expired() -> TestResult {
             let (past, now, _exp) = setup_valid_time();
-            let (server, server_signer) = gen_did();
-            let mut agent = setup_agent(&server, &server_signer);
+            let mut agent = setup_agent();
 
             let invocation = agent.invoke(
                 None,
@@ -553,8 +557,8 @@ mod tests {
         #[test_log::test]
         fn test_invalid_sig() -> TestResult {
             let (_past, now, _exp) = setup_valid_time();
-            let (server, server_signer) = gen_did();
-            let mut agent = setup_agent(&server, &server_signer);
+            let mut agent = setup_agent();
+            let server = &agent.did;
 
             let mut invocation = agent.invoke(
                 None,
@@ -624,7 +628,7 @@ mod tests {
             );
 
             let inv_store = crate::invocation::store::MemoryStore::default();
-            let mut del_store = crate::delegation::store::MemoryStore::default();
+            let del_store = crate::delegation::store::MemoryStore::default();
 
             // Scenario
             // ========
@@ -739,18 +743,13 @@ mod tests {
 
         #[test_log::test]
         fn test_chain_ok() -> TestResult {
-            let mut ctx = setup_test_chain()?;
+            let ctx = setup_test_chain()?;
 
-            let mut agent: Agent<
-                '_,
-                &mut crate::invocation::store::MemoryStore<AccountManage>,
-                &mut crate::delegation::store::MemoryStore,
-                AccountManage,
-            > = Agent::new(
-                &ctx.server,
-                &ctx.server_signer,
-                &mut ctx.inv_store,
-                &mut ctx.del_store,
+            let mut agent = Agent::new(
+                ctx.server.clone(),
+                ctx.server_signer.clone(),
+                &ctx.inv_store,
+                &ctx.del_store,
             );
 
             let observed = agent.receive(ctx.account_invocation.clone());
@@ -760,18 +759,13 @@ mod tests {
 
         #[test_log::test]
         fn test_chain_wrong_sub() -> TestResult {
-            let mut ctx = setup_test_chain()?;
+            let ctx = setup_test_chain()?;
 
-            let mut agent: Agent<
-                '_,
-                &mut crate::invocation::store::MemoryStore<AccountManage>,
-                &mut crate::delegation::store::MemoryStore,
-                AccountManage,
-            > = Agent::new(
-                &ctx.server,
-                &ctx.server_signer,
-                &mut ctx.inv_store,
-                &mut ctx.del_store,
+            let mut agent = Agent::new(
+                ctx.server.clone(),
+                ctx.server_signer.clone(),
+                &ctx.inv_store,
+                &ctx.del_store,
             );
 
             let not_account_invocation = crate::Invocation::try_sign(

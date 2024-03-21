@@ -5,16 +5,19 @@ use crate::{
 };
 use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use web_time::SystemTime;
 
 pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + Into<u64>> {
     type DelegationStoreError: Debug;
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError>;
+    fn get(
+        &self,
+        cid: &Cid,
+    ) -> Result<Option<Arc<Delegation<DID, V, Enc>>>, Self::DelegationStoreError>;
 
     fn insert(
-        &mut self,
+        &self,
         cid: Cid,
         delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError>;
@@ -22,7 +25,7 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
     // FIXME validate invocation
     // store invocation
     // just... move to invocation
-    fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError>;
+    fn revoke(&self, cid: Cid) -> Result<(), Self::DelegationStoreError>;
 
     fn get_chain(
         &self,
@@ -31,7 +34,7 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
-    ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError>;
+    ) -> Result<Option<NonEmpty<(Cid, Arc<Delegation<DID, V, Enc>>)>>, Self::DelegationStoreError>;
 
     fn get_chain_cids(
         &self,
@@ -60,32 +63,34 @@ pub trait Store<DID: Did, V: varsig::Header<Enc>, Enc: Codec + TryFrom<u64> + In
     fn get_many(
         &self,
         cids: &[Cid],
-    ) -> Result<Vec<&Delegation<DID, V, Enc>>, Self::DelegationStoreError> {
-        cids.iter().try_fold(vec![], |mut acc, cid| {
-            acc.push(self.get(cid)?);
-            Ok(acc)
-        })
+    ) -> Result<Vec<Option<Arc<Delegation<DID, V, Enc>>>>, Self::DelegationStoreError> {
+        cids.iter()
+            .map(|cid| self.get(cid))
+            .collect::<Result<_, Self::DelegationStoreError>>()
     }
 }
 
 impl<T: Store<DID, V, C>, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
-    Store<DID, V, C> for &mut T
+    Store<DID, V, C> for &T
 {
     type DelegationStoreError = <T as Store<DID, V, C>>::DelegationStoreError;
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, C>, Self::DelegationStoreError> {
+    fn get(
+        &self,
+        cid: &Cid,
+    ) -> Result<Option<Arc<Delegation<DID, V, C>>>, Self::DelegationStoreError> {
         (**self).get(cid)
     }
 
     fn insert(
-        &mut self,
+        &self,
         cid: Cid,
         delegation: Delegation<DID, V, C>,
     ) -> Result<(), Self::DelegationStoreError> {
         (**self).insert(cid, delegation)
     }
 
-    fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
+    fn revoke(&self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
         (**self).revoke(cid)
     }
 
@@ -96,7 +101,8 @@ impl<T: Store<DID, V, C>, DID: Did, V: varsig::Header<C>, C: Codec + TryFrom<u64
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
-    ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, C>)>>, Self::DelegationStoreError> {
+    ) -> Result<Option<NonEmpty<(Cid, Arc<Delegation<DID, V, C>>)>>, Self::DelegationStoreError>
+    {
         (**self).get_chain(audience, subject, command, policy, now)
     }
 }

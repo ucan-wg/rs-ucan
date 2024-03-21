@@ -10,7 +10,11 @@ use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
 use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
-use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
+};
 use web_time::SystemTime;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -69,36 +73,77 @@ use web_time::SystemTime;
 /// linkStyle 6 stroke:orange;
 /// linkStyle 1 stroke:orange;
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct MemoryStore<
     DID: did::Did + Ord = did::preset::Verifier,
     V: varsig::Header<C> = varsig::header::Preset,
     C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
 > {
-    ucans: BTreeMap<Cid, Delegation<DID, V, C>>,
+    inner: Arc<RwLock<MemoryStoreInner<DID, V, C>>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct MemoryStoreInner<
+    DID: did::Did + Ord = did::preset::Verifier,
+    V: varsig::Header<C> = varsig::header::Preset,
+    C: Codec + TryFrom<u64> + Into<u64> = varsig::encoding::Preset,
+> {
+    ucans: BTreeMap<Cid, Arc<Delegation<DID, V, C>>>,
     index: BTreeMap<Option<DID>, BTreeMap<DID, BTreeSet<Cid>>>,
     revocations: BTreeSet<Cid>,
 }
 
-impl MemoryStore {
+impl<DID: did::Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>>
+    MemoryStore<DID, V, C>
+{
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn len(&self) -> usize {
-        self.ucans.len()
+        self.read().ucans.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.ucans.is_empty() // FIXME acocunt for revocations?
+        self.read().ucans.is_empty() // FIXME acocunt for revocations?
+    }
+
+    fn read(&self) -> RwLockReadGuard<'_, MemoryStoreInner<DID, V, C>> {
+        match self.inner.read() {
+            Ok(guard) => guard,
+            Err(poison) => {
+                // We ignore lock poisoning for simplicity
+                poison.into_inner()
+            }
+        }
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, MemoryStoreInner<DID, V, C>> {
+        match self.inner.write() {
+            Ok(guard) => guard,
+            Err(poison) => {
+                // We ignore lock poisoning for simplicity
+                poison.into_inner()
+            }
+        }
+    }
+}
+
+impl<DID: did::Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> Default
+    for MemoryStore<DID, V, C>
+{
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+        }
     }
 }
 
 impl<DID: Did + Ord, V: varsig::Header<C>, C: Codec + TryFrom<u64> + Into<u64>> Default
-    for MemoryStore<DID, V, C>
+    for MemoryStoreInner<DID, V, C>
 {
     fn default() -> Self {
-        MemoryStore {
+        MemoryStoreInner {
             ucans: BTreeMap::new(),
             index: BTreeMap::new(),
             revocations: BTreeSet::new(),
@@ -117,34 +162,39 @@ where
     delegation::Payload<DID>: TryFrom<Named<Ipld>>,
     Delegation<DID, V, Enc>: Encode<Enc>,
 {
-    type DelegationStoreError = String; // FIXME misisng
+    type DelegationStoreError = Infallible;
 
-    fn get(&self, cid: &Cid) -> Result<&Delegation<DID, V, Enc>, Self::DelegationStoreError> {
-        self.ucans
-            .get(cid)
-            .ok_or(format!("not found in delegation memstore: {:?}", cid).into())
+    fn get(
+        &self,
+        cid: &Cid,
+    ) -> Result<Option<Arc<Delegation<DID, V, Enc>>>, Self::DelegationStoreError> {
+        // cheap Arc clone
+        Ok(self.read().ucans.get(cid).cloned())
         // FIXME
     }
 
     fn insert(
-        &mut self,
+        &self,
         cid: Cid,
         delegation: Delegation<DID, V, Enc>,
     ) -> Result<(), Self::DelegationStoreError> {
-        self.index
+        let mut write_tx = self.write();
+
+        write_tx
+            .index
             .entry(delegation.subject().clone())
             .or_default()
             .entry(delegation.audience().clone())
             .or_default()
             .insert(cid);
 
-        self.ucans.insert(cid.clone(), delegation);
+        write_tx.ucans.insert(cid.clone(), Arc::new(delegation));
 
         Ok(())
     }
 
-    fn revoke(&mut self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
-        self.revocations.insert(cid);
+    fn revoke(&self, cid: Cid) -> Result<(), Self::DelegationStoreError> {
+        self.write().revocations.insert(cid);
         Ok(())
     }
 
@@ -155,12 +205,14 @@ where
         command: String,
         policy: Vec<Predicate>, // FIXME
         now: SystemTime,
-    ) -> Result<Option<NonEmpty<(Cid, &Delegation<DID, V, Enc>)>>, Self::DelegationStoreError> {
+    ) -> Result<Option<NonEmpty<(Cid, Arc<Delegation<DID, V, Enc>>)>>, Self::DelegationStoreError>
+    {
         let blank_set = BTreeSet::new();
         let blank_map = BTreeMap::new();
+        let read_tx = self.read();
 
-        let all_powerlines = self.index.get(&None).unwrap_or(&blank_map);
-        let all_aud_for_subject = self.index.get(subject).unwrap_or(&blank_map);
+        let all_powerlines = read_tx.index.get(&None).unwrap_or(&blank_map);
+        let all_aud_for_subject = read_tx.index.get(subject).unwrap_or(&blank_map);
         let powerline_candidates = all_powerlines.get(aud).unwrap_or(&blank_set);
         let sub_candidates = all_aud_for_subject.get(aud).unwrap_or(&blank_set);
 
@@ -185,11 +237,11 @@ where
                 }
 
                 'inner: for cid in parent_cid_candidates {
-                    if self.revocations.contains(cid) {
+                    if read_tx.revocations.contains(cid) {
                         continue;
                     }
 
-                    if let Some(delegation) = self.ucans.get(cid) {
+                    if let Some(delegation) = read_tx.ucans.get(cid) {
                         if delegation.check_time(now).is_err() {
                             continue;
                         }
@@ -217,7 +269,7 @@ where
                             }
                         }
 
-                        hypothesis_chain.push((cid.clone(), delegation));
+                        hypothesis_chain.push((cid.clone(), Arc::clone(delegation)));
 
                         let issuer = delegation.issuer().clone();
 
