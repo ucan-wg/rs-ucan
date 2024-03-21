@@ -88,7 +88,6 @@ where
         &self,
         audience: Option<DID>,
         subject: DID,
-        // command: String,
         ability: T,
         metadata: BTreeMap<String, Ipld>,
         cause: Option<Cid>,
@@ -99,7 +98,13 @@ where
     ) -> Result<Invocation<T, DID, V, C>, InvokeError<D::DelegationStoreError>> {
         let proofs = self
             .delegation_store
-            .get_chain(&self.did, &Some(subject.clone()), "/".into(), vec![], now) // FIXME
+            .get_chain(
+                &self.did,
+                &Some(subject.clone()),
+                ability.to_command(),
+                vec![],
+                now,
+            )
             .map_err(InvokeError::DelegationStoreError)?
             .map(|chain| chain.map(|(cid, _)| cid).into())
             .unwrap_or(vec![]);
