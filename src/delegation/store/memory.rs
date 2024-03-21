@@ -254,7 +254,7 @@ where
                                 format!("{}/", delegation.payload.command)
                             };
 
-                        if !corrected_delegation_command.starts_with(&corrected_target_command) {
+                        if !corrected_target_command.starts_with(&corrected_delegation_command) {
                             continue;
                         }
 
