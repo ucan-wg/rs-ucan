@@ -79,24 +79,20 @@ impl Predicate {
             Predicate::Not(inner) => !inner.run(data)?,
             Predicate::And(lhs, rhs) => lhs.run(data)? && rhs.run(data)?,
             Predicate::Or(lhs, rhs) => lhs.run(data)? || rhs.run(data)?,
-            Predicate::Every(xs, p) => {
-                xs.get(data)?
-                    .to_vec()
-                    .iter()
-                    .try_fold(true, |acc, each_datum| {
-                        dbg!("every", &p, acc, each_datum);
-                        Ok(acc && p.clone().run(&each_datum.0)?)
-                    })?
-            }
-            Predicate::Some(xs, p) => {
-                xs.get(data)?
-                    .to_vec()
-                    .iter()
-                    .try_fold(false, |acc, each_datum| {
-                        dbg!("some", &p, acc, each_datum);
-                        Ok(acc || p.clone().run(&each_datum.0)?)
-                    })?
-            }
+            Predicate::Every(xs, p) => xs
+                .get(data)?
+                .to_vec()
+                .iter()
+                .try_fold(true, |acc, each_datum| {
+                    Ok(acc && p.clone().run(&each_datum.0)?)
+                })?,
+            Predicate::Some(xs, p) => xs
+                .get(data)?
+                .to_vec()
+                .iter()
+                .try_fold(false, |acc, each_datum| {
+                    Ok(acc || p.clone().run(&each_datum.0)?)
+                })?,
         })
     }
 

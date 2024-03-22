@@ -6,6 +6,7 @@ use super::{
 use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
 use crate::ability::parse::ParseAbility;
+use crate::delegation::Delegation;
 use crate::invocation::payload::PayloadBuilder;
 use crate::{
     ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
@@ -23,12 +24,7 @@ use libipld_core::{
     codec::{Codec, Encode},
     ipld::Ipld,
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt,
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, fmt, marker::PhantomData};
 use thiserror::Error;
 use web_time::SystemTime;
 
@@ -37,10 +33,14 @@ pub struct Agent<
     S: Store<T, DID, V, C>,
     D: delegation::store::Store<DID, V, C>,
     T: ToCommand = ability::preset::Preset,
-    DID: Did = did::preset::Verifier,
+    DID: Did + Clone = did::preset::Verifier,
     V: varsig::Header<C> + Clone = varsig::header::Preset,
     C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
-> {
+> where
+    Delegation<DID, V, C>: Encode<C>,
+    delegation::Payload<DID>: TryFrom<Named<Ipld>>,
+    Named<Ipld>: From<delegation::Payload<DID>>,
+{
     /// The agent's [`DID`].
     pub did: DID,
 
@@ -68,6 +68,9 @@ where
     C: Codec + Into<u64> + TryFrom<u64>,
     <S as Store<T, DID, V, C>>::InvocationStoreError: fmt::Debug,
     <D as delegation::store::Store<DID, V, C>>::DelegationStoreError: fmt::Debug,
+    delegation::Payload<DID>: TryFrom<Named<Ipld>>,
+    Named<Ipld>: From<delegation::Payload<DID>>,
+    Delegation<DID, V, C>: Encode<C>,
 {
     pub fn new(
         did: DID,
@@ -96,20 +99,21 @@ where
         now: SystemTime,
         varsig_header: V,
     ) -> Result<Invocation<T, DID, V, C>, InvokeError<D::DelegationStoreError>> {
-        let proofs = self
-            .delegation_store
-            .get_chain(
-                &self.did,
-                &Some(subject.clone()),
-                ability.to_command(),
-                vec![],
-                now,
-            )
-            .map_err(InvokeError::DelegationStoreError)?
-            .map(|chain| chain.map(|(cid, _)| cid).into())
-            .unwrap_or(vec![]);
-
-        let mut seed = vec![];
+        let proofs = if subject == self.did {
+            vec![]
+        } else {
+            self.delegation_store
+                .get_chain(
+                    &self.did,
+                    &Some(subject.clone()),
+                    ability.to_command(),
+                    vec![],
+                    now,
+                )
+                .map_err(InvokeError::DelegationStoreError)?
+                .map(|chain| chain.map(|(cid, _)| cid).into())
+                .unwrap_or(vec![]) // FIXME
+        };
 
         let payload = Payload {
             issuer: self.did.clone(),
@@ -118,7 +122,7 @@ where
             ability,
             proofs,
             metadata,
-            nonce: Nonce::generate_12(&mut seed),
+            nonce: Nonce::generate_12(&mut vec![]),
             cause,
             expiration,
             issued_at,
@@ -441,7 +445,7 @@ mod tests {
         #[test_log::test]
         fn test_invoker_is_sub_implicit_aud() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let mut agent = setup_agent();
+            let agent = setup_agent();
 
             let invocation = agent.invoke(
                 None,
@@ -469,7 +473,7 @@ mod tests {
         #[test_log::test]
         fn test_invoker_is_sub_and_aud() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let mut agent = setup_agent();
+            let agent = setup_agent();
 
             let invocation = agent.invoke(
                 Some(agent.did.clone()),
@@ -498,7 +502,7 @@ mod tests {
         #[test_log::test]
         fn test_other_recipient() -> TestResult {
             let (_nbf, now, exp) = setup_valid_time();
-            let mut agent = setup_agent();
+            let agent = setup_agent();
 
             let (not_server, _) = gen_did();
 
@@ -528,7 +532,7 @@ mod tests {
         #[test_log::test]
         fn test_expired() -> TestResult {
             let (past, now, _exp) = setup_valid_time();
-            let mut agent = setup_agent();
+            let agent = setup_agent();
 
             let invocation = agent.invoke(
                 None,
@@ -563,7 +567,7 @@ mod tests {
         #[test_log::test]
         fn test_invalid_sig() -> TestResult {
             let (_past, now, _exp) = setup_valid_time();
-            let mut agent = setup_agent();
+            let agent = setup_agent();
             let server = &agent.did;
 
             let mut invocation = agent.invoke(
@@ -686,13 +690,13 @@ mod tests {
                     .build()?,
             )?;
 
-            drop(del_store.insert(account_device_ucan.cid()?, account_device_ucan.clone()));
-            drop(del_store.insert(account_pbox.cid()?, account_pbox.clone()));
-            drop(del_store.insert(dnslink_ucan.cid()?, dnslink_ucan.clone()));
+            del_store.insert(account_device_ucan.clone())?;
+            del_store.insert(account_pbox.clone())?;
+            del_store.insert(dnslink_ucan.clone())?;
 
             let proofs_for_powerline: Vec<Cid> = del_store
                 .get_chain(&device, &None, "/".into(), vec![], SystemTime::now())?
-                .ok_or("FIXME")?
+                .ok_or("failed during proof lookup")?
                 .iter()
                 .map(|x| x.0.clone())
                 .collect();
@@ -714,17 +718,14 @@ mod tests {
                     .issuer(device.clone())
                     .audience(Some(server.clone()))
                     .ability(AccountManage)
-                    .proofs(vec![
-                        account_device_ucan.cid()?,
-                        account_pbox.cid()?,
-                        dnslink_ucan.cid()?,
-                    ])
-                    // .proofs(proofs_for_powerline.clone())
+                    .proofs(proofs_for_powerline.clone())
                     .build()?,
             )?;
 
             let powerline_len = proofs_for_powerline.len();
-            let dnslink_len = chain_for_dnslink?.ok_or("FIXME")?.len();
+            let dnslink_len = chain_for_dnslink?
+                .ok_or("failed while finding DNSLink delegtaions")?
+                .len();
 
             Ok(Ctx {
                 varsig_header,
@@ -751,7 +752,7 @@ mod tests {
         fn test_chain_ok() -> TestResult {
             let ctx = setup_test_chain()?;
 
-            let mut agent = Agent::new(
+            let agent = Agent::new(
                 ctx.server.clone(),
                 ctx.server_signer.clone(),
                 &ctx.inv_store,
@@ -767,7 +768,7 @@ mod tests {
         fn test_chain_wrong_sub() -> TestResult {
             let ctx = setup_test_chain()?;
 
-            let mut agent = Agent::new(
+            let agent = Agent::new(
                 ctx.server.clone(),
                 ctx.server_signer.clone(),
                 &ctx.inv_store,

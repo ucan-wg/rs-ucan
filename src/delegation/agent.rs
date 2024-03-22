@@ -20,11 +20,15 @@ use web_time::SystemTime;
 /// This is helpful for sessions where more than one delegation will be made.
 #[derive(Debug)]
 pub struct Agent<
-    S: Store<DID, V, Enc>,
-    DID: Did = did::preset::Verifier,
-    V: varsig::Header<Enc> + Clone = varsig::header::Preset,
-    Enc: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
-> {
+    S: Store<DID, V, C>,
+    DID: Did + Clone = did::preset::Verifier,
+    V: varsig::Header<C> + Clone = varsig::header::Preset,
+    C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
+> where
+    Delegation<DID, V, C>: Encode<C>,
+    Payload<DID>: TryFrom<Named<Ipld>>,
+    Named<Ipld>: From<Payload<DID>>,
+{
     /// The [`Did`][Did] of the agent.
     pub did: DID,
 
@@ -32,17 +36,18 @@ pub struct Agent<
     pub store: S,
 
     signer: <DID as Did>::Signer,
-    _marker: PhantomData<(V, Enc)>,
+    _marker: PhantomData<(V, C)>,
 }
 
 impl<
-        S: Store<DID, V, Enc> + Clone,
+        S: Store<DID, V, C> + Clone,
         DID: Did + Clone,
-        V: varsig::Header<Enc> + Clone,
-        Enc: Codec + TryFrom<u64> + Into<u64>,
-    > Agent<S, DID, V, Enc>
+        V: varsig::Header<C> + Clone,
+        C: Codec + TryFrom<u64> + Into<u64>,
+    > Agent<S, DID, V, C>
 where
-    Ipld: Encode<Enc>,
+    Ipld: Encode<C>,
+    Delegation<DID, V, C>: Encode<C>,
     Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<Payload<DID>>,
 {
@@ -67,7 +72,7 @@ where
         not_before: Option<Timestamp>,
         now: SystemTime,
         varsig_header: V,
-    ) -> Result<Delegation<DID, V, Enc>, DelegateError<S::DelegationStoreError>> {
+    ) -> Result<Delegation<DID, V, C>, DelegateError<S::DelegationStoreError>> {
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
@@ -121,7 +126,7 @@ where
     pub fn receive(
         &self,
         cid: Cid, // FIXME remove and generate from the capsule header?
-        delegation: Delegation<DID, V, Enc>,
+        delegation: Delegation<DID, V, C>,
     ) -> Result<(), ReceiveError<S::DelegationStoreError, DID>> {
         if self.store.get(&cid).is_ok() {
             return Ok(());
@@ -135,7 +140,7 @@ where
             .validate_signature()
             .map_err(|_| ReceiveError::InvalidSignature(cid))?;
 
-        self.store.insert(cid, delegation).map_err(Into::into)
+        self.store.insert_keyed(cid, delegation).map_err(Into::into)
     }
 }
 
