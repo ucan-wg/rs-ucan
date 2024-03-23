@@ -37,7 +37,7 @@ pub struct Agent<
     V: varsig::Header<C> + Clone = varsig::header::Preset,
     C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
 > where
-    Delegation<DID, V, C>: Encode<C>,
+    Ipld: Encode<C>,
     delegation::Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<delegation::Payload<DID>>,
 {
@@ -70,7 +70,6 @@ where
     <D as delegation::store::Store<DID, V, C>>::DelegationStoreError: fmt::Debug,
     delegation::Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<delegation::Payload<DID>>,
-    Delegation<DID, V, C>: Encode<C>,
 {
     pub fn new(
         did: DID,
@@ -652,7 +651,7 @@ mod tests {
             // 4. [dnslink -d-> account -*-> server -a-> device]
 
             // 1.               account -*-> server
-            let account_pbox = crate::Delegation::try_sign(
+            let account_to_server = crate::Delegation::try_sign(
                 &account_signer,
                 varsig_header.clone(),
                 crate::delegation::PayloadBuilder::default()
@@ -665,7 +664,7 @@ mod tests {
             )?;
 
             // 2.                            server -a-> device
-            let account_device_ucan = crate::Delegation::try_sign(
+            let server_to_device = crate::Delegation::try_sign(
                 &server_signer,
                 varsig_header.clone(), // FIXME can also put this on a builder
                 crate::delegation::PayloadBuilder::default()
@@ -678,7 +677,7 @@ mod tests {
             )?;
 
             // 3.  dnslink -d-> account
-            let dnslink_ucan = crate::Delegation::try_sign(
+            let dnslink_to_account = crate::Delegation::try_sign(
                 &dnslink_signer,
                 varsig_header.clone(),
                 crate::delegation::PayloadBuilder::default()
@@ -690,9 +689,9 @@ mod tests {
                     .build()?,
             )?;
 
-            del_store.insert(account_device_ucan.clone())?;
-            del_store.insert(account_pbox.clone())?;
-            del_store.insert(dnslink_ucan.clone())?;
+            del_store.insert(account_to_server.clone())?;
+            del_store.insert(server_to_device.clone())?;
+            del_store.insert(dnslink_to_account.clone())?;
 
             let proofs_for_powerline: Vec<Cid> = del_store
                 .get_chain(&device, &None, "/".into(), vec![], SystemTime::now())?
@@ -721,6 +720,18 @@ mod tests {
                     .proofs(proofs_for_powerline.clone())
                     .build()?,
             )?;
+
+            dbg!("===================");
+            dbg!(proofs_for_powerline.len());
+            dbg!(">>>>>>>>>>>>>>>>>.");
+            dbg!(account_to_server.cid()?.to_string());
+            dbg!(server_to_device.cid()?.to_string());
+            dbg!(dnslink_to_account.cid()?.to_string());
+
+            dbg!("<<<<<<<<<<<<<<<<<<");
+            for prf_cid in &proofs_for_powerline {
+                dbg!(prf_cid.to_string());
+            }
 
             let powerline_len = proofs_for_powerline.len();
             let dnslink_len = chain_for_dnslink?
@@ -760,7 +771,7 @@ mod tests {
             );
 
             let observed = agent.receive(ctx.account_invocation.clone());
-            assert!(observed.is_ok());
+            assert_matches!(observed, Ok(Recipient::You(_)));
             Ok(())
         }
 

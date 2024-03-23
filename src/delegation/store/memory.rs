@@ -160,7 +160,7 @@ impl<
 where
     Named<Ipld>: From<delegation::Payload<DID>>,
     delegation::Payload<DID>: TryFrom<Named<Ipld>>,
-    Delegation<DID, V, Enc>: Encode<Enc>,
+    Ipld: Encode<Enc>,
 {
     type DelegationStoreError = Infallible;
 
@@ -235,19 +235,28 @@ where
         // If
 
         'outer: loop {
+            dbg!("OUTER");
             if let Some(parent_cid_candidates) = parent_candidate_stack.last_mut() {
+                dbg!("SOME INNER");
+                for cid in parent_cid_candidates.clone() {
+                    dbg!("INNER", cid.to_string());
+                }
                 if parent_cid_candidates.clone().collect::<Vec<_>>().is_empty() {
+                    dbg!("EMPTY");
                     parent_candidate_stack.pop();
                     continue;
                 }
 
                 'inner: for cid in parent_cid_candidates {
+                    dbg!("BBBBBBBBBBBBBBBBBBBBBB");
+                    dbg!(cid.to_string());
                     // CHECKS
                     if read_tx.revocations.contains(cid) {
                         continue;
                     }
 
                     if let Some(delegation) = read_tx.ucans.get(cid) {
+                        dbg!("EEEEEEEEEEEEEEE");
                         if delegation.check_time(now).is_err() {
                             continue;
                         }
@@ -283,6 +292,7 @@ where
 
                         // Hit a root delegation, AKA base case
                         if &Some(issuer.clone()) == delegation.subject() {
+                            dbg!("HHHHHHHHHHHH");
                             break 'outer;
                         }
 
@@ -336,7 +346,11 @@ mod tests {
 
     #[test_log::test]
     fn test_get_fail() -> TestResult {
-        let store = crate::delegation::store::MemoryStore::default();
+        let store = MemoryStore::<
+            did::preset::Verifier,
+            varsig::header::Preset,
+            varsig::encoding::Preset,
+        >::default();
         store.get(&Cid::default())?;
         pretty::assert_eq!(store.get(&Cid::default()), Ok(None));
         Ok(())
@@ -415,7 +429,11 @@ mod tests {
         fn test_simple_fail() -> TestResult {
             let (server, _server_signer) = gen_did();
 
-            let store = crate::delegation::store::MemoryStore::default();
+            let store = MemoryStore::<
+                did::preset::Verifier,
+                varsig::header::Preset,
+                varsig::encoding::Preset,
+            >::default();
             let got = store.get_chain(&server, &None, "/".into(), vec![], SystemTime::now())?;
 
             pretty::assert_eq!(got, None);
@@ -635,9 +653,9 @@ mod tests {
         #[test_log::test]
         fn test_broken_chain() -> TestResult {
             let (alice, alice_signer) = gen_did();
-            let (bob, bob_signer) = gen_did();
+            let (bob, _bob_signer) = gen_did();
             let (carol, carol_signer) = gen_did();
-            let (dan, dan_signer) = gen_did();
+            let (dan, _dan_signer) = gen_did();
 
             let store = crate::delegation::store::MemoryStore::default();
             let varsig_header = crate::crypto::varsig::header::Preset::EdDsa(
@@ -693,11 +711,10 @@ mod tests {
             // 1.             bob -*-> carol
             // 2.                      carol -a-> dave
             // 3.  alice -d-> bob
-            //
             let (alice, alice_signer) = gen_did();
             let (bob, bob_signer) = gen_did();
             let (carol, carol_signer) = gen_did();
-            let (dave, _dave_signer) = gen_did();
+            let (dave, _) = gen_did();
 
             let varsig_header = crate::crypto::varsig::header::Preset::EdDsa(
                 crate::crypto::varsig::header::EdDsaHeader {
@@ -723,9 +740,9 @@ mod tests {
             // 2.                      carol -a-> dave
             let carol_to_dave = crate::Delegation::try_sign(
                 &carol_signer,
-                varsig_header.clone(), // FIXME can also put this on a builder
+                varsig_header.clone(),
                 crate::delegation::PayloadBuilder::default()
-                    .subject(None) // FIXME needs a sibject when we figure out powerbox
+                    .subject(None)
                     .issuer(carol.clone())
                     .audience(dave.clone())
                     .command("/".into())
@@ -758,6 +775,96 @@ mod tests {
                 .map(|(cid, _)| cid)
                 .cloned()
                 .collect();
+
+            pretty::assert_eq!(
+                got,
+                vec![
+                    carol_to_dave.cid()?,
+                    bob_to_carol.cid()?,
+                    alice_to_bob.cid()?
+                ]
+            );
+
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_long_powerline() -> TestResult {
+            // Scenario
+            // ========
+            // 1.             bob -*-> carol
+            // 2.                      carol -a-> dave
+            // 3.  alice -d-> bob
+            let (alice, alice_signer) = gen_did();
+            let (bob, bob_signer) = gen_did();
+            let (carol, carol_signer) = gen_did();
+            let (dave, _) = gen_did();
+
+            let varsig_header = crate::crypto::varsig::header::Preset::EdDsa(
+                crate::crypto::varsig::header::EdDsaHeader {
+                    codec: crate::crypto::varsig::encoding::Preset::DagCbor,
+                },
+            );
+
+            let store = crate::delegation::store::MemoryStore::default();
+
+            // 1.               bob -*-> carol
+            let bob_to_carol = crate::Delegation::try_sign(
+                &bob_signer,
+                varsig_header.clone(),
+                crate::delegation::PayloadBuilder::default()
+                    .subject(None)
+                    .issuer(bob.clone())
+                    .audience(carol.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?,
+            )?;
+
+            // 2.                      carol -a-> dave
+            let carol_to_dave = crate::Delegation::try_sign(
+                &carol_signer,
+                varsig_header.clone(),
+                crate::delegation::PayloadBuilder::default()
+                    .subject(None)
+                    .issuer(carol.clone())
+                    .audience(dave.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?, // I don't love this is now failable
+            )?;
+
+            // 3.  alice -d-> bob
+            let alice_to_bob = crate::Delegation::try_sign(
+                &alice_signer,
+                varsig_header.clone(),
+                crate::delegation::PayloadBuilder::default()
+                    .subject(Some(alice.clone()))
+                    .issuer(alice.clone())
+                    .audience(bob.clone())
+                    .command("/".into())
+                    .expiration(crate::time::Timestamp::five_years_from_now())
+                    .build()?,
+            )?;
+
+            store.insert(bob_to_carol.clone())?;
+            store.insert(carol_to_dave.clone())?;
+            store.insert(alice_to_bob.clone())?;
+
+            let got: Vec<Cid> = store
+                .get_chain(&dave, &None, "/".into(), vec![], SystemTime::now())
+                .map_err(|e| e.to_string())?
+                .ok_or("failed during proof lookup")?
+                .iter()
+                .map(|(cid, _)| cid)
+                .cloned()
+                .collect();
+
+            dbg!("THERE!!!!!!!!!!!!!!!!!");
+
+            for cid in &got {
+                dbg!(cid.to_string());
+            }
 
             pretty::assert_eq!(
                 got,

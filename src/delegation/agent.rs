@@ -25,7 +25,7 @@ pub struct Agent<
     V: varsig::Header<C> + Clone = varsig::header::Preset,
     C: Codec + Into<u64> + TryFrom<u64> = varsig::encoding::Preset,
 > where
-    Delegation<DID, V, C>: Encode<C>,
+    Ipld: Encode<C>,
     Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<Payload<DID>>,
 {
@@ -47,7 +47,6 @@ impl<
     > Agent<S, DID, V, C>
 where
     Ipld: Encode<C>,
-    Delegation<DID, V, C>: Encode<C>,
     Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<Payload<DID>>,
 {

@@ -15,7 +15,7 @@ use web_time::SystemTime;
 
 pub trait Store<DID: Did + Clone, V: varsig::Header<C> + Clone, C: Codec + TryFrom<u64> + Into<u64>>
 where
-    Delegation<DID, V, C>: Encode<C>,
+    Ipld: Encode<C>,
     Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<Payload<DID>>,
 {
@@ -91,7 +91,7 @@ impl<
         C: Codec + TryFrom<u64> + Into<u64>,
     > Store<DID, V, C> for &T
 where
-    Delegation<DID, V, C>: Encode<C>,
+    Ipld: Encode<C>,
     Payload<DID>: TryFrom<Named<Ipld>>,
     Named<Ipld>: From<Payload<DID>>,
 {

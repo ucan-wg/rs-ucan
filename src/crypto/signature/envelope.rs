@@ -186,11 +186,11 @@ pub trait Envelope: Sized {
 
     fn cid(&self) -> Result<Cid, libipld_core::error::Error>
     where
-        Self: Encode<Self::Encoder>,
+        Ipld: Encode<Self::Encoder>,
     {
         let codec = varsig::header::Header::codec(self.varsig_header()).clone();
         let mut ipld_buffer = vec![];
-        self.encode(codec, &mut ipld_buffer)?;
+        self.to_ipld_envelope().encode(codec, &mut ipld_buffer)?;
 
         let multihash = Code::Sha2_256.digest(&ipld_buffer);
         Ok(Cid::new_v1(
