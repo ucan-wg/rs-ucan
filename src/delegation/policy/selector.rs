@@ -201,6 +201,18 @@ mod tests {
         }
 
         #[test_log::test]
+        fn test_inner_try_is_null() -> TestResult {
+            pretty::assert_eq!(
+                Selector::from_str(".nope?.not"),
+                Ok(Selector(vec![
+                    Filter::Try(Box::new(Filter::Field("nope".into()))),
+                    Filter::Field("not".into())
+                ]))
+            );
+            Ok(())
+        }
+
+        #[test_log::test]
         fn test_dot_many_tries_and_dot_field() -> TestResult {
             pretty::assert_eq!(
                 Selector::from_str(".?????????????????????.foo"),

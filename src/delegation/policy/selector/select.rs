@@ -46,9 +46,9 @@ impl<T> Select<T> {
 
 impl<T: Selectable> Select<T> {
     pub fn get(self, ctx: &Ipld) -> Result<T, SelectorError> {
-        self.filters
-            .iter()
-            .try_fold((ctx.clone(), vec![]), |(ipld, mut seen_ops), op| {
+        let got = self.filters.iter().try_fold(
+            (ctx.clone(), vec![], false),
+            |(ipld, mut seen_ops, is_try), op| {
                 seen_ops.push(op);
 
                 match op {
@@ -57,70 +57,95 @@ impl<T: Selectable> Select<T> {
                         let ipld: Ipld =
                             Select::<Ipld>::new(vec![op]).get(ctx).unwrap_or(Ipld::Null);
 
-                        Ok((ipld, seen_ops))
+                        Ok((ipld, seen_ops.clone(), true))
                     }
                     Filter::ArrayIndex(i) => {
                         let result = {
                             match ipld {
                                 Ipld::List(xs) => {
                                     if i.abs() as usize > xs.len() {
-                                        return Err(SelectorError::from_refs(
-                                            &seen_ops,
-                                            SelectorErrorReason::IndexOutOfBounds,
+                                        return Err((
+                                            is_try,
+                                            SelectorError::from_refs(
+                                                &seen_ops,
+                                                SelectorErrorReason::IndexOutOfBounds,
+                                            ),
                                         ));
                                     };
 
                                     xs.get((xs.len() as i32 + *i) as usize)
-                                        .ok_or(SelectorError::from_refs(
-                                            &seen_ops,
-                                            SelectorErrorReason::IndexOutOfBounds,
+                                        .ok_or((
+                                            is_try,
+                                            SelectorError::from_refs(
+                                                &seen_ops,
+                                                SelectorErrorReason::IndexOutOfBounds,
+                                            ),
                                         ))
                                         .cloned()
                                 }
-                                // FIXME behaviour on maps? type error
-                                _ => Err(SelectorError::from_refs(
-                                    &seen_ops,
-                                    SelectorErrorReason::NotAList,
+                                _ => Err((
+                                    is_try,
+                                    SelectorError::from_refs(
+                                        &seen_ops,
+                                        SelectorErrorReason::NotAList,
+                                    ),
                                 )),
                             }
                         };
 
-                        Ok((result?, seen_ops))
+                        Ok((result?, seen_ops.clone(), is_try))
                     }
                     Filter::Field(k) => {
                         let result = match ipld {
                             Ipld::Map(xs) => xs
                                 .get(k)
-                                .ok_or(SelectorError::from_refs(
-                                    &seen_ops,
-                                    SelectorErrorReason::KeyNotFound,
+                                .ok_or((
+                                    is_try,
+                                    SelectorError::from_refs(
+                                        &seen_ops,
+                                        SelectorErrorReason::KeyNotFound,
+                                    ),
                                 ))
                                 .cloned(),
-                            _ => Err(SelectorError::from_refs(
-                                &seen_ops,
-                                SelectorErrorReason::NotAMap,
+                            _ => Err((
+                                is_try,
+                                SelectorError::from_refs(&seen_ops, SelectorErrorReason::NotAMap),
                             )),
                         };
 
-                        Ok((result?, seen_ops))
+                        Ok((result?, seen_ops.clone(), is_try))
                     }
                     Filter::Values => {
                         let result = match ipld {
                             Ipld::List(xs) => Ok(Ipld::List(xs)),
                             Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
-                            _ => Err(SelectorError::from_refs(
-                                &seen_ops,
-                                SelectorErrorReason::NotACollection,
+                            _ => Err((
+                                is_try,
+                                SelectorError::from_refs(
+                                    &seen_ops,
+                                    SelectorErrorReason::NotACollection,
+                                ),
                             )),
                         };
 
-                        Ok((result?, seen_ops))
+                        Ok((result?, seen_ops.clone(), is_try))
                     }
                 }
-            })
-            .and_then(|(ipld, ref path)| {
-                T::try_select(ipld).map_err(|e| SelectorError::from_refs(path, e))
-            })
+            },
+        );
+
+        let (ipld, path) = match got {
+            Ok((ipld, seen_ops, _)) => Ok((ipld, seen_ops)),
+            Err((is_try, ref e @ SelectorError { ref selector, .. })) => {
+                if is_try {
+                    Ok((Ipld::Null, selector.0.iter().map(|x| x).collect::<Vec<_>>()))
+                } else {
+                    Err(e.clone())
+                }
+            }
+        }?;
+
+        T::try_select(ipld).map_err(|e| SelectorError::from_refs(&path, e))
     }
 }
 
@@ -164,5 +189,72 @@ impl<T: 'static> Arbitrary for Select<T> {
         prop::collection::vec(Filter::arbitrary(), 1..10)
             .prop_map(Select::new)
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipld;
+    use pretty_assertions as pretty;
+    use proptest::prelude::*;
+    use testresult::TestResult;
+
+    mod get {
+        use super::*;
+
+        fn nested_data() -> Ipld {
+            Ipld::Map(
+                vec![
+                    ("name".to_string(), Ipld::String("Alice".to_string())),
+                    ("age".to_string(), Ipld::Integer(42)),
+                    (
+                        "friends".to_string(),
+                        Ipld::List(vec![
+                            Ipld::String("Bob".to_string()),
+                            Ipld::String("Charlie".to_string()),
+                        ]),
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            )
+        }
+
+        proptest! {
+            #[test_log::test]
+            fn test_identity(data: ipld::Newtype) {
+                let selector = Select::<ipld::Newtype>::from_str(".")?;
+                prop_assert_eq!(selector.get(&data.0)?, data);
+            }
+
+            #[test_log::test]
+            fn test_try_missing_is_null(data: ipld::Newtype) {
+                let selector = Select::<Ipld>::from_str(".foo?")?;
+                let cleaned_data = match data.0.clone() {
+                    Ipld::Map(mut m) => {
+                        m.remove("foo").map_or(Ipld::Null, |v| v)
+                    }
+                    ipld => ipld
+                };
+                prop_assert_eq!(selector.get(&cleaned_data)?, Ipld::Null);
+            }
+
+            #[test_log::test]
+            fn test_try_missing_plus_trailing_is_null(data: ipld::Newtype, more: Vec<Filter>) {
+                let mut filters = vec![Filter::Try(Box::new(Filter::Field("foo".into())))];
+                filters.append(&mut more.clone());
+
+                let selector: Select<Ipld> = Select::new(filters);
+
+                let cleaned_data = match data.0.clone() {
+                    Ipld::Map(mut m) => {
+                        m.remove("foo").map_or(Ipld::Null, |v| v)
+                    }
+                    ipld => ipld
+                };
+                prop_assert_eq!(selector.get(&cleaned_data)?, Ipld::Null);
+            }
+        }
     }
 }

@@ -1132,7 +1132,6 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_dot_field_inner_try_null() -> TestResult {
-            // FIXME double check against jq
             let p = Predicate::Equal(Select::from_str(".nope?.not").unwrap(), Ipld::Null.into());
 
             assert!(p.run(&email())?);
