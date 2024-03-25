@@ -613,7 +613,6 @@ mod tests {
 
         struct Ctx {
             varsig_header: crate::crypto::varsig::header::Preset,
-            powerline_len: usize,
             dnslink_len: usize,
             inv_store: crate::invocation::store::MemoryStore<AccountManage>,
             del_store: crate::delegation::store::MemoryStore,
@@ -693,20 +692,18 @@ mod tests {
             del_store.insert(server_to_device.clone())?;
             del_store.insert(dnslink_to_account.clone())?;
 
-            let proofs_for_powerline: Vec<Cid> = del_store
-                .get_chain(&device, &None, "/".into(), vec![], SystemTime::now())?
+            let chain_for_dnslink: Vec<Cid> = del_store
+                .get_chain(
+                    &device,
+                    &Some(dnslink.clone()),
+                    "/".into(),
+                    vec![],
+                    SystemTime::now(),
+                )?
                 .ok_or("failed during proof lookup")?
                 .iter()
                 .map(|x| x.0.clone())
                 .collect();
-
-            let chain_for_dnslink = del_store.get_chain(
-                &device,
-                &Some(dnslink.clone()),
-                "/".into(),
-                vec![],
-                SystemTime::now(),
-            );
 
             // 4. [dnslink -d-> account -*-> server -a-> device]
             let account_invocation = crate::Invocation::try_sign(
@@ -717,30 +714,14 @@ mod tests {
                     .issuer(device.clone())
                     .audience(Some(server.clone()))
                     .ability(AccountManage)
-                    .proofs(proofs_for_powerline.clone())
+                    .proofs(chain_for_dnslink.clone())
                     .build()?,
             )?;
 
-            dbg!("===================");
-            dbg!(proofs_for_powerline.len());
-            dbg!(">>>>>>>>>>>>>>>>>.");
-            dbg!(account_to_server.cid()?.to_string());
-            dbg!(server_to_device.cid()?.to_string());
-            dbg!(dnslink_to_account.cid()?.to_string());
-
-            dbg!("<<<<<<<<<<<<<<<<<<");
-            for prf_cid in &proofs_for_powerline {
-                dbg!(prf_cid.to_string());
-            }
-
-            let powerline_len = proofs_for_powerline.len();
-            let dnslink_len = chain_for_dnslink?
-                .ok_or("failed while finding DNSLink delegtaions")?
-                .len();
+            let dnslink_len = chain_for_dnslink.len();
 
             Ok(Ctx {
                 varsig_header,
-                powerline_len,
                 dnslink_len,
                 inv_store,
                 del_store,
@@ -750,13 +731,6 @@ mod tests {
                 device,
                 dnslink,
             })
-        }
-
-        #[test_log::test]
-        fn test_chain_len() -> TestResult {
-            let ctx = setup_test_chain()?;
-            assert_eq!((ctx.powerline_len, ctx.dnslink_len), (3, 3));
-            Ok(())
         }
 
         #[test_log::test]

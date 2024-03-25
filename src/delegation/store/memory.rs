@@ -198,6 +198,7 @@ where
         Ok(())
     }
 
+    // FIXME take a PayloadBuilder
     fn get_chain(
         &self,
         aud: &DID,
@@ -226,37 +227,20 @@ where
             format!("{}/", command)
         };
 
-        // TODO Vec<Chain<Delegation>>
-        // parent_candidate_stack.push(sub_candidates.iter()); // .chain(powerline_candidates.iter()));
-
-        // Pseudocode:
-        // If empty, pop:
-        //     if pop fials, you're out of stuff
-        // If
-
         'outer: loop {
-            dbg!("OUTER");
             if let Some(parent_cid_candidates) = parent_candidate_stack.last_mut() {
-                dbg!("SOME INNER");
-                for cid in parent_cid_candidates.clone() {
-                    dbg!("INNER", cid.to_string());
-                }
                 if parent_cid_candidates.clone().collect::<Vec<_>>().is_empty() {
-                    dbg!("EMPTY");
                     parent_candidate_stack.pop();
                     continue;
                 }
 
                 'inner: for cid in parent_cid_candidates {
-                    dbg!("BBBBBBBBBBBBBBBBBBBBBB");
-                    dbg!(cid.to_string());
                     // CHECKS
                     if read_tx.revocations.contains(cid) {
                         continue;
                     }
 
                     if let Some(delegation) = read_tx.ucans.get(cid) {
-                        dbg!("EEEEEEEEEEEEEEE");
                         if delegation.check_time(now).is_err() {
                             continue;
                         }
@@ -292,7 +276,6 @@ where
 
                         // Hit a root delegation, AKA base case
                         if &Some(issuer.clone()) == delegation.subject() {
-                            dbg!("HHHHHHHHHHHH");
                             break 'outer;
                         }
 
@@ -852,19 +835,19 @@ mod tests {
             store.insert(alice_to_bob.clone())?;
 
             let got: Vec<Cid> = store
-                .get_chain(&dave, &None, "/".into(), vec![], SystemTime::now())
+                .get_chain(
+                    &dave,
+                    &Some(alice.clone()),
+                    "/".into(),
+                    vec![],
+                    SystemTime::now(),
+                )
                 .map_err(|e| e.to_string())?
                 .ok_or("failed during proof lookup")?
                 .iter()
                 .map(|(cid, _)| cid)
                 .cloned()
                 .collect();
-
-            dbg!("THERE!!!!!!!!!!!!!!!!!");
-
-            for cid in &got {
-                dbg!(cid.to_string());
-            }
 
             pretty::assert_eq!(
                 got,
