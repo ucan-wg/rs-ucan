@@ -22,9 +22,6 @@ use crate::crypto::rs256;
 #[cfg(feature = "rs512")]
 use crate::crypto::rs512;
 
-#[cfg(feature = "bls")]
-use crate::crypto::bls12381;
-
 /// Signer types that are verifiable by `did:key` [`Verifier`]s.
 #[derive(Clone, EnumAsInner)]
 pub enum Signer {
@@ -63,11 +60,6 @@ pub enum Signer {
     /// `BLS 12-381` signer for the "min sig" variant.
     #[cfg(feature = "bls")]
     BlsMinSig(blst::min_sig::SecretKey),
-    // /// An unknown signer type.
-    // ///
-    // /// This is primarily for parsing, where reification is delayed
-    // /// until the DID method is known.
-    // FIXME rmeove Unknown(Vec<u8>),
 }
 
 impl signature::Signer<Signature> for Signer {

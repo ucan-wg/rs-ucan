@@ -18,9 +18,6 @@ use send::{PromisedSend, Send};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "test_utils")]
-use proptest::prelude::*;
-
-#[cfg(feature = "test_utils")]
 use proptest_derive::Arbitrary;
 
 /// A family of abilities for sending and receiving messages.

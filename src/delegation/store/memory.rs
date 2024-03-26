@@ -10,7 +10,7 @@ use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
 use libipld_core::{cid::Cid, codec::Codec};
 use nonempty::NonEmpty;
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::Infallible,
@@ -203,7 +203,7 @@ where
         aud: &DID,
         subject: &DID,
         command: String,
-        policy: Vec<Predicate>,
+        _policy: Vec<Predicate>, // FIXME
         now: SystemTime,
     ) -> Result<Option<NonEmpty<(Cid, Arc<Delegation<DID, V, Enc>>)>>, Self::DelegationStoreError>
     {

@@ -9,7 +9,6 @@ use crate::{
 };
 use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 /// The fully resolved variant: ready to execute.

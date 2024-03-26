@@ -1,6 +1,6 @@
 use crate::ability::command::Command;
 use crate::task::Task;
-use libipld_core::{cid::Cid, ipld::Ipld};
+use libipld_core::cid::Cid;
 
 // Things that you can assert include content and receipts
 

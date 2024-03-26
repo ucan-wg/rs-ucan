@@ -1,4 +1,3 @@
-use did_url::DID;
 use std::fmt;
 use std::str::FromStr;
 

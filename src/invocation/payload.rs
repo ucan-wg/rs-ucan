@@ -1,13 +1,10 @@
 use super::promise::Resolvable;
-use crate::ability::command::Command;
 use crate::ability::parse::ParseAbilityError;
-use crate::delegation::policy::selector;
-use crate::invocation::Named;
 use crate::time;
 use crate::{
-    ability::{arguments, command::ToCommand, parse::ParseAbility},
+    ability::{arguments::Named, command::ToCommand, parse::ParseAbility},
     capsule::Capsule,
-    crypto::{varsig, Nonce},
+    crypto::Nonce,
     delegation::{
         self,
         policy::{selector::SelectorError, Predicate},
@@ -16,7 +13,7 @@ use crate::{
     time::{Expired, Timestamp},
 };
 use derive_builder::Builder;
-use libipld_core::{cid::Cid, codec::Codec, ipld::Ipld};
+use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
@@ -158,7 +155,7 @@ impl<A, DID: Did> Payload<A, DID> {
     where
         A: ToCommand + Clone,
         DID: Clone,
-        arguments::Named<Ipld>: From<A>,
+        Named<Ipld>: From<A>,
     {
         let now_ts = Timestamp::postel(now);
 
@@ -168,7 +165,7 @@ impl<A, DID: Did> Payload<A, DID> {
             }
         }
 
-        let args: arguments::Named<Ipld> = self.ability.clone().into();
+        let args: Named<Ipld> = self.ability.clone().into();
 
         let mut cmd = self.ability.to_command();
         if !cmd.ends_with('/') {
@@ -272,17 +269,17 @@ impl<A, DID: Did> Capsule for Payload<A, DID> {
     const TAG: &'static str = "ucan/i@1.0.0-rc.1";
 }
 
-impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for arguments::Named<Ipld>
+impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Named<Ipld>
 where
-    arguments::Named<Ipld>: From<A>,
+    Named<Ipld>: From<A>,
 {
     fn from(payload: Payload<A, DID>) -> Self {
-        let mut args = arguments::Named::from_iter([
+        let mut args = Named::from_iter([
             ("iss".into(), { payload.issuer.to_string().into() }),
             ("sub".into(), { payload.subject.to_string().into() }),
             ("cmd".into(), { payload.ability.to_command().into() }),
             ("args".into(), {
-                Ipld::Map(arguments::Named::<Ipld>::from(payload.ability).0)
+                Ipld::Map(Named::<Ipld>::from(payload.ability).0)
             }),
             ("prf".into(), {
                 Ipld::List(payload.proofs.iter().map(Into::into).collect())
@@ -316,10 +313,10 @@ where
 
 impl<A: ToCommand, DID: Did> From<Payload<A, DID>> for Ipld
 where
-    arguments::Named<Ipld>: From<Payload<A, DID>>,
+    Named<Ipld>: From<Payload<A, DID>>,
 {
     fn from(payload: Payload<A, DID>) -> Self {
-        arguments::Named::from(payload).into()
+        Named::from(payload).into()
     }
 }
 
@@ -514,14 +511,14 @@ impl<DID: Did, T> Verifiable<DID> for Payload<T, DID> {
     }
 }
 
-impl<A: ParseAbility, DID: Did> TryFrom<arguments::Named<Ipld>> for Payload<A, DID>
+impl<A: ParseAbility, DID: Did> TryFrom<Named<Ipld>> for Payload<A, DID>
 where
     <A as ParseAbility>::ArgsErr: fmt::Debug,
     <DID as FromStr>::Err: fmt::Debug,
 {
     type Error = ParseError<A, DID>;
 
-    fn try_from(named: arguments::Named<Ipld>) -> Result<Self, Self::Error> {
+    fn try_from(named: Named<Ipld>) -> Result<Self, Self::Error> {
         let mut subject = None;
         let mut issuer = None;
         let mut audience = None;
@@ -828,7 +825,7 @@ mod tests {
          }
 
          #[test_log::test]
-         fn test_non_payload(named in arguments::Named::<Ipld>::arbitrary()) {
+         fn test_non_payload(named in Named::<Ipld>::arbitrary()) {
              // Just ensuring that a negative test shows up
              let parsed = Payload::<Msg, crate::did::preset::Verifier>::try_from(named);
              prop_assert!(parsed.is_err())

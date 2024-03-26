@@ -4,8 +4,8 @@ use nom::{
     self,
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alphanumeric1, anychar, char, digit1},
-    combinator::{map_opt, map_res},
+    character::complete::{alphanumeric1, char, digit1},
+    combinator::map_res,
     error::context,
     multi::many1,
     sequence::{delimited, preceded, terminated},
@@ -33,7 +33,7 @@ impl Filter {
             (Filter::Values, Filter::Values) => true,
             (Filter::ArrayIndex(_a), Filter::Values) => true,
             (Filter::Field(_k), Filter::Values) => true,
-            (Filter::Try(a), Filter::Try(b)) => a.is_in(b), // FIXME Try is basically == null?
+            (Filter::Try(a), Filter::Try(b)) => a.is_in(b),
             _ => false,
         }
     }

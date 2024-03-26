@@ -6,10 +6,8 @@ use super::{
 use crate::ability::arguments::Named;
 use crate::ability::command::ToCommand;
 use crate::ability::parse::ParseAbility;
-use crate::delegation::Delegation;
-use crate::invocation::payload::PayloadBuilder;
 use crate::{
-    ability::{self, arguments, parse::ParseAbilityError, ucan::revoke::Revoke},
+    ability::{self, arguments},
     crypto::{
         signature::{self, Envelope},
         varsig, Nonce,

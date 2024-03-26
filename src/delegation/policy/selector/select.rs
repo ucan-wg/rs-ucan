@@ -1,7 +1,6 @@
-use super::Selector; // FIXME cycle?
+use super::Selector;
 use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorError};
 use libipld_core::ipld::Ipld;
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;

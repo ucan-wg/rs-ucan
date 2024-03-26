@@ -7,7 +7,7 @@ use crate::{
 };
 use libipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 #[cfg_attr(doc, aquamarine::aquamarine)]

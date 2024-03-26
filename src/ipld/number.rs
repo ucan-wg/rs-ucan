@@ -1,7 +1,7 @@
 //! Helpers for working with [`Ipld`] numerics.
 
 use enum_as_inner::EnumAsInner;
-use libipld_core::{error::SerdeError, ipld::Ipld, serde as ipld_serde};
+use libipld_core::ipld::Ipld;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 

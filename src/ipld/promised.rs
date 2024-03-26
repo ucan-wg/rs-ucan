@@ -1,7 +1,7 @@
 use crate::{
     ability::arguments,
     invocation::promise::{self, Pending, PromiseErr, PromiseOk},
-    ipld, url,
+    url,
 };
 use enum_as_inner::EnumAsInner;
 use libipld_core::{cid::Cid, ipld::Ipld};

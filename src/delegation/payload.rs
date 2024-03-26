@@ -3,15 +3,13 @@ use crate::ability::arguments::Named;
 use crate::time;
 use crate::{
     capsule::Capsule,
-    crypto::{varsig, Nonce},
+    crypto::Nonce,
     did::{Did, Verifiable},
     time::{TimeBoundError, Timestamp},
 };
 use core::str::FromStr;
 use derive_builder::Builder;
-use did_url::DID;
-use libipld_core::{codec::Codec, error::SerdeError, ipld::Ipld, serde as ipld_serde};
-use serde::{Deserialize, Serialize};
+use libipld_core::ipld::Ipld;
 use std::{collections::BTreeMap, fmt::Debug};
 use thiserror::Error;
 use web_time::SystemTime;

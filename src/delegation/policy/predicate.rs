@@ -3,7 +3,7 @@ use super::selector::{Select, SelectorError};
 use crate::ipld;
 use enum_as_inner::EnumAsInner;
 use libipld_core::ipld::Ipld;
-use std::{fmt, str::FromStr};
+use std::str::FromStr;
 use thiserror::Error;
 
 #[cfg(feature = "test_utils")]

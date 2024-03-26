@@ -1,5 +1,4 @@
 use super::Store;
-use crate::{did::Did, invocation::promise::Resolvable};
 use libipld_core::cid::Cid;
 use std::{
     collections::{BTreeMap, BTreeSet},

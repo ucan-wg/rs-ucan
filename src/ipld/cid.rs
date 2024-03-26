@@ -1,7 +1,7 @@
 //! Utilities for [`Cid`]s
 
 use crate::ipld;
-use libipld_core::{cid::Cid, ipld::Ipld, multihash::MultihashGeneric};
+use libipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

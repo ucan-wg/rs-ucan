@@ -54,7 +54,7 @@ pub enum Signer {
 impl std::fmt::Debug for Signer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Signer::Key(signer) => write!(f, "Signer::Key(HIDDEN)"),
+            Signer::Key(_signer) => write!(f, "Signer::Key(HIDDEN)"),
         }
     }
 }

@@ -9,16 +9,7 @@ pub use select::Select;
 pub use selectable::Selectable;
 
 use filter::Filter;
-use nom::{
-    self,
-    bytes::complete::tag,
-    character::complete::char,
-    combinator::map_res,
-    error::context,
-    multi::{many0, many1},
-    sequence::preceded,
-    IResult,
-};
+use nom::{self, character::complete::char, multi::many0, sequence::preceded};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::{fmt, str::FromStr};
