@@ -1,7 +1,6 @@
-use super::Selector; // FIXME cycle?
+use super::Selector;
 use super::{error::SelectorErrorReason, filter::Filter, Selectable, SelectorError};
 use libipld_core::ipld::Ipld;
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
@@ -200,26 +199,34 @@ mod tests {
     use proptest::prelude::*;
     use testresult::TestResult;
 
+    fn simple() -> Ipld {
+        libipld::ipld!({
+            "foo": 42,
+            "bar": "baz",
+            "qux": true
+        })
+    }
+
+    fn email() -> Ipld {
+        libipld::ipld!({
+            "from": "alice@example.com",
+            "to": ["bob@example.com", "fraud@example.com"],
+            "cc": ["carol@example.com"],
+            "subject": "Quarterly Reports",
+            "body": "Here's Q2 the reports ..."
+        })
+    }
+
+    fn nested_data() -> Ipld {
+        libipld::ipld!({
+            "name": "Alice",
+            "age": 42,
+            "friends": ["Bob", "Charlie"]
+        })
+    }
+
     mod get {
         use super::*;
-
-        fn nested_data() -> Ipld {
-            Ipld::Map(
-                vec![
-                    ("name".to_string(), Ipld::String("Alice".to_string())),
-                    ("age".to_string(), Ipld::Integer(42)),
-                    (
-                        "friends".to_string(),
-                        Ipld::List(vec![
-                            Ipld::String("Bob".to_string()),
-                            Ipld::String("Charlie".to_string()),
-                        ]),
-                    ),
-                ]
-                .into_iter()
-                .collect(),
-            )
-        }
 
         proptest! {
             #[test_log::test]
@@ -248,13 +255,19 @@ mod tests {
                 let selector: Select<Ipld> = Select::new(filters);
 
                 let cleaned_data = match data.0.clone() {
-                    Ipld::Map(mut m) => {
-                        m.remove("foo").map_or(Ipld::Null, |v| v)
-                    }
-                    ipld => ipld
+                    Ipld::Map(mut m) => m.remove("foo").map_or(Ipld::Null, |v| v),
+                    ipld => ipld,
                 };
                 prop_assert_eq!(selector.get(&cleaned_data)?, Ipld::Null);
             }
+        }
+
+        #[test_log::test]
+        fn test_eq_dot_field_ending_try_null() -> TestResult {
+            let s = Select::from_str(".from.not?")?;
+
+            pretty::assert_eq!(s.get(&email()), Ok(Ipld::Null));
+            Ok(())
         }
     }
 }
