@@ -62,7 +62,7 @@ where
     pub fn delegate(
         &self,
         audience: DID,
-        subject: Option<DID>,
+        subject: &DID,
         via: Option<DID>,
         command: String,
         new_policy: Vec<Predicate>,
@@ -75,25 +75,21 @@ where
         let mut salt = self.did.clone().to_string().into_bytes();
         let nonce = Nonce::generate_12(&mut salt);
 
-        if let Some(ref sub) = subject {
-            if sub == &self.did {
-                let payload: Payload<DID> = Payload {
-                    issuer: self.did.clone(),
-                    audience,
-                    subject,
-                    via,
-                    command,
-                    metadata,
-                    nonce,
-                    expiration: expiration.into(),
-                    not_before: not_before.map(Into::into),
-                    policy: new_policy,
-                };
+        if *subject == self.did {
+            let payload: Payload<DID> = Payload {
+                issuer: self.did.clone(),
+                audience,
+                subject: Some(subject.clone()),
+                via,
+                command,
+                metadata,
+                nonce,
+                expiration: expiration.into(),
+                not_before: not_before.map(Into::into),
+                policy: new_policy,
+            };
 
-                return Ok(
-                    Delegation::try_sign(&self.signer, varsig_header, payload).expect("FIXME")
-                );
-            }
+            return Ok(Delegation::try_sign(&self.signer, varsig_header, payload).expect("FIXME"));
         }
 
         let proofs = &self
@@ -109,7 +105,7 @@ where
         let payload: Payload<DID> = Payload {
             issuer: self.did.clone(),
             audience,
-            subject,
+            subject: Some(subject.clone()),
             via,
             command,
             policy,

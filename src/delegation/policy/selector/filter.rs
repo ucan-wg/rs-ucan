@@ -297,7 +297,7 @@ mod tests {
         use super::*;
 
         proptest! {
-            #[test_log::test]
+            #[test]
             fn test_filter_round_trip(filter: Filter) {
                 let serialized = filter.to_string();
                 let deserialized = serialized.parse();

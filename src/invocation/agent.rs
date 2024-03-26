@@ -104,7 +104,7 @@ where
             self.delegation_store
                 .get_chain(
                     &self.did,
-                    &Some(subject.clone()),
+                    &subject.clone(),
                     ability.to_command(),
                     vec![],
                     now,
@@ -695,7 +695,7 @@ mod tests {
             let chain_for_dnslink: Vec<Cid> = del_store
                 .get_chain(
                     &device,
-                    &Some(dnslink.clone()),
+                    &dnslink.clone(),
                     "/".into(),
                     vec![],
                     SystemTime::now(),

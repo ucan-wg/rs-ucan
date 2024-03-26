@@ -198,11 +198,10 @@ where
         Ok(())
     }
 
-    // FIXME take a PayloadBuilder
     fn get_chain(
         &self,
         aud: &DID,
-        subject: &Option<DID>,
+        subject: &DID,
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
@@ -213,7 +212,10 @@ where
         let read_tx = self.read();
 
         let all_powerlines = read_tx.index.get(&None).unwrap_or(&blank_map);
-        let all_aud_for_subject = read_tx.index.get(subject).unwrap_or(&blank_map);
+        let all_aud_for_subject = read_tx
+            .index
+            .get(&Some(subject.clone()))
+            .unwrap_or(&blank_map);
         let powerline_candidates = all_powerlines.get(aud).unwrap_or(&blank_set);
         let sub_candidates = all_aud_for_subject.get(aud).unwrap_or(&blank_set);
 
@@ -411,13 +413,14 @@ mod tests {
         #[test_log::test]
         fn test_simple_fail() -> TestResult {
             let (server, _server_signer) = gen_did();
+            let (nope, _nope_signer) = gen_did();
 
             let store = MemoryStore::<
                 did::preset::Verifier,
                 varsig::header::Preset,
                 varsig::encoding::Preset,
             >::default();
-            let got = store.get_chain(&server, &None, "/".into(), vec![], SystemTime::now())?;
+            let got = store.get_chain(&server, &nope, "/".into(), vec![], SystemTime::now())?;
 
             pretty::assert_eq!(got, None);
             Ok(())
@@ -449,7 +452,7 @@ mod tests {
 
             store.insert(deleg.clone())?;
 
-            let got = store.get_chain(&bob, &Some(alice), "/".into(), vec![], SystemTime::now())?;
+            let got = store.get_chain(&bob, &alice, "/".into(), vec![], SystemTime::now())?;
             pretty::assert_eq!(got, Some(nonempty![(deleg.cid()?, Arc::new(deleg))].into()));
             Ok(())
         }
@@ -509,7 +512,7 @@ mod tests {
 
             store.insert(more_noise.clone())?;
 
-            let got = store.get_chain(&bob, &Some(alice), "/".into(), vec![], SystemTime::now())?;
+            let got = store.get_chain(&bob, &alice, "/".into(), vec![], SystemTime::now())?;
             pretty::assert_eq!(got, Some(nonempty![(deleg.cid()?, Arc::new(deleg))].into()));
             Ok(())
         }
@@ -555,8 +558,7 @@ mod tests {
 
             store.insert(deleg_2.clone())?;
 
-            let got =
-                store.get_chain(&carol, &Some(alice), "/".into(), vec![], SystemTime::now())?;
+            let got = store.get_chain(&carol, &alice, "/".into(), vec![], SystemTime::now())?;
 
             pretty::assert_eq!(
                 got,
@@ -614,7 +616,7 @@ mod tests {
 
             let got = store.get_chain(
                 &carol,
-                &Some(alice),
+                &alice,
                 "/test/me/now".into(),
                 vec![],
                 SystemTime::now(),
@@ -677,7 +679,7 @@ mod tests {
 
             let got = store.get_chain(
                 &carol,
-                &Some(alice),
+                &alice,
                 "/test/me/now".into(),
                 vec![],
                 SystemTime::now(),
@@ -751,7 +753,7 @@ mod tests {
             store.insert(alice_to_bob.clone())?;
 
             let got: Vec<Cid> = store
-                .get_chain(&dave, &Some(alice), "/".into(), vec![], SystemTime::now())
+                .get_chain(&dave, &alice, "/".into(), vec![], SystemTime::now())
                 .map_err(|e| e.to_string())?
                 .ok_or("failed during proof lookup")?
                 .iter()
@@ -835,13 +837,7 @@ mod tests {
             store.insert(alice_to_bob.clone())?;
 
             let got: Vec<Cid> = store
-                .get_chain(
-                    &dave,
-                    &Some(alice.clone()),
-                    "/".into(),
-                    vec![],
-                    SystemTime::now(),
-                )
+                .get_chain(&dave, &alice.clone(), "/".into(), vec![], SystemTime::now())
                 .map_err(|e| e.to_string())?
                 .ok_or("failed during proof lookup")?
                 .iter()

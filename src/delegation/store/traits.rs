@@ -49,7 +49,7 @@ where
     fn get_chain(
         &self,
         audience: &DID,
-        subject: &Option<DID>,
+        subject: &DID,
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
@@ -58,7 +58,7 @@ where
     fn get_chain_cids(
         &self,
         audience: &DID,
-        subject: &Option<DID>,
+        subject: &DID,
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
@@ -75,7 +75,7 @@ where
         policy: Vec<Predicate>,
         now: SystemTime,
     ) -> Result<bool, Self::DelegationStoreError> {
-        self.get_chain(audience, &Some(issuer), command, policy, now)
+        self.get_chain(audience, &issuer, command, policy, now)
             .map(|chain| chain.is_some())
     }
 
@@ -124,7 +124,7 @@ where
     fn get_chain(
         &self,
         audience: &DID,
-        subject: &Option<DID>,
+        subject: &DID,
         command: String,
         policy: Vec<Predicate>,
         now: SystemTime,
