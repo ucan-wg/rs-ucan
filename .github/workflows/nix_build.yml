@@ -27,7 +27,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@v2
 
       - name: Check Nix flake inputs
-        uses: DeterminateSystems/flake-checker-action@v5
+        uses: DeterminateSystems/flake-checker-action@v9
         with:
           ignore-missing-flake-lock: false
           fail-mode: true
