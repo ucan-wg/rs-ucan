@@ -236,51 +236,44 @@ where
                     match key.as_ref() {
                         "iss" => {
                             if issuer.is_some() {
-                                todo!()
-                                // return Err(custom("duplicate field `iss`"));
+                                return Err(serde::de::Error::duplicate_field("iss"));
                             }
                             issuer = Some(map.next_value()?);
                         }
                         "aud" => {
                             if audience.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `aud`"));
+                                return Err(serde::de::Error::duplicate_field("aud"));
                             }
                             audience = Some(map.next_value()?);
                         }
                         "sub" => {
                             if subject.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `sub`"));
+                                return Err(serde::de::Error::duplicate_field("sub"));
                             }
                             subject = Some(map.next_value()?);
                         }
                         "cmd" => {
                             if command.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `cmd`"));
+                                return Err(serde::de::Error::duplicate_field("cmd"));
                             }
                             let s: String = map.next_value()?;
                             command = Some(s.split("/").map(ToString::to_string).collect());
                         }
                         "pol" => {
                             if policy.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `pol`"));
+                                return Err(serde::de::Error::duplicate_field("pol"));
                             }
                             policy = Some(map.next_value()?);
                         }
                         "exp" => {
                             if expiration.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `exp`"));
+                                return Err(serde::de::Error::duplicate_field("exp"));
                             }
                             expiration = Some(map.next_value()?);
                         }
                         "nbf" => {
                             if not_before.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `nbf`"));
+                                return Err(serde::de::Error::duplicate_field("nbf"));
                             }
                             not_before = Some(map.next_value()?);
                         }
@@ -294,23 +287,23 @@ where
                         }
                         "nonce" => {
                             if nonce.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `nonce`"));
+                                return Err(serde::de::Error::duplicate_field("nonce"));
                             }
                             let ipld: Ipld = map.next_value()?;
                             let v = match ipld {
                                 Ipld::Bytes(b) => b,
                                 _ => {
-                                    // return Err(A::Error::custom(
-                                    //     "nonce field must be bytes",
-                                    // ));
-                                    todo!()
+                                    return Err(serde::de::Error::custom(
+                                        "nonce field must be bytes",
+                                    ));
                                 }
                             };
                             nonce = Some(if v.len() == 16 {
                                 Nonce::Nonce16(v.try_into().map_err(|e| {
-                                    // A::Error::custom(format!("invalid nonce bytes: {}", e))
-                                    todo!()
+                                    serde::de::Error::custom(format!(
+                                        "invalid nonce bytes: {:?}",
+                                        e
+                                    ))
                                 })?)
                             } else {
                                 Nonce::Custom(v)
@@ -326,19 +319,12 @@ where
                 }
 
                 // Required fields:
-                let issuer = issuer.ok_or_else(
-                    || todo!(), // A::Error::missing_field("iss")
-                )?;
-                let audience =
-                    audience.ok_or_else(|| todo!() /* A::Error::missing_field("aud") */)?;
-                let subject =
-                    subject.ok_or_else(|| todo!() /* A::Error::missing_field("sub") */)?;
-                let command =
-                    command.ok_or_else(|| todo!() /* A::Error::missing_field("cmd") */)?;
-                let policy =
-                    policy.ok_or_else(|| todo!() /* A::Error::missing_field("pol") */)?;
-                let nonce =
-                    nonce.ok_or_else(|| todo!() /* A::Error::missing_field("nonce") */)?;
+                let issuer = issuer.ok_or_else(|| serde::de::Error::missing_field("iss"))?;
+                let audience = audience.ok_or_else(|| serde::de::Error::missing_field("aud"))?;
+                let subject = subject.ok_or_else(|| serde::de::Error::missing_field("sub"))?;
+                let command = command.ok_or_else(|| serde::de::Error::missing_field("cmd"))?;
+                let policy = policy.ok_or_else(|| serde::de::Error::missing_field("pol"))?;
+                let nonce = nonce.ok_or_else(|| serde::de::Error::missing_field("nonce"))?;
 
                 Ok(DelegationPayload {
                     issuer,
