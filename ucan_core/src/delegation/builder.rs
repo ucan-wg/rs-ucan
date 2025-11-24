@@ -10,7 +10,7 @@ use crate::{
     unset::Unset,
 };
 use ipld_core::ipld::Ipld;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_ipld_dagcbor::{codec::DagCborCodec, error::CodecError};
 use std::{collections::BTreeMap, marker::PhantomData};
 use varsig::{

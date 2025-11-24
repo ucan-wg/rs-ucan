@@ -22,17 +22,17 @@ use varsig::verify::Verify;
 /// This is the token that commands the receiver to perform some action.
 /// It is backed by UCAN Delegation(s).
 #[derive(Clone)]
-pub struct Invocation<D: DidSigner + Serialize + for<'de> Deserialize<'de>>(
-    Envelope<D, InvocationPayload<D::Did>, <D as Verify>::Signature>,
+pub struct Invocation<D: Did>(
+    Envelope<D::VarsigConfig, InvocationPayload<D>, <D::VarsigConfig as Verify>::Signature>,
 );
 
-impl<D: DidSigner + Serialize + for<'de> Deserialize<'de> + Debug> Debug for Invocation<D> {
+impl<D: Did> Debug for Invocation<D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Invocation").field(&self.0).finish()
     }
 }
 
-impl<D: DidSigner + Serialize + for<'de> Deserialize<'de>> Serialize for Invocation<D> {
+impl<D: Did> Serialize for Invocation<D> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -41,9 +41,9 @@ impl<D: DidSigner + Serialize + for<'de> Deserialize<'de>> Serialize for Invocat
     }
 }
 
-impl<'de, I: DidSigner + Serialize + for<'ze> Deserialize<'ze>> Deserialize<'de> for Invocation<I>
+impl<'de, I: Did> Deserialize<'de> for Invocation<I>
 where
-    <I as Verify>::Signature: for<'xe> Deserialize<'xe>,
+    <I::VarsigConfig as Verify>::Signature: for<'xe> Deserialize<'xe>,
 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let envelope = Envelope::<_, _, _>::deserialize(deserializer)?;
