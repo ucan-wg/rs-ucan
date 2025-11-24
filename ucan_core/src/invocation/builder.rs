@@ -10,7 +10,7 @@ use crate::{
     unset::Unset,
 };
 use ipld_core::{cid::Cid, ipld::Ipld};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_ipld_dagcbor::{codec::DagCborCodec, error::CodecError};
 use std::{collections::BTreeMap, marker::PhantomData};
 use varsig::{
@@ -335,9 +335,7 @@ impl<
 }
 
 #[allow(clippy::mismatching_type_param_order)]
-impl<D: DidSigner + Serialize + for<'de> Deserialize<'de>>
-    InvocationBuilder<D, D, D::Did, D::Did, Vec<String>, Vec<Cid>>
-{
+impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Vec<String>, Vec<Cid>> {
     /// Builds the [`Delegation`] instance from the builder.
     ///
     /// This is typesafe, and only possible to call when all required fields are set.

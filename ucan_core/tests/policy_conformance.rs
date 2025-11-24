@@ -1,3 +1,4 @@
+//! Tests for policy predicate conformance using fixtures.
 mod policy_conformance {
     use std::sync::OnceLock;
 

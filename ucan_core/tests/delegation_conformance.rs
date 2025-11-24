@@ -1,8 +1,8 @@
+//! Tests for delegation conformance to the UCAN specification.
 mod delegation_conformance {
     use std::sync::OnceLock;
 
     use base64::prelude::*;
-    use ipld_core::ipld::Ipld;
     use testresult::TestResult;
     use ucan_core::{did::Ed25519Did, Delegation};
 
@@ -33,7 +33,6 @@ mod delegation_conformance {
             .expect("valid delegation token is a string");
 
         let bytes: Vec<u8> = BASE64_STANDARD.decode(b64_txt)?;
-        let ipld: Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
         let delegation: Delegation<Ed25519Did> = serde_ipld_dagcbor::from_slice(&bytes)?; //
         assert_eq!(delegation.policy(), &vec![]);
 
