@@ -183,10 +183,13 @@ impl<'de> Deserialize<'de> for Ed25519Did {
                     .try_into()
                     .expect("slice length verified above");
 
-                Ok(Ed25519Did(
-                    ed25519_dalek::VerifyingKey::from_bytes(&key_bytes).expect("FIXME"),
-                    Ed25519::new(),
-                ))
+                let vk = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes).map_err(|e| {
+                    E::custom(format!(
+                        "failed to construct ed25519 public key from bytes: {e:?}"
+                    ))
+                })?;
+
+                Ok(Ed25519Did(vk, Ed25519::new()))
             }
         }
 
