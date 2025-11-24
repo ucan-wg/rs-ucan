@@ -14,3 +14,6 @@ version.workspace = true
 
 [dependencies]
 ucan_core = { path = "../ucan_core" }
+
+[lints]
+workspace = true

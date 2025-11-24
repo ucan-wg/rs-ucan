@@ -80,3 +80,6 @@ ed25519 = ["edwards25519", "sha2_512"]
 
 rs256_2048 = ["rsa", "sha2_256"]
 rs256_4096 = ["rsa", "sha2_256"]
+
+[lints]
+workspace = true

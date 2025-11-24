@@ -2,10 +2,9 @@
 
 use base58::ToBase58;
 use serde::{Deserialize, Deserializer, Serialize};
-use signature::Signer;
 use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
-use varsig::{signature::eddsa::Ed25519, signer::Sign, verify::Verify};
+use varsig::{signature::eddsa::Ed25519, signer::Sign};
 
 /// A trait for [DID]s.
 ///
@@ -168,7 +167,7 @@ impl<'de> Deserialize<'de> for Ed25519Did {
 
                 let b58_payload = &v[DID_PREFIX.len()..];
                 let decoded = base58::FromBase58::from_base58(b58_payload)
-                    .map_err(|e| E::custom(format!("base58 decode failed")))?;
+                    .map_err(|e| E::custom(format!("base58 decode failed: {e:?}")))?;
 
                 if decoded.len() != 34 {
                     return Err(E::custom(format!(
@@ -251,18 +250,5 @@ impl Serialize for Ed25519Signer {
         S: serde::Serializer,
     {
         self.did.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Ed25519Signer {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // FIXME
-        let did = Ed25519Did::deserialize(deserializer)?;
-        Err(serde::de::Error::custom(format!(
-            "cannot deserialize Ed25519Signer from did: {did}"
-        )))
     }
 }

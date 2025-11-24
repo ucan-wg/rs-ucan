@@ -239,10 +239,19 @@ mod tests {
 
     #[test]
     fn test_ed25519_varsig_header_round_trip() -> TestResult {
-        let input = [0x34, 0x01, 0xed, 0x01, 0xed, 0x01, 0x13, 0x71];
-        let dag_json = serde_ipld_dagcbor::to_vec(&input)?;
+        let fixture = Varsig::new(EdDsa::new(), DagCborCodec);
+        let dag_cbor = serde_ipld_dagcbor::to_vec(&fixture)?;
+        let round_tripped: Varsig<Ed25519, DagCborCodec, String> =
+            serde_ipld_dagcbor::from_slice(&dag_cbor)?;
+        assert_eq!(fixture, round_tripped);
+        Ok(())
+    }
+
+    #[test]
+    fn test_ed25519_varsig_header_fixture() -> TestResult {
+        let dag_cbor = [0x48, 0x34, 0x01, 0xed, 0x01, 0xed, 0x01, 0x13, 0x71];
         let varsig: Varsig<Ed25519, DagCborCodec, String> =
-            serde_ipld_dagcbor::from_slice(&dag_json)?;
+            serde_ipld_dagcbor::from_slice(&dag_cbor)?;
         assert_eq!(varsig, Varsig::new(EdDsa::new(), DagCborCodec));
         Ok(())
     }

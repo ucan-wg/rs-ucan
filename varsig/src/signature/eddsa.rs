@@ -42,7 +42,7 @@ impl Verify for Ed25519 {
     }
 
     fn config_tags(&self) -> Vec<u64> {
-        vec![0xed]
+        vec![0xed, 0x13]
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {

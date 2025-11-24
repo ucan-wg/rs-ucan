@@ -19,7 +19,7 @@ use builder::DelegationBuilder;
 use ipld_core::ipld::Ipld;
 use policy::predicate::Predicate;
 use serde::{
-    de::{MapAccess, Visitor},
+    de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
 use std::{borrow::Cow, collections::BTreeMap, fmt::Debug};
@@ -229,116 +229,141 @@ where
                 let mut policy: Option<Vec<Predicate>> = None;
                 let mut expiration: Option<Option<Timestamp>> = None;
                 let mut not_before: Option<Option<Timestamp>> = None;
-                let mut meta: BTreeMap<String, Ipld> = BTreeMap::new();
+                let mut meta: Option<BTreeMap<String, Ipld>> = None;
                 let mut nonce: Option<Nonce> = None;
 
                 while let Some(key) = map.next_key::<Cow<'de, str>>()? {
                     match key.as_ref() {
                         "iss" => {
                             if issuer.is_some() {
-                                todo!()
-                                // return Err(custom("duplicate field `iss`"));
+                                return Err(de::Error::duplicate_field("iss"));
                             }
                             issuer = Some(map.next_value()?);
                         }
                         "aud" => {
                             if audience.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `aud`"));
+                                return Err(de::Error::duplicate_field("aud"));
                             }
                             audience = Some(map.next_value()?);
                         }
                         "sub" => {
                             if subject.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `sub`"));
+                                return Err(de::Error::duplicate_field("sub"));
                             }
                             subject = Some(map.next_value()?);
                         }
                         "cmd" => {
                             if command.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `cmd`"));
+                                return Err(de::Error::duplicate_field("cmd"));
                             }
                             let s: String = map.next_value()?;
                             command = Some(s.split("/").map(ToString::to_string).collect());
                         }
                         "pol" => {
                             if policy.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `pol`"));
+                                return Err(de::Error::duplicate_field("pol"));
                             }
                             policy = Some(map.next_value()?);
                         }
                         "exp" => {
                             if expiration.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `exp`"));
+                                return Err(de::Error::duplicate_field("exp"));
                             }
                             expiration = Some(map.next_value()?);
                         }
                         "nbf" => {
                             if not_before.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `nbf`"));
+                                return Err(de::Error::duplicate_field("nbf"));
                             }
                             not_before = Some(map.next_value()?);
                         }
                         "meta" => {
-                            // If the payload already has a meta map, we *merge* into it.
-                            let incoming: BTreeMap<String, Ipld> = map.next_value()?;
-                            for (k, v) in incoming {
-                                // last one wins if duplicated inside meta
-                                meta.insert(k, v);
+                            if meta.is_some() {
+                                return Err(de::Error::duplicate_field("meta"));
                             }
+                            meta = Some(map.next_value()?);
                         }
                         "nonce" => {
                             if nonce.is_some() {
-                                todo!()
-                                // return Err(A::Error::custom("duplicate field `nonce`"));
+                                return Err(de::Error::duplicate_field("nonce"));
                             }
                             let ipld: Ipld = map.next_value()?;
                             let v = match ipld {
                                 Ipld::Bytes(b) => b,
-                                _ => {
-                                    // return Err(A::Error::custom(
-                                    //     "nonce field must be bytes",
-                                    // ));
-                                    todo!()
+                                Ipld::String(s) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Str(&s),
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Integer(i) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Other(&i.to_string()),
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Float(f) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Float(f),
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Bool(b) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Bool(b),
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Null => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Unit,
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::List(_) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Other("list"),
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Map(_) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Map,
+                                        &"bytes",
+                                    ));
+                                }
+                                Ipld::Link(_) => {
+                                    return Err(de::Error::invalid_type(
+                                        de::Unexpected::Other("link"),
+                                        &"bytes",
+                                    ));
                                 }
                             };
-                            nonce = Some(if v.len() == 16 {
-                                Nonce::Nonce16(v.try_into().map_err(|e| {
-                                    // A::Error::custom(format!("invalid nonce bytes: {}", e))
-                                    todo!()
-                                })?)
+
+                            if let Ok(arr) = <[u8; 16]>::try_from(v.clone()) {
+                                nonce = Some(Nonce::Nonce16(arr));
                             } else {
-                                Nonce::Custom(v)
-                            });
+                                nonce = Some(Nonce::Custom(v));
+                            }
                         }
                         other => {
-                            // Unknown field → store in `meta` as IPLD
-                            // If the key already exists in meta, last one wins.
-                            let val: Ipld = map.next_value()?;
-                            meta.insert(other.to_owned(), val);
+                            return Err(de::Error::unknown_field(
+                                other,
+                                &[
+                                    "iss", "aud", "sub", "cmd", "pol", "exp", "nbf", "meta",
+                                    "nonce",
+                                ],
+                            ));
                         }
                     }
                 }
 
-                // Required fields:
-                let issuer = issuer.ok_or_else(
-                    || todo!(), // A::Error::missing_field("iss")
-                )?;
-                let audience =
-                    audience.ok_or_else(|| todo!() /* A::Error::missing_field("aud") */)?;
-                let subject =
-                    subject.ok_or_else(|| todo!() /* A::Error::missing_field("sub") */)?;
-                let command =
-                    command.ok_or_else(|| todo!() /* A::Error::missing_field("cmd") */)?;
-                let policy =
-                    policy.ok_or_else(|| todo!() /* A::Error::missing_field("pol") */)?;
-                let nonce =
-                    nonce.ok_or_else(|| todo!() /* A::Error::missing_field("nonce") */)?;
+                let issuer = issuer.ok_or_else(|| de::Error::missing_field("iss"))?;
+                let audience = audience.ok_or_else(|| de::Error::missing_field("aud"))?;
+                let subject = subject.ok_or_else(|| de::Error::missing_field("sub"))?;
+                let command = command.ok_or_else(|| de::Error::missing_field("cmd"))?;
+                let policy = policy.ok_or_else(|| de::Error::missing_field("pol"))?;
+                let nonce = nonce.ok_or_else(|| de::Error::missing_field("nonce"))?;
 
                 Ok(DelegationPayload {
                     issuer,
@@ -346,10 +371,10 @@ where
                     subject,
                     command,
                     policy,
+                    nonce,
                     expiration: expiration.unwrap_or(None),
                     not_before: not_before.unwrap_or(None),
-                    meta,
-                    nonce,
+                    meta: meta.unwrap_or_default(),
                 })
             }
         }

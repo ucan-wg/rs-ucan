@@ -41,8 +41,8 @@ impl From<[u8; 16]> for Nonce {
 impl From<Nonce> for Vec<u8> {
     fn from(nonce: Nonce) -> Self {
         match nonce {
-            Nonce::Nonce16(nonce) => nonce.to_vec(),
-            Nonce::Custom(nonce) => nonce,
+            Nonce::Nonce16(arr) => arr.to_vec(),
+            Nonce::Custom(bytes) => bytes,
         }
     }
 }
@@ -71,13 +71,13 @@ impl Nonce {
     /// # Example
     ///
     /// ```rust
-    /// # use ucan::crypto::Nonce;
-    /// # use ucan::did::Did;
+    /// # use ucan_core::crypto::nonce::Nonce;
+    /// # use ucan_core::did::Did;
     /// #
     /// let mut salt = "did:example:123".as_bytes().to_vec();
-    /// let nonce = Nonce::generate_16();
+    /// let nonce = Nonce::generate_16().unwrap();
     ///
-    /// assert_eq!(Vec::from(nonce).len(), 16);
+    /// assert_eq!(Vec::<u8>::from(nonce).len(), 16);
     /// ```
     pub fn generate_16() -> Result<Nonce, getrandom::Error> {
         let mut buf = [0; 16];

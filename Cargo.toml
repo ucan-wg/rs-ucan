@@ -40,3 +40,36 @@ test-log = "0.2.17"
 testresult = "0.4.1"
 thiserror = "1.0"
 tracing = "0.1.41"
+
+[workspace.lints.rust]
+future_incompatible = "warn"
+let_underscore = "warn"
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+nonstandard_style = "warn"
+rust_2021_compatibility = "warn"
+
+rust_2018_idioms = "deny"
+unreachable_pub = "deny"
+unused_extern_crates = "deny"
+
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+expect_used = "warn"
+fallible_impl_from = "warn"
+fn_params_excessive_bools = "warn"
+indexing_slicing = "warn"
+missing_const_for_fn = "warn"
+must_use_candidate = "warn"
+panic = "warn"
+todo = "warn"
+unneeded_field_pattern = "warn"
+unwrap_used = "warn"
+wildcard_enum_match_arm = "warn"
+
+all = "deny"
+cargo = "deny"
+pedantic = "deny"

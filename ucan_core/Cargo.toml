@@ -48,3 +48,6 @@ testresult.workspace = true
 test_utils = ["arb", "property_test"]
 arb = ["dep:arbitrary"]
 property_test = ["dep:proptest", "dep:proptest-arbitrary-interop"]
+
+[lints]
+workspace = true

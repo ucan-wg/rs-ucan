@@ -323,7 +323,7 @@ impl<'a> Arbitrary<'a> for Predicate {
 }
 
 impl Predicate {
-    // FIXME make &self?
+    // TODO make &self?
     /// Run the predicate against concrete data.
     ///
     /// # Errors

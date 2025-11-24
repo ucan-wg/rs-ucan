@@ -12,8 +12,7 @@ use crate::{
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use serde_ipld_dagcbor::{codec::DagCborCodec, error::CodecError};
-use signature::Verifier;
-use std::{collections::BTreeMap, marker::PhantomData, time::SystemTimeError};
+use std::{collections::BTreeMap, marker::PhantomData};
 use varsig::{
     signer::{Sign, SignerError},
     verify::Verify,
@@ -265,7 +264,7 @@ impl<
 }
 
 #[allow(clippy::mismatching_type_param_order)]
-impl<D: DidSigner + Serialize + for<'de> Deserialize<'de>>
+impl<D: DidSigner + Serialize>
     DelegationBuilder<D, D, D::Did, DelegatedSubject<D::Did>, Vec<String>>
 {
     /// Builds an (unsigned) [`DelegationPayload`].
