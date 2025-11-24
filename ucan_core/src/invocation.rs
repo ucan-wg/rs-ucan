@@ -7,11 +7,13 @@ pub mod builder;
 
 use crate::{
     crypto::nonce::Nonce,
+    delegation::policy::predicate::Predicate,
     did::{Did, DidSigner},
     envelope::Envelope,
     promise::Promised,
     time::timestamp::Timestamp,
     unset::Unset,
+    Delegation,
 };
 use builder::InvocationBuilder;
 use ipld_core::{cid::Cid, ipld::Ipld};
@@ -198,6 +200,33 @@ impl<D: Did> InvocationPayload<D> {
     /// Getter for the `nonce` field.
     pub const fn nonce(&self) -> &Nonce {
         &self.nonce
+    }
+
+    /// Check if an [`InvocationPayload`] is valid.
+    pub fn check(&self, proofs: &[Delegation<D>]) -> Result<(), ()> {
+        let args: Ipld = self
+            .arguments()
+            .iter()
+            .map(|(k, v)| {
+                v.try_into()
+                    .map(|ipld| (k.clone(), ipld))
+                    .map_err(|_| (/* FIXME */))
+            })
+            .collect::<Result<BTreeMap<String, Ipld>, _>>()
+            .expect("FIXME")
+            .into();
+
+        for proof in proofs {
+            if !self.command.starts_with(proof.command()) {
+                return Err(());
+            }
+
+            for predicate in proof.policy() {
+                predicate.clone().run(&args).expect("FIXME");
+            }
+        }
+
+        Ok(())
     }
 }
 

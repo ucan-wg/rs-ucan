@@ -1,5 +1,5 @@
 {
-  "name": "keyhive",
+  "name": "ucan",
   "version": "0.1.0",
   "description": "",
   "private": true,
@@ -9,8 +9,8 @@
   "author": "",
   "license": "Apache-2.0",
   "type": "module",
-  "module": "pkg/keyhive_wasm.js",
-  "types": "pkg/keyhive_wasm.d.ts",
+  "module": "pkg/ucan_wasm.js",
+  "types": "pkg/ucan_wasm.d.ts",
   "files": [
     "dist"
   ],
