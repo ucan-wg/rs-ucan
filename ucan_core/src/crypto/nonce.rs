@@ -154,17 +154,17 @@ mod test {
 
     #[test]
     fn ipld_roundtrip_16() -> TestResult {
-        let gen = Nonce::generate_16()?;
-        let ipld = Ipld::from(gen.clone());
+        let nonce = Nonce::generate_16()?;
+        let ipld = Ipld::from(nonce.clone());
 
-        let inner = if let Nonce::Nonce16(nonce) = gen {
+        let inner = if let Nonce::Nonce16(nonce) = nonce {
             Ipld::Bytes(nonce.to_vec())
         } else {
             panic!("No conversion!")
         };
 
         assert_eq!(ipld, inner);
-        assert_eq!(gen, ipld.try_into().unwrap());
+        assert_eq!(nonce, ipld.try_into().unwrap());
 
         Ok(())
     }

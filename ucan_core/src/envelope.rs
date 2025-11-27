@@ -29,7 +29,8 @@ impl<V: Verify<Signature = S>, T: Serialize + for<'ze> Deserialize<'ze>, S: Sign
 {
     fn serialize<Ser: serde::Serializer>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error> {
         let mut seq = serializer.serialize_tuple(2)?;
-        seq.serialize_element(self.0.to_bytes().as_ref())?;
+        // Wrap signature bytes in serde_bytes::Bytes to ensure it serializes as CBOR bytes
+        seq.serialize_element(&serde_bytes::Bytes::new(self.0.to_bytes().as_ref()))?;
         seq.serialize_element(&self.1)?;
         seq.end()
     }

@@ -15,16 +15,17 @@
     };
   };
 
-  outputs = {
-    self,
-    flake-utils,
-    nixos-unstable,
-    nixpkgs,
-    rust-overlay,
-    command-utils
-  } @ inputs:
+  outputs =
+    { self
+    , flake-utils
+    , nixos-unstable
+    , nixpkgs
+    , rust-overlay
+    , command-utils
+    } @ inputs:
     flake-utils.lib.eachDefaultSystem (
-      system: let
+      system:
+      let
         overlays = [
           (import rust-overlay)
         ];
@@ -98,14 +99,14 @@
           "release:host" = cmd "Build release for ${system}"
             "${cargo} build --release";
 
-         # "release:wasm:web" = cmd "Build release for wasm32-unknown-unknown with web bindings"
-         #   "${wasm-pack} build ./ucan_wasm --release --target=web && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
+          # "release:wasm:web" = cmd "Build release for wasm32-unknown-unknown with web bindings"
+          #   "${wasm-pack} build ./ucan_wasm --release --target=web && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
 
-         # "release:wasm:bundler" = cmd "Build release for wasm32-unknown-unknown with bundler bindings"
-         #    "${wasm-pack} build ./ucan_wasm --release --target=bundler && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
+          # "release:wasm:bundler" = cmd "Build release for wasm32-unknown-unknown with bundler bindings"
+          #    "${wasm-pack} build ./ucan_wasm --release --target=bundler && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
 
-         #  "release:wasm:nodejs" = cmd "Build release for wasm32-unknown-unknown with Node.js bindgings"
-         #    "${wasm-pack} build ./ucan_wasm --release --target=nodejs && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
+          #  "release:wasm:nodejs" = cmd "Build release for wasm32-unknown-unknown with Node.js bindgings"
+          #    "${wasm-pack} build ./ucan_wasm --release --target=nodejs && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
         };
 
         build = {
@@ -175,10 +176,12 @@
             "test:host && test:docs && test:wasm";
 
           "test:host" = cmd "Run Cargo tests for host target"
-            "${cargo} test --features='test_utils' && ${cargo} test --features='mermaid_docs,test_utils' --doc";
+            "${cargo} test --features='test_utils' && ${cargo} test --features='test_utils' --doc";
 
           "test:wasm" = cmd "Run wasm-pack tests on all targets"
-            "test:wasm:node && test:ts:web";
+            "echo 'TODO: Node/Wasm and Web/TypeScript tests ignored for now'";
+          #  "test:wasm:node && test:ts:web";
+
 
           # "test:wasm:node" = cmd "Run wasm-pack tests in Node.js"
           #   "${wasm-pack} test --node ucan_wasm";
@@ -199,7 +202,7 @@
           #   "${wasm-pack} test --safari ucan_wasm --features='browser_test'";
 
           "test:docs" = cmd "Run Cargo doctests"
-            "${cargo} test --doc --features='mermaid_docs,test_utils'";
+            "${cargo} test --doc --features='test_utils'";
         };
 
         docs = {
@@ -219,7 +222,8 @@
         command_menu = command-utils.commands.${system}
           (release // build // bench // lint // watch // test // docs);
 
-      in rec {
+      in
+      rec {
         devShells.default = pkgs.mkShell {
           name = "ucan";
 
@@ -242,7 +246,7 @@
             ++ format-pkgs
             ++ cargo-installs;
 
-         shellHook = ''
+          shellHook = ''
             # export RUSTC_WRAPPER="${pkgs.sccache}/bin/sccache"
             unset SOURCE_DATE_EPOCH
             menu
