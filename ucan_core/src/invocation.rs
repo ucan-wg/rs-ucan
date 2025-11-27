@@ -7,10 +7,10 @@ pub mod builder;
 
 use crate::{
     crypto::nonce::Nonce,
-    delegation::policy::predicate::Predicate,
+    delegation::policy::predicate::{Predicate, RunError},
     did::{Did, DidSigner},
     envelope::Envelope,
-    promise::Promised,
+    promise::{Promised, WaitingOn},
     time::timestamp::Timestamp,
     unset::Unset,
     Delegation,
@@ -19,6 +19,7 @@ use builder::InvocationBuilder;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
+use thiserror::Error;
 use varsig::verify::Verify;
 
 /// Top-level UCAN Invocation.
@@ -87,6 +88,18 @@ impl<D: Did> Invocation<D> {
     pub const fn nonce(&self) -> &Nonce {
         &self.0 .1.payload.nonce
     }
+
+    // FIXME delegation store trait
+    // pub fn check(&self, proof_store: BTreeMap<Cid, Verified<Delegation<D>>> -> Result<(), ()> {
+    //     self.try_verify(self.codec(), self.verifier(), self.signature(), self.payload())?;
+
+    //     let mut realized_proofs = Vec::new();
+    //     for proof_cid in self.proofs() {
+    //         let found = proof_store.get(proof_cid).expect("FIXME");
+    //         realized_proofs.push(found);
+    //     }
+    //     todo!("FIXME")
+    // }
 }
 
 impl<D: Did> Debug for Invocation<D> {
@@ -203,31 +216,75 @@ impl<D: Did> InvocationPayload<D> {
     }
 
     /// Check if an [`InvocationPayload`] is valid.
-    pub fn check(&self, proofs: &[Delegation<D>]) -> Result<(), ()> {
+    pub fn semantic_check(&self, proofs: &[Delegation<D>]) -> Result<(), CheckFailed> {
         let args: Ipld = self
             .arguments()
             .iter()
-            .map(|(k, v)| {
-                v.try_into()
-                    .map(|ipld| (k.clone(), ipld))
-                    .map_err(|_| (/* FIXME */))
-            })
-            .collect::<Result<BTreeMap<String, Ipld>, _>>()
-            .expect("FIXME")
+            .map(|(k, v)| v.try_into().map(|ipld| (k.clone(), ipld)))
+            .collect::<Result<BTreeMap<String, Ipld>, _>>()?
             .into();
 
+        // FIXME double check the expected proof order
+        let mut head_issuer = &self.issuer;
         for proof in proofs {
+            if proof.subject().allows(self.subject()) {
+                return Err(CheckFailed::SubjectNotAllowedByProof);
+            }
+
+            if proof.audience() != head_issuer {
+                return Err(CheckFailed::InvalidProofIssuerChain);
+            }
+
             if !self.command.starts_with(proof.command()) {
-                return Err(());
+                return Err(CheckFailed::CommandMismatch {
+                    found: proof.command().clone(),
+                    expected: self.command.clone(),
+                });
             }
 
             for predicate in proof.policy() {
-                predicate.clone().run(&args).expect("FIXME");
+                if !predicate.clone().run(&args)? {
+                    return Err(CheckFailed::PredicateFailed(predicate.clone()));
+                }
             }
+
+            head_issuer = proof.issuer();
+        }
+
+        // Last in the chain due to the above loop
+        if head_issuer != self.subject() {
+            return Err(CheckFailed::RootProofIssuerIsNotSubject);
         }
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum CheckFailed {
+    #[error(transparent)]
+    WaitingOnPromise(#[from] WaitingOn),
+
+    #[error("command mismatch: expected {expected:?}, found {expected:?}")]
+    CommandMismatch {
+        expected: Vec<String>,
+        found: Vec<String>,
+    },
+
+    #[error(transparent)]
+    PredicateRunError(#[from] RunError),
+
+    #[error("predicate failed: {0:?}")]
+    PredicateFailed(Predicate),
+
+    #[error("invalid proof issuer chain")]
+    InvalidProofIssuerChain,
+
+    #[error("subject not allowed by proof")]
+    SubjectNotAllowedByProof,
+
+    #[error("root proof issuer is not the subject")]
+    RootProofIssuerIsNotSubject,
 }
 
 #[cfg(test)]

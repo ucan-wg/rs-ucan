@@ -5,6 +5,7 @@
 
 pub mod builder;
 pub mod policy;
+pub mod store;
 pub mod subject;
 
 use self::subject::DelegatedSubject;
@@ -16,12 +17,16 @@ use crate::{
     unset::Unset,
 };
 use builder::DelegationBuilder;
-use ipld_core::ipld::Ipld;
+use ipld_core::{
+    cid::{self, multihash::Multihash, Cid},
+    ipld::Ipld,
+};
 use policy::predicate::Predicate;
 use serde::{
     de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
+use sha2::Digest;
 use std::{borrow::Cow, collections::BTreeMap, fmt::Debug};
 use varsig::verify::Verify;
 
@@ -82,6 +87,14 @@ impl<D: Did> Delegation<D> {
     /// Getter for the `nonce` field.
     pub const fn nonce(&self) -> &Nonce {
         &self.0 .1.payload.nonce
+    }
+
+    pub fn to_cid(&self) -> Cid {
+        let bytes = serde_ipld_dagcbor::to_vec(&self).expect("delegation is not serializable");
+        let digest = sha2::Sha256::digest(bytes);
+        let multihash =
+            Multihash::wrap(0x12, &digest).expect("unable to create multihash for delegation");
+        cid::Cid::new_v1(0x71, multihash)
     }
 }
 

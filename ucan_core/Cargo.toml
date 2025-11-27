@@ -28,6 +28,7 @@ serde_bytes = "0.11.19"
 serde-value = "0.7"
 serde.workspace = true
 serde_ipld_dagcbor.workspace = true
+sha2 = "0.10.9"
 signature.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

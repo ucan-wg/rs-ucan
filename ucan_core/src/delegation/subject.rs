@@ -18,8 +18,29 @@ pub enum DelegatedSubject<D: Did> {
     /// A specific subject (recommended)
     Specific(D),
 
-    /// A wildcard subject (secialized use case)
+    /// A wildcard subject (specialized use case)
     Any,
+}
+
+impl<D: Did> DelegatedSubject<D> {
+    /// Check that the [`DelegatedSubject`] either matches the subject, or is `Any`.
+    pub fn allows(&self, subject: &D) -> bool {
+        match self {
+            DelegatedSubject::Specific(did) => did == subject,
+            DelegatedSubject::Any => true,
+        }
+    }
+
+    /// Both sides match, or one is `Any`.
+    pub fn coherent(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DelegatedSubject::Any, _) => true,
+            (_, DelegatedSubject::Any) => true,
+            (DelegatedSubject::Specific(did), DelegatedSubject::Specific(other_did)) => {
+                did == other_did
+            }
+        }
+    }
 }
 
 impl<D: Did> From<D> for DelegatedSubject<D> {
