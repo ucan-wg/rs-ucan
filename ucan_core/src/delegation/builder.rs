@@ -2,6 +2,7 @@
 
 use super::{policy::predicate::Predicate, subject::DelegatedSubject};
 use crate::{
+    command::Command,
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
     envelope::{Envelope, EnvelopePayload},
@@ -26,7 +27,7 @@ pub struct DelegationBuilder<
     Issuer: DidSignerOrUnset = Unset,
     Audience: DidOrUnset = Unset,
     Subject: DelegatedSubjectOrUnset = Unset,
-    Command: CommandOrUnset = Unset,
+    Cmd: CommandOrUnset = Unset,
 > {
     /// Issuer of the delegation.
     pub issuer: Issuer,
@@ -38,7 +39,7 @@ pub struct DelegationBuilder<
     pub subject: Subject,
 
     /// Command of the delegation (similar to a function name).
-    pub command: Command,
+    pub command: Cmd,
 
     /// Policy of the delegation.
     ///
@@ -85,12 +86,12 @@ impl<
         Issuer: DidSignerOrUnset,
         Audience: DidOrUnset,
         Subject: DelegatedSubjectOrUnset,
-        Command: CommandOrUnset,
-    > DelegationBuilder<D, Issuer, Audience, Subject, Command>
+        Cmd: CommandOrUnset,
+    > DelegationBuilder<D, Issuer, Audience, Subject, Cmd>
 {
     /// Sets the `issuer` field of the delegation.
     #[must_use]
-    pub fn issuer(self, issuer: D) -> DelegationBuilder<D, D, Audience, Subject, Command> {
+    pub fn issuer(self, issuer: D) -> DelegationBuilder<D, D, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer,
             audience: self.audience,
@@ -107,10 +108,7 @@ impl<
 
     /// Sets the `audience` field of the delegation.
     #[must_use]
-    pub fn audience(
-        self,
-        audience: D::Did,
-    ) -> DelegationBuilder<D, Issuer, D::Did, Subject, Command> {
+    pub fn audience(self, audience: D::Did) -> DelegationBuilder<D, Issuer, D::Did, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience,
@@ -130,7 +128,7 @@ impl<
     pub fn subject(
         self,
         subject: DelegatedSubject<D::Did>,
-    ) -> DelegationBuilder<D, Issuer, Audience, DelegatedSubject<D::Did>, Command> {
+    ) -> DelegationBuilder<D, Issuer, Audience, DelegatedSubject<D::Did>, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -150,12 +148,12 @@ impl<
     pub fn command(
         self,
         command: Vec<String>,
-    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Vec<String>> {
+    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command,
+            command: Command(command),
             policy: self.policy,
             expiration: self.expiration,
             not_before: self.not_before,
@@ -170,7 +168,7 @@ impl<
     pub fn policy(
         self,
         policy: Vec<Predicate>,
-    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
+    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -190,7 +188,7 @@ impl<
     pub fn expiration(
         self,
         expiration: Timestamp,
-    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
+    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -210,7 +208,7 @@ impl<
     pub fn not_before(
         self,
         not_before: Timestamp,
-    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
+    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -230,7 +228,7 @@ impl<
     pub fn meta(
         self,
         meta: BTreeMap<String, Ipld>,
-    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
+    ) -> DelegationBuilder<D, Issuer, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -247,7 +245,7 @@ impl<
 
     /// Sets the `nonce` field of the delegation.
     #[must_use]
-    pub fn nonce(self, nonce: Nonce) -> DelegationBuilder<D, Issuer, Audience, Subject, Command> {
+    pub fn nonce(self, nonce: Nonce) -> DelegationBuilder<D, Issuer, Audience, Subject, Cmd> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -264,9 +262,7 @@ impl<
 }
 
 #[allow(clippy::mismatching_type_param_order)]
-impl<D: DidSigner + Serialize>
-    DelegationBuilder<D, D, D::Did, DelegatedSubject<D::Did>, Vec<String>>
-{
+impl<D: DidSigner + Serialize> DelegationBuilder<D, D, D::Did, DelegatedSubject<D::Did>, Command> {
     /// Builds an (unsigned) [`DelegationPayload`].
     ///
     /// This is typesafe, and only possible to call when all required fields are set.

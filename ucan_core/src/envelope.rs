@@ -1,6 +1,9 @@
 //! Top-level Varsig envelope.
 
+pub mod payload_tag;
+
 use ipld_core::ipld::Ipld;
+use payload_tag::PayloadTag;
 use serde::{
     de::{self, Deserializer, MapAccess, SeqAccess, Visitor},
     ser::{SerializeMap, SerializeTuple},
@@ -24,8 +27,11 @@ pub struct Envelope<
     pub EnvelopePayload<V, T>,
 );
 
-impl<V: Verify<Signature = S>, T: Serialize + for<'ze> Deserialize<'ze>, S: SignatureEncoding>
-    Serialize for Envelope<V, T, S>
+impl<
+        V: Verify<Signature = S>,
+        T: Serialize + PayloadTag + for<'ze> Deserialize<'ze>,
+        S: SignatureEncoding,
+    > Serialize for Envelope<V, T, S>
 {
     fn serialize<Ser: serde::Serializer>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error> {
         let mut seq = serializer.serialize_tuple(2)?;
@@ -107,24 +113,14 @@ pub struct EnvelopePayload<V: Verify, T: Serialize + for<'de> Deserialize<'de>> 
     pub payload: T,
 }
 
-impl<V: Verify, T: Serialize + for<'de> Deserialize<'de>> Serialize for EnvelopePayload<V, T> {
+impl<V: Verify, T: PayloadTag + Serialize + for<'de> Deserialize<'de>> Serialize
+    for EnvelopePayload<V, T>
+{
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let payload = serde_value::to_value(&self.payload).map_err(serde::ser::Error::custom)?;
-
-        let serde_value::Value::Map(payload_map) = payload else {
-            return Err(serde::ser::Error::custom("payload must serialize to a map"));
-        };
-
-        // Total length = header (1) + payload (n)
-        let mut map = serializer.serialize_map(Some(1 + payload_map.len()))?;
+        // Serialize as nested format: {"h": <varsig>, "<type_tag>": <payload>}
+        let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("h", &self.header)?;
-
-        // Flatten payload
-        for (k, v) in payload_map {
-            // TODO enforce that no keys conflict with "h"
-            map.serialize_entry(&k, &v)?;
-        }
-
+        map.serialize_entry(&T::tag(), &self.payload)?;
         map.end()
     }
 }
@@ -151,7 +147,7 @@ where
             type Value = EnvelopePayload<V, T>;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(r#"a map with "h" and exactly one dynamic payload key"#)
+                f.write_str(r#"a map with "h" and a payload tag"#)
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
@@ -160,7 +156,6 @@ where
             {
                 let mut header: Option<Varsig<V, DagCborCodec, T>> = None;
                 let mut payload: Option<T> = None;
-                let mut seen_payload = false;
 
                 while let Some(key) = map.next_key::<&str>()? {
                     if key == "h" {
@@ -184,19 +179,16 @@ where
 
                         header = Some(varsig_header);
                     } else {
-                        if seen_payload {
-                            return Err(de::Error::custom(
-                                "expected exactly one dynamic payload entry",
-                            ));
+                        if payload.is_some() {
+                            return Err(de::Error::custom("multiple payload fields"));
                         }
-                        payload = Some(map.next_value::<T>()?);
-                        seen_payload = true;
+                        let value: serde_value::Value = map.next_value()?;
+                        payload = Some(T::deserialize(value).map_err(de::Error::custom)?);
                     }
                 }
 
                 let header = header.ok_or_else(|| de::Error::missing_field("h"))?;
-                let payload =
-                    payload.ok_or_else(|| de::Error::custom("missing dynamic payload entry"))?;
+                let payload = payload.ok_or_else(|| de::Error::custom("missing payload"))?;
 
                 Ok(EnvelopePayload { header, payload })
             }

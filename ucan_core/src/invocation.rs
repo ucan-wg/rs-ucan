@@ -6,10 +6,11 @@
 pub mod builder;
 
 use crate::{
+    command::Command,
     crypto::nonce::Nonce,
     delegation::policy::predicate::{Predicate, RunError},
     did::{Did, DidSigner},
-    envelope::Envelope,
+    envelope::{payload_tag::PayloadTag, Envelope},
     promise::{Promised, WaitingOn},
     time::timestamp::Timestamp,
     unset::Unset,
@@ -55,7 +56,7 @@ impl<D: Did> Invocation<D> {
     }
 
     /// Getter for the `command` field.
-    pub const fn command(&self) -> &Vec<String> {
+    pub const fn command(&self) -> &Command {
         &self.0 .1.payload.command
     }
 
@@ -144,7 +145,7 @@ pub struct InvocationPayload<D: Did> {
     pub(crate) subject: D,
 
     #[serde(rename = "cmd")]
-    pub(crate) command: Vec<String>,
+    pub(crate) command: Command,
 
     #[serde(rename = "arg")]
     pub(crate) arguments: BTreeMap<String, Promised>,
@@ -181,7 +182,7 @@ impl<D: Did> InvocationPayload<D> {
     }
 
     /// Getter for the `command` field.
-    pub const fn command(&self) -> &Vec<String> {
+    pub const fn command(&self) -> &Command {
         &self.command
     }
 
@@ -260,16 +261,23 @@ impl<D: Did> InvocationPayload<D> {
     }
 }
 
+impl<D: Did> PayloadTag for InvocationPayload<D> {
+    fn spec_id() -> &'static str {
+        "inv"
+    }
+
+    fn version() -> &'static str {
+        "1.0.0-rc.1"
+    }
+}
+
 #[derive(Debug, Clone, Error)]
 pub enum CheckFailed {
     #[error(transparent)]
     WaitingOnPromise(#[from] WaitingOn),
 
     #[error("command mismatch: expected {expected:?}, found {expected:?}")]
-    CommandMismatch {
-        expected: Vec<String>,
-        found: Vec<String>,
-    },
+    CommandMismatch { expected: Command, found: Command },
 
     #[error(transparent)]
     PredicateRunError(#[from] RunError),
@@ -315,7 +323,7 @@ mod tests {
             Ed25519Signer,
             Ed25519Did,
             Ed25519Did,
-            Vec<String>,
+            Command,
             Vec<Cid>,
         > = InvocationBuilder::new()
             .issuer(iss.clone())

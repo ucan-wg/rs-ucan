@@ -3,6 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod collection;
+pub mod command;
 pub mod crypto;
 pub mod delegation;
 pub mod did;

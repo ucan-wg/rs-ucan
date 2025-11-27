@@ -1,0 +1,62 @@
+use serde::{Deserialize, Serialize, Serializer};
+
+/// Command type representing a sequence of command segments.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
+pub struct Command(pub Vec<String>);
+
+impl Command {
+    /// Create a new Command from a vector of strings.
+    pub fn new(segments: Vec<String>) -> Self {
+        Command(segments)
+    }
+
+    /// Get the segments of the command.
+    pub fn segments(&self) -> &Vec<String> {
+        &self.0
+    }
+
+    /// Check if the command starts with the given prefix.
+    pub fn starts_with(&self, prefix: &Command) -> bool {
+        if prefix.0.len() > self.0.len() {
+            return false;
+        }
+        self.0.iter().zip(&prefix.0).all(|(a, b)| a == b)
+    }
+}
+
+impl From<Vec<String>> for Command {
+    fn from(segments: Vec<String>) -> Self {
+        Command::new(segments)
+    }
+}
+
+impl From<Command> for Vec<String> {
+    fn from(command: Command) -> Self {
+        command.0
+    }
+}
+
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "/{}/", self.0.join("/"))
+    }
+}
+
+impl Serialize for Command {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        let trimmed = s.trim_matches('/');
+        let parts: Vec<String> = if trimmed.is_empty() {
+            Vec::new()
+        } else {
+            trimmed.split('/').map(String::from).collect()
+        };
+        Ok(Command(parts))
+    }
+}

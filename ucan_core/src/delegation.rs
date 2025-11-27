@@ -10,9 +10,10 @@ pub mod subject;
 
 use self::subject::DelegatedSubject;
 use crate::{
+    command::Command,
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
-    envelope::Envelope,
+    envelope::{payload_tag::PayloadTag, Envelope},
     time::timestamp::Timestamp,
     unset::Unset,
 };
@@ -60,7 +61,7 @@ impl<D: Did> Delegation<D> {
     }
 
     /// Getter for the `command` field.
-    pub const fn command(&self) -> &Vec<String> {
+    pub const fn command(&self) -> &Command {
         &self.0 .1.payload.command
     }
 
@@ -139,7 +140,7 @@ pub struct DelegationPayload<D: Did> {
     pub(crate) subject: DelegatedSubject<D>,
 
     #[serde(rename = "cmd")]
-    pub(crate) command: Vec<String>,
+    pub(crate) command: Command,
 
     #[serde(rename = "pol")]
     pub(crate) policy: Vec<Predicate>,
@@ -171,7 +172,7 @@ impl<D: Did> DelegationPayload<D> {
     }
 
     /// Getter for the `command` field.
-    pub const fn command(&self) -> &Vec<String> {
+    pub const fn command(&self) -> &Command {
         &self.command
     }
 
@@ -382,7 +383,7 @@ where
                     issuer,
                     audience,
                     subject,
-                    command,
+                    command: Command(command),
                     policy,
                     nonce,
                     expiration: expiration.unwrap_or(None),
@@ -393,6 +394,16 @@ where
         }
 
         deserializer.deserialize_map(PayloadVisitor::<D>(std::marker::PhantomData))
+    }
+}
+
+impl<D: Did> PayloadTag for DelegationPayload<D> {
+    fn spec_id() -> &'static str {
+        "dlg"
+    }
+
+    fn version() -> &'static str {
+        "1.0.0-rc.1"
     }
 }
 
@@ -421,7 +432,7 @@ mod tests {
             Ed25519Signer,
             Ed25519Did,
             DelegatedSubject<Ed25519Did>,
-            Vec<String>,
+            Command,
         > = DelegationBuilder::new()
             .issuer(iss.clone())
             .audience(aud)
@@ -431,6 +442,94 @@ mod tests {
         let delegation = builder.try_build()?;
 
         assert_eq!(delegation.issuer().to_string(), iss.to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn delegation_b64_fixture_roundtrip() -> TestResult {
+        use base64::prelude::*;
+
+        // Sample delegation with sub: null, cmd: "/", exp: null, meta: {}
+        let b64 = "glhA0rict5hwniXnh54Y7b0v/ZEDNSlPdBx0rsoWDYC2Ylv+UzDr00s7ojPsfvNwrofqKItK911ZGJggZSkeQIB3DqJhaEg0Ae0B7QETcXN1Y2FuL2RsZ0AxLjAuMC1yYy4xqWNhdWR4OGRpZDprZXk6ejZNa2ZGSkJ4U0JGZ29BcVRRTFM3YlRmUDhNZ3lEeXB2YTVpNkNMNVBKTjhSSlpyY2NtZGEvY2V4cPZjaXNzeDhkaWQ6a2V5Ono2TWtyQXNxMU03dEVmUHZXNWRSMlVGQ3daU3pSTU5YWWVUVzh0R1pTS3ZVbTlFWmNuYmYaaSTxp2Nwb2yAY3N1YvZkbWV0YaBlbm9uY2VMVkDFeab+58p8SMpW";
+
+        let bytes = BASE64_STANDARD.decode(b64)?;
+
+        // Parse as Delegation
+        let delegation: Delegation<Ed25519Did> = serde_ipld_dagcbor::from_slice(&bytes)?;
+
+        // Verify fields parsed correctly
+        assert_eq!(delegation.subject(), &DelegatedSubject::Any); // sub: null
+        assert_eq!(
+            delegation.command(),
+            &vec!["".to_string(), "".to_string()].into()
+        ); // cmd: "/"
+        assert_eq!(delegation.expiration(), None); // exp: null
+        assert!(delegation.not_before().is_some()); // nbf: 1764028839
+
+        // Serialize back
+        let reserialized = serde_ipld_dagcbor::to_vec(&delegation)?;
+
+        // Verify byte-exact roundtrip
+        assert_eq!(
+            bytes, reserialized,
+            "Reserialized bytes should match original"
+        );
+
+        // Deserialize again to verify roundtrip preserves all fields
+        let roundtripped: Delegation<Ed25519Did> = serde_ipld_dagcbor::from_slice(&reserialized)?;
+        assert_eq!(roundtripped.subject(), delegation.subject());
+        assert_eq!(roundtripped.command(), delegation.command());
+        assert_eq!(roundtripped.expiration(), delegation.expiration());
+        assert_eq!(roundtripped.not_before(), delegation.not_before());
+        assert_eq!(roundtripped.issuer(), delegation.issuer());
+        assert_eq!(roundtripped.audience(), delegation.audience());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delegation_payload_any_subject_serializes_to_null() -> TestResult {
+        use crate::crypto::nonce::Nonce;
+
+        let iss: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
+            .unwrap()
+            .into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
+            .unwrap()
+            .into();
+
+        let payload = DelegationPayload {
+            issuer: iss,
+            audience: aud,
+            subject: DelegatedSubject::Any,
+            command: Command(vec!["/".to_string()]),
+            policy: vec![],
+            expiration: None,
+            not_before: None,
+            meta: std::collections::BTreeMap::new(),
+            nonce: Nonce::generate_16().unwrap(),
+        };
+
+        assert_eq!(payload.subject(), &DelegatedSubject::Any);
+
+        // Serialize to CBOR
+        let bytes = serde_ipld_dagcbor::to_vec(&payload)?;
+
+        // Parse as IPLD to verify structure
+        let ipld: ipld_core::ipld::Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
+
+        // Verify sub is null in the serialized form
+        if let ipld_core::ipld::Ipld::Map(map) = &ipld {
+            let sub = map.get("sub").expect("sub field should exist");
+            assert_eq!(
+                sub,
+                &ipld_core::ipld::Ipld::Null,
+                "sub should be null for Any"
+            );
+        } else {
+            panic!("Expected a map");
+        }
+
         Ok(())
     }
 }

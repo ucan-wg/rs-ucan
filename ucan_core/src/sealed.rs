@@ -1,4 +1,5 @@
 use crate::{
+    command::Command,
     delegation::subject::DelegatedSubject,
     did::{Did, DidSigner},
     unset::Unset,
@@ -23,7 +24,7 @@ impl<D: Did> DelegatedSubjectOrUnset for DelegatedSubject<D> {}
 #[doc(hidden)]
 pub trait CommandOrUnset {}
 impl CommandOrUnset for Unset {}
-impl CommandOrUnset for Vec<String> {}
+impl CommandOrUnset for Command {}
 
 #[doc(hidden)]
 #[allow(dead_code)]

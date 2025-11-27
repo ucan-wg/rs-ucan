@@ -12,6 +12,7 @@ use arbitrary::Arbitrary;
 
 /// Known [`Nonce`] types
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(into = "SerialNonce", from = "SerialNonce")]
 #[cfg_attr(any(test, feature = "test_utils"), derive(Arbitrary))]
 pub enum Nonce {
     /// 128-bit, 16-byte nonce
@@ -142,6 +143,23 @@ impl Hash for Nonce {
             Nonce::Nonce16(nonce) => nonce.to_vec().hash(state),
             Nonce::Custom(nonce) => nonce.hash(state),
         }
+    }
+}
+
+/// Helper for serializing nonce as bytes
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+struct SerialNonce(serde_bytes::ByteBuf);
+
+impl From<Nonce> for SerialNonce {
+    fn from(nonce: Nonce) -> Self {
+        SerialNonce(serde_bytes::ByteBuf::from(Vec::from(nonce)))
+    }
+}
+
+impl From<SerialNonce> for Nonce {
+    fn from(bytes: SerialNonce) -> Self {
+        Nonce::from(bytes.0.into_vec())
     }
 }
 

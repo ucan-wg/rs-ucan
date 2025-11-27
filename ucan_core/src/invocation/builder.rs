@@ -1,6 +1,7 @@
 //! Typesafe builder for [`InvocationPayload`].
 
 use crate::{
+    command::Command,
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
     envelope::{Envelope, EnvelopePayload},
@@ -27,7 +28,7 @@ pub struct InvocationBuilder<
     Issuer: DidSignerOrUnset = Unset,
     Audience: DidOrUnset = Unset,
     Subject: DidOrUnset = Unset,
-    Command: CommandOrUnset = Unset,
+    Cmd: CommandOrUnset = Unset,
     Proofs: ProofsOrUnset = Unset,
 > {
     /// Issuer of the invocation.
@@ -39,10 +40,10 @@ pub struct InvocationBuilder<
     /// Subject of the invocation (the resource or object being accessed).
     pub subject: Subject,
 
-    /// Command being invoked.
-    pub command: Command,
+    /// Cmd being invoked.
+    pub command: Cmd,
 
-    /// The arguments for the Command.
+    /// The arguments for the Cmd.
     pub arguments: BTreeMap<String, Promised>,
 
     /// Proofs of the invocation.
@@ -93,13 +94,13 @@ impl<
         Issuer: DidSignerOrUnset,
         Audience: DidOrUnset,
         Subject: DidOrUnset,
-        Command: CommandOrUnset,
+        Cmd: CommandOrUnset,
         Proofs: ProofsOrUnset,
-    > InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs>
+    > InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs>
 {
     /// Sets the `issuer` field of the invocation.
     #[must_use]
-    pub fn issuer(self, issuer: D) -> InvocationBuilder<D, D, Audience, Subject, Command, Proofs> {
+    pub fn issuer(self, issuer: D) -> InvocationBuilder<D, D, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer,
             audience: self.audience,
@@ -121,7 +122,7 @@ impl<
     pub fn audience(
         self,
         audience: D::Did,
-    ) -> InvocationBuilder<D, Issuer, D::Did, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, D::Did, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience,
@@ -143,7 +144,7 @@ impl<
     pub fn subject(
         self,
         subject: D::Did,
-    ) -> InvocationBuilder<D, Issuer, Audience, D::Did, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, D::Did, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -165,12 +166,12 @@ impl<
     pub fn command(
         self,
         command: Vec<String>,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Vec<String>, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command,
+            command: Command(command),
             arguments: self.arguments,
             proofs: self.proofs,
             cause: self.cause,
@@ -187,7 +188,7 @@ impl<
     pub fn arguments(
         self,
         arguments: BTreeMap<String, Promised>,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -209,7 +210,7 @@ impl<
     pub fn proofs(
         self,
         proofs: Vec<Cid>,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Vec<Cid>> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Vec<Cid>> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -231,7 +232,7 @@ impl<
     pub fn expiration(
         self,
         expiration: Timestamp,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -253,7 +254,7 @@ impl<
     pub fn issued_at(
         self,
         issued_at: Timestamp,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -272,7 +273,7 @@ impl<
 
     /// Sets the `issued_at` field of the invocation to the current system time.
     #[must_use]
-    pub fn issue_now(self) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    pub fn issue_now(self) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -294,7 +295,7 @@ impl<
     pub fn meta(
         self,
         meta: BTreeMap<String, Ipld>,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -316,7 +317,7 @@ impl<
     pub fn nonce(
         self,
         nonce: Nonce,
-    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
+    ) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
@@ -335,7 +336,7 @@ impl<
 }
 
 #[allow(clippy::mismatching_type_param_order)]
-impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Vec<String>, Vec<Cid>> {
+impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, Vec<Cid>> {
     /// Builds the [`Delegation`] instance from the builder.
     ///
     /// This is typesafe, and only possible to call when all required fields are set.
