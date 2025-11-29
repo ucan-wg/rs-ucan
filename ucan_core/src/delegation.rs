@@ -239,7 +239,7 @@ where
                 let mut issuer: Option<D> = None;
                 let mut audience: Option<D> = None;
                 let mut subject: Option<DelegatedSubject<D>> = None;
-                let mut command: Option<Vec<String>> = None;
+                let mut command: Option<Command> = None;
                 let mut policy: Option<Vec<Predicate>> = None;
                 let mut expiration: Option<Option<Timestamp>> = None;
                 let mut not_before: Option<Option<Timestamp>> = None;
@@ -270,8 +270,8 @@ where
                             if command.is_some() {
                                 return Err(de::Error::duplicate_field("cmd"));
                             }
-                            let s: String = map.next_value()?;
-                            command = Some(s.split("/").map(ToString::to_string).collect());
+                            let cmd: Command = map.next_value()?;
+                            command = Some(cmd);
                         }
                         "pol" => {
                             if policy.is_some() {
@@ -383,7 +383,7 @@ where
                     issuer,
                     audience,
                     subject,
-                    command: Command(command),
+                    command,
                     policy,
                     nonce,
                     expiration: expiration.unwrap_or(None),
@@ -409,9 +409,10 @@ impl<D: Did> PayloadTag for DelegationPayload<D> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::did::{Ed25519Did, Ed25519Signer};
 
-    use super::*;
+    use base64::prelude::*;
     use testresult::TestResult;
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -447,22 +448,18 @@ mod tests {
 
     #[test]
     fn delegation_b64_fixture_roundtrip() -> TestResult {
-        use base64::prelude::*;
-
         // Sample delegation with sub: null, cmd: "/", exp: null, meta: {}
         let b64 = "glhA0rict5hwniXnh54Y7b0v/ZEDNSlPdBx0rsoWDYC2Ylv+UzDr00s7ojPsfvNwrofqKItK911ZGJggZSkeQIB3DqJhaEg0Ae0B7QETcXN1Y2FuL2RsZ0AxLjAuMC1yYy4xqWNhdWR4OGRpZDprZXk6ejZNa2ZGSkJ4U0JGZ29BcVRRTFM3YlRmUDhNZ3lEeXB2YTVpNkNMNVBKTjhSSlpyY2NtZGEvY2V4cPZjaXNzeDhkaWQ6a2V5Ono2TWtyQXNxMU03dEVmUHZXNWRSMlVGQ3daU3pSTU5YWWVUVzh0R1pTS3ZVbTlFWmNuYmYaaSTxp2Nwb2yAY3N1YvZkbWV0YaBlbm9uY2VMVkDFeab+58p8SMpW";
-
         let bytes = BASE64_STANDARD.decode(b64)?;
 
         // Parse as Delegation
         let delegation: Delegation<Ed25519Did> = serde_ipld_dagcbor::from_slice(&bytes)?;
 
+        dbg!(&delegation);
+
         // Verify fields parsed correctly
         assert_eq!(delegation.subject(), &DelegatedSubject::Any); // sub: null
-        assert_eq!(
-            delegation.command(),
-            &vec!["".to_string(), "".to_string()].into()
-        ); // cmd: "/"
+        assert_eq!(delegation.command(), &vec![].into()); // cmd: "/"
         assert_eq!(delegation.expiration(), None); // exp: null
         assert!(delegation.not_before().is_some()); // nbf: 1764028839
 

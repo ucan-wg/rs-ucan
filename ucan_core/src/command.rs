@@ -38,7 +38,17 @@ impl From<Command> for Vec<String> {
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "/{}/", self.0.join("/"))
+        let cleaned = self
+            .0
+            .iter()
+            .filter(|s| !s.is_empty())
+            .cloned()
+            .collect::<Vec<_>>();
+        if cleaned.is_empty() {
+            return f.write_str("/");
+        } else {
+            write!(f, "/{}/", cleaned.join("/"))
+        }
     }
 }
 
@@ -52,11 +62,12 @@ impl<'de> Deserialize<'de> for Command {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         let trimmed = s.trim_matches('/');
-        let parts: Vec<String> = if trimmed.is_empty() {
-            Vec::new()
-        } else {
-            trimmed.split('/').map(String::from).collect()
-        };
+        dbg!(&trimmed);
+        let parts: Vec<String> = trimmed
+            .split("/")
+            .map(String::from)
+            .filter(|s| !s.is_empty())
+            .collect();
         Ok(Command(parts))
     }
 }
