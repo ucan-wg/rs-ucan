@@ -62,7 +62,6 @@ impl<'de> Deserialize<'de> for Command {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         let trimmed = s.trim_matches('/');
-        dbg!(&trimmed);
         let parts: Vec<String> = trimmed
             .split("/")
             .map(String::from)

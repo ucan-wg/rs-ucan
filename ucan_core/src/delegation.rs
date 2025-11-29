@@ -455,8 +455,6 @@ mod tests {
         // Parse as Delegation
         let delegation: Delegation<Ed25519Did> = serde_ipld_dagcbor::from_slice(&bytes)?;
 
-        dbg!(&delegation);
-
         // Verify fields parsed correctly
         assert_eq!(delegation.subject(), &DelegatedSubject::Any); // sub: null
         assert_eq!(delegation.command(), &vec![].into()); // cmd: "/"
