@@ -42,13 +42,22 @@ pub trait DelegationStore<K: FutureKind, D: Did, T: Borrow<Delegation<D>>> {
         cid: Cid,
         delegation: T,
     ) -> K::Future<'a, Result<(), Self::InsertError>>;
+}
 
-    /// Inserts a delegation and returns its CID.
-    async fn insert(&self, delegation: T) -> Result<Cid, Self::InsertError> {
-        let cid = delegation.borrow().to_cid();
-        self.insert_by_cid(cid, delegation).await?;
-        Ok(cid)
-    }
+/// Inserts a delegation and returns its CID.
+pub async fn insert<
+    'a,
+    K: FutureKind,
+    D: Did,
+    T: Borrow<Delegation<D>>,
+    S: DelegationStore<K, D, T>,
+>(
+    store: &'a S,
+    delegation: T,
+) -> Result<Cid, S::InsertError> {
+    let cid = delegation.borrow().to_cid();
+    store.insert_by_cid(cid, delegation).await?;
+    Ok(cid)
 }
 
 impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
@@ -170,10 +179,12 @@ where
     }
 }
 
+/// Error for when the delegation store's [`Mutex`] is poisoned.
 #[derive(Debug, Clone, Copy, Error)]
 #[error("delegation store poisoned")]
 pub struct StorePoisoned;
 
+/// Error for when a delegation is missing from the store.
 #[derive(Debug, Clone, Copy, Error)]
 #[error("delegation with cid {0} is missing")]
 pub struct Missing(pub Cid);
@@ -181,9 +192,11 @@ pub struct Missing(pub Cid);
 /// Error for when the delegation store's [`Mutex`] is poisoned.
 #[derive(Debug, Clone, Copy, Error)]
 pub enum LockedStoreGetError {
+    /// Delegation is missing
     #[error(transparent)]
     Missing(#[from] Missing),
 
+    /// Mutex was poisoned
     #[error(transparent)]
     StorePoisoned(#[from] StorePoisoned),
 }

@@ -1,3 +1,5 @@
+//! CID helpers.
+
 use ipld_core::cid::{multihash::Multihash, Cid};
 use serde::Serialize;
 use sha2::Digest;

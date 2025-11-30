@@ -226,6 +226,7 @@ impl<D: Did> InvocationPayload<D> {
         to_dagcbor_cid(&self)
     }
 
+    /// Check if an [`InvocationPayload`] with proofs stored in a delegation store is valid.
     pub async fn check<K: FutureKind, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
         &self,
         proof_store: &S,
@@ -235,12 +236,15 @@ impl<D: Did> InvocationPayload<D> {
             .await
             .map_err(StoredCheckError::GetError)?;
         let dlgs: Vec<&Delegation<D>> = realized_proofs.iter().map(Borrow::borrow).collect();
-        self.syntatic_checks(dlgs.as_slice())?;
+        self.syntatic_checks(dlgs)?;
         Ok(())
     }
 
     /// Check if an [`InvocationPayload`] is valid.
-    pub fn syntatic_checks(&self, proofs: &[&Delegation<D>]) -> Result<(), CheckFailed> {
+    pub fn syntatic_checks<'a, I: IntoIterator<Item = &'a Delegation<D>>>(
+        &'a self,
+        proofs: I,
+    ) -> Result<(), CheckFailed> {
         let args: Ipld = self
             .arguments()
             .iter()
@@ -293,30 +297,44 @@ impl<D: Did> PayloadTag for InvocationPayload<D> {
     }
 }
 
+/// Errors that can occur when checking an invocation
 #[derive(Debug, Clone, Error)]
 pub enum CheckFailed {
+    /// Error indicating that the invocation is waiting on a promise to be resolved
     #[error(transparent)]
     WaitingOnPromise(#[from] WaitingOn),
 
+    /// Error indicating that the command in the invocation does not match the command in the proof
     #[error("command mismatch: expected {expected:?}, found {expected:?}")]
-    CommandMismatch { expected: Command, found: Command },
+    CommandMismatch {
+        /// The expected command
+        expected: Command,
 
+        /// The found command
+        found: Command,
+    },
+    /// Error indicating that a predicate failed to run
     #[error(transparent)]
     PredicateRunError(#[from] RunError),
 
+    /// Error indicating that a predicate has failed
     #[error("predicate failed: {0:?}")]
     PredicateFailed(Predicate),
 
+    /// Error indicating that the proof issuer chain is invalid
     #[error("invalid proof issuer chain")]
     InvalidProofIssuerChain,
 
+    /// Error indicating that the invocation's subject is not allowed by the proof's subject
     #[error("subject not allowed by proof")]
     SubjectNotAllowedByProof,
 
+    /// Error indicating that the root proof's issuer is not the same as the invocation's subject
     #[error("root proof issuer is not the subject")]
     RootProofIssuerIsNotSubject,
 }
 
+/// Errors that can occur when checking an invocation with proofs stored in a delegation store
 #[derive(Debug, Clone, Error)]
 pub enum StoredCheckError<
     K: FutureKind,
@@ -324,9 +342,11 @@ pub enum StoredCheckError<
     T: Borrow<Delegation<D>>,
     S: DelegationStore<K, D, T>,
 > {
+    /// Error getting proofs from the store
     #[error(transparent)]
     GetError(S::GetError),
 
+    /// Proof check failed
     #[error(transparent)]
     CheckFailed(#[from] CheckFailed),
 }

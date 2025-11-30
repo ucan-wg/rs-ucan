@@ -1,3 +1,5 @@
+//! Command helpers.
+
 use serde::{Deserialize, Serialize, Serializer};
 
 /// Command type representing a sequence of command segments.

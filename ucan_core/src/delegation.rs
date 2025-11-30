@@ -19,16 +19,12 @@ use crate::{
     unset::Unset,
 };
 use builder::DelegationBuilder;
-use ipld_core::{
-    cid::{self, multihash::Multihash, Cid},
-    ipld::Ipld,
-};
+use ipld_core::{cid::Cid, ipld::Ipld};
 use policy::predicate::Predicate;
 use serde::{
     de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
-use sha2::Digest;
 use std::{borrow::Cow, collections::BTreeMap, fmt::Debug};
 use varsig::verify::Verify;
 
