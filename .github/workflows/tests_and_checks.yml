@@ -18,10 +18,10 @@ jobs:
       fail-fast: false
       matrix:
         rust-toolchain:
-          - stable
+  g       - stable
           - nightly
           # minimum version
-          - 1.67
+          - 1.85
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
