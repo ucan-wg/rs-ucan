@@ -9,6 +9,8 @@ members = [
 [workspace.package]
 authors = [
     "Brooklyn Zelenka <hello@brooklynzelenka.com>",
+    "Irakli Gozalishvili <contact@gozala.io>",
+    "Christopher Joel <0xcda7a@gmail.com>"
 ]
 
 edition = "2021"

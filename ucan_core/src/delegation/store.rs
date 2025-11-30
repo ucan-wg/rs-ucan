@@ -1,3 +1,5 @@
+//! Delegation stores.
+
 use std::{
     borrow::Borrow,
     cell::RefCell,
@@ -16,44 +18,60 @@ use crate::did::Did;
 
 use super::Delegation;
 
+/// Single-threaded delegation store.
 pub trait LocalDelegationStore<D: Did, T: Borrow<Delegation<D>>> {
+    /// Error type for local insertion operations.
     type LocalInsertError;
+
+    /// Error type for local retrieval operations.
     type LocalGetError;
 
+    /// Retrieves a delegation by its CID.
     fn local_get(&self, cid: &Cid) -> impl Future<Output = Result<Option<T>, Self::LocalGetError>>;
+
+    /// Inserts a delegation by its CID.
     fn local_insert_by_cid(
         &self,
         cid: Cid,
         delegation: T,
     ) -> impl Future<Output = Result<(), Self::LocalInsertError>>;
 
+    /// Inserts a delegation and returns its CID.
     fn local_insert(
         &self,
         delegation: T,
     ) -> impl Future<Output = Result<Cid, Self::LocalInsertError>> {
         async {
             let cid = delegation.borrow().to_cid();
-            self.local_insert_by_cid(cid, delegation);
+            self.local_insert_by_cid(cid, delegation).await?;
             Ok(cid)
         }
     }
 }
 
+/// Thread-safe delegation store.
 pub trait DelegationStore<D: Did, T: Borrow<Delegation<D>> + Send>: Sync {
+    /// Error type for insertion operations.
     type InsertError;
+
+    /// Error type for retrieval operations.
     type GetError;
 
+    /// Retrieves a delegation by its CID.
     fn get(&self, cid: &Cid) -> impl Future<Output = Result<Option<T>, Self::GetError>> + Send;
+
+    /// Inserts a delegation by its CID.
     fn insert_by_cid(
         &self,
         cid: Cid,
         delegation: T,
     ) -> impl Future<Output = Result<(), Self::InsertError>> + Send;
 
+    /// Inserts a delegation and returns its CID.
     fn insert(&self, delegation: T) -> impl Future<Output = Result<Cid, Self::InsertError>> + Send {
         async {
             let cid = delegation.borrow().to_cid();
-            self.insert_by_cid(cid, delegation);
+            self.insert_by_cid(cid, delegation).await?;
             Ok(cid)
         }
     }

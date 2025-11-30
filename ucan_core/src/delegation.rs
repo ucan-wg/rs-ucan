@@ -10,6 +10,7 @@ pub mod subject;
 
 use self::subject::DelegatedSubject;
 use crate::{
+    cid::to_dagcbor_cid,
     command::Command,
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
@@ -90,12 +91,9 @@ impl<D: Did> Delegation<D> {
         &self.0 .1.payload.nonce
     }
 
+    /// Compute the CID for this delegation.
     pub fn to_cid(&self) -> Cid {
-        let bytes = serde_ipld_dagcbor::to_vec(&self).expect("delegation is not serializable");
-        let digest = sha2::Sha256::digest(bytes);
-        let multihash =
-            Multihash::wrap(0x12, &digest).expect("unable to create multihash for delegation");
-        cid::Cid::new_v1(0x71, multihash)
+        to_dagcbor_cid(&self)
     }
 }
 

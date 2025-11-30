@@ -6,9 +6,13 @@
 pub mod builder;
 
 use crate::{
+    cid::to_dagcbor_cid,
     command::Command,
     crypto::nonce::Nonce,
-    delegation::policy::predicate::{Predicate, RunError},
+    delegation::{
+        policy::predicate::{Predicate, RunError},
+        store::DelegationStore,
+    },
     did::{Did, DidSigner},
     envelope::{payload_tag::PayloadTag, Envelope},
     promise::{Promised, WaitingOn},
@@ -216,8 +220,26 @@ impl<D: Did> InvocationPayload<D> {
         &self.nonce
     }
 
+    /// Compute the CID for this invocation.
+    pub fn to_cid(&self) -> Cid {
+        to_dagcbor_cid(&self)
+    }
+
+    pub async fn check<S: DelegationStore>(&self, proof_store: &S) -> Result<(), CheckFailed> {
+        let mut realized_proofs = Vec::new();
+        for proof_cid in self.proofs() {
+            let found = proof_store
+                .get(proof_cid)
+                .await
+                .map_err(|_| CheckFailed::RootProofIssuerIsNotSubject)? // FIXME better error
+                .ok_or(CheckFailed::RootProofIssuerIsNotSubject)?; // FIXME better error
+            realized_proofs.push(found.borrow().clone());
+        }
+        self.syntatic_checks(&realized_proofs)
+    }
+
     /// Check if an [`InvocationPayload`] is valid.
-    pub fn semantic_check(&self, proofs: &[Delegation<D>]) -> Result<(), CheckFailed> {
+    pub fn syntatic_checks(&self, proofs: &[Delegation<D>]) -> Result<(), CheckFailed> {
         let args: Ipld = self
             .arguments()
             .iter()
@@ -225,14 +247,14 @@ impl<D: Did> InvocationPayload<D> {
             .collect::<Result<BTreeMap<String, Ipld>, _>>()?
             .into();
 
-        // FIXME double check the expected proof order
-        let mut head_issuer = &self.issuer;
+        let mut expected_issuer = self.subject();
+
         for proof in proofs {
             if proof.subject().allows(self.subject()) {
                 return Err(CheckFailed::SubjectNotAllowedByProof);
             }
 
-            if proof.audience() != head_issuer {
+            if proof.issuer() != expected_issuer {
                 return Err(CheckFailed::InvalidProofIssuerChain);
             }
 
@@ -249,12 +271,11 @@ impl<D: Did> InvocationPayload<D> {
                 }
             }
 
-            head_issuer = proof.issuer();
+            expected_issuer = proof.audience();
         }
 
-        // Last in the chain due to the above loop
-        if head_issuer != self.subject() {
-            return Err(CheckFailed::RootProofIssuerIsNotSubject);
+        if expected_issuer != self.issuer() {
+            return Err(CheckFailed::InvalidProofIssuerChain);
         }
 
         Ok(())
