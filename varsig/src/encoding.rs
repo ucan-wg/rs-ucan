@@ -43,7 +43,7 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
             return None;
         }
 
-        match code[0] {
+        match code.first()? {
             #[cfg(feature = "dag_cbor")]
             0x71 => Some(Encoding::DagCbor),
 

@@ -55,7 +55,7 @@ pub(crate) fn eq_with_float_nans_and_infinities(a: &InternalIpld, b: &InternalIp
             if a_map.len() != b_map.len() {
                 return false;
             }
-            for (key, a_value) in a_map.iter() {
+            for (key, a_value) in a_map {
                 match b_map.get(key) {
                     Some(b_value) => {
                         if !eq_with_float_nans_and_infinities(a_value, b_value) {

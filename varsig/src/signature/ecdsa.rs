@@ -38,8 +38,8 @@ impl Verify for Es256 {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes[0..=2] == [0xec, 0x1201, 0x15] {
-            Some((Self::default(), &bytes[3..]))
+        if bytes.get(0..=2)? == [0xec, 0x1201, 0x15] {
+            Some((Self::default(), bytes.get(3..)?))
         } else {
             None
         }
@@ -116,8 +116,8 @@ impl Verify for Es256k {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes[0..=2] == [0xec, 0xe7, 0x12] {
-            Some((Self::default(), &bytes[3..]))
+        if *bytes.get(0..=2)? == [0xec, 0xe7, 0x12] {
+            Some((Self::default(), bytes.get(3..)?))
         } else {
             None
         }

@@ -46,8 +46,8 @@ impl Verify for Ed25519 {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes[0..=2] == [0xed, 0xed, 0x13] {
-            Some((EdDsa(PhantomData), &bytes[3..]))
+        if *bytes.get(0..=2)? == [0xed, 0xed, 0x13] {
+            Some((EdDsa(PhantomData), bytes.get(3..)?))
         } else {
             None
         }

@@ -16,6 +16,10 @@ pub trait Sign: Verify {
     type SignError: Error;
 
     /// Synchronously sign a payload.
+    ///
+    /// # Errors
+    ///
+    /// If encoding or signing fails, a `SignerError` is returned.
     #[allow(clippy::type_complexity)]
     #[tracing::instrument(skip_all)]
     fn try_sign<T, C: Codec<T>>(

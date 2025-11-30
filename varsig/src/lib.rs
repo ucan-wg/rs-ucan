@@ -35,6 +35,7 @@
 //! varsig.try_verify(&sk.verifying_key(), &payload, &sig).unwrap();
 //! ```
 
+#![allow(clippy::multiple_crate_versions)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod codec;

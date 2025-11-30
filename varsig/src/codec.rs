@@ -90,7 +90,7 @@ impl<T: Serialize + for<'de> Deserialize<'de>> Codec<T> for DagCborCodec {
             return None;
         }
 
-        if code[0] == <DagCborCodec as IpldCodec<T>>::CODE {
+        if *code.first()? == <DagCborCodec as IpldCodec<T>>::CODE {
             Some(DagCborCodec)
         } else {
             None
