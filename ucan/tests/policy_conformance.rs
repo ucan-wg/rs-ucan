@@ -65,7 +65,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -74,7 +74,7 @@ mod policy_conformance {
             fn test_first_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[1] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -83,7 +83,7 @@ mod policy_conformance {
             fn test_second_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[2] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -92,7 +92,7 @@ mod policy_conformance {
             fn test_third_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[3] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -101,7 +101,7 @@ mod policy_conformance {
             fn test_fourth_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[4] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -110,7 +110,7 @@ mod policy_conformance {
             fn test_fifth_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[5] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -129,7 +129,7 @@ mod policy_conformance {
                 let (args, policies) = scenario_one_fixture();
 
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
 
                 Ok(())
@@ -148,7 +148,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -157,7 +157,7 @@ mod policy_conformance {
             fn test_first_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[1] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -166,7 +166,7 @@ mod policy_conformance {
             fn test_second_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[2] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -175,7 +175,7 @@ mod policy_conformance {
             fn test_third_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[3] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -184,7 +184,7 @@ mod policy_conformance {
             fn test_fourth_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[4] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -193,7 +193,7 @@ mod policy_conformance {
             fn test_fifth_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[5] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -202,7 +202,7 @@ mod policy_conformance {
             fn test_sixth_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[6] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -220,7 +220,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_three_fixture();
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -238,7 +238,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_four_fixture();
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -256,7 +256,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_five_fixture();
                 for policy in &policies[0] {
-                    assert!(policy.clone().run(&args)?)
+                    assert!(policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -314,7 +314,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[0] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -323,7 +323,7 @@ mod policy_conformance {
             fn test_first_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[1] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -332,7 +332,7 @@ mod policy_conformance {
             fn test_second_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[2] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -341,7 +341,7 @@ mod policy_conformance {
             fn test_third_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[3] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -350,7 +350,7 @@ mod policy_conformance {
             fn test_fourth_policy() -> TestResult {
                 let (args, policies) = scenario_zero_fixture();
                 for policy in &policies[4] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -368,7 +368,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_one_fixture();
                 for policy in &policies[0] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -386,7 +386,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_two_fixture();
                 for policy in &policies[0] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
@@ -404,7 +404,7 @@ mod policy_conformance {
             fn test_zeroth_policy() -> TestResult {
                 let (args, policies) = scenario_three_fixture();
                 for policy in &policies[0] {
-                    assert!(!policy.clone().run(&args)?)
+                    assert!(!policy.clone().run(args)?);
                 }
                 Ok(())
             }
