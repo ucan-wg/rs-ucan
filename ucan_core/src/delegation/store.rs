@@ -5,149 +5,185 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     convert::Infallible,
-    future::Future,
+    error::Error,
     rc::Rc,
     sync::{Arc, Mutex},
 };
 
+use futures::{
+    future::{BoxFuture, LocalBoxFuture},
+    FutureExt,
+};
 use ipld_core::cid::Cid;
 use thiserror::Error;
 use varsig::verify::Verify;
 
-use crate::did::Did;
+use crate::{
+    did::Did,
+    future::{FutureKind, Local, Sendable},
+};
 
 use super::Delegation;
 
-/// Single-threaded delegation store.
-pub trait LocalDelegationStore<D: Did, T: Borrow<Delegation<D>>> {
-    /// Error type for local insertion operations.
-    type LocalInsertError;
-
-    /// Error type for local retrieval operations.
-    type LocalGetError;
-
-    /// Retrieves a delegation by its CID.
-    fn local_get(&self, cid: &Cid) -> impl Future<Output = Result<Option<T>, Self::LocalGetError>>;
-
-    /// Inserts a delegation by its CID.
-    fn local_insert_by_cid(
-        &self,
-        cid: Cid,
-        delegation: T,
-    ) -> impl Future<Output = Result<(), Self::LocalInsertError>>;
-
-    /// Inserts a delegation and returns its CID.
-    fn local_insert(
-        &self,
-        delegation: T,
-    ) -> impl Future<Output = Result<Cid, Self::LocalInsertError>> {
-        async {
-            let cid = delegation.borrow().to_cid();
-            self.local_insert_by_cid(cid, delegation).await?;
-            Ok(cid)
-        }
-    }
-}
-
-/// Thread-safe delegation store.
-pub trait DelegationStore<D: Did, T: Borrow<Delegation<D>> + Send>: Sync {
+/// Delegation store.
+pub trait DelegationStore<K: FutureKind, D: Did, T: Borrow<Delegation<D>>> {
     /// Error type for insertion operations.
-    type InsertError;
+    type InsertError: Error;
 
     /// Error type for retrieval operations.
-    type GetError;
+    type GetError: Error;
 
     /// Retrieves a delegation by its CID.
-    fn get(&self, cid: &Cid) -> impl Future<Output = Result<Option<T>, Self::GetError>> + Send;
+    fn get_all<'a>(&'a self, cid: &'a [Cid]) -> K::Future<'a, Result<Vec<T>, Self::GetError>>;
 
     /// Inserts a delegation by its CID.
-    fn insert_by_cid(
-        &self,
+    fn insert_by_cid<'a>(
+        &'a self,
         cid: Cid,
         delegation: T,
-    ) -> impl Future<Output = Result<(), Self::InsertError>> + Send;
+    ) -> K::Future<'a, Result<(), Self::InsertError>>;
 
     /// Inserts a delegation and returns its CID.
-    fn insert(&self, delegation: T) -> impl Future<Output = Result<Cid, Self::InsertError>> + Send {
-        async {
-            let cid = delegation.borrow().to_cid();
-            self.insert_by_cid(cid, delegation).await?;
-            Ok(cid)
-        }
+    async fn insert(&self, delegation: T) -> Result<Cid, Self::InsertError> {
+        let cid = delegation.borrow().to_cid();
+        self.insert_by_cid(cid, delegation).await?;
+        Ok(cid)
     }
 }
 
-impl<D: Did> LocalDelegationStore<D, Rc<Delegation<D>>>
+impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
     for Rc<RefCell<HashMap<Cid, Rc<Delegation<D>>>>>
 {
-    type LocalInsertError = Infallible;
-    type LocalGetError = Infallible;
+    type InsertError = Infallible;
+    type GetError = Missing;
 
-    async fn local_insert_by_cid(
-        &self,
+    fn insert_by_cid<'a>(
+        &'a self,
         cid: Cid,
         delegation: Rc<Delegation<D>>,
-    ) -> Result<(), Self::LocalInsertError> {
-        self.borrow_mut().insert(cid, delegation);
-        Ok(())
+    ) -> LocalBoxFuture<'a, Result<(), Self::InsertError>> {
+        async move {
+            self.borrow_mut().insert(cid, delegation);
+            Ok(())
+        }
+        .boxed_local()
     }
 
-    async fn local_get(&self, cid: &Cid) -> Result<Option<Rc<Delegation<D>>>, Self::LocalGetError> {
-        Ok(RefCell::borrow(self).get(cid).cloned())
+    fn get_all<'a>(
+        &'a self,
+        cid: &'a [Cid],
+    ) -> LocalBoxFuture<'a, Result<Vec<Rc<Delegation<D>>>, Self::GetError>> {
+        async move {
+            let store = RefCell::borrow(self);
+            let mut dlgs = Vec::new();
+            for c in cid {
+                if let Some(dlg) = store.get(c) {
+                    dlgs.push(dlg.clone());
+                } else {
+                    Err(Missing(*c))?;
+                }
+            }
+            Ok(dlgs)
+        }
+        .boxed_local()
     }
 }
 
-impl<D: Did> LocalDelegationStore<D, Arc<Delegation<D>>>
+impl<D: Did> DelegationStore<Local, D, Arc<Delegation<D>>>
     for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>>>>
 {
-    type LocalInsertError = StorePoisoned;
-    type LocalGetError = StorePoisoned;
+    type InsertError = StorePoisoned;
+    type GetError = LockedStoreGetError;
 
-    async fn local_insert_by_cid(
-        &self,
+    fn insert_by_cid<'a>(
+        &'a self,
         cid: Cid,
         delegation: Arc<Delegation<D>>,
-    ) -> Result<(), Self::LocalInsertError> {
-        let mut locked = self.lock().map_err(|_| StorePoisoned)?;
-        locked.insert(cid, delegation);
-        Ok(())
+    ) -> LocalBoxFuture<'a, Result<(), Self::InsertError>> {
+        async move {
+            let mut locked = self.lock().map_err(|_| StorePoisoned)?;
+            locked.insert(cid, delegation);
+            Ok(())
+        }
+        .boxed_local()
     }
 
-    async fn local_get(
-        &self,
-        cid: &Cid,
-    ) -> Result<Option<Arc<Delegation<D>>>, Self::LocalGetError> {
-        let locked = self.lock().map_err(|_| StorePoisoned)?;
-        Ok(locked.get(cid).cloned())
+    fn get_all<'a>(
+        &'a self,
+        cid: &'a [Cid],
+    ) -> LocalBoxFuture<'a, Result<Vec<Arc<Delegation<D>>>, Self::GetError>> {
+        async move {
+            let locked = self.lock().map_err(|_| StorePoisoned)?;
+            let mut dlgs = Vec::new();
+            for c in cid {
+                if let Some(dlg) = locked.get(c) {
+                    dlgs.push(dlg.clone());
+                } else {
+                    return Err(Missing(*c))?;
+                }
+            }
+            Ok(dlgs)
+        }
+        .boxed_local()
     }
 }
 
-impl<D: Did + Send + Sync> DelegationStore<D, Arc<Delegation<D>>>
+impl<D: Did + Send + Sync> DelegationStore<Sendable, D, Arc<Delegation<D>>>
     for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>>>>
 where
     <D as Did>::VarsigConfig: Send + Sync,
     <<D as Did>::VarsigConfig as Verify>::Signature: Send + Sync,
 {
     type InsertError = StorePoisoned;
-    type GetError = StorePoisoned;
+    type GetError = LockedStoreGetError;
 
-    async fn insert_by_cid(
-        &self,
+    fn insert_by_cid<'a>(
+        &'a self,
         cid: Cid,
         delegation: Arc<Delegation<D>>,
-    ) -> Result<(), Self::InsertError> {
-        let mut locked = self.lock().map_err(|_| StorePoisoned)?;
-        locked.insert(cid, delegation);
-        Ok(())
+    ) -> BoxFuture<'a, Result<(), Self::InsertError>> {
+        async move {
+            let mut locked = self.lock().map_err(|_| StorePoisoned)?;
+            locked.insert(cid, delegation);
+            Ok(())
+        }
+        .boxed()
     }
 
-    async fn get(&self, cid: &Cid) -> Result<Option<Arc<Delegation<D>>>, Self::GetError> {
-        let locked = self.lock().map_err(|_| StorePoisoned)?;
-        Ok(locked.get(cid).cloned())
+    fn get_all<'a>(
+        &'a self,
+        cid: &'a [Cid],
+    ) -> BoxFuture<'a, Result<Vec<Arc<Delegation<D>>>, Self::GetError>> {
+        async move {
+            let locked = self.lock().map_err(|_| StorePoisoned)?;
+            let mut dlgs = Vec::new();
+            for c in cid {
+                if let Some(dlg) = locked.get(c) {
+                    dlgs.push(dlg.clone());
+                } else {
+                    return Err(Missing(*c))?;
+                }
+            }
+            Ok(dlgs)
+        }
+        .boxed()
     }
 }
 
-/// Error for when the delegation store's [`Mutex`] is poisoned.
 #[derive(Debug, Clone, Copy, Error)]
 #[error("delegation store poisoned")]
 pub struct StorePoisoned;
+
+#[derive(Debug, Clone, Copy, Error)]
+#[error("delegation with cid {0} is missing")]
+pub struct Missing(pub Cid);
+
+/// Error for when the delegation store's [`Mutex`] is poisoned.
+#[derive(Debug, Clone, Copy, Error)]
+pub enum LockedStoreGetError {
+    #[error(transparent)]
+    Missing(#[from] Missing),
+
+    #[error(transparent)]
+    StorePoisoned(#[from] StorePoisoned),
+}

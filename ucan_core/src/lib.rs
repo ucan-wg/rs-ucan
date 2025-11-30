@@ -9,6 +9,7 @@ pub mod crypto;
 pub mod delegation;
 pub mod did;
 pub mod envelope;
+pub mod future;
 pub mod invocation;
 pub mod number;
 pub mod promise;

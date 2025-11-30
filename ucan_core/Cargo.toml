@@ -16,17 +16,18 @@ version.workspace = true
 arbitrary = { workspace = true, optional = true }
 base58 = "0.2.0"
 ed25519-dalek = "2.2"
+futures = { workspace = true }
 getrandom.workspace = true
-leb128 = "0.2.5"
 ipld-core.workspace = true
+leb128 = "0.2.5"
 nom-unicode.workspace = true
 nom.workspace = true
 nonempty.workspace = true
 proptest = { workspace = true, optional = true }
 proptest-arbitrary-interop = { workspace = true, optional = true }
-serde_bytes = "0.11.19"
 serde-value = "0.7"
 serde.workspace = true
+serde_bytes = "0.11.19"
 serde_ipld_dagcbor.workspace = true
 sha2 = "0.10.9"
 signature.workspace = true

@@ -15,6 +15,7 @@ use crate::{
     },
     did::{Did, DidSigner},
     envelope::{payload_tag::PayloadTag, Envelope},
+    future::FutureKind,
     promise::{Promised, WaitingOn},
     time::timestamp::Timestamp,
     unset::Unset,
@@ -23,7 +24,7 @@ use crate::{
 use builder::InvocationBuilder;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{borrow::Borrow, collections::BTreeMap, fmt::Debug};
 use thiserror::Error;
 use varsig::verify::Verify;
 
@@ -225,21 +226,21 @@ impl<D: Did> InvocationPayload<D> {
         to_dagcbor_cid(&self)
     }
 
-    pub async fn check<S: DelegationStore>(&self, proof_store: &S) -> Result<(), CheckFailed> {
-        let mut realized_proofs = Vec::new();
-        for proof_cid in self.proofs() {
-            let found = proof_store
-                .get(proof_cid)
-                .await
-                .map_err(|_| CheckFailed::RootProofIssuerIsNotSubject)? // FIXME better error
-                .ok_or(CheckFailed::RootProofIssuerIsNotSubject)?; // FIXME better error
-            realized_proofs.push(found.borrow().clone());
-        }
-        self.syntatic_checks(&realized_proofs)
+    pub async fn check<K: FutureKind, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
+        &self,
+        proof_store: &S,
+    ) -> Result<(), StoredCheckError<K, D, T, S>> {
+        let realized_proofs: Vec<T> = proof_store
+            .get_all(&self.proofs)
+            .await
+            .map_err(StoredCheckError::GetError)?;
+        let dlgs: Vec<&Delegation<D>> = realized_proofs.iter().map(Borrow::borrow).collect();
+        self.syntatic_checks(dlgs.as_slice())?;
+        Ok(())
     }
 
     /// Check if an [`InvocationPayload`] is valid.
-    pub fn syntatic_checks(&self, proofs: &[Delegation<D>]) -> Result<(), CheckFailed> {
+    pub fn syntatic_checks(&self, proofs: &[&Delegation<D>]) -> Result<(), CheckFailed> {
         let args: Ipld = self
             .arguments()
             .iter()
@@ -314,6 +315,20 @@ pub enum CheckFailed {
 
     #[error("root proof issuer is not the subject")]
     RootProofIssuerIsNotSubject,
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum StoredCheckError<
+    K: FutureKind,
+    D: Did,
+    T: Borrow<Delegation<D>>,
+    S: DelegationStore<K, D, T>,
+> {
+    #[error(transparent)]
+    GetError(S::GetError),
+
+    #[error(transparent)]
+    CheckFailed(#[from] CheckFailed),
 }
 
 #[cfg(test)]
