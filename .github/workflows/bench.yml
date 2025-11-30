@@ -32,9 +32,9 @@ jobs:
         run: cargo bench --features test_utils -- --output-format bencher | tee output.txt
 
       - name: Upload Benchmark Result Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: bench_result
+          name: bench_result-${{runs-on}}
           path: output.txt
 
       - name: Create gh-pages Branch
