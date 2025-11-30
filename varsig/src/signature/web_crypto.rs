@@ -1,5 +1,8 @@
 //! WebCrypto-compatible signature types and verifiers.
 
+#[cfg(feature = "web_crypto")]
+use crate::signature::ecdsa;
+
 /// The WebCrypto-compatible signature types.
 #[cfg(feature = "web_crypto")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

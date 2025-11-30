@@ -335,16 +335,8 @@ impl Predicate {
             Predicate::Equal(lhs, rhs_data) => {
                 let focused_data = lhs.clone().get(data)?;
                 match (&focused_data, &rhs_data) {
-                    (Ipld::Integer(int), Ipld::Float(float)) => {
-                        if !float.is_nan() && !float.is_infinite() && float.fract() == 0.0 {
-                            #[allow(clippy::cast_possible_truncation)]
-                            let i = *float as i128;
-                            *int == i
-                        } else {
-                            Err(RunError::CannotCompareNonwholeFloatToInt)?
-                        }
-                    }
-                    (Ipld::Float(float), Ipld::Integer(int)) => {
+                    (Ipld::Integer(int), Ipld::Float(float))
+                    | (Ipld::Float(float), Ipld::Integer(int)) => {
                         if !float.is_nan() && !float.is_infinite() && float.fract() == 0.0 {
                             #[allow(clippy::cast_possible_truncation)]
                             let i = *float as i128;
@@ -487,7 +479,7 @@ impl TryFrom<Ipld> for Predicate {
                         }
                         Ok(Predicate::Or(inner))
                     }
-                    _ => Err(FromIpldError::UnrecognizedPairTag(op_str.to_string())),
+                    _ => Err(FromIpldError::UnrecognizedPairTag(op_str.clone())),
                 },
                 [Ipld::String(op_str), Ipld::String(sel_str), val] => match op_str.as_str() {
                     "==" => {
@@ -542,7 +534,7 @@ impl TryFrom<Ipld> for Predicate {
                             .map_err(FromIpldError::InvalidStringSelector)?;
 
                         if let Ipld::String(s) = val {
-                            Ok(Predicate::Like(sel, s.to_string()))
+                            Ok(Predicate::Like(sel, s.clone()))
                         } else {
                             Err(FromIpldError::NotAString(val.clone()))
                         }
@@ -561,7 +553,7 @@ impl TryFrom<Ipld> for Predicate {
                         let p = Box::new(Predicate::try_from(val.clone())?);
                         Ok(Predicate::Any(sel, p))
                     }
-                    _ => Err(FromIpldError::UnrecognizedTripleTag(op_str.to_string())),
+                    _ => Err(FromIpldError::UnrecognizedTripleTag(op_str.clone())),
                 },
                 _ => Err(FromIpldError::UnrecognizedShape),
             },

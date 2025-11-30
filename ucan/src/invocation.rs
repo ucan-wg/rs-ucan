@@ -280,7 +280,7 @@ impl<D: Did> InvocationPayload<D> {
 
             for predicate in proof.policy() {
                 if !predicate.clone().run(&args)? {
-                    return Err(CheckFailed::PredicateFailed(predicate.clone()));
+                    return Err(CheckFailed::PredicateFailed(Box::new(predicate.clone())));
                 }
             }
 
@@ -327,7 +327,7 @@ pub enum CheckFailed {
 
     /// Error indicating that a predicate has failed
     #[error("predicate failed: {0:?}")]
-    PredicateFailed(Predicate),
+    PredicateFailed(Box<Predicate>),
 
     /// Error indicating that the proof issuer chain is invalid
     #[error("invalid proof issuer chain")]
