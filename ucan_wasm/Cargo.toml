@@ -4,13 +4,13 @@ readme = "README.md"
 keywords = ["auth", "capability", "rpc"]
 categories = ["security", "web-programming", "wasm"]
 description = "WebAssembly wrapper for ucan"
+version = "0.1.0"
 
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version.workspace = true
 
 [dependencies]
 ucan = { path = "../ucan" }

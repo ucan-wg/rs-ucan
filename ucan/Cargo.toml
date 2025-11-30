@@ -3,14 +3,14 @@ name = "ucan"
 readme = "README.md"
 keywords = ["auth", "capability", "rpc"]
 categories = ["security", "web-programming"]
-description = "Core UCAN tokens"
+description = "UCAN tokens"
+version = "0.5.0"
 
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version.workspace = true
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
