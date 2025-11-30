@@ -488,11 +488,13 @@ fn hex4(s: &str, start: usize) -> Result<(u16, usize), FilterParseError> {
     }
     let mut v: u16 = 0;
     for j in 0..4 {
+        let focus = bs.get(start + j).ok_or(FilterParseError::Eof)?;
+
         v = (v << 4)
-            | match bs[start + j] {
-                b'0'..=b'9' => u16::from(bs[start + j] - b'0'),
-                b'a'..=b'f' => u16::from(bs[start + j] - b'a' + 10),
-                b'A'..=b'F' => u16::from(bs[start + j] - b'A' + 10),
+            | match focus {
+                b'0'..=b'9' => u16::from(focus - b'0'),
+                b'a'..=b'f' => u16::from(focus - b'a' + 10),
+                b'A'..=b'F' => u16::from(focus - b'A' + 10),
                 _ => return Err(FilterParseError::BadUnicode),
             };
     }
@@ -512,6 +514,7 @@ fn decode_json_string_literal(input: &str) -> Result<(String, &str), FilterParse
     // i points to the next byte to *read*
     let mut i = 1; // after opening quote
 
+    #[allow(clippy::indexing_slicing)]
     while i < b.len() {
         match b[i] {
             b'"' => {

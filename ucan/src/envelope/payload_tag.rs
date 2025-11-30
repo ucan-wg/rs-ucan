@@ -10,6 +10,7 @@ pub trait PayloadTag {
     fn version() -> &'static str;
 
     /// Constructs the full tag string.
+    #[must_use]
     fn tag() -> String {
         format!("ucan/{}@{}", Self::spec_id(), Self::version())
     }

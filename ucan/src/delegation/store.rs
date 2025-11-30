@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
     convert::Infallible,
     error::Error,
+    hash::BuildHasher,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -37,22 +38,26 @@ pub trait DelegationStore<K: FutureKind, D: Did, T: Borrow<Delegation<D>>> {
     fn get_all<'a>(&'a self, cid: &'a [Cid]) -> K::Future<'a, Result<Vec<T>, Self::GetError>>;
 
     /// Inserts a delegation by its CID.
-    fn insert_by_cid<'a>(
-        &'a self,
+    fn insert_by_cid(
+        &self,
         cid: Cid,
         delegation: T,
-    ) -> K::Future<'a, Result<(), Self::InsertError>>;
+    ) -> K::Future<'_, Result<(), Self::InsertError>>;
 }
 
 /// Inserts a delegation and returns its CID.
+///
+/// # Errors
+///
+/// If insertion fails, an error defined by the `impl DelegationStore` is returned
+/// (the `S::InsertError` associated type).
 pub async fn insert<
-    'a,
     K: FutureKind,
     D: Did,
     T: Borrow<Delegation<D>>,
     S: DelegationStore<K, D, T>,
 >(
-    store: &'a S,
+    store: &S,
     delegation: T,
 ) -> Result<Cid, S::InsertError> {
     let cid = delegation.borrow().to_cid();
@@ -60,17 +65,17 @@ pub async fn insert<
     Ok(cid)
 }
 
-impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
-    for Rc<RefCell<HashMap<Cid, Rc<Delegation<D>>>>>
+impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
+    for Rc<RefCell<HashMap<Cid, Rc<Delegation<D>>, H>>>
 {
     type InsertError = Infallible;
     type GetError = Missing;
 
-    fn insert_by_cid<'a>(
-        &'a self,
+    fn insert_by_cid(
+        &self,
         cid: Cid,
         delegation: Rc<Delegation<D>>,
-    ) -> LocalBoxFuture<'a, Result<(), Self::InsertError>> {
+    ) -> LocalBoxFuture<'_, Result<(), Self::InsertError>> {
         async move {
             self.borrow_mut().insert(cid, delegation);
             Ok(())
@@ -98,17 +103,17 @@ impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
     }
 }
 
-impl<D: Did> DelegationStore<Local, D, Arc<Delegation<D>>>
-    for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>>>>
+impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Arc<Delegation<D>>>
+    for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>, H>>>
 {
     type InsertError = StorePoisoned;
     type GetError = LockedStoreGetError;
 
-    fn insert_by_cid<'a>(
-        &'a self,
+    fn insert_by_cid(
+        &self,
         cid: Cid,
         delegation: Arc<Delegation<D>>,
-    ) -> LocalBoxFuture<'a, Result<(), Self::InsertError>> {
+    ) -> LocalBoxFuture<'_, Result<(), Self::InsertError>> {
         async move {
             let mut locked = self.lock().map_err(|_| StorePoisoned)?;
             locked.insert(cid, delegation);
@@ -137,8 +142,8 @@ impl<D: Did> DelegationStore<Local, D, Arc<Delegation<D>>>
     }
 }
 
-impl<D: Did + Send + Sync> DelegationStore<Sendable, D, Arc<Delegation<D>>>
-    for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>>>>
+impl<D: Did + Send + Sync, H: BuildHasher + Send> DelegationStore<Sendable, D, Arc<Delegation<D>>>
+    for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>, H>>>
 where
     <D as Did>::VarsigConfig: Send + Sync,
     <<D as Did>::VarsigConfig as Verify>::Signature: Send + Sync,
@@ -146,11 +151,11 @@ where
     type InsertError = StorePoisoned;
     type GetError = LockedStoreGetError;
 
-    fn insert_by_cid<'a>(
-        &'a self,
+    fn insert_by_cid(
+        &self,
         cid: Cid,
         delegation: Arc<Delegation<D>>,
-    ) -> BoxFuture<'a, Result<(), Self::InsertError>> {
+    ) -> BoxFuture<'_, Result<(), Self::InsertError>> {
         async move {
             let mut locked = self.lock().map_err(|_| StorePoisoned)?;
             locked.insert(cid, delegation);

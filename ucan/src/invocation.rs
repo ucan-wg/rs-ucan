@@ -227,6 +227,10 @@ impl<D: Did> InvocationPayload<D> {
     }
 
     /// Check if an [`InvocationPayload`] with proofs stored in a delegation store is valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`StoredCheckError`] if the check fails.
     pub async fn check<K: FutureKind, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
         &self,
         proof_store: &S,
@@ -241,6 +245,10 @@ impl<D: Did> InvocationPayload<D> {
     }
 
     /// Check if an [`InvocationPayload`] is valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`CheckFailed`] if the check fails.
     pub fn syntatic_checks<'a, I: IntoIterator<Item = &'a Delegation<D>>>(
         &'a self,
         proofs: I,
@@ -370,6 +378,7 @@ mod tests {
         let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
             .unwrap()
             .into();
+
         let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
             .unwrap()
             .into();

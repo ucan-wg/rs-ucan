@@ -67,10 +67,19 @@ impl FromStr for Ed25519Did {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 3 || parts[0] != "did" || parts[1] != "key" {
+        let did_tag = *parts
+            .first()
+            .ok_or(Ed25519DidFromStrError::InvalidDidHeader)?;
+        let key_tag = *parts
+            .get(1)
+            .ok_or(Ed25519DidFromStrError::InvalidDidHeader)?;
+
+        if parts.len() != 3 || did_tag != "did" || key_tag != "key" {
             return Err(Ed25519DidFromStrError::InvalidDidHeader);
         }
-        let b58 = parts[2]
+        let b58 = parts
+            .get(2)
+            .ok_or(Ed25519DidFromStrError::InvalidDidHeader)?
             .strip_prefix('z')
             .ok_or(Ed25519DidFromStrError::MissingBase58Prefix)?;
         let key_bytes =
@@ -175,13 +184,22 @@ impl<'de> Deserialize<'de> for Ed25519Did {
                         decoded.len()
                     )));
                 }
-                if decoded[0..2] != ED25519_PUB {
+
+                let leading = decoded.get(0..2).ok_or_else(|| {
+                    E::custom("decoded did:key payload too short to contain multicodec header")
+                })?;
+
+                if leading != ED25519_PUB {
                     return Err(E::custom("not an ed25519-pub multicodec (0xED 0x01)"));
                 }
 
-                let key_bytes: [u8; 32] = decoded[2..]
-                    .try_into()
-                    .expect("slice length verified above");
+                let remainder = decoded.get(2..).ok_or_else(|| {
+                    E::custom("decoded did:key payload too short to contain ed25519 public key")
+                })?;
+
+                #[allow(clippy::expect_used)]
+                let key_bytes: [u8; 32] =
+                    remainder.try_into().expect("slice length verified above");
 
                 let vk = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes).map_err(|e| {
                     E::custom(format!(
@@ -206,6 +224,7 @@ pub struct Ed25519Signer {
 
 impl Ed25519Signer {
     /// Create a new `Ed25519Signer` from a signing key.
+    #[must_use]
     pub fn new(signer: ed25519_dalek::SigningKey) -> Self {
         let verifying_key = signer.verifying_key();
         let did = Ed25519Did(verifying_key, Ed25519::new());

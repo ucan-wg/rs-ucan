@@ -377,6 +377,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
     /// This will never happen if a nonce is provided, and is not recoverable
     /// becuase a broken RNG is a serious problem.
     #[allow(clippy::expect_used)]
+    #[allow(clippy::type_complexity)]
     pub fn try_build(
         self,
     ) -> Result<
@@ -416,6 +417,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
             super::InvocationPayload<D::Did>,
         > = EnvelopePayload { header, payload };
 
+        #[allow(clippy::type_complexity)]
         let envelope: Envelope<
             <D::Did as Did>::VarsigConfig,
             super::InvocationPayload<D::Did>,

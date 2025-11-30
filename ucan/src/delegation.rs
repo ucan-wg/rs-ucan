@@ -205,6 +205,7 @@ where
     Nonce: Deserialize<'de>,
     Ipld: Deserialize<'de>,
 {
+    #[allow(clippy::too_many_lines)]
     fn deserialize<T>(deserializer: T) -> Result<Self, T::Error>
     where
         T: Deserializer<'de>,
