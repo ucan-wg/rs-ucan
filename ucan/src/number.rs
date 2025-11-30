@@ -74,7 +74,13 @@ impl TryFrom<Ipld> for Number {
         match ipld {
             Ipld::Integer(i) => Ok(Number::Integer(i)),
             Ipld::Float(f) => Ok(Number::Float(f)),
-            _ => Err(NotANumber(ipld)),
+            Ipld::Null
+            | Ipld::Bool(_)
+            | Ipld::String(_)
+            | Ipld::Bytes(_)
+            | Ipld::Map(_)
+            | Ipld::List(_)
+            | Ipld::Link(_) => Err(NotANumber(ipld)),
         }
     }
 }

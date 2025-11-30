@@ -158,7 +158,14 @@ impl TryFrom<Ipld> for Timestamp {
             Ipld::Integer(secs) => secs
                 .try_into()
                 .map_err(TimestampFromIpldError::NotATimestamp),
-            _ => Err(TimestampFromIpldError::TimestampIsNotAnInteger),
+            Ipld::Null
+            | Ipld::Bool(_)
+            | Ipld::Float(_)
+            | Ipld::String(_)
+            | Ipld::Bytes(_)
+            | Ipld::List(_)
+            | Ipld::Map(_)
+            | Ipld::Link(_) => Err(TimestampFromIpldError::TimestampIsNotAnInteger),
         }
     }
 }

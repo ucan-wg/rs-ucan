@@ -301,6 +301,7 @@ impl<D: DidSigner + Serialize> DelegationBuilder<D, D, D::Did, DelegatedSubject<
     /// This will never happen if a nonce is provided, and is not recoverable
     /// becuase a broken RNG is a serious problem.
     #[allow(clippy::expect_used)]
+    #[allow(clippy::type_complexity)]
     pub fn try_build(
         self,
     ) -> Result<
@@ -338,6 +339,7 @@ impl<D: DidSigner + Serialize> DelegationBuilder<D, D, D::Did, DelegatedSubject<
             super::DelegationPayload<D::Did>,
         > = EnvelopePayload { header, payload };
 
+        #[allow(clippy::type_complexity)]
         let envelope: Envelope<
             <D::Did as Did>::VarsigConfig,
             super::DelegationPayload<D::Did>,

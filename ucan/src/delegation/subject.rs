@@ -34,8 +34,7 @@ impl<D: Did> DelegatedSubject<D> {
     /// Both sides match, or one is `Any`.
     pub fn coherent(&self, other: &Self) -> bool {
         match (self, other) {
-            (DelegatedSubject::Any, _) => true,
-            (_, DelegatedSubject::Any) => true,
+            (DelegatedSubject::Any, _) | (_, DelegatedSubject::Any) => true,
             (DelegatedSubject::Specific(did), DelegatedSubject::Specific(other_did)) => {
                 did == other_did
             }

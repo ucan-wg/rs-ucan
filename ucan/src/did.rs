@@ -58,7 +58,7 @@ impl std::fmt::Display for Ed25519Did {
         raw_bytes.push(0x01);
         raw_bytes.extend_from_slice(self.0.as_bytes());
         let b58 = ToBase58::to_base58(raw_bytes.as_slice());
-        write!(f, "did:key:z{}", b58)
+        write!(f, "did:key:z{b58}")
     }
 }
 
@@ -147,7 +147,7 @@ impl<'de> Deserialize<'de> for Ed25519Did {
     {
         struct DidKeyVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for DidKeyVisitor {
+        impl serde::de::Visitor<'_> for DidKeyVisitor {
             type Value = Ed25519Did;
 
             fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -213,12 +213,14 @@ impl Ed25519Signer {
     }
 
     /// Get the associated DID.
-    pub fn did(&self) -> &Ed25519Did {
+    #[must_use]
+    pub const fn did(&self) -> &Ed25519Did {
         &self.did
     }
 
     /// Get the associated signer.
-    pub fn signer(&self) -> &ed25519_dalek::SigningKey {
+    #[must_use]
+    pub const fn signer(&self) -> &ed25519_dalek::SigningKey {
         &self.signer
     }
 }

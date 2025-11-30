@@ -8,16 +8,19 @@ pub struct Command(pub Vec<String>);
 
 impl Command {
     /// Create a new Command from a vector of strings.
-    pub fn new(segments: Vec<String>) -> Self {
+    #[must_use]
+    pub const fn new(segments: Vec<String>) -> Self {
         Command(segments)
     }
 
     /// Get the segments of the command.
-    pub fn segments(&self) -> &Vec<String> {
+    #[must_use]
+    pub const fn segments(&self) -> &Vec<String> {
         &self.0
     }
 
     /// Check if the command starts with the given prefix.
+    #[must_use]
     pub fn starts_with(&self, prefix: &Command) -> bool {
         if prefix.0.len() > self.0.len() {
             return false;
@@ -47,7 +50,7 @@ impl std::fmt::Display for Command {
             .cloned()
             .collect::<Vec<_>>();
         if cleaned.is_empty() {
-            return f.write_str("/");
+            f.write_str("/")
         } else {
             write!(f, "/{}/", cleaned.join("/"))
         }
@@ -65,7 +68,7 @@ impl<'de> Deserialize<'de> for Command {
         let s = String::deserialize(deserializer)?;
         let trimmed = s.trim_matches('/');
         let parts: Vec<String> = trimmed
-            .split("/")
+            .split('/')
             .map(String::from)
             .filter(|s| !s.is_empty())
             .collect();

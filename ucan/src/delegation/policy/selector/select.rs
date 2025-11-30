@@ -127,7 +127,14 @@ impl<T: Selectable> Select<T> {
                                         ))
                                         .cloned()
                                 }
-                                _ => Err((
+                                Ipld::Null
+                                | Ipld::Bool(_)
+                                | Ipld::Integer(_)
+                                | Ipld::Float(_)
+                                | Ipld::String(_)
+                                | Ipld::Bytes(_)
+                                | Ipld::Map(_)
+                                | Ipld::Link(_) => Err((
                                     is_try,
                                     SelectorError::from_refs(
                                         &seen_ops,
@@ -151,7 +158,14 @@ impl<T: Selectable> Select<T> {
                                     ),
                                 ))
                                 .cloned(),
-                            _ => Err((
+                            Ipld::Null
+                            | Ipld::Bool(_)
+                            | Ipld::Integer(_)
+                            | Ipld::Float(_)
+                            | Ipld::String(_)
+                            | Ipld::Bytes(_)
+                            | Ipld::List(_)
+                            | Ipld::Link(_) => Err((
                                 is_try,
                                 SelectorError::from_refs(&seen_ops, SelectorErrorReason::NotAMap),
                             )),
@@ -163,7 +177,13 @@ impl<T: Selectable> Select<T> {
                         let result = match ipld {
                             Ipld::List(xs) => Ok(Ipld::List(xs)),
                             Ipld::Map(xs) => Ok(Ipld::List(xs.values().cloned().collect())),
-                            _ => Err((
+                            Ipld::Null
+                            | Ipld::Bool(_)
+                            | Ipld::Integer(_)
+                            | Ipld::Float(_)
+                            | Ipld::String(_)
+                            | Ipld::Bytes(_)
+                            | Ipld::Link(_) => Err((
                                 is_try,
                                 SelectorError::from_refs(
                                     &seen_ops,

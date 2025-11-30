@@ -68,7 +68,7 @@ impl Filter {
                     false
                 }
             }
-            _ => false,
+            Filter::ArrayIndex(_) | Filter::Values | Filter::Try(_) => false,
         }
     }
 }

@@ -27,7 +27,13 @@ impl Selectable for Number {
         match ipld {
             Ipld::Integer(i) => Ok(Number::Integer(i)),
             Ipld::Float(f) => Ok(Number::Float(f)),
-            _ => Err(SelectorErrorReason::NotANumber),
+            Ipld::Null
+            | Ipld::Bool(_)
+            | Ipld::String(_)
+            | Ipld::Bytes(_)
+            | Ipld::List(_)
+            | Ipld::Map(_)
+            | Ipld::Link(_) => Err(SelectorErrorReason::NotANumber),
         }
     }
 }
@@ -36,7 +42,14 @@ impl Selectable for String {
     fn try_select(ipld: Ipld) -> Result<Self, SelectorErrorReason> {
         match ipld {
             Ipld::String(s) => Ok(s),
-            _ => Err(SelectorErrorReason::NotAString),
+            Ipld::Null
+            | Ipld::Bool(_)
+            | Ipld::Integer(_)
+            | Ipld::Float(_)
+            | Ipld::Bytes(_)
+            | Ipld::List(_)
+            | Ipld::Map(_)
+            | Ipld::Link(_) => Err(SelectorErrorReason::NotAString),
         }
     }
 }
@@ -59,7 +72,13 @@ impl Selectable for Collection {
                     Ok(map)
                 },
             )?)),
-            _ => Err(SelectorErrorReason::NotACollection),
+            Ipld::Null
+            | Ipld::Bool(_)
+            | Ipld::Integer(_)
+            | Ipld::Float(_)
+            | Ipld::String(_)
+            | Ipld::Bytes(_)
+            | Ipld::Link(_) => Err(SelectorErrorReason::NotACollection),
         }
     }
 }
