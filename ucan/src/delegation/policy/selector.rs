@@ -13,8 +13,7 @@ use self::{
 use filter::Filter;
 use nom::{self, character::complete::char, multi::many0, sequence::preceded, Parser};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::Ordering;
-use std::{fmt, str::FromStr};
+use std::{cmp::Ordering, fmt, str::FromStr};
 use thiserror::Error;
 
 #[cfg(any(test, feature = "test_utils"))]
