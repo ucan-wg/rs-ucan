@@ -72,8 +72,8 @@ impl Nonce {
     /// # Example
     ///
     /// ```rust
-    /// # use ucan_core::crypto::nonce::Nonce;
-    /// # use ucan_core::did::Did;
+    /// # use ucan::crypto::nonce::Nonce;
+    /// # use ucan::did::Did;
     /// #
     /// let mut salt = "did:example:123".as_bytes().to_vec();
     /// let nonce = Nonce::generate_16().unwrap();

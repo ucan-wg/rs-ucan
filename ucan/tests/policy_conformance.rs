@@ -4,7 +4,7 @@ mod policy_conformance {
 
     use ipld_core::ipld::Ipld;
     use testresult::TestResult;
-    use ucan_core::delegation::policy::predicate::Predicate;
+    use ucan::delegation::policy::predicate::Predicate;
 
     const POLICY_FIXTURE_STR: &str = include_str!("./fixtures/policy.json");
     static POLICY_FIXTURE: OnceLock<serde_json::Value> = OnceLock::new();

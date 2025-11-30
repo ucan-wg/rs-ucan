@@ -1,5 +1,5 @@
 [package]
-name = "ucan_core"
+name = "ucan"
 readme = "README.md"
 keywords = ["auth", "capability", "rpc"]
 categories = ["security", "web-programming"]

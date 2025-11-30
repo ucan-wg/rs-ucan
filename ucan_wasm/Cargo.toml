@@ -3,7 +3,7 @@ name = "ucan_wasm"
 readme = "README.md"
 keywords = ["auth", "capability", "rpc"]
 categories = ["security", "web-programming", "wasm"]
-description = "WebAssembly wrapper for ucan_core"
+description = "WebAssembly wrapper for ucan"
 
 authors.workspace = true
 edition.workspace = true
@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-ucan_core = { path = "../ucan_core" }
+ucan = { path = "../ucan" }
 
 [lints]
 workspace = true
