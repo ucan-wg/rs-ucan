@@ -24,7 +24,7 @@ async-signature = "0.5.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
 env_logger = "0.11.8"
 futures = "0.3.31"
-getrandom = "0.2.9"
+getrandom = "0.3.4"
 ipld-core = { version = "0.4.2", features = ["arb", "serde"] }
 nom = "8.0"
 nom-unicode = "0.4"
