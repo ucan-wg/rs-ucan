@@ -40,7 +40,7 @@ serde_ipld_dagjson = "0.2.0"
 signature = "2.2"
 test-log = "0.2.17"
 testresult = "0.4.1"
-thiserror = "1.0"
+thiserror = "2.0"
 tracing = "0.1.41"
 
 [workspace.lints.rust]
