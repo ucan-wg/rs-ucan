@@ -74,7 +74,7 @@ impl Command {
         }
 
         // Must be lowercase
-        if s.chars().any(|c| c.is_uppercase()) {
+        if s.chars().any(char::is_uppercase) {
             return Err(CommandParseError::NotLowercase);
         }
 
@@ -82,7 +82,7 @@ impl Command {
         let segments: Vec<String> = s[1..].split('/').map(String::from).collect();
 
         // Check for empty segments (e.g., "/crud//create")
-        if segments.iter().any(|s| s.is_empty()) {
+        if segments.iter().any(String::is_empty) {
             return Err(CommandParseError::EmptySegment);
         }
 
