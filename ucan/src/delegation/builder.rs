@@ -153,7 +153,7 @@ impl<
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command: Command(command),
+            command: Command::new(command),
             policy: self.policy,
             expiration: self.expiration,
             not_before: self.not_before,

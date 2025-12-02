@@ -171,7 +171,7 @@ impl<
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command: Command(command),
+            command: Command::new(command),
             arguments: self.arguments,
             proofs: self.proofs,
             cause: self.cause,

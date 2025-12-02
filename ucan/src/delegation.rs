@@ -492,7 +492,7 @@ mod tests {
             issuer: iss,
             audience: aud,
             subject: DelegatedSubject::Any,
-            command: Command(vec!["/".to_string()]),
+            command: Command::new(vec!["/".to_string()]),
             policy: vec![],
             expiration: None,
             not_before: None,
