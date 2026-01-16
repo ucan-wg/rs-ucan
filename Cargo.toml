@@ -22,7 +22,7 @@ getrandom = "0.2.9"
 ipld-core = { version = "0.4.2", features = ["arb", "serde"] }
 nom = "8.0"
 nom-unicode = "0.4"
-nonempty = { version = "0.10.0", features = ["serialize"] }
+nonempty = { version = "0.12.0", features = ["serialize"] }
 pretty_assertions = "1.4"
 proptest = "1.6"
 proptest-arbitrary-interop = "0.1.0"
