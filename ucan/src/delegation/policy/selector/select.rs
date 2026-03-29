@@ -112,7 +112,7 @@ impl<T: Selectable> Select<T> {
                                         ));
                                     }
 
-                                    let idx: usize = if *i <= 0 {
+                                    let idx: usize = if *i >= 0 {
                                         i.unsigned_abs() as usize
                                     } else {
                                         xs.len() - i.unsigned_abs() as usize
