@@ -486,7 +486,7 @@ mod tests {
             issuer: iss,
             audience: aud,
             subject: DelegatedSubject::Any,
-            command: Command::parse("/").expect("root command"),
+            command: Command::parse("/")?,
             policy: vec![],
             expiration: None,
             not_before: None,

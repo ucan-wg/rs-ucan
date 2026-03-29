@@ -110,21 +110,20 @@ impl Serialize for Predicate {
                 triple.serialize_element(rhs)?;
                 triple.end()
             }
-            Self::Not(inner) => match inner.as_ref() {
-                Predicate::Equal(lhs, rhs) => {
+            Self::Not(inner) => {
+                if let Predicate::Equal(lhs, rhs) = inner.as_ref() {
                     let mut triple = serializer.serialize_tuple(3)?;
                     triple.serialize_element(&"!=")?;
                     triple.serialize_element(lhs)?;
                     triple.serialize_element(rhs)?;
                     triple.end()
-                }
-                _ => {
+                } else {
                     let mut tuple = serializer.serialize_tuple(2)?;
                     tuple.serialize_element(&"not")?;
                     tuple.serialize_element(inner)?;
                     tuple.end()
                 }
-            },
+            }
             Self::And(inner) => {
                 let mut tuple = serializer.serialize_tuple(2)?;
                 tuple.serialize_element(&"and")?;
@@ -655,7 +654,18 @@ impl From<Predicate> for Ipld {
                 Predicate::Equal(lhs, rhs) => {
                     Ipld::List(vec![Ipld::String("!=".to_string()), lhs.into(), rhs])
                 }
-                other => Ipld::List(vec![Ipld::String("not".to_string()), other.into()]),
+                other @ (Predicate::GreaterThan(_, _)
+                | Predicate::GreaterThanOrEqual(_, _)
+                | Predicate::LessThan(_, _)
+                | Predicate::LessThanOrEqual(_, _)
+                | Predicate::Like(_, _)
+                | Predicate::Not(_)
+                | Predicate::And(_)
+                | Predicate::Or(_)
+                | Predicate::All(_, _)
+                | Predicate::Any(_, _)) => {
+                    Ipld::List(vec![Ipld::String("not".to_string()), other.into()])
+                }
             },
             Predicate::And(inner) => {
                 let inner_ipld: Vec<Ipld> = inner.into_iter().map(Into::into).collect();
