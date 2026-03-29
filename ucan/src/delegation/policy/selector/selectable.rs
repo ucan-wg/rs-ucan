@@ -2,8 +2,8 @@
 
 use super::error::SelectorErrorReason;
 use crate::{collection::Collection, number::Number};
+use alloc::{collections::BTreeMap, string::String, vec};
 use ipld_core::ipld::Ipld;
-use std::collections::BTreeMap;
 
 /// A trait for types that can be selected from [`Ipld`]
 pub trait Selectable: Sized {

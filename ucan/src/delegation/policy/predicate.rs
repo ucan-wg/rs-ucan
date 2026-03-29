@@ -2,9 +2,15 @@
 
 use super::selector::{select::Select, SelectorError};
 use crate::{collection::Collection, number::Number};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+use core::str::FromStr;
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use thiserror::Error;
 
 #[cfg(any(test, feature = "test_utils"))]
@@ -152,7 +158,7 @@ impl<'de> Deserialize<'de> for Predicate {
         impl<'de> Visitor<'de> for PredicateVisitor {
             type Value = Predicate;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 formatter.write_str("a predicate")
             }
 

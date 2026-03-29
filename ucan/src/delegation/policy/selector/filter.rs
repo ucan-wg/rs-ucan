@@ -1,6 +1,15 @@
 //! jq-inspired filters.
 
 use super::error::ParseError;
+use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+};
+use core::{
+    fmt::{self, Write},
+    str::FromStr,
+};
 use nom::{
     self,
     branch::alt,
@@ -16,10 +25,6 @@ use serde::{
     de::{Error as DeError, SeqAccess, Visitor},
     ser::SerializeSeq,
     Deserialize, Deserializer, Serialize, Serializer,
-};
-use std::{
-    fmt::{self, Write},
-    str::FromStr,
 };
 
 #[cfg(any(test, feature = "test_utils"))]
@@ -392,7 +397,7 @@ impl<'de> Deserialize<'de> for Filter {
         impl<'de> Visitor<'de> for FilterVisitor {
             type Value = Filter;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> fmt::Result {
                 write!(
                     f,
                     r#"a tagged sequence like ["idx", 3], ["field", "foo"], ["values"], or ["try", ...]"#
@@ -619,7 +624,7 @@ fn json_string(input: &str) -> IResult<&str, String> {
     }
 }
 
-impl std::str::FromStr for Filter {
+impl core::str::FromStr for Filter {
     type Err = nom::Err<ParseError>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

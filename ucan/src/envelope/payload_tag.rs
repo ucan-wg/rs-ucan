@@ -1,5 +1,7 @@
 //! Trait for types that can provide their envelope type tag.
 
+use alloc::{format, string::String};
+
 /// The type tag is used as the key in the envelope payload map,
 /// e.g., `"ucan/dlg@1.0.0-rc.1"` for delegations.
 pub trait PayloadTag {

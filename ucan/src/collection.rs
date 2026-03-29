@@ -1,8 +1,11 @@
 //! Collection types for [`Ipld`] values
 
+use alloc::{collections::BTreeMap, string::String, vec, vec::Vec};
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
 #[cfg(any(test, feature = "test_utils"))]
 use arbitrary::{self, Arbitrary, Unstructured};
@@ -86,6 +89,7 @@ impl From<BTreeMap<String, Ipld>> for Collection {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<HashMap<String, Ipld>> for Collection {
     fn from(xs: HashMap<String, Ipld>) -> Self {
         Collection::Map(xs.into_iter().collect())

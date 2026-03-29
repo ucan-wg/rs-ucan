@@ -5,8 +5,8 @@
 //! and this implementation is simpler. If it is a performance bottleneck,
 //! please let the maintainers know.
 
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use ipld_core::{cid::Cid, ipld::Ipld};
-use std::collections::BTreeMap;
 
 use crate::delegation::policy::selector::{error::SelectorErrorReason, selectable::Selectable};
 

@@ -22,9 +22,9 @@ futures = "0.3.31"
 getrandom = "0.2.9"
 ipld-core = { version = "0.4.2", default-features = false, features = ["arb", "serde"] }
 leb128fmt = "0.1.0"
-nom = "8.0"
+nom = { version = "8.0", default-features = false }
 nom-unicode = "0.4"
-nonempty = { version = "0.10.0", features = ["serialize"] }
+nonempty = { version = "0.10.0", default-features = false, features = ["serialize"] }
 pretty_assertions = "1.4"
 proptest = "1.6"
 proptest-arbitrary-interop = "0.1.0"

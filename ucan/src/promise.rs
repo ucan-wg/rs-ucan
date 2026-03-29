@@ -1,8 +1,8 @@
 //! Distributed promises
 
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use thiserror::Error;
 
 /// Top-level union of all UCAN Promise options

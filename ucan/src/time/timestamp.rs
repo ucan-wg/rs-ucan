@@ -1,15 +1,17 @@
-//! A JavaScript-wrapper for [`Timestamp`][crate::time::Timestamp].
+//! A timestamp type with safe JavaScript interop.
 
 use super::error::{NumberIsNotATimestamp, OutOfRangeError};
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+
+#[cfg(feature = "std")]
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[cfg(any(test, feature = "test_utils"))]
 use arbitrary::{self, Arbitrary, Unstructured};
 
-/// A [`Timestamp`][super::Timestamp] with safe JavaScript interop.
+/// A [`Timestamp`] with safe JavaScript interop.
 ///
 /// Per the UCAN spec, timestamps MUST respect [IEEE-754]
 /// (64-bit double precision = 53-bit truncated integer) for
@@ -18,15 +20,30 @@ use arbitrary::{self, Arbitrary, Unstructured};
 /// This range can represent millions of years into the future,
 /// and is thus sufficient for "nearly" all auth use cases.
 ///
-/// This type internally deserializes permissively from any [`SystemTime`],
-/// but checks that any time created is in the 53-bit bound when created via
-/// the public API.
+/// Internally stores Unix seconds as a [`u64`].
 ///
 /// [IEEE-754]: https://en.wikipedia.org/wiki/IEEE_754
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Timestamp(SystemTime);
+pub struct Timestamp(u64);
 
 impl Timestamp {
+    /// Create a [`Timestamp`] from Unix epoch seconds.
+    ///
+    /// # Arguments
+    ///
+    /// * `secs` — Seconds since the Unix epoch
+    ///
+    /// # Errors
+    ///
+    /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
+    pub const fn from_unix(secs: u64) -> Result<Self, OutOfRangeError> {
+        if secs > 0x001F_FFFF_FFFF_FFFF {
+            Err(OutOfRangeError { tried_secs: secs })
+        } else {
+            Ok(Timestamp(secs))
+        }
+    }
+
     /// Create a [`Timestamp`] from a [`SystemTime`].
     ///
     /// # Arguments
@@ -36,17 +53,15 @@ impl Timestamp {
     /// # Errors
     ///
     /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
+    #[cfg(feature = "std")]
     pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
-        if time
+        let secs = time
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| OutOfRangeError { tried: time })?
-            .as_secs()
-            > 0x001F_FFFF_FFFF_FFFF
-        {
-            Err(OutOfRangeError { tried: time })
-        } else {
-            Ok(Timestamp(time))
-        }
+            .map_err(|_| OutOfRangeError {
+                tried_secs: u64::MAX,
+            })?
+            .as_secs();
+        Self::from_unix(secs)
     }
 
     /// Get the current time in seconds since [`UNIX_EPOCH`] as a [`Timestamp`].
@@ -54,6 +69,7 @@ impl Timestamp {
     /// # Panics
     ///
     /// This function will panic if the current time is before the Unix epoch.
+    #[cfg(feature = "std")]
     #[must_use]
     #[allow(clippy::expect_used)]
     pub fn now() -> Timestamp {
@@ -66,6 +82,7 @@ impl Timestamp {
     /// # Panics
     ///
     /// This function will panic if the current time is before the Unix epoch.
+    #[cfg(feature = "std")]
     #[must_use]
     #[allow(clippy::expect_used)]
     pub fn five_minutes_from_now() -> Timestamp {
@@ -78,6 +95,7 @@ impl Timestamp {
     /// # Panics
     ///
     /// This function will panic if the current time is before the Unix epoch.
+    #[cfg(feature = "std")]
     #[must_use]
     #[allow(clippy::expect_used)]
     pub fn five_years_from_now() -> Timestamp {
@@ -88,48 +106,35 @@ impl Timestamp {
     /// Convert a [`Timestamp`] to a [Unix timestamp].
     ///
     /// [Unix timestamp]: https://en.wikipedia.org/wiki/Unix_time
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if the [`SystemTime`] is before the Unix epoch.
     #[must_use]
-    #[allow(clippy::expect_used)]
-    pub fn to_unix(&self) -> u64 {
+    pub const fn to_unix(&self) -> u64 {
         self.0
-            .duration_since(UNIX_EPOCH)
-            .expect("System time to be after the Unix epoch")
-            .as_secs()
     }
 
-    /// An intentionally permissive variant of `new` for
-    /// deseriazation. See the note on the struct.
-    pub(crate) const fn postel(time: SystemTime) -> Self {
-        Timestamp(time)
+    /// An intentionally permissive constructor from Unix seconds for
+    /// deserialization. Skips the 2⁵³ bound check (Postel's law).
+    pub(crate) const fn postel_unix(secs: u64) -> Self {
+        Timestamp(secs)
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "std"))]
 #[wasm_bindgen]
 impl Timestamp {
     /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`]
     pub fn from_date(date_time: js_sys::Date) -> Result<Timestamp, JsError> {
         let millis = date_time.get_time() as u64;
         let secs: u64 = (millis / 1000) as u64;
-        let duration = Duration::new(secs, 0); // Just round off the nanos
-        Timestamp::new(UNIX_EPOCH + duration).map_err(Into::into)
+        Timestamp::from_unix(secs).map_err(Into::into)
     }
 
     /// Lower the [`Timestamp`] to a [`js_sys::Date`]
     pub fn to_date(&self) -> js_sys::Date {
-        js_sys::Date::new(&JsValue::from(
-            self.time
-                .duration_since(UNIX_EPOCH)
-                .expect("time should be in range since it's getting a JS Date")
-                .as_millis(),
-        ))
+        js_sys::Date::new(&JsValue::from(u128::from(self.0) * 1000))
     }
 }
 
+#[cfg(feature = "std")]
 impl TryFrom<SystemTime> for Timestamp {
     type Error = OutOfRangeError;
 
@@ -138,9 +143,10 @@ impl TryFrom<SystemTime> for Timestamp {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<Timestamp> for SystemTime {
-    fn from(js_time: Timestamp) -> Self {
-        js_time.0
+    fn from(ts: Timestamp) -> Self {
+        UNIX_EPOCH + Duration::from_secs(ts.0)
     }
 }
 
@@ -192,12 +198,9 @@ impl TryFrom<i128> for Timestamp {
     type Error = NumberIsNotATimestamp;
 
     fn try_from(secs: i128) -> Result<Self, Self::Error> {
-        Ok(Timestamp::new(
-            UNIX_EPOCH
-                + Duration::from_secs(
-                    u64::try_from(secs).map_err(|_| NumberIsNotATimestamp::TriedIpldInt(secs))?,
-                ),
-        )?)
+        let secs_u64 =
+            u64::try_from(secs).map_err(|_| NumberIsNotATimestamp::TriedIpldInt(secs))?;
+        Ok(Timestamp::from_unix(secs_u64)?)
     }
 }
 
@@ -206,7 +209,7 @@ impl Serialize for Timestamp {
     where
         S: Serializer,
     {
-        self.to_unix().serialize(serializer)
+        self.0.serialize(serializer)
     }
 }
 
@@ -216,14 +219,14 @@ impl<'de> Deserialize<'de> for Timestamp {
         D: Deserializer<'de>,
     {
         let seconds = u64::deserialize(deserializer)?;
-        Ok(Timestamp::postel(UNIX_EPOCH + Duration::from_secs(seconds)))
+        Ok(Timestamp::postel_unix(seconds))
     }
 }
 
 #[cfg(any(test, feature = "test_utils"))]
 impl<'a> Arbitrary<'a> for Timestamp {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self, arbitrary::Error> {
-        let secs = u.int_in_range(std::ops::RangeInclusive::new(0, u64::pow(2, 53) - 1))?;
-        Ok(Timestamp::postel(UNIX_EPOCH + Duration::from_secs(secs)))
+        let secs = u.int_in_range(core::ops::RangeInclusive::new(0, u64::pow(2, 53) - 1))?;
+        Ok(Timestamp(secs))
     }
 }

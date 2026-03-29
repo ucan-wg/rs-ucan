@@ -1,9 +1,10 @@
 //! Typesafe selection on [`Ipld`] values.
 
 use super::{error::SelectorErrorReason, filter::Filter, Selectable, Selector, SelectorError};
+use alloc::{string::ToString, vec, vec::Vec};
+use core::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{cmp::Ordering, fmt, str::FromStr};
 use thiserror::Error;
 
 #[cfg(any(test, feature = "test_utils"))]
@@ -13,7 +14,7 @@ use arbitrary::{self, Arbitrary, Unstructured};
 #[derive(Clone)]
 pub struct Select<T> {
     filters: Vec<Filter>,
-    _marker: std::marker::PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> Serialize for Select<T> {
@@ -30,7 +31,7 @@ where
         let selector = Selector::deserialize(deserializer).map_err(serde::de::Error::custom)?;
         Ok(Select {
             filters: selector.0,
-            _marker: std::marker::PhantomData,
+            _marker: PhantomData,
         })
     }
 }
@@ -53,7 +54,7 @@ impl<T> Select<T> {
     pub const fn new(filters: Vec<Filter>) -> Self {
         Self {
             filters,
-            _marker: std::marker::PhantomData,
+            _marker: PhantomData,
         }
     }
 
@@ -229,7 +230,7 @@ impl<T> FromStr for Select<T> {
         let selector = Selector::from_str(s).map_err(ParseError)?;
         Ok(Select {
             filters: selector.0,
-            _marker: std::marker::PhantomData,
+            _marker: PhantomData,
         })
     }
 }
