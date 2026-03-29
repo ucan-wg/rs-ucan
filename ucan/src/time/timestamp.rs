@@ -116,7 +116,7 @@ impl Timestamp {
     }
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 impl Timestamp {
     /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`].
     ///
@@ -130,11 +130,18 @@ impl Timestamp {
     }
 
     /// Lower the [`Timestamp`] to a [`js_sys::Date`].
-    #[must_use]
-    pub fn to_date(&self) -> js_sys::Date {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfRangeError`] if the timestamp exceeds the 2⁵³ second
+    /// bound, which would cause precision loss in the JavaScript `Date`.
+    pub fn to_date(&self) -> Result<js_sys::Date, OutOfRangeError> {
+        if self.0 > 0x001F_FFFF_FFFF_FFFF {
+            return Err(OutOfRangeError::TooLarge(self.0));
+        }
         #[allow(clippy::cast_precision_loss)]
         let millis = self.0 as f64 * 1000.0;
-        js_sys::Date::new(&wasm_bindgen::JsValue::from(millis))
+        Ok(js_sys::Date::new(&wasm_bindgen::JsValue::from(millis)))
     }
 }
 

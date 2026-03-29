@@ -189,10 +189,10 @@ pub fn parse_try_dot_field(input: &str) -> IResult<&str, Filter> {
 }
 
 fn parse_opt_signed_int(i: &str) -> IResult<&str, Option<i32>> {
-    nom::combinator::opt(
-        nom::combinator::recognize(preceded(nom::combinator::opt(tag("-")), digit1))
-            .map(|s: &str| i32::from_str(s).unwrap_or(0)),
-    )
+    nom::combinator::opt(map_res(
+        nom::combinator::recognize(preceded(nom::combinator::opt(tag("-")), digit1)),
+        i32::from_str,
+    ))
     .parse(i)
 }
 

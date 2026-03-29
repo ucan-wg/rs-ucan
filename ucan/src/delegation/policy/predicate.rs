@@ -186,6 +186,13 @@ impl<'de> Deserialize<'de> for Predicate {
                             de::Error::invalid_length(2, &"expected an Ipld value")
                         })?,
                     )),
+                    "!=" => Ok(Predicate::Not(Box::new(Predicate::Equal(
+                        seq.next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(1, &"expected a selector"))?,
+                        seq.next_element()?.ok_or_else(|| {
+                            de::Error::invalid_length(2, &"expected an Ipld value")
+                        })?,
+                    )))),
                     ">" => Ok(Predicate::GreaterThan(
                         seq.next_element()?
                             .ok_or_else(|| de::Error::invalid_length(1, &"expected a selector"))?,
@@ -249,7 +256,8 @@ impl<'de> Deserialize<'de> for Predicate {
                     _ => Err(de::Error::unknown_variant(
                         &op,
                         &[
-                            "==", ">", ">=", "<", "<=", "like", "not", "and", "or", "all", "any",
+                            "==", "!=", ">", ">=", "<", "<=", "like", "not", "and", "or", "all",
+                            "any",
                         ],
                     )),
                 }
@@ -1410,6 +1418,38 @@ mod tests {
             );
 
             assert!(p.run(&deeply_nested_data)?);
+            Ok(())
+        }
+    }
+
+    mod roundtrip {
+        use super::*;
+
+        #[test_log::test]
+        fn test_not_equal_dagcbor_roundtrip() -> TestResult {
+            let pred = Predicate::Not(Box::new(Predicate::Equal(
+                Select::from_str(".foo")?,
+                Ipld::Integer(42),
+            )));
+
+            let cbor = serde_ipld_dagcbor::to_vec(&pred)?;
+            let back: Predicate = serde_ipld_dagcbor::from_slice(&cbor)?;
+
+            assert_eq!(back, pred);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_not_equal_ipld_roundtrip() -> TestResult {
+            let pred = Predicate::Not(Box::new(Predicate::Equal(
+                Select::from_str(".bar")?,
+                Ipld::String("hello".into()),
+            )));
+
+            let ipld: Ipld = pred.clone().into();
+            let back = Predicate::try_from(ipld)?;
+
+            assert_eq!(back, pred);
             Ok(())
         }
     }
