@@ -39,6 +39,10 @@ thiserror = { workspace = true, default-features = false }
 tracing = { workspace = true, default-features = false, features = ["attributes"] }
 varsig = { path = "../varsig", default-features = false, features = ["dag_cbor", "ed25519"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+
 [dev-dependencies]
 arbitrary = { workspace = true, optional = false }
 base64 = "0.22.1"

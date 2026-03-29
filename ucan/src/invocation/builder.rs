@@ -1,7 +1,7 @@
 //! Typesafe builder for [`InvocationPayload`].
 
 use crate::{
-    command::Command,
+    command::{Command, CommandParseError},
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
     envelope::{Envelope, EnvelopePayload},
@@ -162,17 +162,17 @@ impl<
         }
     }
 
-    /// Sets the `command` field of the invocation.
+    /// Sets the `command` field of the invocation from a pre-validated [`Command`].
     #[must_use]
     pub fn command(
         self,
-        command: Vec<String>,
+        command: Command,
     ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command: Command::new(command),
+            command,
             arguments: self.arguments,
             proofs: self.proofs,
             cause: self.cause,
@@ -182,6 +182,19 @@ impl<
             nonce: self.nonce,
             _did: PhantomData,
         }
+    }
+
+    /// Parses a command string and sets it on the [`Invocation`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CommandParseError`] if the command string is invalid.
+    pub fn command_from_str(
+        self,
+        s: &str,
+    ) -> Result<InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs>, CommandParseError>
+    {
+        Ok(self.command(Command::parse(s)?))
     }
 
     /// Sets the `arguments` field of the invocation.
@@ -347,7 +360,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
     ///
     /// Panics if random number generator fails when generating a nonce.
     /// This will never happen if a nonce is provided, and is not recoverable
-    /// becuase a broken RNG is a serious problem.
+    /// because a broken RNG is a serious problem.
     #[allow(clippy::expect_used)]
     pub fn build(self) -> super::InvocationPayload<D::Did> {
         let nonce = self.nonce.unwrap_or_else(|| {

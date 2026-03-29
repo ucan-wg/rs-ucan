@@ -1,6 +1,6 @@
 //! Internal IPLD representation.
 //!
-//! This is here becuase `ipld-core` doesn't implement various traits.
+//! This is here because `ipld-core` doesn't implement various traits.
 //! It is not a simple newtype wrapper because IPLD has recursive values,
 //! and this implementation is simpler. If it is a performance bottleneck,
 //! please let the maintainers know.

@@ -19,7 +19,7 @@ use arbitrary::{self, Arbitrary, Unstructured};
 #[cfg(any(test, feature = "test_utils"))]
 use crate::ipld::InternalIpld;
 
-/// Validtor for [`Ipld`] values.
+/// Validator for [`Ipld`] values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {
     /// Selector equality check
@@ -37,7 +37,7 @@ pub enum Predicate {
     /// Selector less than or equal check
     LessThanOrEqual(Select<Number>, Number),
 
-    /// Seelctor `like` matcher check (glob patterns)
+    /// Selector `like` matcher check (glob patterns)
     Like(Select<String>, String),
 
     /// Negation
@@ -51,7 +51,7 @@ pub enum Predicate {
 
     /// Universal quantification over a collection
     ///
-    /// "For all elements of a collection" (∀x ∈ xs) the precicate must hold
+    /// "For all elements of a collection" (∀x ∈ xs) the predicate must hold
     All(Select<Collection>, Box<Predicate>),
 
     /// Existential quantification over a collection
@@ -111,10 +111,18 @@ impl Serialize for Predicate {
                 triple.end()
             }
             Self::Not(inner) => {
-                let mut tuple = serializer.serialize_tuple(2)?;
-                tuple.serialize_element(&"not")?;
-                tuple.serialize_element(inner)?;
-                tuple.end()
+                if let Predicate::Equal(lhs, rhs) = inner.as_ref() {
+                    let mut triple = serializer.serialize_tuple(3)?;
+                    triple.serialize_element(&"!=")?;
+                    triple.serialize_element(lhs)?;
+                    triple.serialize_element(rhs)?;
+                    triple.end()
+                } else {
+                    let mut tuple = serializer.serialize_tuple(2)?;
+                    tuple.serialize_element(&"not")?;
+                    tuple.serialize_element(inner)?;
+                    tuple.end()
+                }
             }
             Self::And(inner) => {
                 let mut tuple = serializer.serialize_tuple(2)?;
@@ -178,6 +186,13 @@ impl<'de> Deserialize<'de> for Predicate {
                             de::Error::invalid_length(2, &"expected an Ipld value")
                         })?,
                     )),
+                    "!=" => Ok(Predicate::Not(Box::new(Predicate::Equal(
+                        seq.next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(1, &"expected a selector"))?,
+                        seq.next_element()?.ok_or_else(|| {
+                            de::Error::invalid_length(2, &"expected an Ipld value")
+                        })?,
+                    )))),
                     ">" => Ok(Predicate::GreaterThan(
                         seq.next_element()?
                             .ok_or_else(|| de::Error::invalid_length(1, &"expected a selector"))?,
@@ -241,7 +256,8 @@ impl<'de> Deserialize<'de> for Predicate {
                     _ => Err(de::Error::unknown_variant(
                         &op,
                         &[
-                            "==", ">", ">=", "<", "<=", "like", "not", "and", "or", "all", "any",
+                            "==", "!=", ">", ">=", "<", "<=", "like", "not", "and", "or", "all",
+                            "any",
                         ],
                     )),
                 }
@@ -592,7 +608,7 @@ pub enum FromIpldError {
 
     /// Invalid String selector.
     #[error("Invalid String selector {0:?}")]
-    InvalidStringSelector(<Select<Collection> as FromStr>::Err),
+    InvalidStringSelector(<Select<String> as FromStr>::Err),
 
     /// Cannot parse [`Number`].
     #[error("Cannot parse Number {0:?}")]
@@ -642,10 +658,23 @@ impl From<Predicate> for Ipld {
                 lhs.into(),
                 rhs.into(),
             ]),
-            Predicate::Not(inner) => {
-                let unboxed = *inner;
-                Ipld::List(vec![Ipld::String("not".to_string()), unboxed.into()])
-            }
+            Predicate::Not(inner) => match *inner {
+                Predicate::Equal(lhs, rhs) => {
+                    Ipld::List(vec![Ipld::String("!=".to_string()), lhs.into(), rhs])
+                }
+                other @ (Predicate::GreaterThan(_, _)
+                | Predicate::GreaterThanOrEqual(_, _)
+                | Predicate::LessThan(_, _)
+                | Predicate::LessThanOrEqual(_, _)
+                | Predicate::Like(_, _)
+                | Predicate::Not(_)
+                | Predicate::And(_)
+                | Predicate::Or(_)
+                | Predicate::All(_, _)
+                | Predicate::Any(_, _)) => {
+                    Ipld::List(vec![Ipld::String("not".to_string()), other.into()])
+                }
+            },
             Predicate::And(inner) => {
                 let inner_ipld: Vec<Ipld> = inner.into_iter().map(Into::into).collect();
                 vec![Ipld::String("and".to_string()), inner_ipld.into()].into()
@@ -1389,6 +1418,38 @@ mod tests {
             );
 
             assert!(p.run(&deeply_nested_data)?);
+            Ok(())
+        }
+    }
+
+    mod roundtrip {
+        use super::*;
+
+        #[test_log::test]
+        fn test_not_equal_dagcbor_roundtrip() -> TestResult {
+            let pred = Predicate::Not(Box::new(Predicate::Equal(
+                Select::from_str(".foo")?,
+                Ipld::Integer(42),
+            )));
+
+            let cbor = serde_ipld_dagcbor::to_vec(&pred)?;
+            let back: Predicate = serde_ipld_dagcbor::from_slice(&cbor)?;
+
+            assert_eq!(back, pred);
+            Ok(())
+        }
+
+        #[test_log::test]
+        fn test_not_equal_ipld_roundtrip() -> TestResult {
+            let pred = Predicate::Not(Box::new(Predicate::Equal(
+                Select::from_str(".bar")?,
+                Ipld::String("hello".into()),
+            )));
+
+            let ipld: Ipld = pred.clone().into();
+            let back = Predicate::try_from(ipld)?;
+
+            assert_eq!(back, pred);
             Ok(())
         }
     }

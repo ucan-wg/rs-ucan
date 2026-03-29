@@ -264,7 +264,7 @@ impl<D: Did> InvocationPayload<D> {
         let mut expected_issuer = self.subject();
 
         for proof in proofs {
-            if proof.subject().allows(self.subject()) {
+            if !proof.subject().allows(self.subject()) {
                 return Err(CheckFailed::SubjectNotAllowedByProof);
             }
 
@@ -314,7 +314,7 @@ pub enum CheckFailed {
     WaitingOnPromise(#[from] WaitingOn),
 
     /// Error indicating that the command in the invocation does not match the command in the proof
-    #[error("command mismatch: expected {expected:?}, found {expected:?}")]
+    #[error("command mismatch: expected {expected:?}, found {found:?}")]
     CommandMismatch {
         /// The expected command
         expected: Command,
@@ -388,7 +388,7 @@ mod tests {
             .issuer(iss.clone())
             .audience(aud)
             .subject(sub)
-            .command(vec!["read".to_string(), "write".to_string()])
+            .command_from_str("/read/write")?
             .proofs(vec![]);
 
         let invocation = builder.try_build()?;

@@ -2,7 +2,7 @@
 
 use super::{policy::predicate::Predicate, subject::DelegatedSubject};
 use crate::{
-    command::Command,
+    command::{Command, CommandParseError},
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
     envelope::{Envelope, EnvelopePayload},
@@ -138,13 +138,13 @@ impl<
         }
     }
 
-    /// Sets the command of the [`Delegation`].
-    pub fn command(self, command: Vec<String>) -> DelegationBuilder<D, Audience, Subject, Command> {
+    /// Sets the command of the [`Delegation`] from a pre-validated [`Command`].
+    pub fn command(self, command: Command) -> DelegationBuilder<D, Audience, Subject, Command> {
         DelegationBuilder {
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command: Command::new(command),
+            command,
             policy: self.policy,
             expiration: self.expiration,
             not_before: self.not_before,
@@ -152,6 +152,18 @@ impl<
             nonce: self.nonce,
             _marker: PhantomData,
         }
+    }
+
+    /// Parses a command string and sets it on the [`Delegation`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CommandParseError`] if the command string is invalid.
+    pub fn command_from_str(
+        self,
+        s: &str,
+    ) -> Result<DelegationBuilder<D, Audience, Subject, Command>, CommandParseError> {
+        Ok(self.command(Command::parse(s)?))
     }
 
     /// Sets the policy of the [`Delegation`].
