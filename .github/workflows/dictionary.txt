@@ -39,7 +39,6 @@ EdDSA
 enum
 et
 expede
-Github
 http
 impl
 impls
