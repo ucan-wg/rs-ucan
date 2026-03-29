@@ -84,7 +84,7 @@ impl FromStr for Ed25519Did {
             .ok_or(Ed25519DidFromStrError::MissingBase58Prefix)?;
         let key_bytes = bs58::decode(b58)
             .into_vec()
-            .map_err(|_| Ed25519DidFromStrError::InvalidKey)?;
+            .map_err(|_| Ed25519DidFromStrError::InvalidBase58)?;
         let raw_arr = <[u8; 34]>::try_from(key_bytes.as_slice())
             .map_err(|_| Ed25519DidFromStrError::InvalidKey)?;
         if raw_arr[0] != 0xed || raw_arr[1] != 0x01 {

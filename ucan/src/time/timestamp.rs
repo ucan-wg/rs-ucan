@@ -38,7 +38,7 @@ impl Timestamp {
     /// * [`OutOfRangeError`] — If the time is more than 2⁵³ seconds since the Unix epoch
     pub const fn from_unix(secs: u64) -> Result<Self, OutOfRangeError> {
         if secs > 0x001F_FFFF_FFFF_FFFF {
-            Err(OutOfRangeError { tried_secs: secs })
+            Err(OutOfRangeError::TooLarge(secs))
         } else {
             Ok(Timestamp(secs))
         }
@@ -57,9 +57,7 @@ impl Timestamp {
     pub fn new(time: SystemTime) -> Result<Self, OutOfRangeError> {
         let secs = time
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| OutOfRangeError {
-                tried_secs: u64::MAX,
-            })?
+            .map_err(|_| OutOfRangeError::BeforeEpoch)?
             .as_secs();
         Self::from_unix(secs)
     }
@@ -90,7 +88,7 @@ impl Timestamp {
             .expect("the current time to be somtime in the 3rd millenium CE")
     }
 
-    /// Get a timestamp 5 hours from now.
+    /// Get a timestamp 5 years from now.
     ///
     /// # Panics
     ///

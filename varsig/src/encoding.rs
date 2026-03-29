@@ -22,7 +22,12 @@ use crate::codec::Codec;
     feature = "eip191"
 ))]
 use serde::{Deserialize, Serialize};
-#[cfg(any(feature = "dag_cbor", feature = "dag_json"))]
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 use thiserror::Error;
 
 /// IPLD encoding types.

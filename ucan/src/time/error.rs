@@ -2,12 +2,16 @@
 
 use thiserror::Error;
 
-/// An error expressing when a time is larger than 2⁵³ seconds past the Unix epoch
+/// An error expressing when a timestamp is outside the representable range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-#[error("Time out of JsTime (2⁵³) range: {tried_secs}")]
-pub struct OutOfRangeError {
-    /// The Unix seconds value that is outside of the safe range (2⁵³).
-    pub tried_secs: u64,
+pub enum OutOfRangeError {
+    /// The timestamp exceeds 2⁵³ seconds past the Unix epoch.
+    #[error("Time exceeds JsTime (2⁵³) range: {0}")]
+    TooLarge(u64),
+
+    /// The timestamp is before the Unix epoch.
+    #[error("Time is before the Unix epoch")]
+    BeforeEpoch,
 }
 
 /// An error expressing when a time is larger than 2⁵³ seconds past the Unix epoch.

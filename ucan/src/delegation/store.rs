@@ -91,7 +91,7 @@ impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
                 if let Some(dlg) = store.get(c) {
                     dlgs.push(dlg.clone());
                 } else {
-                    Err(Missing(*c))?;
+                    return Err(Missing(*c));
                 }
             }
             Ok(dlgs)
@@ -132,7 +132,7 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
                 if let Some(dlg) = store.get(c) {
                     dlgs.push(dlg.clone());
                 } else {
-                    Err(Missing(*c))?;
+                    return Err(Missing(*c));
                 }
             }
             Ok(dlgs)
@@ -182,7 +182,7 @@ impl<K: FutureForm, D: Did, H: BuildHasher> DelegationStore<K, D, Arc<Delegation
                 if let Some(dlg) = locked.get(c) {
                     dlgs.push(dlg.clone());
                 } else {
-                    return Err(Missing(*c))?;
+                    return Err(Missing(*c).into());
                 }
             }
             Ok(dlgs)

@@ -222,7 +222,7 @@ impl<'de, V: Verify, C: Codec<T>, T> Deserialize<'de> for Varsig<V, C, T> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "dag_cbor", feature = "ed25519"))]
 mod tests {
     use super::*;
     use crate::signature::eddsa::{Ed25519, EdDsa};
