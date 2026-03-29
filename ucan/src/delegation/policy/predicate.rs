@@ -110,12 +110,21 @@ impl Serialize for Predicate {
                 triple.serialize_element(rhs)?;
                 triple.end()
             }
-            Self::Not(inner) => {
-                let mut tuple = serializer.serialize_tuple(2)?;
-                tuple.serialize_element(&"not")?;
-                tuple.serialize_element(inner)?;
-                tuple.end()
-            }
+            Self::Not(inner) => match inner.as_ref() {
+                Predicate::Equal(lhs, rhs) => {
+                    let mut triple = serializer.serialize_tuple(3)?;
+                    triple.serialize_element(&"!=")?;
+                    triple.serialize_element(lhs)?;
+                    triple.serialize_element(rhs)?;
+                    triple.end()
+                }
+                _ => {
+                    let mut tuple = serializer.serialize_tuple(2)?;
+                    tuple.serialize_element(&"not")?;
+                    tuple.serialize_element(inner)?;
+                    tuple.end()
+                }
+            },
             Self::And(inner) => {
                 let mut tuple = serializer.serialize_tuple(2)?;
                 tuple.serialize_element(&"and")?;
@@ -642,10 +651,12 @@ impl From<Predicate> for Ipld {
                 lhs.into(),
                 rhs.into(),
             ]),
-            Predicate::Not(inner) => {
-                let unboxed = *inner;
-                Ipld::List(vec![Ipld::String("not".to_string()), unboxed.into()])
-            }
+            Predicate::Not(inner) => match *inner {
+                Predicate::Equal(lhs, rhs) => {
+                    Ipld::List(vec![Ipld::String("!=".to_string()), lhs.into(), rhs])
+                }
+                other => Ipld::List(vec![Ipld::String("not".to_string()), other.into()]),
+            },
             Predicate::And(inner) => {
                 let inner_ipld: Vec<Ipld> = inner.into_iter().map(Into::into).collect();
                 vec![Ipld::String("and".to_string()), inner_ipld.into()].into()

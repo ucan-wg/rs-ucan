@@ -388,7 +388,7 @@ mod tests {
             .issuer(iss.clone())
             .audience(aud)
             .subject(sub)
-            .command(vec!["read".to_string(), "write".to_string()])
+            .command_from_str("/read/write")?
             .proofs(vec![]);
 
         let invocation = builder.try_build()?;

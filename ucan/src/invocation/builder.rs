@@ -1,7 +1,7 @@
 //! Typesafe builder for [`InvocationPayload`].
 
 use crate::{
-    command::Command,
+    command::{Command, CommandParseError},
     crypto::nonce::Nonce,
     did::{Did, DidSigner},
     envelope::{Envelope, EnvelopePayload},
@@ -162,17 +162,16 @@ impl<
         }
     }
 
-    /// Sets the `command` field of the invocation.
-    #[must_use]
+    /// Sets the `command` field of the invocation from a pre-validated [`Command`].
     pub fn command(
         self,
-        command: Vec<String>,
+        command: Command,
     ) -> InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs> {
         InvocationBuilder {
             issuer: self.issuer,
             audience: self.audience,
             subject: self.subject,
-            command: Command::new(command),
+            command,
             arguments: self.arguments,
             proofs: self.proofs,
             cause: self.cause,
@@ -182,6 +181,19 @@ impl<
             nonce: self.nonce,
             _did: PhantomData,
         }
+    }
+
+    /// Parses a command string and sets it on the [`Invocation`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CommandParseError`] if the command string is invalid.
+    pub fn command_from_str(
+        self,
+        s: &str,
+    ) -> Result<InvocationBuilder<D, Issuer, Audience, Subject, Command, Proofs>, CommandParseError>
+    {
+        Ok(self.command(Command::parse(s)?))
     }
 
     /// Sets the `arguments` field of the invocation.

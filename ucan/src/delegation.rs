@@ -378,6 +378,7 @@ where
                 let command = command.ok_or_else(|| de::Error::missing_field("cmd"))?;
                 let policy = policy.ok_or_else(|| de::Error::missing_field("pol"))?;
                 let nonce = nonce.ok_or_else(|| de::Error::missing_field("nonce"))?;
+                let expiration = expiration.ok_or_else(|| de::Error::missing_field("exp"))?;
 
                 Ok(DelegationPayload {
                     issuer,
@@ -386,7 +387,7 @@ where
                     command,
                     policy,
                     nonce,
-                    expiration: expiration.unwrap_or(None),
+                    expiration,
                     not_before: not_before.unwrap_or(None),
                     meta: meta.unwrap_or_default(),
                 })
@@ -430,7 +431,7 @@ mod tests {
             .issuer(iss.clone())
             .audience(aud)
             .subject(DelegatedSubject::Specific(sub))
-            .command(vec!["read".to_string(), "write".to_string()]);
+            .command_from_str("/read/write")?;
 
         let delegation = builder.try_build()?;
 
@@ -485,7 +486,7 @@ mod tests {
             issuer: iss,
             audience: aud,
             subject: DelegatedSubject::Any,
-            command: Command::new(vec!["/".to_string()]),
+            command: Command::parse("/").expect("root command"),
             policy: vec![],
             expiration: None,
             not_before: None,
