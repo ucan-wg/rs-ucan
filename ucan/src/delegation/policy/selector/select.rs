@@ -294,15 +294,10 @@ mod tests {
                 let mut filters = vec![Filter::Try(Box::new(Filter::Field("foo".into())))];
 
                 for f in &more {
-                    if let Filter::Try(_inner) = f {
-                        // Noop
-                    } else {
-                        filters.push(f.clone());
+                    match f {
+                        Filter::Try(_) | Filter::Values => {}
+                        other => filters.push(other.clone()),
                     }
-                }
-
-                if filters.contains(&Filter::Values) || filters.contains(&Filter::Try(Box::new(Filter::Values))) {
-                    prop_assume!(false);
                 }
 
                 let selector: Select<Ipld> = Select::new(filters);
