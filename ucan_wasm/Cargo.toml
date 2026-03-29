@@ -15,5 +15,8 @@ rust-version.workspace = true
 [dependencies]
 ucan = { path = "../ucan" }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
 [lints]
 workspace = true

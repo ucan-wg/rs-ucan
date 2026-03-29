@@ -126,7 +126,7 @@
         wasm = command-utils.wasm.${system};
         cmd = command-utils.cmd.${system};
 
-        bodge-commands = {
+        projectCommands = {
           "bodge" = cmd "Build ucan_wasm with wasm-bodge" ''
             set -e
             rm -rf "$WORKSPACE_ROOT/ucan_wasm/dist"
@@ -174,8 +174,8 @@
             xdg-open = pkgs.xdg-utils;
           })
 
-          # Bodge commands
-          bodge-commands
+          # Project-specific commands
+          { commands = projectCommands; packages = []; }
         ];
       in rec {
         devShells.default = pkgs.mkShell {
