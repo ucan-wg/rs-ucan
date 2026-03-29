@@ -3,6 +3,7 @@ apache
 APIs
 args
 arity
+array-of-ints
 assignees
 async
 auth
@@ -20,6 +21,7 @@ BTreeMap
 cargo-udeps
 CBOR
 CID
+CIDs
 CIDv
 CIDv1
 CLI
@@ -34,10 +36,13 @@ cryptographically
 CSPRNG
 DAG-CBOR
 DAG-JSON
+DAG-PB
 DagCborCodec
 DagJsonCodec
 DCBOR
+dep
 deps
+deserialized
 Desugaring
 Deserialize
 deserialization
@@ -55,9 +60,12 @@ ECDSA
 ed25519
 EdDSA
 enum
+EnvelopePayload
+errored
 erroring
 et
 expede
+Hardcode
 hardcoded
 http
 IANA
@@ -87,6 +95,7 @@ Nonces
 no_std
 OCap
 ocap
+PayloadTag
 PoLA
 powerline
 pre-commit
@@ -95,9 +104,11 @@ proptest
 Powerline
 rc
 RDRAND
+re-deserialized
 README
 Roundtrip
 roundtrip
+roundtrips
 RFC
 RSA
 RustSec
@@ -121,6 +132,7 @@ unescaped
 unrepresentable
 usecases
 unwelcomed
+Validators
 Varsig
 varsig
 VarsigConfig
@@ -131,3 +143,4 @@ WebCrypto
 www
 xF
 Zelenka
+zero-dep
