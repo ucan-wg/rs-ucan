@@ -7,12 +7,6 @@ use crate::signature::ecdsa;
 #[cfg(feature = "web_crypto")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WebCrypto {
-    /// 2048-bit RSA signature type
-    Rs256_2048(rsa::Rs256<2048>),
-
-    /// 4096-bit RSA signature type
-    Rs256_4096(rsa::Rs256<4096>),
-
     /// ES256 signature type
     Es256(ecdsa::Es256),
 
@@ -29,12 +23,6 @@ pub enum WebCrypto {
 #[cfg(feature = "web_crypto")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WebCryptoVerifier {
-    /// Verifier for 2048-bit RSA signature type
-    Rs256_2048(rsa::Rs256<2048>),
-
-    /// Verifier for 4096-bit RSA signature type
-    Rs256_4096(rsa::Rs256<4096>),
-
     /// Verifier for ES256 signature type
     Es256(ecdsa::Es256),
 
@@ -55,8 +43,6 @@ impl Verify for WebCrypto {
 
     fn prefix(&self) -> u64 {
         match self {
-            WebCrypto::Rs256_2048(rs256) => rs256.prefix(),
-            WebCrypto::Rs256_4096(rs512) => r512.prefix(),
             WebCrypto::Es256(es256) => es256.prefix(),
             WebCrypto::Es384(es384) => es384.prefix(),
             WebCrypto::Es512(es512) => es512.prefix(),
@@ -66,8 +52,6 @@ impl Verify for WebCrypto {
 
     fn config_tags(&self) -> Vec<u64> {
         match self {
-            WebCrypto::Rs256_2048(rs256) => rs256.config_tags(),
-            WebCrypto::Rs256_4096(rs512) => rs512.config_tags(),
             WebCrypto::Es256(es256) => es256.config_tags(),
             WebCrypto::Es384(es384) => es384.config_tags(),
             WebCrypto::Es512(es512) => es512.config_tags(),
@@ -81,22 +65,6 @@ impl Verify for WebCrypto {
         }
 
         match bytes[0] {
-            0x1205 => {
-                if bytes.len() < 3 {
-                    return None;
-                }
-                match bytes[1..=2] {
-                    [0x12, 0x0100] => Some((
-                        WebCrypto::Rs256_2048(rsa::Rs256::<2048>::default()),
-                        &bytes[3..],
-                    )),
-                    [0x12, 0x0200] => Some((
-                        WebCrypto::Rs256_4096(rsa::Rs256::<4096>::default()),
-                        &bytes[3..],
-                    )),
-                    _ => None,
-                }
-            }
             0xec => {
                 if bytes.len() < 3 {
                     return None;

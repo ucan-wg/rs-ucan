@@ -28,7 +28,6 @@ pretty_assertions = "1.4"
 proptest = "1.6"
 proptest-arbitrary-interop = "0.1.0"
 rand = "0.9.1"
-rsa = { version = "0.9.8", features = ["sha2"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_ipld_dagcbor = "0.6.3"
 serde_ipld_dagjson = "0.2.0"
