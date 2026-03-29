@@ -1,10 +1,19 @@
 //! ECDSA signature algorithms.
 
-use crate::{
-    curve::{Secp256k1, Secp256r1},
-    hash::Multihasher,
-    verify::Verify,
-};
+use crate::{hash::Multihasher, verify::Verify};
+
+#[cfg(feature = "secp256k1")]
+use crate::curve::Secp256k1;
+
+#[cfg(feature = "secp256r1")]
+use crate::curve::Secp256r1;
+
+#[cfg(feature = "secp384r1")]
+use crate::curve::Secp384r1;
+
+#[cfg(feature = "secp521r1")]
+use crate::curve::Secp521r1;
+
 use std::marker::PhantomData;
 
 /// The ECDSA signature algorithm.
@@ -19,6 +28,12 @@ impl EcDsaCurve for Secp256k1 {}
 
 #[cfg(feature = "secp256r1")]
 impl EcDsaCurve for Secp256r1 {}
+
+#[cfg(feature = "secp384r1")]
+impl EcDsaCurve for Secp384r1 {}
+
+#[cfg(feature = "secp521r1")]
+impl EcDsaCurve for Secp521r1 {}
 
 /// The ES256 signature algorithm.
 #[cfg(all(feature = "secp256r1", feature = "sha2_256"))]
@@ -47,10 +62,10 @@ impl Verify for Es256 {
 }
 
 /// The ES384 signature algorithm.
-#[cfg(all(feature = "secp256r1", feature = "sha2_384"))]
-pub type Es384 = EcDsa<Secp256r1, crate::hash::Sha2_384>;
+#[cfg(all(feature = "secp384r1", feature = "sha2_384"))]
+pub type Es384 = EcDsa<Secp384r1, crate::hash::Sha2_384>;
 
-#[cfg(all(feature = "secp256r1", feature = "sha2_384"))]
+#[cfg(all(feature = "secp384r1", feature = "sha2_384"))]
 impl Verify for Es384 {
     type Signature = p384::ecdsa::Signature;
     type Verifier = p384::ecdsa::VerifyingKey;
@@ -76,10 +91,46 @@ impl Verify for Es384 {
 #[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
 pub type Es512 = EcDsa<Secp521r1, crate::hash::Sha2_512>;
 
+/// Newtype around [`p521::ecdsa::VerifyingKey`] that adds [`Debug`].
+///
+/// The upstream `p521` crate does not derive `Debug` on its verifying key,
+/// but our [`Verify`] trait requires it. This wrapper delegates
+/// [`Verifier`] and provides a manual [`Debug`] impl.
+#[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
+#[derive(Clone)]
+pub struct P521VerifyingKey(p521::ecdsa::VerifyingKey);
+
+#[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
+impl std::fmt::Debug for P521VerifyingKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("P521VerifyingKey")
+            .field(&self.0.to_encoded_point(true).as_bytes())
+            .finish()
+    }
+}
+
+#[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
+impl signature::Verifier<p521::ecdsa::Signature> for P521VerifyingKey {
+    fn verify(
+        &self,
+        msg: &[u8],
+        signature: &p521::ecdsa::Signature,
+    ) -> Result<(), signature::Error> {
+        self.0.verify(msg, signature)
+    }
+}
+
+#[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
+impl From<p521::ecdsa::VerifyingKey> for P521VerifyingKey {
+    fn from(key: p521::ecdsa::VerifyingKey) -> Self {
+        Self(key)
+    }
+}
+
 #[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
 impl Verify for Es512 {
     type Signature = p521::ecdsa::Signature;
-    type Verifier = p521::ecdsa::VerifyingKey;
+    type Verifier = P521VerifyingKey;
 
     fn prefix(&self) -> u64 {
         0xec
@@ -90,8 +141,8 @@ impl Verify for Es512 {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes[0..=2] == [0xec, 0x1202, 0x13] {
-            Some((Self::default(), &bytes[3..]))
+        if *bytes.get(0..=2)? == [0xec, 0x1202, 0x13] {
+            Some((Self::default(), bytes.get(3..)?))
         } else {
             None
         }
