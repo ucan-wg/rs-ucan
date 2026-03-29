@@ -91,10 +91,10 @@ impl SignatureEncoding for WebCryptoSignature {
 impl TryFrom<&[u8]> for WebCryptoSignature {
     type Error = Error;
 
-    /// Attempt to decode a signature from raw bytes.
+    /// Decode a signature from raw bytes.
     ///
-    /// Without additional context (e.g. which algorithm produced the
-    /// bytes) this is ambiguous. We try each format in order.
+    /// This exists to satisfy the [`SignatureEncoding`] trait bound.
+    /// Algorithm-aware decoding happens via the Varsig header pipeline.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         // Ed25519: always 64 bytes
         if bytes.len() == ed25519_dalek::SIGNATURE_LENGTH {
