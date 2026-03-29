@@ -72,7 +72,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn now() -> Timestamp {
         Self::new(SystemTime::now())
-            .expect("the current time to be sometime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millennium CE")
     }
 
     /// Get a timestamp 5 minutes from now.
@@ -85,7 +85,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn five_minutes_from_now() -> Timestamp {
         Self::new(SystemTime::now() + Duration::from_secs(5 * 60))
-            .expect("the current time to be sometime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millennium CE")
     }
 
     /// Get a timestamp 5 years from now.
@@ -98,7 +98,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn five_years_from_now() -> Timestamp {
         Self::new(SystemTime::now() + Duration::from_secs(5 * 365 * 24 * 60 * 60))
-            .expect("the current time to be sometime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millennium CE")
     }
 
     /// Convert a [`Timestamp`] to a [Unix timestamp].
@@ -124,8 +124,12 @@ impl Timestamp {
     ///
     /// Returns [`OutOfRangeError`] if the date exceeds the 2⁵³ second bound.
     pub fn from_date(date_time: &js_sys::Date) -> Result<Timestamp, OutOfRangeError> {
+        let millis = date_time.get_time();
+        if millis < 0.0 {
+            return Err(OutOfRangeError::BeforeEpoch);
+        }
         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let secs = (date_time.get_time() / 1000.0) as u64;
+        let secs = (millis / 1000.0) as u64;
         Timestamp::from_unix(secs)
     }
 
@@ -133,10 +137,12 @@ impl Timestamp {
     ///
     /// # Errors
     ///
-    /// Returns [`OutOfRangeError`] if the timestamp exceeds the 2⁵³ second
-    /// bound, which would cause precision loss in the JavaScript `Date`.
+    /// Returns [`OutOfRangeError`] if the timestamp in _milliseconds_
+    /// would exceed the 2⁵³ safe-integer bound for JavaScript `Date`.
     pub fn to_date(&self) -> Result<js_sys::Date, OutOfRangeError> {
-        if self.0 > 0x001F_FFFF_FFFF_FFFF {
+        // 2⁵³ / 1000 = max seconds that fit in a JS Date without precision loss
+        const MAX_SAFE_SECS: u64 = 0x001F_FFFF_FFFF_FFFF / 1000;
+        if self.0 > MAX_SAFE_SECS {
             return Err(OutOfRangeError::TooLarge(self.0));
         }
         #[allow(clippy::cast_precision_loss)]

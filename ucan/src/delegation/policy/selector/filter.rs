@@ -454,7 +454,7 @@ impl<'de> Deserialize<'de> for Filter {
             fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> fmt::Result {
                 write!(
                     f,
-                    r#"a tagged sequence like ["idx", 3], ["field", "foo"], ["values"], or ["try", ...]"#
+                    r#"a tagged sequence like ["idx", 3], ["field", "foo"], ["slice", 0, 5], ["values"], or ["try", ...]"#
                 )
             }
 

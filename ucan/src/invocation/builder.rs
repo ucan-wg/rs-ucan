@@ -163,6 +163,7 @@ impl<
     }
 
     /// Sets the `command` field of the invocation from a pre-validated [`Command`].
+    #[must_use]
     pub fn command(
         self,
         command: Command,
