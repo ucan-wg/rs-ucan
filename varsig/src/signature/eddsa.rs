@@ -1,9 +1,14 @@
 //! `EdDSA` signature algorithms.
 
-use alloc::{vec, vec::Vec};
 use core::marker::PhantomData;
 
-use crate::{hash::Multihasher, verify::Verify};
+use crate::hash::Multihasher;
+
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
+use alloc::{vec, vec::Vec};
+
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
+use crate::verify::Verify;
 
 /// The `EdDSA` signature algorithm.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]

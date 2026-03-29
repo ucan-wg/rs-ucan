@@ -3,6 +3,7 @@
 use alloc::vec::Vec;
 use core::error::Error;
 
+#[cfg(any(feature = "dag_cbor", feature = "dag_json"))]
 use serde::{Deserialize, Serialize};
 
 /// DAG-CBOR multicodec code.

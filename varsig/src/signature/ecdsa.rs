@@ -1,6 +1,14 @@
 //! ECDSA signature algorithms.
 
-use crate::{hash::Multihasher, verify::Verify};
+use crate::hash::Multihasher;
+
+#[cfg(any(
+    feature = "secp256k1",
+    feature = "secp256r1",
+    feature = "secp384r1",
+    feature = "secp521r1"
+))]
+use crate::verify::Verify;
 
 #[cfg(feature = "secp256k1")]
 use crate::curve::Secp256k1;
