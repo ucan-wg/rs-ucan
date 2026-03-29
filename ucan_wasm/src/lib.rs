@@ -1,4 +1,11 @@
-//! Wasm bindings for `rs-ucan`
+//! Wasm bindings for `rs-ucan`.
 
 #![allow(clippy::multiple_crate_versions)] // syn
-                                           // #![cfg_attr(docsrs, feature(doc_cfg))]
+
+use wasm_bindgen::prelude::*;
+
+/// Returns the library version.
+#[wasm_bindgen]
+pub fn version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}

@@ -117,7 +117,9 @@
           cargo-udeps
           cargo-watch
           twiggy
-          wasm-bindgen-cli
+          binaryen
+          esbuild
+          unstable.wasm-bindgen-cli
           wasm-tools
         ];
 
@@ -128,14 +130,14 @@
 
         projectCommands = {
           "bodge" = cmd "Build ucan_wasm with wasm-bodge" ''
-            set -e
-            rm -rf "$WORKSPACE_ROOT/ucan_wasm/dist"
+            set -eu
+            rm -rf "''${WORKSPACE_ROOT:?WORKSPACE_ROOT is not set}/ucan_wasm/dist"
 
             echo "===> wasm-bodge build ucan_wasm..."
             ${wasm-bodge-bin} build \
-              --crate-path "$WORKSPACE_ROOT/ucan_wasm" \
-              --package-json "$WORKSPACE_ROOT/ucan_wasm/package.json" \
-              --out-dir "$WORKSPACE_ROOT/ucan_wasm/dist"
+              --crate-path "''${WORKSPACE_ROOT:?}/ucan_wasm" \
+              --package-json "''${WORKSPACE_ROOT:?}/ucan_wasm/package.json" \
+              --out-dir "''${WORKSPACE_ROOT:?}/ucan_wasm/dist"
 
             echo ""
             echo "✓ ucan_wasm built with wasm-bodge"
