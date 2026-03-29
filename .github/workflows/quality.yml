@@ -1,0 +1,81 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          cache: true
+
+      - name: Build workspace
+        run: cargo build --workspace --verbose
+
+      - name: Build workspace with all features
+        run: cargo build --workspace --verbose --all-features
+
+      - name: Check workspace
+        run: cargo check --workspace --verbose --all-features
+
+      - name: Install nightly toolchain
+        run: rustup toolchain install nightly --component rustfmt
+
+      - name: Formatting
+        run: cargo +nightly fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check advisories
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check advisories
+        continue-on-error: true
+
+      - name: Check bans, licenses, and sources
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check bans licenses sources
+
+  msrv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSRV toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: "1.90"
+          cache: true
+
+      - name: Check MSRV
+        run: cargo check --workspace

@@ -369,19 +369,12 @@ mod tests {
     use super::*;
     use testresult::TestResult;
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct EdKey(ed25519_dalek::VerifyingKey);
-
     #[test]
     fn issuer_round_trip() -> TestResult {
         let iss: Ed25519Signer = ed25519_dalek::SigningKey::from_bytes(&[0u8; 32]).into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
-        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let builder: InvocationBuilder<
             Ed25519Signer,

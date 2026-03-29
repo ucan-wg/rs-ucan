@@ -410,18 +410,11 @@ mod tests {
     use base64::prelude::*;
     use testresult::TestResult;
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct EdKey(ed25519_dalek::VerifyingKey);
-
     #[test]
     fn issuer_round_trip() -> TestResult {
         let iss: Ed25519Signer = ed25519_dalek::SigningKey::from_bytes(&[0u8; 32]).into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
-        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
+        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let builder: DelegationBuilder<
             Ed25519Signer,
@@ -481,12 +474,8 @@ mod tests {
     fn delegation_payload_any_subject_serializes_to_null() -> TestResult {
         use crate::crypto::nonce::Nonce;
 
-        let iss: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let iss: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let payload = DelegationPayload {
             issuer: iss,
@@ -497,7 +486,7 @@ mod tests {
             expiration: None,
             not_before: None,
             meta: std::collections::BTreeMap::new(),
-            nonce: Nonce::generate_16().unwrap(),
+            nonce: Nonce::generate_16()?,
         };
 
         assert_eq!(payload.subject(), &DelegatedSubject::Any);
@@ -509,16 +498,18 @@ mod tests {
         let ipld: ipld_core::ipld::Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
 
         // Verify sub is null in the serialized form
-        if let ipld_core::ipld::Ipld::Map(map) = &ipld {
-            let sub = map.get("sub").expect("sub field should exist");
-            assert_eq!(
-                sub,
-                &ipld_core::ipld::Ipld::Null,
-                "sub should be null for Any"
-            );
-        } else {
-            panic!("Expected a map");
-        }
+        let ipld_core::ipld::Ipld::Map(map) = &ipld else {
+            #[allow(clippy::panic)]
+            {
+                panic!("Expected a map")
+            }
+        };
+        let sub = map.get("sub").ok_or("sub field should exist")?;
+        assert_eq!(
+            sub,
+            &ipld_core::ipld::Ipld::Null,
+            "sub should be null for Any"
+        );
 
         Ok(())
     }

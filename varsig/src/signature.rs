@@ -2,7 +2,6 @@
 
 pub mod ecdsa;
 pub mod eddsa;
-pub mod rsa;
 pub mod web_crypto;
 
 /// The most common signature types used in most contexts.

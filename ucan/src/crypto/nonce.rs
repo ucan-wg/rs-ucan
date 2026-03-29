@@ -175,14 +175,17 @@ mod test {
         let nonce = Nonce::generate_16()?;
         let ipld = Ipld::from(nonce.clone());
 
-        let inner = if let Nonce::Nonce16(nonce) = nonce {
-            Ipld::Bytes(nonce.to_vec())
-        } else {
-            panic!("No conversion!")
+        let Nonce::Nonce16(inner_bytes) = nonce else {
+            #[allow(clippy::panic)]
+            {
+                panic!("Expected Nonce16 variant")
+            }
         };
+        let inner = Ipld::Bytes(inner_bytes.to_vec());
 
         assert_eq!(ipld, inner);
-        assert_eq!(nonce, ipld.try_into().unwrap());
+        let roundtripped: Nonce = ipld.try_into()?;
+        assert_eq!(nonce, roundtripped);
 
         Ok(())
     }
@@ -192,7 +195,7 @@ mod test {
         fn proptest_roundtrip_serde(bytes in any::<Vec<u8>>()) {
             let nonce = Nonce::from(bytes);
             let ipld = Ipld::from(nonce.clone());
-            let de: Nonce = ipld.try_into().unwrap();
+            let de: Nonce = ipld.try_into().map_err(|e| prop::test_runner::TestCaseError::Fail(format!("{e}").into()))?;
 
             prop_assert_eq!(nonce, de);
         }

@@ -74,10 +74,10 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
             Encoding::DagJson => Ok(serde_ipld_dagjson::to_writer(buffer, payload)?),
 
             #[cfg(feature = "jwt")]
-            Encoding::Jwt => todo!(),
+            Encoding::Jwt => unimplemented!("JWT encoding is not yet supported"),
 
             #[cfg(feature = "eip191")]
-            Encoding::Eip191 => todo!(),
+            Encoding::Eip191 => unimplemented!("EIP-191 encoding is not yet supported"),
         }
     }
 
@@ -91,10 +91,10 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
             Encoding::DagJson => Ok(serde_ipld_dagjson::from_reader(reader)?),
 
             #[cfg(feature = "jwt")]
-            Encoding::Jwt => todo!(),
+            Encoding::Jwt => unimplemented!("JWT decoding is not yet supported"),
 
             #[cfg(feature = "eip191")]
-            Encoding::Eip191 => todo!(),
+            Encoding::Eip191 => unimplemented!("EIP-191 decoding is not yet supported"),
         }
     }
 }

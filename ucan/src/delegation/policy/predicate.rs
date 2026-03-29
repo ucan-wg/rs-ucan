@@ -282,23 +282,23 @@ impl<'a> Arbitrary<'a> for Predicate {
             )),
             Pick::GreaterThan => Ok(Predicate::GreaterThan(
                 Select::<Number>::arbitrary(u)?,
-                Number::arbitrary(u)?.into(),
+                Number::arbitrary(u)?,
             )),
             Pick::GreaterThanOrEqual => Ok(Predicate::GreaterThanOrEqual(
                 Select::<Number>::arbitrary(u)?,
-                Number::arbitrary(u)?.into(),
+                Number::arbitrary(u)?,
             )),
             Pick::LessThan => Ok(Predicate::LessThan(
                 Select::<Number>::arbitrary(u)?,
-                Number::arbitrary(u)?.into(),
+                Number::arbitrary(u)?,
             )),
             Pick::LessThanOrEqual => Ok(Predicate::LessThanOrEqual(
                 Select::<Number>::arbitrary(u)?,
-                Number::arbitrary(u)?.into(),
+                Number::arbitrary(u)?,
             )),
             Pick::Like => Ok(Predicate::Like(
                 Select::<String>::arbitrary(u)?,
-                String::arbitrary(u)?.into(),
+                String::arbitrary(u)?,
             )),
             Pick::Or => {
                 let xs = Vec::<Predicate>::arbitrary(u)?;
@@ -687,115 +687,99 @@ mod tests {
         use super::*;
 
         #[test_log::test]
-        fn test_concrete() -> TestResult {
-            let got = glob(&"hello world", &"hello world");
+        fn test_concrete() {
+            let got = glob("hello world", "hello world");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_concrete_fail() -> TestResult {
-            let got = glob(&"hello world", &"NOPE");
+        fn test_concrete_fail() {
+            let got = glob("hello world", "NOPE");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_empty_pattern_fail() -> TestResult {
-            let got = glob(&"hello world", &"");
+        fn test_empty_pattern_fail() {
+            let got = glob("hello world", "");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_escaped_star() -> TestResult {
-            let got = glob(&"*", &r#"\*"#);
+        fn test_escaped_star() {
+            let got = glob("*", r"\*");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_inner_escaped_star() -> TestResult {
-            let got = glob(&"hello, * world*", &r#"hello*\**\*"#);
+        fn test_inner_escaped_star() {
+            let got = glob("hello, * world*", r"hello*\**\*");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_empty_string_fail() -> TestResult {
-            let got = glob(&"", &"NOPE");
+        fn test_empty_string_fail() {
+            let got = glob("", "NOPE");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_left_star() -> TestResult {
-            let got = glob(&"hello world", &"*world");
+        fn test_left_star() {
+            let got = glob("hello world", "*world");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_left_star_failure() -> TestResult {
-            let got = glob(&"hello world", &"*NOPE");
+        fn test_left_star_failure() {
+            let got = glob("hello world", "*NOPE");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_right_star() -> TestResult {
-            let got = glob(&"hello world", &"hello*");
+        fn test_right_star() {
+            let got = glob("hello world", "hello*");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_right_star_failure() -> TestResult {
-            let got = glob(&"hello world", &"NOPE*");
+        fn test_right_star_failure() {
+            let got = glob("hello world", "NOPE*");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_only_star() -> TestResult {
-            let got = glob(&"hello world", &"*");
+        fn test_only_star() {
+            let got = glob("hello world", "*");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_two_stars() -> TestResult {
-            let got = glob(&"hello world", &"* *");
+        fn test_two_stars() {
+            let got = glob("hello world", "* *");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_two_stars_fail() -> TestResult {
-            let got = glob(&"hello world", &"*@*");
+        fn test_two_stars_fail() {
+            let got = glob("hello world", "*@*");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_inner_stars() -> TestResult {
-            let got = glob(&"hello world", &"h*l*o*w*r*d");
+        fn test_multiple_inner_stars() {
+            let got = glob("hello world", "h*l*o*w*r*d");
             assert!(got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_inner_stars_fail() -> TestResult {
-            let got = glob(&"hello world", &"a*b*c*d*e*f");
+        fn test_multiple_inner_stars_fail() {
+            let got = glob("hello world", "a*b*c*d*e*f");
             assert!(!got);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_concrete_with_multiple_inner_stars() -> TestResult {
-            let got = glob(&"hello world", &"hello* *world");
+        fn test_concrete_with_multiple_inner_stars() {
+            let got = glob("hello world", "hello* *world");
             assert!(got);
-            Ok(())
         }
     }
 
@@ -831,10 +815,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq() -> TestResult {
-            let p = Predicate::Equal(
-                Select::from_str(".from").unwrap(),
-                "alice@example.com".into(),
-            );
+            let p = Predicate::Equal(Select::from_str(".from")?, "alice@example.com".into());
 
             assert!(p.run(&email())?);
             Ok(())
@@ -842,7 +823,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_try_null() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".not_from?").unwrap(), Ipld::Null.into());
+            let p = Predicate::Equal(Select::from_str(".not_from?")?, Ipld::Null);
 
             assert!(p.run(&email())?);
             Ok(())
@@ -850,7 +831,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_dot_field_ending_try_null() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".from.not?").unwrap(), Ipld::Null.into());
+            let p = Predicate::Equal(Select::from_str(".from.not?")?, Ipld::Null);
 
             assert!(p.run(&email())?);
             Ok(())
@@ -858,7 +839,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_dot_field_inner_try_null() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".nope?.not").unwrap(), Ipld::Null.into());
+            let p = Predicate::Equal(Select::from_str(".nope?.not")?, Ipld::Null);
 
             assert!(p.run(&email())?);
             Ok(())
@@ -866,7 +847,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_root_try_not_null() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".?").unwrap(), Ipld::Null.into());
+            let p = Predicate::Equal(Select::from_str(".?")?, Ipld::Null);
 
             assert!(!p.run(&email())?);
             Ok(())
@@ -874,10 +855,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_try_not_null() -> TestResult {
-            let p = Predicate::Equal(
-                Select::from_str(".from?").unwrap(),
-                "alice@example.com".into(),
-            );
+            let p = Predicate::Equal(Select::from_str(".from?")?, "alice@example.com".into());
 
             assert!(p.run(&email())?);
             Ok(())
@@ -885,7 +863,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_nested_try_null() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".from?.not?").unwrap(), Ipld::Null.into());
+            let p = Predicate::Equal(Select::from_str(".from?.not?")?, Ipld::Null);
 
             assert!(p.run(&email())?);
             Ok(())
@@ -893,7 +871,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_fail_same_type() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into());
+            let p = Predicate::Equal(Select::from_str(".from")?, "NOPE".into());
 
             assert!(!p.run(&email())?);
             Ok(())
@@ -901,10 +879,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_bad_selector() -> TestResult {
-            let p = Predicate::Equal(
-                Select::from_str(".NOPE").unwrap(),
-                "alice@example.com".into(),
-            );
+            let p = Predicate::Equal(Select::from_str(".NOPE")?, "alice@example.com".into());
 
             assert!(p.run(&email()).is_err());
             Ok(())
@@ -912,7 +887,7 @@ mod tests {
 
         #[test_log::test]
         fn test_eq_fail_different_type() -> TestResult {
-            let p = Predicate::Equal(Select::from_str(".from").unwrap(), 42.into());
+            let p = Predicate::Equal(Select::from_str(".from")?, 42.into());
 
             assert!(!p.run(&email())?);
             Ok(())
@@ -920,91 +895,91 @@ mod tests {
 
         #[test_log::test]
         fn test_gt() -> TestResult {
-            let p = Predicate::GreaterThan(Select::from_str(".foo").unwrap(), (41.9).into());
+            let p = Predicate::GreaterThan(Select::from_str(".foo")?, (41.9).into());
             assert!(p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_gt_fail() -> TestResult {
-            let p = Predicate::GreaterThan(Select::from_str(".foo").unwrap(), 42.into());
+            let p = Predicate::GreaterThan(Select::from_str(".foo")?, 42.into());
             assert!(!p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_gte() -> TestResult {
-            let p = Predicate::GreaterThanOrEqual(Select::from_str(".foo").unwrap(), 42.into());
+            let p = Predicate::GreaterThanOrEqual(Select::from_str(".foo")?, 42.into());
             assert!(p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_gte_fail() -> TestResult {
-            let p = Predicate::GreaterThanOrEqual(Select::from_str(".foo").unwrap(), (42.1).into());
+            let p = Predicate::GreaterThanOrEqual(Select::from_str(".foo")?, (42.1).into());
             assert!(!p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_lt() -> TestResult {
-            let p = Predicate::LessThan(Select::from_str(".foo").unwrap(), (42.1).into());
+            let p = Predicate::LessThan(Select::from_str(".foo")?, (42.1).into());
             assert!(p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_lt_fail() -> TestResult {
-            let p = Predicate::LessThan(Select::from_str(".foo").unwrap(), 42.into());
+            let p = Predicate::LessThan(Select::from_str(".foo")?, 42.into());
             assert!(!p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_lte() -> TestResult {
-            let p = Predicate::LessThanOrEqual(Select::from_str(".foo").unwrap(), 42.into());
+            let p = Predicate::LessThanOrEqual(Select::from_str(".foo")?, 42.into());
             assert!(p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_lte_fail() -> TestResult {
-            let p = Predicate::LessThanOrEqual(Select::from_str(".foo").unwrap(), (41.9).into());
+            let p = Predicate::LessThanOrEqual(Select::from_str(".foo")?, (41.9).into());
             assert!(!p.run(&simple())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_like() -> TestResult {
-            let p = Predicate::Like(Select::from_str(".from").unwrap(), "alice@*".into());
+            let p = Predicate::Like(Select::from_str(".from")?, "alice@*".into());
             assert!(p.run(&email())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_like_fail_concrete() -> TestResult {
-            let p = Predicate::Like(Select::from_str(".from").unwrap(), "NOPE".into());
+            let p = Predicate::Like(Select::from_str(".from")?, "NOPE".into());
             assert!(!p.run(&email())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_like_fail_left_star() -> TestResult {
-            let p = Predicate::Like(Select::from_str(".from").unwrap(), "*NOPE".into());
+            let p = Predicate::Like(Select::from_str(".from")?, "*NOPE".into());
             assert!(!p.run(&email())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_like_fail_right_star() -> TestResult {
-            let p = Predicate::Like(Select::from_str(".from").unwrap(), "NOPE*".into());
+            let p = Predicate::Like(Select::from_str(".from")?, "NOPE*".into());
             assert!(!p.run(&email())?);
             Ok(())
         }
 
         #[test_log::test]
         fn test_like_fail_both_stars() -> TestResult {
-            let p = Predicate::Like(Select::from_str(".from").unwrap(), "*NOPE*".into());
+            let p = Predicate::Like(Select::from_str(".from")?, "*NOPE*".into());
             assert!(!p.run(&email())?);
             Ok(())
         }
@@ -1012,7 +987,7 @@ mod tests {
         #[test_log::test]
         fn test_not() -> TestResult {
             let p = Predicate::Not(Box::new(Predicate::Equal(
-                Select::from_str(".from").unwrap(),
+                Select::from_str(".from")?,
                 "NOPE".into(),
             )));
 
@@ -1023,7 +998,7 @@ mod tests {
         #[test_log::test]
         fn test_double_negative() -> TestResult {
             let p = Predicate::Not(Box::new(Predicate::Not(Box::new(Predicate::Equal(
-                Select::from_str(".from").unwrap(),
+                Select::from_str(".from")?,
                 "alice@example.com".into(),
             )))));
 
@@ -1034,7 +1009,7 @@ mod tests {
         #[test_log::test]
         fn test_not_fail() -> TestResult {
             let p = Predicate::Not(Box::new(Predicate::Equal(
-                Select::from_str(".from").unwrap(),
+                Select::from_str(".from")?,
                 "alice@example.com".into(),
             )));
 
@@ -1045,14 +1020,8 @@ mod tests {
         #[test_log::test]
         fn test_and_both_succeed() -> TestResult {
             let p = Predicate::And(vec![
-                Predicate::Equal(
-                    Select::from_str(".from").unwrap(),
-                    "alice@example.com".into(),
-                ),
-                Predicate::Equal(
-                    Select::from_str(".subject").unwrap(),
-                    "Quarterly Reports".into(),
-                ),
+                Predicate::Equal(Select::from_str(".from")?, "alice@example.com".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "Quarterly Reports".into()),
             ]);
 
             assert!(p.run(&email())?);
@@ -1062,11 +1031,8 @@ mod tests {
         #[test_log::test]
         fn test_and_left_fail() -> TestResult {
             let p = Predicate::And(vec![
-                Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into()),
-                Predicate::Equal(
-                    Select::from_str(".subject").unwrap(),
-                    "Quarterly Reports".into(),
-                ),
+                Predicate::Equal(Select::from_str(".from")?, "NOPE".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "Quarterly Reports".into()),
             ]);
 
             assert!(!p.run(&email())?);
@@ -1076,11 +1042,8 @@ mod tests {
         #[test_log::test]
         fn test_and_right_fail() -> TestResult {
             let p = Predicate::And(vec![
-                Predicate::Equal(
-                    Select::from_str(".from").unwrap(),
-                    "alice@example.com".into(),
-                ),
-                Predicate::Equal(Select::from_str(".subject").unwrap(), "NOPE".into()),
+                Predicate::Equal(Select::from_str(".from")?, "alice@example.com".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "NOPE".into()),
             ]);
 
             assert!(!p.run(&email())?);
@@ -1090,8 +1053,8 @@ mod tests {
         #[test_log::test]
         fn test_and_both_fail() -> TestResult {
             let p = Predicate::And(vec![
-                Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into()),
-                Predicate::Equal(Select::from_str(".subject").unwrap(), "NOPE".into()),
+                Predicate::Equal(Select::from_str(".from")?, "NOPE".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "NOPE".into()),
             ]);
 
             assert!(!p.run(&email())?);
@@ -1101,14 +1064,8 @@ mod tests {
         #[test_log::test]
         fn test_or_both_succeed() -> TestResult {
             let p = Predicate::Or(vec![
-                Predicate::Equal(
-                    Select::from_str(".from").unwrap(),
-                    "alice@example.com".into(),
-                ),
-                Predicate::Equal(
-                    Select::from_str(".subject").unwrap(),
-                    "Quarterly Reports".into(),
-                ),
+                Predicate::Equal(Select::from_str(".from")?, "alice@example.com".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "Quarterly Reports".into()),
             ]);
 
             assert!(p.run(&email())?);
@@ -1118,11 +1075,8 @@ mod tests {
         #[test_log::test]
         fn test_or_left_fail() -> TestResult {
             let p = Predicate::Or(vec![
-                Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into()),
-                Predicate::Equal(
-                    Select::from_str(".subject").unwrap(),
-                    "Quarterly Reports".into(),
-                ),
+                Predicate::Equal(Select::from_str(".from")?, "NOPE".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "Quarterly Reports".into()),
             ]);
 
             assert!(p.run(&email())?);
@@ -1132,11 +1086,8 @@ mod tests {
         #[test_log::test]
         fn test_or_right_fail() -> TestResult {
             let p = Predicate::Or(vec![
-                Predicate::Equal(
-                    Select::from_str(".from").unwrap(),
-                    "alice@example.com".into(),
-                ),
-                Predicate::Equal(Select::from_str(".subject").unwrap(), "NOPE".into()),
+                Predicate::Equal(Select::from_str(".from")?, "alice@example.com".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "NOPE".into()),
             ]);
 
             assert!(p.run(&email())?);
@@ -1146,8 +1097,8 @@ mod tests {
         #[test_log::test]
         fn test_or_both_fail() -> TestResult {
             let p = Predicate::Or(vec![
-                Predicate::Equal(Select::from_str(".from").unwrap(), "NOPE".into()),
-                Predicate::Equal(Select::from_str(".subject").unwrap(), "NOPE".into()),
+                Predicate::Equal(Select::from_str(".from")?, "NOPE".into()),
+                Predicate::Equal(Select::from_str(".subject")?, "NOPE".into()),
             ]);
 
             assert!(!p.run(&email())?);
@@ -1157,11 +1108,8 @@ mod tests {
         #[test_log::test]
         fn test_all() -> TestResult {
             let p = Predicate::All(
-                Select::from_str(".input[]").unwrap(),
-                Box::new(Predicate::LessThan(
-                    Select::from_str(".").unwrap(),
-                    100.into(),
-                )),
+                Select::from_str(".input[]")?,
+                Box::new(Predicate::LessThan(Select::from_str(".")?, 100.into())),
             );
 
             assert!(p.run(&wasm())?);
@@ -1171,11 +1119,8 @@ mod tests {
         #[test_log::test]
         fn test_all_failure() -> TestResult {
             let p = Predicate::All(
-                Select::from_str(".input[]").unwrap(),
-                Box::new(Predicate::LessThan(
-                    Select::from_str(".").unwrap(),
-                    1.into(),
-                )),
+                Select::from_str(".input[]")?,
+                Box::new(Predicate::LessThan(Select::from_str(".")?, 1.into())),
             );
 
             assert!(!p.run(&wasm())?);
@@ -1185,11 +1130,8 @@ mod tests {
         #[test_log::test]
         fn test_any_all_succeed() -> TestResult {
             let p = Predicate::Any(
-                Select::from_str(".input[]").unwrap(),
-                Box::new(Predicate::LessThan(
-                    Select::from_str(".").unwrap(),
-                    100.into(),
-                )),
+                Select::from_str(".input[]")?,
+                Box::new(Predicate::LessThan(Select::from_str(".")?, 100.into())),
             );
 
             assert!(p.run(&wasm())?);
@@ -1199,11 +1141,8 @@ mod tests {
         #[test_log::test]
         fn test_any_not_all() -> TestResult {
             let p = Predicate::Any(
-                Select::from_str(".input[]").unwrap(),
-                Box::new(Predicate::LessThan(
-                    Select::from_str(".").unwrap(),
-                    1.into(),
-                )),
+                Select::from_str(".input[]")?,
+                Box::new(Predicate::LessThan(Select::from_str(".")?, 1.into())),
             );
 
             assert!(p.run(&wasm())?);
@@ -1213,11 +1152,8 @@ mod tests {
         #[test_log::test]
         fn test_any_all_fail() -> TestResult {
             let p = Predicate::Any(
-                Select::from_str(".input[]").unwrap(),
-                Box::new(Predicate::LessThan(
-                    Select::from_str(".").unwrap(),
-                    0.into(),
-                )),
+                Select::from_str(".input[]")?,
+                Box::new(Predicate::LessThan(Select::from_str(".")?, 0.into())),
             );
 
             assert!(!p.run(&wasm())?);
@@ -1228,10 +1164,10 @@ mod tests {
         fn test_alternate_all_and_any() -> TestResult {
             // ["all", ".a", ["any", ".b[]", ["==", ".", 0]]]
             let p = Predicate::All(
-                Select::from_str(".a").unwrap(),
+                Select::from_str(".a")?,
                 Box::new(Predicate::Any(
-                    Select::from_str(".b[]").unwrap(),
-                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                    Select::from_str(".b[]")?,
+                    Box::new(Predicate::Equal(Select::from_str(".")?, 0.into())),
                 )),
             );
 
@@ -1262,10 +1198,10 @@ mod tests {
         fn test_alternate_fail_all_and_any() -> TestResult {
             // ["all", ".a", ["any", ".b[]", ["==", ".", 0]]]
             let p = Predicate::All(
-                Select::from_str(".a").unwrap(),
+                Select::from_str(".a")?,
                 Box::new(Predicate::Any(
-                    Select::from_str(".b[]").unwrap(),
-                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                    Select::from_str(".b[]")?,
+                    Box::new(Predicate::Equal(Select::from_str(".")?, 0.into())),
                 )),
             );
 
@@ -1296,10 +1232,10 @@ mod tests {
         fn test_alternate_any_and_all() -> TestResult {
             // ["any", ".a", ["all", ".b[]", ["==", ".", 0]]]
             let p = Predicate::Any(
-                Select::from_str(".a").unwrap(),
+                Select::from_str(".a")?,
                 Box::new(Predicate::All(
-                    Select::from_str(".b[]").unwrap(),
-                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                    Select::from_str(".b[]")?,
+                    Box::new(Predicate::Equal(Select::from_str(".")?, 0.into())),
                 )),
             );
 
@@ -1330,10 +1266,10 @@ mod tests {
         fn test_alternate_fail_any_and_all() -> TestResult {
             // ["any", ".a", ["all", ".b[]", ["==", ".", 0]]]
             let p = Predicate::Any(
-                Select::from_str(".a").unwrap(),
+                Select::from_str(".a")?,
                 Box::new(Predicate::All(
-                    Select::from_str(".b[]").unwrap(),
-                    Box::new(Predicate::Equal(Select::from_str(".").unwrap(), 0.into())),
+                    Select::from_str(".b[]")?,
+                    Box::new(Predicate::Equal(Select::from_str(".")?, 0.into())),
                 )),
             );
 
@@ -1372,17 +1308,14 @@ mod tests {
             //   ]
             // ]
             let p = Predicate::Any(
-                Select::from_str(".a").unwrap(),
+                Select::from_str(".a")?,
                 Box::new(Predicate::All(
-                    Select::from_str(".b.c[]").unwrap(),
+                    Select::from_str(".b.c[]")?,
                     Box::new(Predicate::Any(
-                        Select::from_str(".d").unwrap(),
+                        Select::from_str(".d")?,
                         Box::new(Predicate::All(
-                            Select::from_str(".e[]").unwrap(),
-                            Box::new(Predicate::Equal(
-                                Select::from_str(".f.g").unwrap(),
-                                0.into(),
-                            )),
+                            Select::from_str(".e[]")?,
+                            Box::new(Predicate::Equal(Select::from_str(".f.g")?, 0.into())),
                         )),
                     )),
                 )),

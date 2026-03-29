@@ -128,7 +128,7 @@ impl<T: Serialize + for<'de> Deserialize<'de>> Codec<T> for DagJsonCodec {
             return None;
         }
 
-        if code[0] == <DagJsonCodec as IpldCodec<T>>::CODE {
+        if code.first() == Some(&<DagJsonCodec as IpldCodec<T>>::CODE) {
             Some(DagJsonCodec)
         } else {
             None

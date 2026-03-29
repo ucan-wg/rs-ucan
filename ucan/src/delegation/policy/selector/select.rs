@@ -268,7 +268,7 @@ mod tests {
             #[test_log::test]
             fn test_identity(data in arb::<InternalIpld>()) {
                 let selector = Select::<InternalIpld>::from_str(".")?;
-                prop_assert!(eq_with_float_nans_and_infinities(&selector.get(&data.clone().into())?.into(), &data));
+                prop_assert!(eq_with_float_nans_and_infinities(&selector.get(&data.clone().into())?, &data));
             }
         }
 
@@ -294,15 +294,10 @@ mod tests {
                 let mut filters = vec![Filter::Try(Box::new(Filter::Field("foo".into())))];
 
                 for f in &more {
-                    if let Filter::Try(_inner) = f {
-                        // Noop
-                    } else {
-                        filters.push(f.clone());
+                    match f {
+                        Filter::Try(_) | Filter::Values => {}
+                        other @ (Filter::ArrayIndex(_) | Filter::Field(_)) => filters.push(other.clone()),
                     }
-                }
-
-                if filters.contains(&Filter::Values) || filters.contains(&Filter::Try(Box::new(Filter::Values))) {
-                    prop_assume!(false);
                 }
 
                 let selector: Select<Ipld> = Select::new(filters);

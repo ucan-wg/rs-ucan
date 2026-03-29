@@ -24,7 +24,6 @@ leb128 = "0.2.5"
 p256 = { version = "0.13.2", optional = true }
 p384 = { version = "0.13.1", optional = true }
 p521 = { version = "0.13.3", optional = true }
-rsa = { workspace = true, optional = true }
 serde.workspace = true
 serde_bytes = "0.11.19"
 serde_ipld_dagcbor = { workspace = true, optional = true }
@@ -39,7 +38,7 @@ testresult = "0.4.1"
 
 [features]
 default = ["dag_cbor", "es256", "es256k", "ed25519"]
-web_crypto = ["rs256_2048", "rs256_4096", "es256", "es384", "es512", "ed25519"]
+web_crypto = ["es256", "es384", "es512", "ed25519"]
 common = ["es256", "es256k", "ed25519"]
 
 identity = []
@@ -63,7 +62,6 @@ keccak256 = []
 keccak384 = []
 keccak512 = []
 
-rsa = ["dep:rsa"]
 secp256k1 = ["dep:k256"]
 secp256r1 = ["dep:p256"]
 secp384r1 = ["dep:p384"]
@@ -73,13 +71,10 @@ edwards448 = []
 edwards25519 = ["dep:ed25519-dalek"]
 
 es256 = ["secp256r1", "sha2_256"]
-es384 = ["secp256r1", "sha2_384"]
-es512 = ["secp256r1", "sha2_512"]
+es384 = ["secp384r1", "sha2_384"]
+es512 = ["secp521r1", "sha2_512"]
 es256k = ["secp256k1", "sha2_256"]
 ed25519 = ["edwards25519", "sha2_512"]
-
-rs256_2048 = ["rsa", "sha2_256"]
-rs256_4096 = ["rsa", "sha2_256"]
 
 [lints]
 workspace = true
