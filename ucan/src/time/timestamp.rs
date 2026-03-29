@@ -116,7 +116,7 @@ impl Timestamp {
     }
 }
 
-#[cfg(all(feature = "wasm", target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
 impl Timestamp {
     /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`].
     ///
