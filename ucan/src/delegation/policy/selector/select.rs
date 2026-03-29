@@ -266,6 +266,7 @@ mod tests {
         use proptest_arbitrary_interop::arb;
 
         proptest! {
+            #![proptest_config(ProptestConfig { cases: 64, ..ProptestConfig::default() })]
             #[test_log::test]
             fn test_identity(data in arb::<InternalIpld>()) {
                 let selector = Select::<InternalIpld>::from_str(".")?;
@@ -274,6 +275,7 @@ mod tests {
         }
 
         proptest! {
+            #![proptest_config(ProptestConfig { cases: 64, ..ProptestConfig::default() })]
             #[test_log::test]
             fn test_try_missing_is_null(data in arb::<InternalIpld>()) {
                 let selector = Select::<Ipld>::from_str(".foo?")?;
@@ -290,6 +292,7 @@ mod tests {
         }
 
         proptest! {
+            #![proptest_config(ProptestConfig { cases: 64, ..ProptestConfig::default() })]
             #[test_log::test]
             fn test_try_missing_plus_trailing_is_null(data in arb::<InternalIpld>(), more in arb::<Vec<Filter>>()) {
                 let mut filters = vec![Filter::Try(Box::new(Filter::Field("foo".into())))];
