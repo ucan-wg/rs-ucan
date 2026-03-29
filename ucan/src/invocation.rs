@@ -264,7 +264,7 @@ impl<D: Did> InvocationPayload<D> {
         let mut expected_issuer = self.subject();
 
         for proof in proofs {
-            if proof.subject().allows(self.subject()) {
+            if !proof.subject().allows(self.subject()) {
                 return Err(CheckFailed::SubjectNotAllowedByProof);
             }
 
