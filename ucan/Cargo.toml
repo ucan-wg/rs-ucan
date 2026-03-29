@@ -20,6 +20,7 @@ rust-version.workspace = true
 arbitrary = { workspace = true, optional = true }
 base58 = "0.2.0"
 ed25519-dalek = "2.2"
+future_form = { workspace = true }
 futures = { workspace = true }
 getrandom.workspace = true
 ipld-core.workspace = true

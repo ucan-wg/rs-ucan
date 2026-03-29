@@ -17,6 +17,7 @@ arbitrary = { version = "1.4", features = ["derive"] }
 async-signature = "0.5.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
 env_logger = "0.11.8"
+future_form = "0.3.1"
 futures = "0.3.31"
 getrandom = "0.2.9"
 ipld-core = { version = "0.4.2", features = ["arb", "serde"] }

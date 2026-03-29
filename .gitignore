@@ -22,6 +22,9 @@ node_modules
 dist
 
 
+# Session artifacts
+.ignore/
+
 # Added by cargo
 
 /target
