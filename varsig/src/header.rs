@@ -257,17 +257,15 @@ mod tests {
     }
 
     #[test]
-    fn test_verifier_reader() -> TestResult {
+    fn test_verifier_reader() {
         let varsig: Varsig<Ed25519, DagCborCodec, String> = Varsig::new(EdDsa::new(), DagCborCodec);
         assert_eq!(varsig.verifier_cfg(), &EdDsa::new());
-        Ok(())
     }
 
     #[test]
-    fn test_codec_reader() -> TestResult {
+    fn test_codec_reader() {
         let varsig: Varsig<Ed25519, DagCborCodec, String> = Varsig::new(EdDsa::new(), DagCborCodec);
         assert_eq!(varsig.codec(), &DagCborCodec);
-        Ok(())
     }
 
     #[test]

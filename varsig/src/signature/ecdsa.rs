@@ -79,8 +79,8 @@ impl Verify for Es384 {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes[0..=2] == [0xec, 0x1202, 0x20] {
-            Some((Self::default(), &bytes[3..]))
+        if *bytes.get(0..=2)? == [0xec, 0x1202, 0x20] {
+            Some((Self::default(), bytes.get(3..)?))
         } else {
             None
         }

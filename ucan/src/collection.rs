@@ -113,9 +113,7 @@ impl<'a> Arbitrary<'a> for Collection {
             ))
         } else {
             let vec = u.arbitrary::<Vec<InternalIpld>>()?;
-            Ok(Collection::Array(
-                vec.into_iter().map(|v| v.into()).collect(),
-            ))
+            Ok(Collection::Array(vec.into_iter().map(Into::into).collect()))
         }
     }
 }

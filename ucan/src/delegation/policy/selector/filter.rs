@@ -663,7 +663,6 @@ mod tests {
     use super::*;
     use pretty_assertions as pretty;
     use proptest_arbitrary_interop::arb;
-    use testresult::TestResult;
 
     mod serialization {
         use super::*;
@@ -676,13 +675,9 @@ mod tests {
                 let deserialized = serialized.parse(); //
                 let expected = {
                     let mut work = filter;
-                    loop {
-                        if let Filter::Try(inner) = work.clone() {
-                            if let Filter::Try(nested) = *inner {
-                                work = Filter::Try(nested);
-                            } else {
-                                break;
-                            }
+                    while let Filter::Try(inner) = work.clone() {
+                        if let Filter::Try(nested) = *inner {
+                            work = Filter::Try(nested);
                         } else {
                             break;
                         }
@@ -695,235 +690,205 @@ mod tests {
 
             #[test]
             fn test_filter_round_trip_dag_cbor(filter in arb::<Filter>()) {
-                let serialized = serde_ipld_dagcbor::to_vec(&filter).unwrap();
+                let serialized = serde_ipld_dagcbor::to_vec(&filter).map_err(|e| TestCaseError::fail(e.to_string()))?;
                 let deserialized = serde_ipld_dagcbor::from_slice::<Filter>(&serialized);
                 prop_assert_eq!(Ok(filter), deserialized);
             }
         }
 
         #[test_log::test]
-        fn test_fails_on_empty() -> TestResult {
+        fn test_fails_on_empty() {
             let got = Filter::from_str("");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_on_bare_dot() -> TestResult {
+        fn test_fails_on_bare_dot() {
             // NOTE this passes as a Selector, but not a Filter
             let got = Filter::from_str(".");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_on_multiple_bare_dots() -> TestResult {
+        fn test_fails_on_multiple_bare_dots() {
             let got = Filter::from_str("..");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_on_leading_dots() -> TestResult {
+        fn test_fails_on_leading_dots() {
             let got = Filter::from_str("..foo");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_on_empty_whitespace() -> TestResult {
+        fn test_fails_on_empty_whitespace() {
             let got = Filter::from_str(" ");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_leading_whitespace() -> TestResult {
+        fn test_fails_leading_whitespace() {
             let got = Filter::from_str(" .foo");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_trailing_whitespace() -> TestResult {
+        fn test_fails_trailing_whitespace() {
             let got = Filter::from_str(".foo ");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_values() -> TestResult {
+        fn test_values() {
             let got = Filter::from_str("[]");
             pretty::assert_eq!(got, Ok(Filter::Values));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_values_fails_inner_whitespace() -> TestResult {
+        fn test_values_fails_inner_whitespace() {
             let got = Filter::from_str("[ ]");
             pretty::assert_eq!(got.is_err(), true);
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_array_index_zero() -> TestResult {
+        fn test_array_index_zero() {
             let got = Filter::from_str("[0]");
             pretty::assert_eq!(got, Ok(Filter::ArrayIndex(0)));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_array_index_small() -> TestResult {
+        fn test_array_index_small() {
             let got = Filter::from_str("[2]");
             pretty::assert_eq!(got, Ok(Filter::ArrayIndex(2)));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_array_index_large() -> TestResult {
+        fn test_array_index_large() {
             let got = Filter::from_str("[1234567890]");
-            pretty::assert_eq!(got, Ok(Filter::ArrayIndex(1234567890)));
-            Ok(())
+            pretty::assert_eq!(got, Ok(Filter::ArrayIndex(1_234_567_890)));
         }
 
         #[test_log::test]
-        fn test_array_from_end() -> TestResult {
+        fn test_array_from_end() {
             let got = Filter::from_str("[-42]");
             pretty::assert_eq!(got, Ok(Filter::ArrayIndex(-42)));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_array_fails_spaces() -> TestResult {
+        fn test_array_fails_spaces() {
             let got = Filter::from_str("[ 42]");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_field() -> TestResult {
+        fn test_dot_field() {
             let got = Filter::from_str(".F0o");
             pretty::assert_eq!(got, Ok(Filter::Field("F0o".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_field_starting_underscore() -> TestResult {
+        fn test_dot_field_starting_underscore() {
             let got = Filter::from_str("._foo");
             pretty::assert_eq!(got, Ok(Filter::Field("_foo".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_field_trailing_underscore() -> TestResult {
+        fn test_dot_field_trailing_underscore() {
             let got = Filter::from_str(".fO0_");
             pretty::assert_eq!(got, Ok(Filter::Field("fO0_".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_dot_field_with_leading_number() -> TestResult {
+        fn test_fails_dot_field_with_leading_number() {
             let got = Filter::from_str(".1foo");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_dot_field_with_inner_symbol() -> TestResult {
+        fn test_fails_dot_field_with_inner_symbol() {
             let got = Filter::from_str(".fo%o");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field() -> TestResult {
+        fn test_delim_field() {
             let got = Filter::from_str(r#"["F0o"]"#);
             pretty::assert_eq!(got, Ok(Filter::Field("F0o".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_fails_without_quotes() -> TestResult {
-            let got = Filter::from_str(r#"[F0o]"#);
+        fn test_delim_field_fails_without_quotes() {
+            let got = Filter::from_str("[F0o]");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_fails_if_missing_right_brace() -> TestResult {
+        fn test_delim_field_fails_if_missing_right_brace() {
             let got = Filter::from_str(r#"["F0o""#);
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_starting_underscore() -> TestResult {
+        fn test_delim_field_starting_underscore() {
             let got = Filter::from_str(r#"["_foo"]"#);
             pretty::assert_eq!(got, Ok(Filter::Field("_foo".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_trailing_underscore() -> TestResult {
+        fn test_delim_field_trailing_underscore() {
             let got = Filter::from_str(r#"["fO0_"]"#);
             pretty::assert_eq!(got, Ok(Filter::Field("fO0_".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_with_leading_number() -> TestResult {
+        fn test_delim_field_with_leading_number() {
             let got = Filter::from_str(r#"["1foo"]"#);
             pretty::assert_eq!(got, Ok(Filter::Field("1foo".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_delim_field_with_inner_symbol() -> TestResult {
+        fn test_delim_field_with_inner_symbol() {
             let got = Filter::from_str(r#"[".fo%o"]"#);
             pretty::assert_eq!(got, Ok(Filter::Field(".fo%o".to_string())));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_try() -> TestResult {
+        fn test_try() {
             let got = Filter::from_str(".foo?");
             pretty::assert_eq!(
                 got,
                 Ok(Filter::Try(Box::new(Filter::Field("foo".to_string()))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_parse_try() -> TestResult {
+        fn test_parse_try() {
             let got = parse(".foo?");
             pretty::assert_eq!(
                 got,
                 Ok(("", Filter::Try(Box::new(Filter::Field("foo".to_string())))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_tries_after_dot_field() -> TestResult {
+        fn test_multiple_tries_after_dot_field() {
             pretty::assert_eq!(
                 Filter::from_str(".foo???????????????????"),
                 Ok(Filter::Try(Box::new(Filter::Field("foo".to_string()))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_parse_multiple_tries_after_dot_field() -> TestResult {
+        fn test_parse_multiple_tries_after_dot_field() {
             pretty::assert_eq!(
                 parse(".foo???????????????????"),
                 Ok(("", Filter::Try(Box::new(Filter::Field("foo".to_string())))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_parse_multiple_tries_after_dot_field_trailing() -> TestResult {
+        fn test_parse_multiple_tries_after_dot_field_trailing() {
             pretty::assert_eq!(
                 parse(".foo???????????????????abc"),
                 Ok((
@@ -931,11 +896,10 @@ mod tests {
                     Filter::Try(Box::new(Filter::Field("foo".to_string())))
                 ))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_parse_many0_multiple_tries_after_dot_field() -> TestResult {
+        fn test_parse_many0_multiple_tries_after_dot_field() {
             pretty::assert_eq!(
                 parse(".foo???????????????????abc"),
                 Ok((
@@ -943,54 +907,47 @@ mod tests {
                     Filter::Try(Box::new(Filter::Field("foo".to_string())))
                 ))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_tries_after_delim_field() -> TestResult {
+        fn test_multiple_tries_after_delim_field() {
             pretty::assert_eq!(
                 Filter::from_str(r#"["foo"]???????"#),
                 Ok(Filter::Try(Box::new(Filter::Field("foo".to_string()))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_tries_after_delim_field_inner_questionmarks() -> TestResult {
+        fn test_multiple_tries_after_delim_field_inner_questionmarks() {
             let got = Filter::from_str(r#"["f?o"]???????"#);
             pretty::assert_eq!(
                 got,
                 Ok(Filter::Try(Box::new(Filter::Field("f?o".to_string()))))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_tries_after_values() -> TestResult {
+        fn test_multiple_tries_after_values() {
             let got = Filter::from_str("[]???????");
             pretty::assert_eq!(got, Ok(Filter::Try(Box::new(Filter::Values))));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_tries_after_index() -> TestResult {
+        fn test_multiple_tries_after_index() {
             let got = Filter::from_str("[42]???????");
             pretty::assert_eq!(got, Ok(Filter::Try(Box::new(Filter::ArrayIndex(42)))));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_bare_try() -> TestResult {
+        fn test_fails_bare_try() {
             let got = Filter::from_str("?");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_dot_try() -> TestResult {
+        fn test_fails_dot_try() {
             let got = Filter::from_str(".?");
             assert!(got.is_err());
-            Ok(())
         }
     }
 }

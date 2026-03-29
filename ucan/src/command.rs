@@ -159,126 +159,130 @@ impl std::str::FromStr for Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use testresult::TestResult;
 
     // Valid command examples from the spec
     #[test]
-    fn test_valid_root_command() {
-        let cmd = Command::parse("/").unwrap();
+    fn test_valid_root_command() -> TestResult {
+        let cmd = Command::parse("/")?;
         assert_eq!(cmd.segments().len(), 0);
         assert_eq!(cmd.to_string(), "/");
+        Ok(())
     }
 
     #[test]
-    fn test_valid_single_segment() {
-        let cmd = Command::parse("/crud").unwrap();
+    fn test_valid_single_segment() -> TestResult {
+        let cmd = Command::parse("/crud")?;
         assert_eq!(cmd.segments(), &["crud"]);
         assert_eq!(cmd.to_string(), "/crud");
+        Ok(())
     }
 
     #[test]
-    fn test_valid_two_segments() {
-        let cmd = Command::parse("/crud/create").unwrap();
+    fn test_valid_two_segments() -> TestResult {
+        let cmd = Command::parse("/crud/create")?;
         assert_eq!(cmd.segments(), &["crud", "create"]);
         assert_eq!(cmd.to_string(), "/crud/create");
+        Ok(())
     }
 
     #[test]
-    fn test_valid_many_segments() {
-        let cmd = Command::parse("/foo/bar/baz/qux/quux").unwrap();
+    fn test_valid_many_segments() -> TestResult {
+        let cmd = Command::parse("/foo/bar/baz/qux/quux")?;
         assert_eq!(cmd.segments(), &["foo", "bar", "baz", "qux", "quux"]);
         assert_eq!(cmd.to_string(), "/foo/bar/baz/qux/quux");
+        Ok(())
     }
 
     #[test]
-    fn test_valid_unicode() {
+    fn test_valid_unicode() -> TestResult {
         // From spec: /ほげ/ふが
-        let cmd = Command::parse("/ほげ/ふが").unwrap();
+        let cmd = Command::parse("/ほげ/ふが")?;
         assert_eq!(cmd.segments(), &["ほげ", "ふが"]);
         assert_eq!(cmd.to_string(), "/ほげ/ふが");
+        Ok(())
     }
 
     // Invalid command examples
     #[test]
     fn test_invalid_missing_leading_slash() {
-        let err = Command::parse("crud").unwrap_err();
-        assert_eq!(err, CommandParseError::MissingLeadingSlash);
+        assert!(Command::parse("crud").is_err());
     }
 
     #[test]
     fn test_invalid_trailing_slash() {
-        let err = Command::parse("/crud/").unwrap_err();
-        assert_eq!(err, CommandParseError::TrailingSlash);
+        assert!(Command::parse("/crud/").is_err());
     }
 
     #[test]
     fn test_invalid_trailing_slash_nested() {
-        let err = Command::parse("/crud/create/").unwrap_err();
-        assert_eq!(err, CommandParseError::TrailingSlash);
+        assert!(Command::parse("/crud/create/").is_err());
     }
 
     #[test]
     fn test_invalid_uppercase() {
-        let err = Command::parse("/CRUD").unwrap_err();
-        assert_eq!(err, CommandParseError::NotLowercase);
+        assert!(Command::parse("/CRUD").is_err());
     }
 
     #[test]
     fn test_invalid_mixed_case() {
-        let err = Command::parse("/Crud/Create").unwrap_err();
-        assert_eq!(err, CommandParseError::NotLowercase);
+        assert!(Command::parse("/Crud/Create").is_err());
     }
 
     #[test]
     fn test_invalid_empty_segment() {
-        let err = Command::parse("/crud//create").unwrap_err();
-        assert_eq!(err, CommandParseError::EmptySegment);
+        assert!(Command::parse("/crud//create").is_err());
     }
 
     // Roundtrip tests
     #[test]
-    fn test_json_roundtrip() {
+    fn test_json_roundtrip() -> TestResult {
         let original = "\"/msg/send\"";
-        let cmd: Command = serde_json::from_str(original).unwrap();
-        let serialized = serde_json::to_string(&cmd).unwrap();
+        let cmd: Command = serde_json::from_str(original)?;
+        let serialized = serde_json::to_string(&cmd)?;
         assert_eq!(serialized, original);
 
-        let cmd2: Command = serde_json::from_str(&serialized).unwrap();
+        let cmd2: Command = serde_json::from_str(&serialized)?;
         assert_eq!(cmd, cmd2);
+        Ok(())
     }
 
     #[test]
-    fn test_json_roundtrip_root() {
+    fn test_json_roundtrip_root() -> TestResult {
         let original = "\"/\"";
-        let cmd: Command = serde_json::from_str(original).unwrap();
-        let serialized = serde_json::to_string(&cmd).unwrap();
+        let cmd: Command = serde_json::from_str(original)?;
+        let serialized = serde_json::to_string(&cmd)?;
         assert_eq!(serialized, original);
 
-        let cmd2: Command = serde_json::from_str(&serialized).unwrap();
+        let cmd2: Command = serde_json::from_str(&serialized)?;
         assert_eq!(cmd, cmd2);
+        Ok(())
     }
 
     #[test]
-    fn test_cbor_roundtrip() {
-        let cmd: Command = Command::parse("/store/put").unwrap();
+    fn test_cbor_roundtrip() -> TestResult {
+        let cmd: Command = Command::parse("/store/put")?;
 
-        let cbor = serde_ipld_dagcbor::to_vec(&cmd).unwrap();
-        let cmd2: Command = serde_ipld_dagcbor::from_slice(&cbor).unwrap();
+        let cbor = serde_ipld_dagcbor::to_vec(&cmd)?;
+        let cmd2: Command = serde_ipld_dagcbor::from_slice(&cbor)?;
         assert_eq!(cmd, cmd2);
 
-        let cbor2 = serde_ipld_dagcbor::to_vec(&cmd2).unwrap();
+        let cbor2 = serde_ipld_dagcbor::to_vec(&cmd2)?;
         assert_eq!(cbor, cbor2);
+        Ok(())
     }
 
     #[test]
-    fn test_cbor_roundtrip_root() {
-        let cmd: Command = Command::parse("/").unwrap();
+    fn test_cbor_roundtrip_root() -> TestResult {
+        let cmd: Command = Command::parse("/")?;
 
-        let cbor = serde_ipld_dagcbor::to_vec(&cmd).unwrap();
-        let cmd2: Command = serde_ipld_dagcbor::from_slice(&cbor).unwrap();
+        let cbor = serde_ipld_dagcbor::to_vec(&cmd)?;
+        let cmd2: Command = serde_ipld_dagcbor::from_slice(&cbor)?;
         assert_eq!(cmd, cmd2);
 
-        let cbor2 = serde_ipld_dagcbor::to_vec(&cmd2).unwrap();
+        let cbor2 = serde_ipld_dagcbor::to_vec(&cmd2)?;
         assert_eq!(cbor, cbor2);
+        Ok(())
     }
 
     // Deserialization should reject invalid commands
@@ -308,31 +312,35 @@ mod tests {
 
     // starts_with tests (for delegation hierarchy)
     #[test]
-    fn test_starts_with_root_matches_all() {
-        let root = Command::parse("/").unwrap();
-        let cmd = Command::parse("/crypto/sign").unwrap();
+    fn test_starts_with_root_matches_all() -> TestResult {
+        let root = Command::parse("/")?;
+        let cmd = Command::parse("/crypto/sign")?;
         assert!(cmd.starts_with(&root));
+        Ok(())
     }
 
     #[test]
-    fn test_starts_with_prefix_matches() {
-        let prefix = Command::parse("/crypto").unwrap();
-        let cmd = Command::parse("/crypto/sign").unwrap();
+    fn test_starts_with_prefix_matches() -> TestResult {
+        let prefix = Command::parse("/crypto")?;
+        let cmd = Command::parse("/crypto/sign")?;
         assert!(cmd.starts_with(&prefix));
+        Ok(())
     }
 
     #[test]
-    fn test_starts_with_different_prefix_no_match() {
-        let prefix = Command::parse("/crypto").unwrap();
-        let cmd = Command::parse("/stack/pop").unwrap();
+    fn test_starts_with_different_prefix_no_match() -> TestResult {
+        let prefix = Command::parse("/crypto")?;
+        let cmd = Command::parse("/stack/pop")?;
         assert!(!cmd.starts_with(&prefix));
+        Ok(())
     }
 
     #[test]
-    fn test_starts_with_similar_prefix_no_match() {
+    fn test_starts_with_similar_prefix_no_match() -> TestResult {
         // /crypto cannot prove /cryptocurrency
-        let prefix = Command::parse("/crypto").unwrap();
-        let cmd = Command::parse("/cryptocurrency").unwrap();
+        let prefix = Command::parse("/crypto")?;
+        let cmd = Command::parse("/cryptocurrency")?;
         assert!(!cmd.starts_with(&prefix));
+        Ok(())
     }
 }

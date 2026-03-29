@@ -32,11 +32,11 @@ pub enum WebCrypto {
     /// ECDSA with P-521 and SHA-512
     Es512(ecdsa::Es512),
 
-    /// EdDSA with Curve25519
+    /// `EdDSA` with `Curve25519`
     Ed25519(eddsa::Ed25519),
 }
 
-/// A signature produced by one of the WebCrypto algorithms.
+/// A signature produced by one of the `WebCrypto` algorithms.
 ///
 /// Wraps the concrete signature type for each variant so that a single
 /// enum can be passed through the [`Verify::try_verify`] pipeline.
@@ -56,9 +56,9 @@ pub enum WebCryptoSignature {
     Ed25519(ed25519_dalek::Signature),
 }
 
-/// A verifying key for one of the WebCrypto algorithms.
+/// A verifying key for one of the `WebCrypto` algorithms.
 ///
-/// The P-521 variant uses [`ecdsa::P521VerifyingKey`] because the upstream
+/// The `P-521` variant uses [`ecdsa::P521VerifyingKey`] because the upstream
 /// `p521` crate does not implement [`Debug`] on its verifying key type.
 #[cfg(feature = "web_crypto")]
 #[derive(Debug, Clone)]
@@ -181,29 +181,22 @@ impl Verify for WebCrypto {
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {
-        if bytes.is_empty() {
-            return None;
-        }
+        let rest = bytes.get(3..)?;
 
-        match bytes[0] {
+        match *bytes.first()? {
             // ECDSA prefix
-            0xec => {
-                if bytes.len() < 3 {
-                    return None;
-                }
-                match bytes[1..=2] {
-                    [0x1201, 0x15] => Some((Self::Es256(ecdsa::Es256::default()), &bytes[3..])),
-                    [0x1201, 0x20] => Some((Self::Es384(ecdsa::Es384::default()), &bytes[3..])),
-                    [0x1202, 0x13] => Some((Self::Es512(ecdsa::Es512::default()), &bytes[3..])),
-                    _ => None,
-                }
-            }
+            0xec => match *bytes.get(1..=2)? {
+                [0x1201, 0x15] => Some((Self::Es256(ecdsa::Es256::default()), rest)),
+                [0x1201, 0x20] => Some((Self::Es384(ecdsa::Es384::default()), rest)),
+                [0x1202, 0x13] => Some((Self::Es512(ecdsa::Es512::default()), rest)),
+                _ => None,
+            },
             // EdDSA prefix
             0xed => {
-                if bytes.len() < 3 || bytes[1..=2] != [0xed, 0x13] {
+                if *bytes.get(1..=2)? != [0xed, 0x13] {
                     return None;
                 }
-                Some((Self::Ed25519(eddsa::Ed25519::default()), &bytes[3..]))
+                Some((Self::Ed25519(eddsa::Ed25519::default()), rest))
             }
             _ => None,
         }

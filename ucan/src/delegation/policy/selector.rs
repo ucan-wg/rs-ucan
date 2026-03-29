@@ -156,34 +156,30 @@ impl PartialOrd for Selector {
 mod tests {
     use super::*;
     use pretty_assertions as pretty;
-    use testresult::TestResult;
 
     mod serialization {
         use super::*;
 
         #[test_log::test]
-        fn test_bare_dot() -> TestResult {
+        fn test_bare_dot() {
             pretty::assert_eq!(Selector::from_str("."), Ok(Selector(vec![])));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_try() -> TestResult {
+        fn test_dot_try() {
             pretty::assert_eq!(Selector::from_str(".?"), Ok(Selector(vec![])));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_many_tries() -> TestResult {
+        fn test_dot_many_tries() {
             pretty::assert_eq!(
                 Selector::from_str(".?????????????????????"),
                 Ok(Selector(vec![]))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_inner_try_is_null() -> TestResult {
+        fn test_inner_try_is_null() {
             pretty::assert_eq!(
                 Selector::from_str(".nope?.not"),
                 Ok(Selector(vec![
@@ -191,73 +187,64 @@ mod tests {
                     Filter::Field("not".into())
                 ]))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_many_tries_and_dot_field() -> TestResult {
+        fn test_dot_many_tries_and_dot_field() {
             pretty::assert_eq!(
                 Selector::from_str(".?????????????????????.foo"),
                 Ok(Selector(vec![Filter::Field("foo".to_string())]))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_question_marks() -> TestResult {
+        fn test_multiple_question_marks() {
             pretty::assert_eq!(
                 Selector::from_str(".foo??????????????"),
                 Ok(Selector(vec![Filter::Try(Box::new(Filter::Field(
                     "foo".to_string()
                 )))]))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_trailing_dot() -> TestResult {
+        fn test_fails_trailing_dot() {
             let got = Selector::from_str(".foo.");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_leading_double_dot() -> TestResult {
+        fn test_fails_leading_double_dot() {
             let got = Selector::from_str("..foo");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_inner_double_dot() -> TestResult {
+        fn test_fails_inner_double_dot() {
             let got = Selector::from_str(".foo..bar");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fails_multiple_leading_dots() -> TestResult {
+        fn test_fails_multiple_leading_dots() {
             let got = Selector::from_str("..");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fail_missing_leading_dot() -> TestResult {
+        fn test_fail_missing_leading_dot() {
             let got = Selector::from_str("[22]");
             assert!(got.is_err());
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_dot_field() -> TestResult {
+        fn test_dot_field() {
             let got = Selector::from_str(".foo");
             pretty::assert_eq!(got, Ok(Selector(vec![Filter::Field("foo".to_string())])));
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_multiple_dot_fields() -> TestResult {
+        fn test_multiple_dot_fields() {
             let got = Selector::from_str(".foo.bar.baz");
             pretty::assert_eq!(
                 got,
@@ -267,11 +254,10 @@ mod tests {
                     Filter::Field("baz".to_string())
                 ]))
             );
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_fairly_complex() -> TestResult {
+        fn test_fairly_complex() {
             let got = Selector::from_str(r#".foo.bar[].baz[0][]["42"]._quux?[8]"#);
             pretty::assert_eq!(
                 got,
@@ -287,12 +273,10 @@ mod tests {
                     Filter::ArrayIndex(8)
                 ]))
             );
-
-            Ok(())
         }
 
         #[test_log::test]
-        fn test_very_complex() -> TestResult {
+        fn test_very_complex() {
             let got = Selector::from_str(r#".???.foo.bar[].baz[0][]["42"]._quux??[8]"#);
             pretty::assert_eq!(
                 got,
@@ -308,8 +292,6 @@ mod tests {
                     Filter::ArrayIndex(8)
                 ]))
             );
-
-            Ok(())
         }
     }
 }

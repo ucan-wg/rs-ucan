@@ -87,44 +87,48 @@ mod tests {
     use super::*;
     use crate::did::Ed25519Did;
     use serde_ipld_dagcbor::{from_slice, to_vec};
+    use testresult::TestResult;
 
     #[test]
-    fn any_serializes_to_null() {
+    fn any_serializes_to_null() -> TestResult {
         let subject: DelegatedSubject<Ed25519Did> = DelegatedSubject::Any;
-        let bytes = to_vec(&subject).unwrap();
+        let bytes = to_vec(&subject)?;
         // CBOR null is encoded as 0xf6
         assert_eq!(bytes, vec![0xf6]);
+        Ok(())
     }
 
     #[test]
-    fn any_deserializes_from_null() {
+    fn any_deserializes_from_null() -> TestResult {
         // CBOR null is encoded as 0xf6
         let bytes = vec![0xf6];
-        let subject: DelegatedSubject<Ed25519Did> = from_slice(&bytes).unwrap();
+        let subject: DelegatedSubject<Ed25519Did> = from_slice(&bytes)?;
         assert_eq!(subject, DelegatedSubject::Any);
+        Ok(())
     }
 
     #[test]
-    fn any_roundtrip() {
+    fn any_roundtrip() -> TestResult {
         let subject: DelegatedSubject<Ed25519Did> = DelegatedSubject::Any;
-        let bytes = to_vec(&subject).unwrap();
-        let decoded: DelegatedSubject<Ed25519Did> = from_slice(&bytes).unwrap();
+        let bytes = to_vec(&subject)?;
+        let decoded: DelegatedSubject<Ed25519Did> = from_slice(&bytes)?;
         assert_eq!(decoded, DelegatedSubject::Any);
+        Ok(())
     }
 
     #[test]
-    fn specific_roundtrip() {
+    fn specific_roundtrip() -> TestResult {
         let key = ed25519_dalek::VerifyingKey::from_bytes(&[
             215, 90, 152, 1, 130, 177, 10, 183, 213, 75, 254, 211, 201, 100, 7, 58, 14, 225, 114,
             243, 218, 166, 35, 37, 175, 2, 26, 104, 247, 7, 81, 26,
-        ])
-        .unwrap();
+        ])?;
         let did: Ed25519Did = key.into();
-        let subject = DelegatedSubject::Specific(did.clone());
+        let subject = DelegatedSubject::Specific(did);
 
-        let bytes = to_vec(&subject).unwrap();
-        let decoded: DelegatedSubject<Ed25519Did> = from_slice(&bytes).unwrap();
+        let bytes = to_vec(&subject)?;
+        let decoded: DelegatedSubject<Ed25519Did> = from_slice(&bytes)?;
 
         assert_eq!(decoded, DelegatedSubject::Specific(did));
+        Ok(())
     }
 }
