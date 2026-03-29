@@ -206,32 +206,50 @@ mod tests {
     // Invalid command examples
     #[test]
     fn test_invalid_missing_leading_slash() {
-        assert!(Command::parse("crud").is_err());
+        assert!(matches!(
+            Command::parse("crud"),
+            Err(CommandParseError::MissingLeadingSlash)
+        ));
     }
 
     #[test]
     fn test_invalid_trailing_slash() {
-        assert!(Command::parse("/crud/").is_err());
+        assert!(matches!(
+            Command::parse("/crud/"),
+            Err(CommandParseError::TrailingSlash)
+        ));
     }
 
     #[test]
     fn test_invalid_trailing_slash_nested() {
-        assert!(Command::parse("/crud/create/").is_err());
+        assert!(matches!(
+            Command::parse("/crud/create/"),
+            Err(CommandParseError::TrailingSlash)
+        ));
     }
 
     #[test]
     fn test_invalid_uppercase() {
-        assert!(Command::parse("/CRUD").is_err());
+        assert!(matches!(
+            Command::parse("/CRUD"),
+            Err(CommandParseError::NotLowercase)
+        ));
     }
 
     #[test]
     fn test_invalid_mixed_case() {
-        assert!(Command::parse("/Crud/Create").is_err());
+        assert!(matches!(
+            Command::parse("/Crud/Create"),
+            Err(CommandParseError::NotLowercase)
+        ));
     }
 
     #[test]
     fn test_invalid_empty_segment() {
-        assert!(Command::parse("/crud//create").is_err());
+        assert!(matches!(
+            Command::parse("/crud//create"),
+            Err(CommandParseError::EmptySegment)
+        ));
     }
 
     // Roundtrip tests

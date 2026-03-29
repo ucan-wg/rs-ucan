@@ -75,7 +75,7 @@ impl Verify for Es384 {
     }
 
     fn config_tags(&self) -> Vec<u64> {
-        vec![0x1201, 0x20]
+        vec![0x1202, 0x20]
     }
 
     fn try_from_tags(bytes: &[u64]) -> Option<(Self, &[u64])> {

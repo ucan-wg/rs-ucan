@@ -64,7 +64,6 @@ proptest
 Powerline
 rc
 README
-respository's
 Roundtrip
 roundtrip
 RFC

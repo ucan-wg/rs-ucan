@@ -187,7 +187,7 @@ impl Verify for WebCrypto {
             // ECDSA prefix
             0xec => match *bytes.get(1..=2)? {
                 [0x1201, 0x15] => Some((Self::Es256(ecdsa::Es256::default()), rest)),
-                [0x1201, 0x20] => Some((Self::Es384(ecdsa::Es384::default()), rest)),
+                [0x1202, 0x20] => Some((Self::Es384(ecdsa::Es384::default()), rest)),
                 [0x1202, 0x13] => Some((Self::Es512(ecdsa::Es512::default()), rest)),
                 _ => None,
             },
