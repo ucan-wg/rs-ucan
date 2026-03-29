@@ -14,13 +14,14 @@ rust-version = "1.90.0"
 
 [workspace.dependencies]
 arbitrary = { version = "1.4", features = ["derive"] }
-async-signature = "0.5.1"
+async-signature = { version = "0.5.1", default-features = false }
 ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
 env_logger = "0.11.8"
 future_form = "0.3.1"
 futures = "0.3.31"
 getrandom = "0.2.9"
-ipld-core = { version = "0.4.2", features = ["arb", "serde"] }
+ipld-core = { version = "0.4.2", default-features = false, features = ["arb", "serde"] }
+leb128fmt = "0.1.0"
 nom = "8.0"
 nom-unicode = "0.4"
 nonempty = { version = "0.10.0", features = ["serialize"] }
@@ -28,14 +29,14 @@ pretty_assertions = "1.4"
 proptest = "1.6"
 proptest-arbitrary-interop = "0.1.0"
 rand = "0.9.1"
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_ipld_dagcbor = "0.6.3"
+serde = { version = "1.0", default-features = false, features = ["derive", "rc"] }
+serde_ipld_dagcbor = { version = "0.6.3", default-features = false }
 serde_ipld_dagjson = "0.2.0"
-signature = "2.2"
+signature = { version = "2.2", default-features = false }
 test-log = "0.2.17"
 testresult = "0.4.1"
-thiserror = "1.0"
-tracing = "0.1.41"
+thiserror = { version = "2.0", default-features = false }
+tracing = { version = "0.1.41", default-features = false }
 
 [workspace.lints.rust]
 future_incompatible = { level = "warn", priority = -1 }

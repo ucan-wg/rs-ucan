@@ -1,8 +1,10 @@
 //! Signature verification.
 
+use alloc::vec::Vec;
+use core::{error::Error, fmt::Debug, future::Future};
+
 use async_signature::AsyncSigner;
 use signature::Signer;
-use std::{error::Error, fmt::Debug, future::Future};
 use thiserror::Error;
 
 use crate::{codec::Codec, verify::Verify};
@@ -28,9 +30,8 @@ pub trait Sign: Verify {
         signer: &Self::Signer,
         payload: &T,
     ) -> Result<(Self::Signature, Vec<u8>), SignerError<C::EncodingError, Self::SignError>> {
-        let mut buffer = Vec::new();
-        codec
-            .encode_payload(payload, &mut buffer)
+        let buffer = codec
+            .encode_payload(payload)
             .map_err(SignerError::EncodingError)?;
         let sig = signer
             .try_sign(&buffer)
@@ -62,9 +63,8 @@ pub trait AsyncSign: Verify {
         >,
     > {
         async {
-            let mut buffer = Vec::new();
-            codec
-                .encode_payload(payload, &mut buffer)
+            let buffer = codec
+                .encode_payload(payload)
                 .map_err(SignerError::EncodingError)?;
             let sig = signer
                 .sign_async(&buffer)
