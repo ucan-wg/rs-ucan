@@ -1,12 +1,14 @@
 //! `EdDSA` signature algorithms.
 
-use crate::{
-    curve::Edwards25519,
-    hash::{Multihasher, Sha2_512},
-    signer::Sign,
-    verify::Verify,
-};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+
+use crate::hash::Multihasher;
+
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
+use alloc::{vec, vec::Vec};
+
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
+use crate::verify::Verify;
 
 /// The `EdDSA` signature algorithm.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,17 +24,17 @@ impl<C: EdDsaCurve, H: Multihasher> EdDsa<C, H> {
 
 /// The EdDSA-compatible curves
 pub trait EdDsaCurve: Sized {}
-impl EdDsaCurve for Edwards25519 {}
 
-// TODO waiting on ed448_goldilocks to cut a stable release with signing
-// impl EdDsaCurve for Edwards448 {}
+#[cfg(feature = "edwards25519")]
+impl EdDsaCurve for crate::curve::Edwards25519 {}
 
 /// The Ed25519 signature algorithm.
 ///
 /// The `EdDSA` signing algorithm with the Edwards25519 curve with SHA2-512 hashing.
 #[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
-pub type Ed25519 = EdDsa<Edwards25519, Sha2_512>;
+pub type Ed25519 = EdDsa<crate::curve::Edwards25519, crate::hash::Sha2_512>;
 
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
 impl Verify for Ed25519 {
     type Signature = ed25519_dalek::Signature;
     type Verifier = ed25519_dalek::VerifyingKey;
@@ -54,7 +56,8 @@ impl Verify for Ed25519 {
     }
 }
 
-impl Sign for Ed25519 {
+#[cfg(all(feature = "edwards25519", feature = "sha2_512"))]
+impl crate::signer::Sign for Ed25519 {
     type Signer = ed25519_dalek::SigningKey;
     type SignError = signature::Error;
 }

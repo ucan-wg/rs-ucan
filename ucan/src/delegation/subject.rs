@@ -1,8 +1,10 @@
 //! Subject of a delegation
 
+use alloc::string::String;
+use core::{fmt::Display, marker::PhantomData};
+
 use crate::did::Did;
 use serde::{de::Deserialize, ser::Serializer, Serialize};
-use std::fmt::Display;
 
 /// The Subject of a delegation
 ///
@@ -49,7 +51,7 @@ impl<D: Did> From<D> for DelegatedSubject<D> {
 }
 
 impl<D: Did + Display> Display for DelegatedSubject<D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DelegatedSubject::Specific(did) => Display::fmt(did, f),
             DelegatedSubject::Any => "Null".fmt(f),
@@ -68,17 +70,35 @@ impl<D: Did + Serialize> Serialize for DelegatedSubject<D> {
 
 impl<'de, I: Did> Deserialize<'de> for DelegatedSubject<I> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = serde_value::Value::deserialize(deserializer)?;
+        struct SubjectVisitor<I>(PhantomData<I>);
 
-        if value == serde_value::Value::Option(None) {
-            return Ok(DelegatedSubject::Any);
+        impl<I: Did> serde::de::Visitor<'_> for SubjectVisitor<I> {
+            type Value = DelegatedSubject<I>;
+
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str("a DID string or null")
+            }
+
+            fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(DelegatedSubject::Any)
+            }
+
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(DelegatedSubject::Any)
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                I::from_str(v)
+                    .map(DelegatedSubject::Specific)
+                    .map_err(|_| E::custom("invalid DID"))
+            }
+
+            fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Self::Value, E> {
+                self.visit_str(&v)
+            }
         }
 
-        if let Ok(did) = I::deserialize(value.clone()) {
-            return Ok(DelegatedSubject::Specific(did));
-        }
-
-        Err(serde::de::Error::custom("invalid subject format"))
+        deserializer.deserialize_any(SubjectVisitor(PhantomData))
     }
 }
 

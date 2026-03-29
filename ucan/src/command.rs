@@ -4,6 +4,11 @@
 //! Segments MUST be separated by a slash.
 //! A trailing slash MUST NOT be present.
 
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use serde::{Deserialize, Serialize, Serializer};
 use thiserror::Error;
 
@@ -125,8 +130,8 @@ impl From<Command> for Vec<String> {
     }
 }
 
-impl std::fmt::Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Command {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.0.is_empty() {
             f.write_str("/")
         } else {
@@ -148,7 +153,7 @@ impl<'de> Deserialize<'de> for Command {
     }
 }
 
-impl std::str::FromStr for Command {
+impl core::str::FromStr for Command {
     type Err = CommandParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

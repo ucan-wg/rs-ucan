@@ -20,11 +20,12 @@ use crate::{
     unset::Unset,
     Delegation,
 };
+use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 use builder::InvocationBuilder;
+use core::{borrow::Borrow, fmt::Debug};
 use future_form::FutureForm;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, collections::BTreeMap, fmt::Debug};
 use thiserror::Error;
 use varsig::verify::Verify;
 
@@ -109,7 +110,7 @@ impl<D: Did> Invocation<D> {
 }
 
 impl<D: Did> Debug for Invocation<D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Invocation").field(&self.0).finish()
     }
 }

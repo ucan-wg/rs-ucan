@@ -1,18 +1,20 @@
 //! Varsig header
 
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+
 use crate::{
     codec::Codec,
     signer::{AsyncSign, Sign, SignerError},
     verify::Verify,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 #[cfg(feature = "dag_cbor")]
-use serde_ipld_dagcbor::codec::DagCborCodec;
+use crate::codec::DagCborCodec;
 
 #[cfg(feature = "dag_json")]
-use serde_ipld_dagjson::codec::DagJsonCodec;
+use crate::codec::DagJsonCodec;
 
 /// Top-level Varsig header type.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -137,41 +139,34 @@ impl<V: Verify, C: Codec<T>, T> Serialize for Varsig<V, C, T> {
     {
         let mut bytes = Vec::new();
 
+        let mut push_uleb128 = |value: u64| -> Result<(), S::Error> {
+            // max LEB128 encoding of u64 is 10 bytes
+            let mut buf = [0u8; leb128fmt::max_len::<64>()];
+            let mut pos = 0;
+            let len = leb128fmt::encode_uint_slice::<u64, 64>(value, &mut buf, &mut pos)
+                .ok_or_else(|| serde::ser::Error::custom("leb128 encode failed"))?;
+            bytes.extend_from_slice(
+                buf.get(..len)
+                    .ok_or_else(|| serde::ser::Error::custom("leb128 encode out of bounds"))?,
+            );
+            Ok(())
+        };
+
         // Varsig tag
-        leb128::write::unsigned(&mut bytes, 0x34).map_err(|e| {
-            serde::ser::Error::custom(format!(
-                "unable to varsig prefix tag write into new owned vec: {e}"
-            ))
-        })?;
+        push_uleb128(0x34)?;
 
         // Version tag
-        leb128::write::unsigned(&mut bytes, 0x01).map_err(|e| {
-            serde::ser::Error::custom(format!(
-                "unable to write varsig version tag into owned vec with one element: {e}"
-            ))
-        })?;
+        push_uleb128(0x01)?;
 
         // Signature tag
-        leb128::write::unsigned(&mut bytes, self.verifier_cfg.prefix()).map_err(|e| {
-            serde::ser::Error::custom(format!(
-                "unable to write verifier prefix tag into owned vec: {e}"
-            ))
-        })?;
+        push_uleb128(self.verifier_cfg.prefix())?;
 
         for segment in &self.verifier_cfg.config_tags() {
-            leb128::write::unsigned(&mut bytes, *segment).map_err(|e| {
-                serde::ser::Error::custom(format!(
-                    "unable to write varsig config segment into owned vec {segment}: {e}",
-                ))
-            })?;
+            push_uleb128(*segment)?;
         }
 
         // Codec tag
-        leb128::write::unsigned(&mut bytes, self.codec.multicodec_code()).map_err(|e| {
-            serde::ser::Error::custom(format!(
-                "unable to write varsig version tag into owned vec with one element: {e}"
-            ))
-        })?;
+        push_uleb128(self.codec.multicodec_code())?;
 
         serializer.serialize_bytes(&bytes)
     }
@@ -184,36 +179,34 @@ impl<'de, V: Verify, C: Codec<T>, T> Deserialize<'de> for Varsig<V, C, T> {
     {
         let bytes: serde_bytes::ByteBuf =
             serde::Deserialize::deserialize(deserializer).map_err(|e| {
-                serde::de::Error::custom(format!("unable to deserialize varsig header: {e}"))
+                serde::de::Error::custom(format_args!("unable to deserialize varsig header: {e}"))
             })?;
 
-        let mut cursor = std::io::Cursor::new(bytes.as_slice());
-        let len = bytes.len() as u64;
+        let data = bytes.as_ref();
+        let mut pos = 0;
 
-        let varsig_tag = leb128::read::unsigned(&mut cursor).map_err(|e| {
-            serde::de::Error::custom(format!("unable to read leb128 unsigned: {e}"))
-        })?;
+        let read_u64 = |pos: &mut usize| -> Result<u64, D::Error> {
+            leb128fmt::decode_uint_slice::<u64, 64>(data, pos)
+                .map_err(|_| serde::de::Error::custom("unable to read leb128 unsigned"))
+        };
+
+        let varsig_tag = read_u64(&mut pos)?;
         if varsig_tag != 0x34 {
-            return Err(serde::de::Error::custom(format!(
+            return Err(serde::de::Error::custom(format_args!(
                 "expected varsig tag 0x34, found {varsig_tag:#x}"
             )));
         }
 
-        let version_tag = leb128::read::unsigned(&mut cursor).map_err(|e| {
-            serde::de::Error::custom(format!("unable to read leb128 unsigned: {e}"))
-        })?;
+        let version_tag = read_u64(&mut pos)?;
         if version_tag != 0x01 {
-            return Err(serde::de::Error::custom(format!(
+            return Err(serde::de::Error::custom(format_args!(
                 "expected varsig version tag 0x01, found {version_tag:#x}"
             )));
         }
 
         let mut remaining = Vec::new();
-        while cursor.position() < len {
-            let seg = leb128::read::unsigned(&mut cursor).map_err(|e| {
-                serde::de::Error::custom(format!("unable to read leb128 unsigned segment: {e}"))
-            })?;
-            remaining.push(seg);
+        while pos < data.len() {
+            remaining.push(read_u64(&mut pos)?);
         }
 
         let (verifier_cfg, more) = V::try_from_tags(remaining.as_slice())
@@ -224,12 +217,12 @@ impl<'de, V: Verify, C: Codec<T>, T> Deserialize<'de> for Varsig<V, C, T> {
         Ok(Varsig {
             verifier_cfg,
             codec,
-            _data: std::marker::PhantomData,
+            _data: PhantomData,
         })
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "dag_cbor", feature = "ed25519"))]
 mod tests {
     use super::*;
     use crate::signature::eddsa::{Ed25519, EdDsa};

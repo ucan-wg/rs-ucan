@@ -35,8 +35,11 @@
 //! varsig.try_verify(&sk.verifying_key(), &payload, &sig).unwrap();
 //! ```
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::multiple_crate_versions)] // syn
 #![cfg_attr(docsrs, feature(doc_cfg))]
+
+extern crate alloc;
 
 pub mod codec;
 pub mod curve;

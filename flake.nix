@@ -2,10 +2,10 @@
   description = "ucan";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-25.05";
+    nixpkgs.url = "nixpkgs/nixos-25.11";
     nixos-unstable.url = "nixpkgs/nixos-unstable-small";
 
-    command-utils.url = "github:expede/nix-command-utils";
+    command-utils.url = "git+https://codeberg.org/expede/nix-command-utils";
     flake-utils.url = "github:numtide/flake-utils";
 
     rust-overlay = {
@@ -14,17 +14,16 @@
     };
   };
 
-  outputs =
-    { self
-    , flake-utils
-    , nixos-unstable
-    , nixpkgs
-    , rust-overlay
-    , command-utils
-    } @ inputs:
+  outputs = {
+    self,
+    flake-utils,
+    nixos-unstable,
+    nixpkgs,
+    rust-overlay,
+    command-utils,
+  } @ inputs:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
+      system: let
         overlays = [
           (import rust-overlay)
         ];
@@ -39,7 +38,7 @@
           config.allowUnfree = true;
         };
 
-        rustVersion = "1.86.0";
+        rustVersion = "1.90.0";
 
         rust-toolchain = pkgs.rust-bin.stable.${rustVersion}.default.override {
           extensions = [
@@ -48,7 +47,6 @@
             "llvm-tools-preview"
             "rust-src"
             "rust-std"
-            "rustfmt"
           ];
 
           targets = [
@@ -59,8 +57,24 @@
             "aarch64-unknown-linux-musl"
 
             "wasm32-unknown-unknown"
+            "thumbv6m-none-eabi"
           ];
         };
+
+        # Nightly rustfmt for unstable formatting options (imports_granularity, etc.)
+        # We need a combined nightly toolchain (rustc + rustfmt) because rustfmt
+        # links against librustc_driver, which lives in the rustc component.
+        # On macOS, symlinks break @rpath resolution, so we wrap the binary
+        # with DYLD_LIBRARY_PATH pointing to the combined toolchain's lib/.
+        nightly-rustfmt-unwrapped = pkgs.rust-bin.nightly.latest.minimal.override {
+          extensions = ["rustfmt"];
+        };
+
+        nightly-rustfmt = pkgs.writeShellScriptBin "rustfmt" ''
+          export DYLD_LIBRARY_PATH="${nightly-rustfmt-unwrapped}/lib''${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="${nightly-rustfmt-unwrapped}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          exec "${nightly-rustfmt-unwrapped}/bin/rustfmt" "$@"
+        '';
 
         format-pkgs = with pkgs; [
           nixpkgs-fmt
@@ -69,6 +83,7 @@
         ];
 
         cargo-installs = with pkgs; [
+          cargo-component
           cargo-criterion
           cargo-deny
           cargo-expand
@@ -77,177 +92,67 @@
           cargo-sort
           cargo-udeps
           cargo-watch
-          # llvmPackages.bintools
           twiggy
-          pkgs.cargo-component
           wasm-bindgen-cli
           wasm-tools
         ];
 
-        cargo = "${pkgs.cargo}/bin/cargo";
-        # gzip = "${pkgs.gzip}/bin/gzip";
-        # node = "${pkgs.nodejs_22}/bin/node";
-        # pnpm = "${pkgs.pnpm}/bin/pnpm";
-        # playwright = "${pnpm} --dir=./ucan_wasm exec playwright";
-        # wasm-pack = "${pkgs.wasm-pack}/bin/wasm-pack";
-        # wasm-opt = "${pkgs.binaryen}/bin/wasm-opt";
-
+        # Built-in command modules from nix-command-utils
+        rust = command-utils.rust.${system};
+        wasm = command-utils.wasm.${system};
         cmd = command-utils.cmd.${system};
 
-        release = {
-          "release:host" = cmd "Build release for ${system}"
-            "${cargo} build --release";
+        command_menu = command-utils.commands.${system} [
+          # Rust commands
+          (rust.build {cargo = pkgs.cargo;})
+          (rust.test {
+            cargo = pkgs.cargo;
+            cargo-watch = pkgs.cargo-watch;
+          })
+          (rust.lint {cargo = pkgs.cargo;})
+          (rust.fmt {cargo = pkgs.cargo;})
+          (rust.doc {cargo = pkgs.cargo;})
+          (rust.bench {
+            cargo = pkgs.cargo;
+            cargo-criterion = pkgs.cargo-criterion;
+            xdg-open = pkgs.xdg-utils;
+          })
+          (rust.watch {cargo-watch = pkgs.cargo-watch;})
 
-          # "release:wasm:web" = cmd "Build release for wasm32-unknown-unknown with web bindings"
-          #   "${wasm-pack} build ./ucan_wasm --release --target=web && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
-
-          # "release:wasm:bundler" = cmd "Build release for wasm32-unknown-unknown with bundler bindings"
-          #    "${wasm-pack} build ./ucan_wasm --release --target=bundler && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
-
-          #  "release:wasm:nodejs" = cmd "Build release for wasm32-unknown-unknown with Node.js bindgings"
-          #    "${wasm-pack} build ./ucan_wasm --release --target=nodejs && ${gzip} -f ./ucan_wasm/pkg/ucan_wasm_bg.wasm";
-        };
-
-        build = {
-          "build:host" = cmd "Build for ${system}"
-            "${cargo} build";
-
-          # "build:wasm:web" = cmd "Build for wasm32-unknown-unknown with web bindings"
-          #   "${wasm-pack} build ./ucan_wasm --dev --target=web";
-
-          # "build:wasm:nodejs" = cmd "Build for wasm32-unknown-unknown with Node.js bindgings"
-          #   "${wasm-pack} build ./ucan_wasm --dev --target=nodejs";
-
-          # "build:node" = cmd "Build JS-wrapped Wasm library"
-          #   "${pnpm}/bin/pnpm install && ${node} run build";
-
-          # "build:wasi" = cmd "Build for Wasm32-WASI"
-          #   "${cargo} build ./ucan_wasm --target wasm32-wasi";
-        };
-
-        bench = {
-          "bench:host" = cmd "Run benchmarks, including test utils"
-            "${cargo} bench --features=test_utils";
-
-          "bench:host:open" = cmd "Open host Criterion benchmarks in browser"
-            "${pkgs.xdg-utils}/bin/xdg-open ./target/criterion/report/index.html";
-        };
-
-        lint = {
-          "lint" = cmd "Run Clippy"
-            "${cargo} clippy";
-
-          "lint:pedantic" = cmd "Run Clippy pedantically"
-            "${cargo} clippy -- -W clippy::pedantic";
-
-          "lint:fix" = cmd "Apply non-pendantic Clippy suggestions"
-            "${cargo} clippy --fix";
-        };
-
-        watch = {
-          "watch:build:host" = cmd "Rebuild host target on save"
-            "${cargo} watch --clear";
-
-          "watch:build:wasm" = cmd "Rebuild Wasm target on save"
-            "${cargo} watch --clear --features=serde -- cargo build --target=wasm32-unknown-unknown";
-
-          "watch:lint" = cmd "Lint on save"
-            "${cargo} watch --clear --exec clippy";
-
-          "watch:lint:pedantic" = cmd "Pedantic lint on save"
-            "${cargo} watch --clear --exec 'clippy -- -W clippy::pedantic'";
-
-          "watch:test:host" = cmd "Run all host tests on save"
-            "${cargo} watch --clear --features='mermaid_docs,test_utils' --exec 'test && test --doc'";
-
-          "watch:doctest:host" = cmd "Run all host doctests on save"
-            "${cargo} watch --clear --features='mermaid_docs,test_utils' --exec 'test --doc'";
-
-          "watch:docs:build:host" = cmd "Refresh the docs for the host target on save"
-            "${cargo} watch --clear --features='mermaid_docs,test_utils' --exec 'doc --features=mermaid_docs'";
-
-          "watch:docs:build:wasm" = cmd "Refresh the docs with the wasm32-unknown-unknown target on save"
-            "${cargo} watch --clear --features='mermaid_docs,test_utils' --exec 'doc --features=mermaid_docs --target=wasm32-unknown-unknown'";
-        };
-
-        test = {
-          "test:all" = cmd "Run Cargo tests"
-            "test:host && test:docs && test:wasm";
-
-          "test:host" = cmd "Run Cargo tests for host target"
-            "${cargo} test --features='test_utils' && ${cargo} test --features='test_utils' --doc";
-
-          "test:wasm" = cmd "Run wasm-pack tests on all targets"
-            "echo 'TODO: Node/Wasm and Web/TypeScript tests ignored for now'";
-          #  "test:wasm:node && test:ts:web";
-
-
-          # "test:wasm:node" = cmd "Run wasm-pack tests in Node.js"
-          #   "${wasm-pack} test --node ucan_wasm";
-
-          # "test:ts:web" = cmd "Run ucan_wasm Typescript tests in Playwright"
-          #   "build:wasm:web && ${playwright} test";
-
-          # "test:ts:web:report:latest" = cmd "Open the latest Playwright report"
-          #   "${playwright} show-report";
-
-          # "test:wasm:chrome" = cmd "Run wasm-pack tests in headless Chrome"
-          #   "${wasm-pack} test --chrome ucan_wasm --features='browser_test'";
-
-          # "test:wasm:firefox" = cmd "Run wasm-pack tests in headless Chrome"
-          #   "${wasm-pack} test --firefox ucan_wasm --features='browser_test'";
-
-          # "test:wasm:safari" = cmd "Run wasm-pack tests in headless Chrome"
-          #   "${wasm-pack} test --safari ucan_wasm --features='browser_test'";
-
-          "test:docs" = cmd "Run Cargo doctests"
-            "${cargo} test --doc --features='test_utils'";
-        };
-
-        docs = {
-          "docs:build:host" = cmd "Refresh the docs"
-            "${cargo} doc --features=mermaid_docs";
-
-          "docs:build:wasm" = cmd "Refresh the docs with the wasm32-unknown-unknown target"
-            "${cargo} doc --features=mermaid_docs --target=wasm32-unknown-unknown";
-
-          "docs:open:host" = cmd "Open refreshed docs"
-            "${cargo} doc --features=mermaid_docs --open";
-
-          "docs:open:wasm" = cmd "Open refreshed docs"
-            "${cargo} doc --features=mermaid_docs --open --target=wasm32-unknown-unknown";
-        };
-
-        command_menu = command-utils.commands.${system}
-          (release // build // bench // lint // watch // test // docs);
-
-      in
-      rec {
+          # Wasm commands
+          (wasm.build {wasm-pack = pkgs.wasm-pack;})
+          (wasm.release {
+            wasm-pack = pkgs.wasm-pack;
+            gzip = pkgs.gzip;
+          })
+          (wasm.test {
+            wasm-pack = pkgs.wasm-pack;
+            features = "browser_test";
+          })
+          (wasm.doc {
+            cargo = pkgs.cargo;
+            xdg-open = pkgs.xdg-utils;
+          })
+        ];
+      in rec {
         devShells.default = pkgs.mkShell {
           name = "ucan";
 
-          nativeBuildInputs = with pkgs;
+          nativeBuildInputs =
             [
               command_menu
-
               rust-toolchain
-              pkgs.irust
+              nightly-rustfmt
 
-              # http-server
-              # pkgs.binaryen
-              # pkgs.chromedriver
-              # pkgs.nodePackages.pnpm
-              # pkgs.nodePackages_latest.webpack-cli
-              # pkgs.nodejs_22
               pkgs.rust-analyzer
-              # pkgs.wasm-pack
+              pkgs.wasm-pack
             ]
             ++ format-pkgs
             ++ cargo-installs;
 
           shellHook = ''
-            # export RUSTC_WRAPPER="${pkgs.sccache}/bin/sccache"
             unset SOURCE_DATE_EPOCH
+            export RUSTFMT="${nightly-rustfmt}/bin/rustfmt"
             menu
           '';
         };

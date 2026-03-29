@@ -18,31 +18,31 @@ rust-version.workspace = true
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
-base58 = "0.2.0"
+bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
 ed25519-dalek = "2.2"
 future_form = { workspace = true }
 futures = { workspace = true }
-getrandom.workspace = true
-ipld-core.workspace = true
-leb128 = "0.2.5"
-nom-unicode.workspace = true
-nom.workspace = true
-nonempty.workspace = true
+getrandom = { workspace = true, optional = true }
+ipld-core = { version = "0.4.2", default-features = false, features = ["serde"] }
+leb128fmt = { workspace = true }
+nom = { workspace = true, default-features = false, features = ["alloc"] }
+nom-unicode = { workspace = true }
+nonempty = { workspace = true, default-features = false, features = ["serialize"] }
 proptest = { workspace = true, optional = true }
 proptest-arbitrary-interop = { workspace = true, optional = true }
-serde-value = "0.7"
-serde.workspace = true
-serde_bytes = "0.11.19"
-serde_ipld_dagcbor.workspace = true
-sha2 = "0.10.9"
-signature.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-varsig = { path = "../varsig" }
+serde = { workspace = true, default-features = false, features = ["derive", "alloc"] }
+serde_bytes = { version = "0.11.19", default-features = false, features = ["alloc"] }
+serde_ipld_dagcbor = { workspace = true, default-features = false }
+sha2 = { version = "0.10.9", default-features = false }
+signature = { workspace = true, default-features = false }
+thiserror = { workspace = true, default-features = false }
+tracing = { workspace = true, default-features = false, features = ["attributes"] }
+varsig = { path = "../varsig", default-features = false, features = ["dag_cbor", "ed25519"] }
 
 [dev-dependencies]
 arbitrary = { workspace = true, optional = false }
 base64 = "0.22.1"
+ipld-core = { version = "0.4.2", features = ["arb", "std"] }
 pretty_assertions.workspace = true
 proptest = { workspace = true, optional = false }
 proptest-arbitrary-interop = "0.1.0"
@@ -52,8 +52,25 @@ test-log.workspace = true
 testresult.workspace = true
 
 [features]
+default = ["std"]
+std = [
+    "getrandom",
+    "bs58/std",
+    "ed25519-dalek/std",
+    "ipld-core/std",
+    "nom/std",
+    "serde/std",
+    "serde_bytes/std",
+    "serde_ipld_dagcbor/std",
+    "sha2/std",
+    "signature/std",
+    "thiserror/std",
+    "tracing/std",
+    "varsig/std",
+]
+getrandom = ["dep:getrandom"]
 test_utils = ["arb", "property_test"]
-arb = ["dep:arbitrary"]
+arb = ["dep:arbitrary", "ipld-core/arb"]
 property_test = ["dep:proptest", "dep:proptest-arbitrary-interop"]
 
 [lints]

@@ -10,10 +10,15 @@ use self::{
     selectable::Selectable,
 };
 
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+use core::{cmp::Ordering, fmt, str::FromStr};
 use filter::Filter;
 use nom::{self, character::complete::char, multi::many0, sequence::preceded, Parser};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{cmp::Ordering, fmt, str::FromStr};
 use thiserror::Error;
 
 #[cfg(any(test, feature = "test_utils"))]
@@ -135,7 +140,7 @@ impl SelectorError {
 }
 
 impl PartialOrd for Selector {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         if self == other {
             return Some(Ordering::Equal);
         }

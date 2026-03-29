@@ -10,11 +10,12 @@ use crate::{
     time::timestamp::Timestamp,
     unset::Unset,
 };
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
+use core::marker::PhantomData;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::Serialize;
-use serde_ipld_dagcbor::{codec::DagCborCodec, error::CodecError};
-use std::{collections::BTreeMap, marker::PhantomData};
 use varsig::{
+    codec::DagCborCodec,
     signer::{Sign, SignerError},
     verify::Verify,
     Varsig,
@@ -272,6 +273,7 @@ impl<
     }
 
     /// Sets the `issued_at` field of the invocation to the current system time.
+    #[cfg(feature = "std")]
     #[must_use]
     pub fn issue_now(self) -> InvocationBuilder<D, Issuer, Audience, Subject, Cmd, Proofs> {
         InvocationBuilder {
@@ -348,6 +350,17 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
     /// becuase a broken RNG is a serious problem.
     #[allow(clippy::expect_used)]
     pub fn build(self) -> super::InvocationPayload<D::Did> {
+        let nonce = self.nonce.unwrap_or_else(|| {
+            #[cfg(feature = "getrandom")]
+            {
+                Nonce::generate_16().expect("failed to generate nonce")
+            }
+            #[cfg(not(feature = "getrandom"))]
+            {
+                panic!("nonce is required: either call .nonce() or enable the `getrandom` feature")
+            }
+        });
+
         super::InvocationPayload {
             issuer: self.issuer.did().clone(),
             audience: self.audience,
@@ -359,31 +372,46 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
             expiration: self.expiration,
             issued_at: self.issued_at,
             meta: self.meta,
-            nonce: self
-                .nonce
-                .unwrap_or_else(|| Nonce::generate_16().expect("failed to generate nonce")),
+            nonce,
         }
     }
 
     /// Builds the complete, signed [`Invocation`].
     ///
+    /// A nonce must either have been provided via [`InvocationBuilder::nonce`],
+    /// or the `getrandom` feature must be enabled.
+    ///
     /// # Errors
     ///
-    /// * `SignerError` if signing the delegation fails.
+    /// * `SignerError` if signing the invocation fails.
     ///
     /// # Panics
     ///
-    /// Panics if random number generator fails when generating a nonce.
-    /// This will never happen if a nonce is provided, and is not recoverable
-    /// becuase a broken RNG is a serious problem.
+    /// Panics if no nonce was provided and the `getrandom` feature is enabled
+    /// but the CSPRNG fails.
     #[allow(clippy::expect_used)]
     #[allow(clippy::type_complexity)]
     pub fn try_build(
         self,
     ) -> Result<
         super::Invocation<D::Did>,
-        SignerError<CodecError, <<D::Did as Did>::VarsigConfig as Sign>::SignError>,
+        SignerError<
+            <DagCborCodec as varsig::codec::Codec<super::InvocationPayload<D::Did>>>::EncodingError,
+            <<D::Did as Did>::VarsigConfig as Sign>::SignError,
+        >,
     > {
+        let nonce = self.nonce.unwrap_or_else(|| {
+            #[cfg(feature = "getrandom")]
+            {
+                #[allow(clippy::expect_used)]
+                Nonce::generate_16().expect("failed to generate nonce")
+            }
+            #[cfg(not(feature = "getrandom"))]
+            {
+                panic!("nonce is required: either call .nonce() or enable the `getrandom` feature")
+            }
+        });
+
         let payload: super::InvocationPayload<D::Did> = super::InvocationPayload {
             issuer: self.issuer.did().clone(),
             audience: self.audience,
@@ -395,9 +423,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
             proofs: self.proofs,
             cause: self.cause,
             meta: self.meta,
-            nonce: self
-                .nonce
-                .unwrap_or_else(|| Nonce::generate_16().expect("failed to generate nonce")),
+            nonce,
         };
 
         let (sig, _) = self.issuer.did().varsig_config().try_sign(
@@ -412,7 +438,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
             super::InvocationPayload<D::Did>,
         > = Varsig::new(self.issuer.did().varsig_config().clone(), DagCborCodec);
 
-        let payload: EnvelopePayload<
+        let envelope_payload: EnvelopePayload<
             <D::Did as Did>::VarsigConfig,
             super::InvocationPayload<D::Did>,
         > = EnvelopePayload { header, payload };
@@ -422,10 +448,8 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
             <D::Did as Did>::VarsigConfig,
             super::InvocationPayload<D::Did>,
             <<D::Did as Did>::VarsigConfig as Verify>::Signature,
-        > = Envelope(sig, payload);
+        > = Envelope(sig, envelope_payload);
 
-        let invocation: super::Invocation<D::Did> = super::Invocation(envelope);
-
-        Ok(invocation)
+        Ok(super::Invocation(envelope))
     }
 }

@@ -13,19 +13,25 @@ use crate::{
     cid::to_dagcbor_cid,
     command::Command,
     crypto::nonce::Nonce,
-    did::{Did, DidSigner},
+    did::Did,
     envelope::{payload_tag::PayloadTag, Envelope},
     time::timestamp::Timestamp,
     unset::Unset,
 };
+use alloc::{
+    borrow::Cow,
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 use builder::DelegationBuilder;
+use core::{fmt::Debug, marker::PhantomData};
 use ipld_core::{cid::Cid, ipld::Ipld};
 use policy::predicate::Predicate;
 use serde::{
     de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
-use std::{borrow::Cow, collections::BTreeMap, fmt::Debug};
 use varsig::verify::Verify;
 
 /// Top-level UCAN Delegation.
@@ -37,8 +43,7 @@ pub struct Delegation<D: Did>(
 impl<D: Did> Delegation<D> {
     /// Creates a blank [`DelegationBuilder`] instance.
     #[must_use]
-    pub const fn builder<S: DidSigner<Did = D>>() -> DelegationBuilder<S, Unset, Unset, Unset, Unset>
-    {
+    pub const fn builder() -> DelegationBuilder<Unset, Unset, Unset, Unset> {
         DelegationBuilder::new()
     }
 
@@ -94,7 +99,7 @@ impl<D: Did> Delegation<D> {
 }
 
 impl<D: Did> Debug for Delegation<D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Delegation").field(&self.0).finish()
     }
 }
@@ -210,7 +215,7 @@ where
     where
         T: Deserializer<'de>,
     {
-        struct PayloadVisitor<D: Did>(std::marker::PhantomData<D>);
+        struct PayloadVisitor<D: Did>(PhantomData<D>);
 
         impl<'de, D> Visitor<'de> for PayloadVisitor<D>
         where
@@ -223,7 +228,7 @@ where
         {
             type Value = DelegationPayload<D>;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.write_str("a map with keys iss,aud,sub,cmd,pol,exp,nbf,meta,nonce")
             }
 
@@ -388,7 +393,7 @@ where
             }
         }
 
-        deserializer.deserialize_map(PayloadVisitor::<D>(std::marker::PhantomData))
+        deserializer.deserialize_map(PayloadVisitor::<D>(PhantomData))
     }
 }
 
@@ -417,7 +422,6 @@ mod tests {
         let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let builder: DelegationBuilder<
-            Ed25519Signer,
             Ed25519Signer,
             Ed25519Did,
             DelegatedSubject<Ed25519Did>,

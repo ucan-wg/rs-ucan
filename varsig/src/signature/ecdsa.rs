@@ -1,6 +1,14 @@
 //! ECDSA signature algorithms.
 
-use crate::{hash::Multihasher, verify::Verify};
+use crate::hash::Multihasher;
+
+#[cfg(any(
+    feature = "secp256k1",
+    feature = "secp256r1",
+    feature = "secp384r1",
+    feature = "secp521r1"
+))]
+use crate::verify::Verify;
 
 #[cfg(feature = "secp256k1")]
 use crate::curve::Secp256k1;
@@ -14,7 +22,7 @@ use crate::curve::Secp384r1;
 #[cfg(feature = "secp521r1")]
 use crate::curve::Secp521r1;
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// The ECDSA signature algorithm.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,8 +109,8 @@ pub type Es512 = EcDsa<Secp521r1, crate::hash::Sha2_512>;
 pub struct P521VerifyingKey(p521::ecdsa::VerifyingKey);
 
 #[cfg(all(feature = "secp521r1", feature = "sha2_512"))]
-impl std::fmt::Debug for P521VerifyingKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for P521VerifyingKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("P521VerifyingKey")
             .field(&self.0.to_encoded_point(true).as_bytes())
             .finish()

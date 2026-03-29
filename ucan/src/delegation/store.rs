@@ -1,24 +1,24 @@
 //! Delegation stores.
 
-use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::HashMap,
-    convert::Infallible,
-    error::Error,
-    hash::BuildHasher,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use alloc::{rc::Rc, vec::Vec};
+use core::{borrow::Borrow, cell::RefCell, convert::Infallible, error::Error};
 
-use future_form::{future_form, FutureForm, Local, Sendable};
+use alloc::collections::BTreeMap;
+use future_form::{FutureForm, Local};
 use ipld_core::cid::Cid;
 use thiserror::Error;
-use varsig::verify::Verify;
 
 use crate::did::Did;
 
 use super::Delegation;
+
+#[cfg(feature = "std")]
+use {
+    alloc::sync::Arc,
+    future_form::{future_form, Sendable},
+    std::{collections::HashMap, hash::BuildHasher, sync::Mutex},
+    varsig::verify::Verify,
+};
 
 /// Delegation store.
 pub trait DelegationStore<K: FutureForm, D: Did, T: Borrow<Delegation<D>>> {
@@ -28,7 +28,7 @@ pub trait DelegationStore<K: FutureForm, D: Did, T: Borrow<Delegation<D>>> {
     /// Error type for retrieval operations.
     type GetError: Error;
 
-    /// Retrieves a delegation by its CID.
+    /// Retrieves delegations by their CIDs.
     fn get_all<'a>(&'a self, cid: &'a [Cid]) -> K::Future<'a, Result<Vec<T>, Self::GetError>>;
 
     /// Inserts a delegation by its CID.
@@ -59,6 +59,51 @@ pub async fn insert<
     Ok(cid)
 }
 
+// ---------------------------------------------------------------------------
+// no_std: Rc<RefCell<BTreeMap>> store
+// ---------------------------------------------------------------------------
+
+impl<D: Did> DelegationStore<Local, D, Rc<Delegation<D>>>
+    for Rc<RefCell<BTreeMap<Cid, Rc<Delegation<D>>>>>
+{
+    type InsertError = Infallible;
+    type GetError = Missing;
+
+    fn insert_by_cid(
+        &self,
+        cid: Cid,
+        delegation: Rc<Delegation<D>>,
+    ) -> <Local as FutureForm>::Future<'_, Result<(), Self::InsertError>> {
+        Local::from_future(async move {
+            self.borrow_mut().insert(cid, delegation);
+            Ok(())
+        })
+    }
+
+    fn get_all<'a>(
+        &'a self,
+        cid: &'a [Cid],
+    ) -> <Local as FutureForm>::Future<'a, Result<Vec<Rc<Delegation<D>>>, Self::GetError>> {
+        Local::from_future(async move {
+            let store = RefCell::borrow(self);
+            let mut dlgs = Vec::new();
+            for c in cid {
+                if let Some(dlg) = store.get(c) {
+                    dlgs.push(dlg.clone());
+                } else {
+                    return Err(Missing(*c));
+                }
+            }
+            Ok(dlgs)
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// std: Rc<RefCell<HashMap>> store
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "std")]
 impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
     for Rc<RefCell<HashMap<Cid, Rc<Delegation<D>>, H>>>
 {
@@ -87,7 +132,7 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
                 if let Some(dlg) = store.get(c) {
                     dlgs.push(dlg.clone());
                 } else {
-                    Err(Missing(*c))?;
+                    return Err(Missing(*c));
                 }
             }
             Ok(dlgs)
@@ -95,6 +140,11 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
     }
 }
 
+// ---------------------------------------------------------------------------
+// std: Arc<Mutex<HashMap>> store (Send + !Send variants)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "std")]
 #[future_form(
     Local,
     Sendable where
@@ -132,7 +182,7 @@ impl<K: FutureForm, D: Did, H: BuildHasher> DelegationStore<K, D, Arc<Delegation
                 if let Some(dlg) = locked.get(c) {
                     dlgs.push(dlg.clone());
                 } else {
-                    return Err(Missing(*c))?;
+                    return Err(Missing(*c).into());
                 }
             }
             Ok(dlgs)
@@ -140,7 +190,12 @@ impl<K: FutureForm, D: Did, H: BuildHasher> DelegationStore<K, D, Arc<Delegation
     }
 }
 
+// ---------------------------------------------------------------------------
+// Error types
+// ---------------------------------------------------------------------------
+
 /// Error for when the delegation store's [`Mutex`] is poisoned.
+#[cfg(feature = "std")]
 #[derive(Debug, Clone, Copy, Error)]
 #[error("delegation store poisoned")]
 pub struct StorePoisoned;
@@ -150,7 +205,8 @@ pub struct StorePoisoned;
 #[error("delegation with cid {0} is missing")]
 pub struct Missing(pub Cid);
 
-/// Error for when the delegation store's [`Mutex`] is poisoned.
+/// Error for when the delegation store's [`Mutex`] is poisoned or a delegation is missing.
+#[cfg(feature = "std")]
 #[derive(Debug, Clone, Copy, Error)]
 pub enum LockedStoreGetError {
     /// Delegation is missing

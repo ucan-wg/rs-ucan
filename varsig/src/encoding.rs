@@ -1,11 +1,42 @@
 //! Preset IPLD encoding types.
 
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
+use alloc::vec::Vec;
+
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 use crate::codec::Codec;
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, Write};
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 use thiserror::Error;
 
 /// IPLD encoding types.
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 #[repr(u64)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Encoding {
@@ -26,6 +57,12 @@ pub enum Encoding {
     Eip191 = 0xe191,
 }
 
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
     type EncodingError = EncodingError;
     type DecodingError = DecodingError;
@@ -35,11 +72,7 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
     }
 
     fn try_from_tags(code: &[u64]) -> Option<Self> {
-        if code.is_empty() {
-            return None;
-        }
-
-        if code.len() > 1 {
+        if code.len() != 1 {
             return None;
         }
 
@@ -60,18 +93,13 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
         }
     }
 
-    /// Encode the payload to the given buffer.
-    fn encode_payload<W: Write>(
-        &self,
-        payload: &T,
-        buffer: &mut W,
-    ) -> Result<(), Self::EncodingError> {
+    fn encode_payload(&self, payload: &T) -> Result<Vec<u8>, Self::EncodingError> {
         match self {
             #[cfg(feature = "dag_cbor")]
-            Encoding::DagCbor => Ok(serde_ipld_dagcbor::to_writer(buffer, payload)?),
+            Encoding::DagCbor => Ok(serde_ipld_dagcbor::to_vec(payload)?),
 
             #[cfg(feature = "dag_json")]
-            Encoding::DagJson => Ok(serde_ipld_dagjson::to_writer(buffer, payload)?),
+            Encoding::DagJson => Ok(serde_ipld_dagjson::to_vec(payload)?),
 
             #[cfg(feature = "jwt")]
             Encoding::Jwt => unimplemented!("JWT encoding is not yet supported"),
@@ -81,14 +109,13 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
         }
     }
 
-    /// Decode the payload from the given reader buffer.
-    fn decode_payload<R: BufRead>(&self, reader: &mut R) -> Result<T, Self::DecodingError> {
+    fn decode_payload(&self, bytes: &[u8]) -> Result<T, Self::DecodingError> {
         match self {
             #[cfg(feature = "dag_cbor")]
-            Encoding::DagCbor => Ok(serde_ipld_dagcbor::from_reader(reader)?),
+            Encoding::DagCbor => Ok(serde_ipld_dagcbor::from_slice(bytes)?),
 
             #[cfg(feature = "dag_json")]
-            Encoding::DagJson => Ok(serde_ipld_dagjson::from_reader(reader)?),
+            Encoding::DagJson => Ok(serde_ipld_dagjson::from_slice(bytes)?),
 
             #[cfg(feature = "jwt")]
             Encoding::Jwt => unimplemented!("JWT decoding is not yet supported"),
@@ -100,12 +127,18 @@ impl<T: Serialize + for<'a> Deserialize<'a>> Codec<T> for Encoding {
 }
 
 /// Encoding errors for the enabled encoding types.
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 #[derive(Debug, Error)]
 pub enum EncodingError {
     /// Encoding error from `DAG-CBOR`.
     #[cfg(feature = "dag_cbor")]
     #[error(transparent)]
-    CborError(#[from] serde_ipld_dagcbor::EncodeError<std::io::Error>),
+    CborError(#[from] serde_ipld_dagcbor::EncodeError<alloc::collections::TryReserveError>),
 
     /// Encoding error from `DAG-JSON`.
     #[cfg(feature = "dag_json")]
@@ -114,12 +147,18 @@ pub enum EncodingError {
 }
 
 /// Decoding errors for the enabled encoding types.
+#[cfg(any(
+    feature = "dag_cbor",
+    feature = "dag_json",
+    feature = "jwt",
+    feature = "eip191"
+))]
 #[derive(Debug, Error)]
 pub enum DecodingError {
     /// Decoding error from `DAG-CBOR`.
     #[cfg(feature = "dag_cbor")]
     #[error(transparent)]
-    CborError(#[from] serde_ipld_dagcbor::DecodeError<std::io::Error>),
+    CborError(#[from] serde_ipld_dagcbor::DecodeError<core::convert::Infallible>),
 
     /// Decoding error from `DAG-JSON`.
     #[cfg(feature = "dag_json")]
