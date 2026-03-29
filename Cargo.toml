@@ -24,7 +24,7 @@ ipld-core = { version = "0.4.2", default-features = false, features = ["arb", "s
 leb128fmt = "0.1.0"
 nom = { version = "8.0", default-features = false }
 nom-unicode = "0.4"
-nonempty = { version = "0.10.0", default-features = false, features = ["serialize"] }
+nonempty = { version = "0.12.0", default-features = false, features = ["serialize"] }
 pretty_assertions = "1.4"
 proptest = "1.6"
 proptest-arbitrary-interop = "0.1.0"

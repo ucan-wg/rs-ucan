@@ -345,18 +345,17 @@ impl<'a> Arbitrary<'a> for Predicate {
 }
 
 impl Predicate {
-    // TODO make &self?
     /// Run the predicate against concrete data.
     ///
     /// # Errors
     ///
-    /// Returns a [`SelectorError`] if the predicate *cannot* be evaluated against the data
+    /// Returns a [`RunError`] if the predicate _cannot_ be evaluated against the data
     /// due to things like shape errors.
-    pub fn run(self, data: &Ipld) -> Result<bool, RunError> {
+    pub fn run(&self, data: &Ipld) -> Result<bool, RunError> {
         Ok(match self {
             Predicate::Equal(lhs, rhs_data) => {
-                let focused_data = lhs.clone().get(data)?;
-                match (&focused_data, &rhs_data) {
+                let focused_data = lhs.get(data)?;
+                match (&focused_data, rhs_data) {
                     (Ipld::Integer(int), Ipld::Float(float))
                     | (Ipld::Float(float), Ipld::Integer(int)) => {
                         if !float.is_nan() && !float.is_infinite() && float.fract() == 0.0 {
@@ -364,34 +363,34 @@ impl Predicate {
                             let i = *float as i128;
                             *int == i
                         } else {
-                            Err(RunError::CannotCompareNonwholeFloatToInt)?
+                            return Err(RunError::CannotCompareNonwholeFloatToInt);
                         }
                     }
-                    _ => focused_data == rhs_data,
+                    _ => focused_data == *rhs_data,
                 }
             }
-            Predicate::GreaterThan(lhs, rhs_data) => lhs.get(data)? > rhs_data,
-            Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.get(data)? >= rhs_data,
-            Predicate::LessThan(lhs, rhs_data) => lhs.get(data)? < rhs_data,
-            Predicate::LessThanOrEqual(lhs, rhs_data) => lhs.get(data)? <= rhs_data,
-            Predicate::Like(lhs, rhs_data) => glob(&lhs.get(data)?, &rhs_data),
+            Predicate::GreaterThan(lhs, rhs_data) => lhs.get(data)? > *rhs_data,
+            Predicate::GreaterThanOrEqual(lhs, rhs_data) => lhs.get(data)? >= *rhs_data,
+            Predicate::LessThan(lhs, rhs_data) => lhs.get(data)? < *rhs_data,
+            Predicate::LessThanOrEqual(lhs, rhs_data) => lhs.get(data)? <= *rhs_data,
+            Predicate::Like(lhs, rhs_data) => glob(&lhs.get(data)?, rhs_data),
             Predicate::Not(inner) => !inner.run(data)?,
             Predicate::And(inner) => inner
-                .into_iter()
+                .iter()
                 .try_fold(true, |acc, p| Ok::<_, RunError>(acc && p.run(data)?))?,
             Predicate::Or(inner) => {
                 if inner.is_empty() {
                     true
                 } else {
                     inner
-                        .into_iter()
+                        .iter()
                         .try_fold(false, |acc, p| Ok::<_, RunError>(acc || p.run(data)?))?
                 }
             }
             Predicate::All(selector, p) => {
                 let focus = selector.get(data)?;
                 focus.to_vec().iter().try_fold(true, |acc, each_datum| {
-                    Ok::<_, RunError>(acc && p.clone().run(each_datum)?)
+                    Ok::<_, RunError>(acc && p.run(each_datum)?)
                 })?
             }
             Predicate::Any(selector, p) => {
@@ -400,7 +399,7 @@ impl Predicate {
                     true
                 } else {
                     focus.to_vec().iter().try_fold(false, |acc, each_datum| {
-                        Ok::<_, RunError>(acc || p.clone().run(each_datum)?)
+                        Ok::<_, RunError>(acc || p.run(each_datum)?)
                     })?
                 }
             }
