@@ -17,8 +17,6 @@ pub mod envelope;
 pub mod invocation;
 pub mod number;
 pub mod promise;
-// pub mod receipt; TODO Reenable after first release
-pub mod task;
 pub mod time;
 pub mod unset;
 
