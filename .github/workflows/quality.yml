@@ -65,6 +65,37 @@ jobs:
         with:
           command: check bans licenses sources
 
+  no-std:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+
+      - name: Check varsig (no default features)
+        run: cargo check -p varsig --no-default-features
+
+      - name: Check varsig (no_std + dag_cbor + ed25519)
+        run: cargo check -p varsig --no-default-features --features dag_cbor,ed25519
+
+      - name: Check ucan (no default features)
+        run: cargo check -p ucan --no-default-features
+
+      # NOTE: Real embedded target (thumbv6m-none-eabi) is blocked by
+      # upstream `cid` crate pulling in serde_bytes with default features,
+      # which activates serde/std transitively.
+      # Uncomment once cid adds default-features = false on serde_bytes.
+      # - name: Install thumbv6m target
+      #   run: rustup target add thumbv6m-none-eabi
+      # - name: Check varsig on thumbv6m
+      #   run: cargo check -p varsig --no-default-features --target thumbv6m-none-eabi
+      # - name: Check ucan on thumbv6m
+      #   run: cargo check -p ucan --no-default-features --target thumbv6m-none-eabi
+
   msrv:
     runs-on: ubuntu-latest
 
