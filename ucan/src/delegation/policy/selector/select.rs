@@ -441,6 +441,114 @@ mod tests {
             assert_eq!(result, Ipld::Bytes(vec![0xa9, 0xc1]));
         }
 
+        #[test_log::test]
+        fn test_slice_both_negative() {
+            let data = Ipld::List(vec![
+                Ipld::Integer(10),
+                Ipld::Integer(20),
+                Ipld::Integer(30),
+                Ipld::Integer(40),
+                Ipld::Integer(50),
+            ]);
+            let selector = Select::<Ipld>::from_str(".[-3:-1]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(
+                result,
+                Ipld::List(vec![Ipld::Integer(30), Ipld::Integer(40)])
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_negative_start_open_end() {
+            let data = Ipld::List(vec![
+                Ipld::Integer(10),
+                Ipld::Integer(20),
+                Ipld::Integer(30),
+            ]);
+            let selector = Select::<Ipld>::from_str(".[-2:]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(
+                result,
+                Ipld::List(vec![Ipld::Integer(20), Ipld::Integer(30)])
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_full_copy() {
+            let data = Ipld::List(vec![Ipld::Integer(10), Ipld::Integer(20)]);
+            let selector = Select::<Ipld>::from_str(".[:]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, data);
+        }
+
+        #[test_log::test]
+        fn test_slice_empty_when_start_ge_end() {
+            let data = Ipld::List(vec![
+                Ipld::Integer(10),
+                Ipld::Integer(20),
+                Ipld::Integer(30),
+            ]);
+            let selector = Select::<Ipld>::from_str(".[2:1]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::List(vec![]));
+        }
+
+        #[test_log::test]
+        fn test_slice_out_of_bounds_clamps() {
+            let data = Ipld::List(vec![Ipld::Integer(10), Ipld::Integer(20)]);
+            let selector = Select::<Ipld>::from_str(".[0:100]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, data);
+        }
+
+        #[test_log::test]
+        fn test_byte_negative_index() {
+            let data = Ipld::Bytes(vec![0xAA, 0xBB, 0xCC]);
+            let selector = Select::<Ipld>::from_str(".[-1]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::Integer(0xCC));
+        }
+
+        #[test_log::test]
+        fn test_byte_slice_negative() {
+            let data = Ipld::Bytes(vec![0xAA, 0xBB, 0xCC, 0xDD]);
+            let selector = Select::<Ipld>::from_str(".[-2:]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::Bytes(vec![0xCC, 0xDD]));
+        }
+
+        #[test_log::test]
+        fn test_byte_index_out_of_bounds_with_try() {
+            let data = Ipld::Bytes(vec![0xAA, 0xBB]);
+            let selector = Select::<Ipld>::from_str(".[99]?").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::Null);
+        }
+
+        #[test_log::test]
+        fn test_slice_on_non_list_fails() {
+            let data = Ipld::Integer(42);
+            let selector = Select::<Ipld>::from_str(".[0:2]").expect("parse");
+            assert!(selector.get(&data).is_err());
+        }
+
+        #[test_log::test]
+        fn test_slice_on_non_list_with_try_returns_null() {
+            let data = Ipld::Integer(42);
+            let selector = Select::<Ipld>::from_str(".[0:2]?").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::Null);
+        }
+
+        #[test_log::test]
+        fn test_byte_index_spec_example() {
+            // From the spec: bytes 0xd6a9c18cf8c4, selector .[3] => 0x8c = 140
+            let data = Ipld::Bytes(vec![0xd6, 0xa9, 0xc1, 0x8c, 0xf8, 0xc4]);
+            let selector = Select::<Ipld>::from_str(".[3]").expect("parse");
+            let result = selector.get(&data).expect("get");
+            assert_eq!(result, Ipld::Integer(140));
+        }
+
         proptest! {
             #![proptest_config(ProptestConfig { cases: 32, ..ProptestConfig::default() })]
             #[test_log::test]
