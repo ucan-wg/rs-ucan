@@ -15,13 +15,13 @@ use crate::{
     },
     did::{Did, DidSigner},
     envelope::{payload_tag::PayloadTag, Envelope},
-    future::FutureKind,
     promise::{Promised, WaitingOn},
     time::timestamp::Timestamp,
     unset::Unset,
     Delegation,
 };
 use builder::InvocationBuilder;
+use future_form::FutureForm;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::BTreeMap, fmt::Debug};
@@ -231,7 +231,7 @@ impl<D: Did> InvocationPayload<D> {
     /// # Errors
     ///
     /// Returns a [`StoredCheckError`] if the check fails.
-    pub async fn check<K: FutureKind, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
+    pub async fn check<K: FutureForm, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
         &self,
         proof_store: &S,
     ) -> Result<(), StoredCheckError<K, D, T, S>> {
@@ -345,7 +345,7 @@ pub enum CheckFailed {
 /// Errors that can occur when checking an invocation with proofs stored in a delegation store
 #[derive(Debug, Clone, Error)]
 pub enum StoredCheckError<
-    K: FutureKind,
+    K: FutureForm,
     D: Did,
     T: Borrow<Delegation<D>>,
     S: DelegationStore<K, D, T>,

@@ -11,23 +11,17 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use futures::{
-    future::{BoxFuture, LocalBoxFuture},
-    FutureExt,
-};
+use future_form::{future_form, FutureForm, Local, Sendable};
 use ipld_core::cid::Cid;
 use thiserror::Error;
 use varsig::verify::Verify;
 
-use crate::{
-    did::Did,
-    future::{FutureKind, Local, Sendable},
-};
+use crate::did::Did;
 
 use super::Delegation;
 
 /// Delegation store.
-pub trait DelegationStore<K: FutureKind, D: Did, T: Borrow<Delegation<D>>> {
+pub trait DelegationStore<K: FutureForm, D: Did, T: Borrow<Delegation<D>>> {
     /// Error type for insertion operations.
     type InsertError: Error;
 
@@ -52,7 +46,7 @@ pub trait DelegationStore<K: FutureKind, D: Did, T: Borrow<Delegation<D>>> {
 /// If insertion fails, an error defined by the `impl DelegationStore` is returned
 /// (the `S::InsertError` associated type).
 pub async fn insert<
-    K: FutureKind,
+    K: FutureForm,
     D: Did,
     T: Borrow<Delegation<D>>,
     S: DelegationStore<K, D, T>,
@@ -75,19 +69,18 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
         &self,
         cid: Cid,
         delegation: Rc<Delegation<D>>,
-    ) -> LocalBoxFuture<'_, Result<(), Self::InsertError>> {
-        async move {
+    ) -> <Local as FutureForm>::Future<'_, Result<(), Self::InsertError>> {
+        Local::from_future(async move {
             self.borrow_mut().insert(cid, delegation);
             Ok(())
-        }
-        .boxed_local()
+        })
     }
 
     fn get_all<'a>(
         &'a self,
         cid: &'a [Cid],
-    ) -> LocalBoxFuture<'a, Result<Vec<Rc<Delegation<D>>>, Self::GetError>> {
-        async move {
+    ) -> <Local as FutureForm>::Future<'a, Result<Vec<Rc<Delegation<D>>>, Self::GetError>> {
+        Local::from_future(async move {
             let store = RefCell::borrow(self);
             let mut dlgs = Vec::new();
             for c in cid {
@@ -98,12 +91,19 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Rc<Delegation<D>>>
                 }
             }
             Ok(dlgs)
-        }
-        .boxed_local()
+        })
     }
 }
 
-impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Arc<Delegation<D>>>
+#[future_form(
+    Local,
+    Sendable where
+        D: Send + Sync,
+        H: Send,
+        <D as Did>::VarsigConfig: Send + Sync,
+        <<D as Did>::VarsigConfig as Verify>::Signature: Send + Sync
+)]
+impl<K: FutureForm, D: Did, H: BuildHasher> DelegationStore<K, D, Arc<Delegation<D>>>
     for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>, H>>>
 {
     type InsertError = StorePoisoned;
@@ -113,20 +113,19 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Arc<Delegation<D>>>
         &self,
         cid: Cid,
         delegation: Arc<Delegation<D>>,
-    ) -> LocalBoxFuture<'_, Result<(), Self::InsertError>> {
-        async move {
+    ) -> K::Future<'_, Result<(), Self::InsertError>> {
+        K::from_future(async move {
             let mut locked = self.lock().map_err(|_| StorePoisoned)?;
             locked.insert(cid, delegation);
             Ok(())
-        }
-        .boxed_local()
+        })
     }
 
     fn get_all<'a>(
         &'a self,
         cid: &'a [Cid],
-    ) -> LocalBoxFuture<'a, Result<Vec<Arc<Delegation<D>>>, Self::GetError>> {
-        async move {
+    ) -> K::Future<'a, Result<Vec<Arc<Delegation<D>>>, Self::GetError>> {
+        K::from_future(async move {
             let locked = self.lock().map_err(|_| StorePoisoned)?;
             let mut dlgs = Vec::new();
             for c in cid {
@@ -137,50 +136,7 @@ impl<D: Did, H: BuildHasher> DelegationStore<Local, D, Arc<Delegation<D>>>
                 }
             }
             Ok(dlgs)
-        }
-        .boxed_local()
-    }
-}
-
-impl<D: Did + Send + Sync, H: BuildHasher + Send> DelegationStore<Sendable, D, Arc<Delegation<D>>>
-    for Arc<Mutex<HashMap<Cid, Arc<Delegation<D>>, H>>>
-where
-    <D as Did>::VarsigConfig: Send + Sync,
-    <<D as Did>::VarsigConfig as Verify>::Signature: Send + Sync,
-{
-    type InsertError = StorePoisoned;
-    type GetError = LockedStoreGetError;
-
-    fn insert_by_cid(
-        &self,
-        cid: Cid,
-        delegation: Arc<Delegation<D>>,
-    ) -> BoxFuture<'_, Result<(), Self::InsertError>> {
-        async move {
-            let mut locked = self.lock().map_err(|_| StorePoisoned)?;
-            locked.insert(cid, delegation);
-            Ok(())
-        }
-        .boxed()
-    }
-
-    fn get_all<'a>(
-        &'a self,
-        cid: &'a [Cid],
-    ) -> BoxFuture<'a, Result<Vec<Arc<Delegation<D>>>, Self::GetError>> {
-        async move {
-            let locked = self.lock().map_err(|_| StorePoisoned)?;
-            let mut dlgs = Vec::new();
-            for c in cid {
-                if let Some(dlg) = locked.get(c) {
-                    dlgs.push(dlg.clone());
-                } else {
-                    return Err(Missing(*c))?;
-                }
-            }
-            Ok(dlgs)
-        }
-        .boxed()
+        })
     }
 }
 
