@@ -6,12 +6,7 @@ on:
       force-publish:
         required: true
         type: boolean
-        description: Publish Releases at Anytime
-
-  workflow_run:
-    workflows: [Code Quality Checks, Test Default Features on Host]
-    branches: [main]
-    types: [completed]
+        description: Publish releases at any time
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,8 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >
       github.ref == 'refs/heads/main' &&
-      github.repository_owner == 'ucan-wg' &&
-      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+      github.repository_owner == 'ucan-wg'
 
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
