@@ -39,6 +39,15 @@ pub enum Filter {
     /// Extract a field from a map (e.g. `["key"]` or `.key`).
     Field(String),
 
+    /// Extract a slice from a list or bytes (e.g. `[2:5]`, `[2:]`, `[:5]`, `[0:-2]`).
+    Slice {
+        /// Inclusive start index (None = beginning).
+        start: Option<i32>,
+
+        /// Exclusive end index (None = end).
+        end: Option<i32>,
+    },
+
     /// Extract values from a collection (e.g. `.[]`).
     Values,
 
@@ -53,9 +62,10 @@ impl Filter {
         match (self, other) {
             (Filter::ArrayIndex(a), Filter::ArrayIndex(b)) => a == b,
             (Filter::Field(a), Filter::Field(b)) => a == b,
-            (Filter::Values, Filter::Values) => true,
-            (Filter::ArrayIndex(_a), Filter::Values) => true,
-            (Filter::Field(_k), Filter::Values) => true,
+            (
+                Filter::Values | Filter::ArrayIndex(_) | Filter::Field(_) | Filter::Slice { .. },
+                Filter::Values,
+            ) => true,
             (Filter::Try(a), Filter::Try(b)) => a.is_in(b),
             _ => false,
         }
@@ -73,7 +83,7 @@ impl Filter {
                     false
                 }
             }
-            Filter::ArrayIndex(_) | Filter::Values | Filter::Try(_) => false,
+            Filter::ArrayIndex(_) | Filter::Slice { .. } | Filter::Values | Filter::Try(_) => false,
         }
     }
 }
@@ -103,6 +113,17 @@ impl fmt::Display for Filter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Filter::ArrayIndex(i) => write!(f, "[{i}]"),
+            Filter::Slice { start, end } => {
+                f.write_char('[')?;
+                if let Some(s) = start {
+                    write!(f, "{s}")?;
+                }
+                f.write_char(':')?;
+                if let Some(e) = end {
+                    write!(f, "{e}")?;
+                }
+                f.write_char(']')
+            }
             Filter::Field(k) => {
                 // Be conservative: only use dot form for safe identifiers.
                 let dot_ok = self.is_dot_field()
@@ -167,13 +188,37 @@ pub fn parse_try_dot_field(input: &str) -> IResult<&str, Filter> {
     context("try", p).parse(input)
 }
 
+fn parse_opt_signed_int(i: &str) -> IResult<&str, Option<i32>> {
+    nom::combinator::opt(
+        nom::combinator::recognize(preceded(nom::combinator::opt(tag("-")), digit1))
+            .map(|s: &str| i32::from_str(s).unwrap_or(0)),
+    )
+    .parse(i)
+}
+
+fn parse_slice_inner(i: &str) -> IResult<&str, Filter> {
+    let (i, start) = parse_opt_signed_int(i)?;
+    let (i, _) = char(':').parse(i)?;
+    let (i, end) = parse_opt_signed_int(i)?;
+    Ok((i, Filter::Slice { start, end }))
+}
+
+/// Parses a slice expression, e.g. `[2:5]`, `[2:]`, `[:5]`, or `[:]`.
+///
+/// # Errors
+///
+/// Returns a `nom` error if the parser fails to match.
+pub fn parse_slice(input: &str) -> IResult<&str, Filter> {
+    context("slice", delimited(char('['), parse_slice_inner, char(']'))).parse(input)
+}
+
 /// Parses a filter not ending in `?`, e.g. `["foo"]`, `.foo`, or `[2]`.
 ///
 /// # Errors
 ///
 /// Returns a `nom` error if the parser fails to match.
 pub fn parse_non_try(input: &str) -> IResult<&str, Filter> {
-    let p = alt((parse_values, parse_field, parse_array_index));
+    let p = alt((parse_values, parse_slice, parse_field, parse_array_index));
     context("non_try", p).parse(input)
 }
 
@@ -369,6 +414,15 @@ impl Serialize for Filter {
                 seq.end()
             }
 
+            // `[ "slice", <start|null>, <end|null> ]`
+            Filter::Slice { start, end } => {
+                let mut seq = serializer.serialize_seq(Some(3))?;
+                seq.serialize_element("slice")?;
+                seq.serialize_element(&start)?;
+                seq.serialize_element(&end)?;
+                seq.end()
+            }
+
             // `[ "values" ]`
             Filter::Values => {
                 let mut seq = serializer.serialize_seq(Some(1))?;
@@ -424,6 +478,15 @@ impl<'de> Deserialize<'de> for Filter {
                             .next_element()?
                             .ok_or_else(|| A::Error::custom("missing field"))?;
                         Ok(Filter::Field(k))
+                    }
+                    "slice" => {
+                        let start: Option<i32> = seq
+                            .next_element()?
+                            .ok_or_else(|| A::Error::custom("missing slice start"))?;
+                        let end: Option<i32> = seq
+                            .next_element()?
+                            .ok_or_else(|| A::Error::custom("missing slice end"))?;
+                        Ok(Filter::Slice { start, end })
                     }
                     "values" => Ok(Filter::Values),
                     "try" => {
@@ -641,11 +704,18 @@ impl<'a> Arbitrary<'a> for Filter {
         enum Pick {
             ArrayIndex,
             Field,
+            Slice,
             Values,
             Try,
         }
 
-        match u.choose(&[Pick::ArrayIndex, Pick::Field, Pick::Values, Pick::Try])? {
+        match u.choose(&[
+            Pick::ArrayIndex,
+            Pick::Field,
+            Pick::Slice,
+            Pick::Values,
+            Pick::Try,
+        ])? {
             Pick::ArrayIndex => {
                 let i = u.int_in_range(0..=99)?;
                 Ok(Filter::ArrayIndex(i))
@@ -653,6 +723,11 @@ impl<'a> Arbitrary<'a> for Filter {
             Pick::Field => {
                 let s = u.arbitrary::<String>()?;
                 Ok(Filter::Field(s))
+            }
+            Pick::Slice => {
+                let start = u.arbitrary::<Option<i32>>()?;
+                let end = u.arbitrary::<Option<i32>>()?;
+                Ok(Filter::Slice { start, end })
             }
             Pick::Values => Ok(Filter::Values),
             Pick::Try => {
@@ -941,6 +1016,114 @@ mod tests {
         fn test_multiple_tries_after_index() {
             let got = Filter::from_str("[42]???????");
             pretty::assert_eq!(got, Ok(Filter::Try(Box::new(Filter::ArrayIndex(42)))));
+        }
+
+        #[test_log::test]
+        fn test_slice_both() {
+            let got = Filter::from_str("[2:5]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: Some(2),
+                    end: Some(5)
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_start_only() {
+            let got = Filter::from_str("[2:]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: Some(2),
+                    end: None
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_end_only() {
+            let got = Filter::from_str("[:5]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: None,
+                    end: Some(5)
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_both_negative() {
+            let got = Filter::from_str("[0:-2]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: Some(0),
+                    end: Some(-2)
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_open() {
+            let got = Filter::from_str("[:]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: None,
+                    end: None
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_negative_start() {
+            let got = Filter::from_str("[-3:]");
+            pretty::assert_eq!(
+                got,
+                Ok(Filter::Slice {
+                    start: Some(-3),
+                    end: None
+                })
+            );
+        }
+
+        #[test_log::test]
+        fn test_slice_display_roundtrip() {
+            let cases = vec![
+                Filter::Slice {
+                    start: Some(2),
+                    end: Some(5),
+                },
+                Filter::Slice {
+                    start: Some(2),
+                    end: None,
+                },
+                Filter::Slice {
+                    start: None,
+                    end: Some(5),
+                },
+                Filter::Slice {
+                    start: None,
+                    end: None,
+                },
+                Filter::Slice {
+                    start: Some(0),
+                    end: Some(-2),
+                },
+                Filter::Slice {
+                    start: Some(-3),
+                    end: None,
+                },
+            ];
+
+            for filter in cases {
+                let displayed = filter.to_string();
+                let parsed = Filter::from_str(&displayed);
+                pretty::assert_eq!(parsed, Ok(filter));
+            }
         }
 
         #[test_log::test]
