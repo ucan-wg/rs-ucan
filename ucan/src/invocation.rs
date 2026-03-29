@@ -280,7 +280,7 @@ impl<D: Did> InvocationPayload<D> {
             }
 
             for predicate in proof.policy() {
-                if !predicate.clone().run(&args)? {
+                if !predicate.run(&args)? {
                     return Err(CheckFailed::PredicateFailed(Box::new(predicate.clone())));
                 }
             }

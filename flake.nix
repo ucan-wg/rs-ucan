@@ -12,6 +12,11 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    wasm-bodge-src = {
+      url = "github:alexjg/wasm-bodge/v0.2.2";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -21,6 +26,7 @@
     nixpkgs,
     rust-overlay,
     command-utils,
+    wasm-bodge-src,
   } @ inputs:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -76,6 +82,24 @@
           exec "${nightly-rustfmt-unwrapped}/bin/rustfmt" "$@"
         '';
 
+        # wasm-bodge: universal npm package builder for wasm-bindgen crates
+        # Not yet in nixpkgs; edition 2024 requires our rust-overlay toolchain
+        wasm-bodge-rustPlatform = pkgs.makeRustPlatform {
+          cargo = rust-toolchain;
+          rustc = rust-toolchain;
+        };
+
+        wasm-bodge = wasm-bodge-rustPlatform.buildRustPackage {
+          pname = "wasm-bodge";
+          version = wasm-bodge-src.shortRev;
+          src = wasm-bodge-src;
+          cargoHash = "sha256-FUbDbXmcT3Kbrm42jOEqbqbhiGb7/4+Xbo+eWFEMy2I=";
+          nativeBuildInputs = [unstable.cargo-auditable];
+          doCheck = false; # tests require npm/puppeteer infrastructure
+        };
+
+        wasm-bodge-bin = "${wasm-bodge}/bin/wasm-bodge";
+
         format-pkgs = with pkgs; [
           nixpkgs-fmt
           alejandra
@@ -93,7 +117,9 @@
           cargo-udeps
           cargo-watch
           twiggy
-          wasm-bindgen-cli
+          binaryen
+          esbuild
+          unstable.wasm-bindgen-cli
           wasm-tools
         ];
 
@@ -101,6 +127,22 @@
         rust = command-utils.rust.${system};
         wasm = command-utils.wasm.${system};
         cmd = command-utils.cmd.${system};
+
+        projectCommands = {
+          "bodge" = cmd "Build ucan_wasm with wasm-bodge" ''
+            set -eu
+            rm -rf "''${WORKSPACE_ROOT:?WORKSPACE_ROOT is not set}/ucan_wasm/dist"
+
+            echo "===> wasm-bodge build ucan_wasm..."
+            ${wasm-bodge-bin} build \
+              --crate-path "''${WORKSPACE_ROOT:?}/ucan_wasm" \
+              --package-json "''${WORKSPACE_ROOT:?}/ucan_wasm/package.json" \
+              --out-dir "''${WORKSPACE_ROOT:?}/ucan_wasm/dist"
+
+            echo ""
+            echo "✓ ucan_wasm built with wasm-bodge"
+          '';
+        };
 
         command_menu = command-utils.commands.${system} [
           # Rust commands
@@ -133,6 +175,9 @@
             cargo = pkgs.cargo;
             xdg-open = pkgs.xdg-utils;
           })
+
+          # Project-specific commands
+          { commands = projectCommands; packages = []; }
         ];
       in rec {
         devShells.default = pkgs.mkShell {
@@ -143,6 +188,7 @@
               command_menu
               rust-toolchain
               nightly-rustfmt
+              wasm-bodge
 
               pkgs.rust-analyzer
               pkgs.wasm-pack
@@ -153,6 +199,7 @@
           shellHook = ''
             unset SOURCE_DATE_EPOCH
             export RUSTFMT="${nightly-rustfmt}/bin/rustfmt"
+            export WORKSPACE_ROOT="$(pwd)"
             menu
           '';
         };

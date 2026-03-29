@@ -89,7 +89,7 @@ impl<T: Selectable> Select<T> {
     ///
     /// Returns a [`SelectorError`] if the data shape does not conform to the requested path.
     #[allow(clippy::too_many_lines)]
-    pub fn get(self, ctx: &Ipld) -> Result<T, SelectorError> {
+    pub fn get(&self, ctx: &Ipld) -> Result<T, SelectorError> {
         let got = self.filters.iter().try_fold(
             (ctx.clone(), vec![], false),
             |(ipld, mut seen_ops, is_try), op| {
