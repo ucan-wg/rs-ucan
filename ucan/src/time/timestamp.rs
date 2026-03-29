@@ -72,7 +72,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn now() -> Timestamp {
         Self::new(SystemTime::now())
-            .expect("the current time to be somtime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millenium CE")
     }
 
     /// Get a timestamp 5 minutes from now.
@@ -85,7 +85,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn five_minutes_from_now() -> Timestamp {
         Self::new(SystemTime::now() + Duration::from_secs(5 * 60))
-            .expect("the current time to be somtime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millenium CE")
     }
 
     /// Get a timestamp 5 years from now.
@@ -98,7 +98,7 @@ impl Timestamp {
     #[allow(clippy::expect_used)]
     pub fn five_years_from_now() -> Timestamp {
         Self::new(SystemTime::now() + Duration::from_secs(5 * 365 * 24 * 60 * 60))
-            .expect("the current time to be somtime in the 3rd millenium CE")
+            .expect("the current time to be sometime in the 3rd millenium CE")
     }
 
     /// Convert a [`Timestamp`] to a [Unix timestamp].
@@ -116,19 +116,25 @@ impl Timestamp {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "std"))]
-#[wasm_bindgen]
+#[cfg(feature = "wasm")]
 impl Timestamp {
-    /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`]
-    pub fn from_date(date_time: js_sys::Date) -> Result<Timestamp, JsError> {
-        let millis = date_time.get_time() as u64;
-        let secs: u64 = (millis / 1000) as u64;
-        Timestamp::from_unix(secs).map_err(Into::into)
+    /// Lift a [`js_sys::Date`] into a Rust [`Timestamp`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfRangeError`] if the date exceeds the 2⁵³ second bound.
+    pub fn from_date(date_time: &js_sys::Date) -> Result<Timestamp, OutOfRangeError> {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let secs = (date_time.get_time() / 1000.0) as u64;
+        Timestamp::from_unix(secs)
     }
 
-    /// Lower the [`Timestamp`] to a [`js_sys::Date`]
+    /// Lower the [`Timestamp`] to a [`js_sys::Date`].
+    #[must_use]
     pub fn to_date(&self) -> js_sys::Date {
-        js_sys::Date::new(&JsValue::from(u128::from(self.0) * 1000))
+        #[allow(clippy::cast_precision_loss)]
+        let millis = self.0 as f64 * 1000.0;
+        js_sys::Date::new(&wasm_bindgen::JsValue::from(millis))
     }
 }
 

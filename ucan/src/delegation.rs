@@ -1,7 +1,7 @@
 //! UCAN Delegation
 //!
 //! The spec for UCAN Delegations can be found at
-//! [the GitHub repo](https://github.com/ucan-wg/invocation/).
+//! [the GitHub repo](https://github.com/ucan-wg/delegation/).
 
 pub mod builder;
 pub mod policy;

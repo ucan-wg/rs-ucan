@@ -314,7 +314,7 @@ pub enum CheckFailed {
     WaitingOnPromise(#[from] WaitingOn),
 
     /// Error indicating that the command in the invocation does not match the command in the proof
-    #[error("command mismatch: expected {expected:?}, found {expected:?}")]
+    #[error("command mismatch: expected {expected:?}, found {found:?}")]
     CommandMismatch {
         /// The expected command
         expected: Command,

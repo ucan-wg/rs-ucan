@@ -19,7 +19,7 @@ use arbitrary::{self, Arbitrary, Unstructured};
 #[cfg(any(test, feature = "test_utils"))]
 use crate::ipld::InternalIpld;
 
-/// Validtor for [`Ipld`] values.
+/// Validator for [`Ipld`] values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {
     /// Selector equality check
@@ -37,7 +37,7 @@ pub enum Predicate {
     /// Selector less than or equal check
     LessThanOrEqual(Select<Number>, Number),
 
-    /// Seelctor `like` matcher check (glob patterns)
+    /// Selector `like` matcher check (glob patterns)
     Like(Select<String>, String),
 
     /// Negation
@@ -51,7 +51,7 @@ pub enum Predicate {
 
     /// Universal quantification over a collection
     ///
-    /// "For all elements of a collection" (∀x ∈ xs) the precicate must hold
+    /// "For all elements of a collection" (∀x ∈ xs) the predicate must hold
     All(Select<Collection>, Box<Predicate>),
 
     /// Existential quantification over a collection
@@ -592,7 +592,7 @@ pub enum FromIpldError {
 
     /// Invalid String selector.
     #[error("Invalid String selector {0:?}")]
-    InvalidStringSelector(<Select<Collection> as FromStr>::Err),
+    InvalidStringSelector(<Select<String> as FromStr>::Err),
 
     /// Cannot parse [`Number`].
     #[error("Cannot parse Number {0:?}")]

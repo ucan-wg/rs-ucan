@@ -1,7 +1,7 @@
 //! Multihash algorithms.
 //!
 //! This is separate from the `multihash-codetable` crate
-//! becuase we don't need any of the actual hashing functionality.
+//! because we don't need any of the actual hashing functionality.
 
 /// Multihash Prefix
 pub trait Multihasher {

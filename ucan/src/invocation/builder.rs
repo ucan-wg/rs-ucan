@@ -347,7 +347,7 @@ impl<D: DidSigner + Serialize> InvocationBuilder<D, D, D::Did, D::Did, Command, 
     ///
     /// Panics if random number generator fails when generating a nonce.
     /// This will never happen if a nonce is provided, and is not recoverable
-    /// becuase a broken RNG is a serious problem.
+    /// because a broken RNG is a serious problem.
     #[allow(clippy::expect_used)]
     pub fn build(self) -> super::InvocationPayload<D::Did> {
         let nonce = self.nonce.unwrap_or_else(|| {
