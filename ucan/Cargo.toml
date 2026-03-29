@@ -42,6 +42,7 @@ varsig = { path = "../varsig", default-features = false, features = ["dag_cbor",
 [dev-dependencies]
 arbitrary = { workspace = true, optional = false }
 base64 = "0.22.1"
+ipld-core = { version = "0.4.2", features = ["arb", "std"] }
 pretty_assertions.workspace = true
 proptest = { workspace = true, optional = false }
 proptest-arbitrary-interop = "0.1.0"

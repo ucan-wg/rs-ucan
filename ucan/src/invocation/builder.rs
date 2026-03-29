@@ -3,15 +3,12 @@
 use crate::{
     command::Command,
     crypto::nonce::Nonce,
-    did::DidSigner,
+    did::{Did, DidSigner},
+    envelope::{Envelope, EnvelopePayload},
     promise::Promised,
     sealed::{CommandOrUnset, DidOrUnset, DidSignerOrUnset, ProofsOrUnset},
     time::timestamp::Timestamp,
     unset::Unset,
-};
-use crate::{
-    did::Did,
-    envelope::{Envelope, EnvelopePayload},
 };
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use core::marker::PhantomData;
