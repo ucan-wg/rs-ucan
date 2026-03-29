@@ -10,7 +10,7 @@ members = [
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/ucan-wg/rs-ucan"
-rust-version = "1.85.0"
+rust-version = "1.90.0"
 
 [workspace.dependencies]
 arbitrary = { version = "1.4", features = ["derive"] }
