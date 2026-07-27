@@ -2,6 +2,8 @@
 
 pub mod payload_tag;
 
+use alloc::vec::Vec;
+use core::{fmt, marker::PhantomData};
 use ipld_core::ipld::Ipld;
 use payload_tag::PayloadTag;
 use serde::{
@@ -9,10 +11,8 @@ use serde::{
     ser::{SerializeMap, SerializeTuple},
     Deserialize, Serialize,
 };
-use serde_ipld_dagcbor::codec::DagCborCodec;
 use signature::SignatureEncoding;
-use std::{fmt, marker::PhantomData};
-use varsig::{header::Varsig, verify::Verify};
+use varsig::{codec::DagCborCodec, header::Varsig, verify::Verify};
 
 /// Top-level Varsig envelope type.
 #[derive(Debug, Clone, PartialEq)]
@@ -56,7 +56,7 @@ impl<
             T: Serialize + for<'ze> Deserialize<'ze>,
             S: SignatureEncoding,
         {
-            marker: std::marker::PhantomData<(V, T, S)>,
+            marker: PhantomData<(V, T, S)>,
         }
 
         impl<'de, V, T, S> Visitor<'de> for EnvelopeVisitor<V, T, S>
@@ -97,7 +97,7 @@ impl<
         deserializer.deserialize_tuple(
             2,
             EnvelopeVisitor {
-                marker: std::marker::PhantomData,
+                marker: PhantomData,
             },
         )
     }
@@ -182,8 +182,7 @@ where
                         if payload.is_some() {
                             return Err(de::Error::custom("multiple payload fields"));
                         }
-                        let value: serde_value::Value = map.next_value()?;
-                        payload = Some(T::deserialize(value).map_err(de::Error::custom)?);
+                        payload = Some(map.next_value::<T>()?);
                     }
                 }
 

@@ -1,8 +1,10 @@
 //! Signature verification and configuration.
 
+use alloc::vec::Vec;
+use core::{error::Error, fmt::Debug};
+
 use crate::codec::Codec;
 use signature::{SignatureEncoding, Verifier};
-use std::{error::Error, fmt::Debug};
 use thiserror::Error;
 
 /// A trait for signature verification (e.g. public keys).
@@ -32,18 +34,7 @@ pub trait Verify: Sized + Debug {
     /// then verifies the signature. The payload does not need to be
     /// serialized ahead of time (the `codec` field configures that).
     ///
-    /// ## Parameters
-    ///
-    /// - `codec`: The codec to use for encoding the payload.
-    /// - `verifier`: The verifier (e.g. public key) to use for verification.
-    /// - `signature`: The signature to verify.
-    /// - `payload`: The payload to verify the signature against.
-    ///
-    /// ## Returns
-    ///
-    /// Returns `Ok(())` on success, or an error of type `VerificationError` on failure.
-    ///
-    /// ## Errors
+    /// # Errors
     ///
     /// If the encoding fails, it returns an error of type `VerificationError::EncodingError`.
     /// If the verification fails, it returns an error of type `VerificationError::VerificationError`.
@@ -54,9 +45,8 @@ pub trait Verify: Sized + Debug {
         signature: &Self::Signature,
         payload: &T,
     ) -> Result<(), VerificationError<C::EncodingError>> {
-        let mut buffer = Vec::new();
-        codec
-            .encode_payload(payload, &mut buffer)
+        let buffer = codec
+            .encode_payload(payload)
             .map_err(VerificationError::EncodingError)?;
         verifier
             .verify(&buffer, signature)

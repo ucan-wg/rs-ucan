@@ -2,9 +2,10 @@
 //!
 //! [Nonce]: https://en.wikipedia.org/wiki/Cryptographic_nonce
 
+use alloc::vec::Vec;
+use core::{fmt, hash::Hash};
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};
-use std::{fmt, hash::Hash};
 use thiserror::Error;
 
 #[cfg(any(test, feature = "test_utils"))]
@@ -59,11 +60,20 @@ impl From<Vec<u8>> for Nonce {
 }
 
 impl Nonce {
-    /// Generate a 128-bit, 16-byte nonce
+    /// Create a nonce from raw bytes.
     ///
-    /// # Arguments
-    ///
-    /// * `salt` - A salt. This may be left empty, but is recommended to avoid collision.
+    /// If `bytes` is exactly 16 bytes, a `Nonce16` is created;
+    /// otherwise a `Custom` nonce is created.
+    #[must_use]
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        if let Ok(arr) = <[u8; 16]>::try_from(bytes) {
+            Nonce::Nonce16(arr)
+        } else {
+            Nonce::Custom(bytes.to_vec())
+        }
+    }
+
+    /// Generate a 128-bit, 16-byte nonce using the platform's CSPRNG.
     ///
     /// # Errors
     ///
@@ -73,13 +83,10 @@ impl Nonce {
     ///
     /// ```rust
     /// # use ucan::crypto::nonce::Nonce;
-    /// # use ucan::did::Did;
-    /// #
-    /// let mut salt = "did:example:123".as_bytes().to_vec();
     /// let nonce = Nonce::generate_16().unwrap();
-    ///
     /// assert_eq!(Vec::<u8>::from(nonce).len(), 16);
     /// ```
+    #[cfg(feature = "getrandom")]
     pub fn generate_16() -> Result<Nonce, getrandom::Error> {
         let mut buf = [0; 16];
         getrandom::getrandom(&mut buf)?;
@@ -138,7 +145,7 @@ impl TryFrom<Ipld> for Nonce {
 pub struct NoncesMustBeBytes;
 
 impl Hash for Nonce {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         match self {
             Nonce::Nonce16(nonce) => nonce.to_vec().hash(state),
             Nonce::Custom(nonce) => nonce.hash(state),
@@ -175,14 +182,17 @@ mod test {
         let nonce = Nonce::generate_16()?;
         let ipld = Ipld::from(nonce.clone());
 
-        let inner = if let Nonce::Nonce16(nonce) = nonce {
-            Ipld::Bytes(nonce.to_vec())
-        } else {
-            panic!("No conversion!")
+        let Nonce::Nonce16(inner_bytes) = nonce else {
+            #[allow(clippy::panic)]
+            {
+                panic!("Expected Nonce16 variant")
+            }
         };
+        let inner = Ipld::Bytes(inner_bytes.to_vec());
 
         assert_eq!(ipld, inner);
-        assert_eq!(nonce, ipld.try_into().unwrap());
+        let roundtripped: Nonce = ipld.try_into()?;
+        assert_eq!(nonce, roundtripped);
 
         Ok(())
     }
@@ -192,7 +202,7 @@ mod test {
         fn proptest_roundtrip_serde(bytes in any::<Vec<u8>>()) {
             let nonce = Nonce::from(bytes);
             let ipld = Ipld::from(nonce.clone());
-            let de: Nonce = ipld.try_into().unwrap();
+            let de: Nonce = ipld.try_into().map_err(|e| prop::test_runner::TestCaseError::Fail(format!("{e}").into()))?;
 
             prop_assert_eq!(nonce, de);
         }

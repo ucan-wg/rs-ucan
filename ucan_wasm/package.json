@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "",
   "private": true,
-  "main": "./pkg/index.ts",
+  "main": "./dist/cjs/node.cjs",
   "scripts": {},
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
   "type": "module",
-  "module": "pkg/ucan_wasm.js",
-  "types": "pkg/ucan_wasm.d.ts",
+  "module": "./dist/esm/bundler.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -33,5 +33,41 @@
     "overrides": {
       "esbuild@<=0.24.2": ">=0.25.0"
     }
+  },
+  "sideEffects": [
+    "./dist/esm/bundler.js",
+    "./dist/esm/node.js",
+    "./dist/esm/web.js",
+    "./dist/esm/workerd.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "workerd": {
+        "import": "./dist/esm/workerd.js",
+        "require": "./dist/cjs/web.cjs"
+      },
+      "node": {
+        "import": "./dist/esm/node.js",
+        "require": "./dist/cjs/node.cjs"
+      },
+      "browser": {
+        "import": "./dist/esm/bundler.js",
+        "require": "./dist/cjs/web.cjs"
+      },
+      "import": "./dist/esm/web.js",
+      "require": "./dist/cjs/web.cjs"
+    },
+    "./slim": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/slim.js",
+      "require": "./dist/cjs/slim.cjs"
+    },
+    "./wasm": "./dist/ucan.wasm",
+    "./wasm-base64": {
+      "import": "./dist/esm/wasm-base64.js",
+      "require": "./dist/cjs/wasm-base64.cjs"
+    },
+    "./iife": "./dist/iife/index.js"
   }
 }

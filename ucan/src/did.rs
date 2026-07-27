@@ -1,8 +1,8 @@
 //! Decentralized Identifier (DID) helpers.
 
-use base58::ToBase58;
+use alloc::{format, string::ToString, vec::Vec};
+use core::{fmt::Debug, str::FromStr};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
 use varsig::{signature::eddsa::Ed25519, signer::Sign};
 
@@ -51,13 +51,13 @@ impl From<ed25519_dalek::SigningKey> for Ed25519Did {
     }
 }
 
-impl std::fmt::Display for Ed25519Did {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Ed25519Did {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut raw_bytes = Vec::with_capacity(34);
         raw_bytes.push(0xed);
         raw_bytes.push(0x01);
         raw_bytes.extend_from_slice(self.0.as_bytes());
-        let b58 = ToBase58::to_base58(raw_bytes.as_slice());
+        let b58 = bs58::encode(raw_bytes.as_slice()).into_string();
         write!(f, "did:key:z{b58}")
     }
 }
@@ -82,8 +82,9 @@ impl FromStr for Ed25519Did {
             .ok_or(Ed25519DidFromStrError::InvalidDidHeader)?
             .strip_prefix('z')
             .ok_or(Ed25519DidFromStrError::MissingBase58Prefix)?;
-        let key_bytes =
-            base58::FromBase58::from_base58(b58).map_err(|_| Ed25519DidFromStrError::InvalidKey)?;
+        let key_bytes = bs58::decode(b58)
+            .into_vec()
+            .map_err(|_| Ed25519DidFromStrError::InvalidBase58)?;
         let raw_arr = <[u8; 34]>::try_from(key_bytes.as_slice())
             .map_err(|_| Ed25519DidFromStrError::InvalidKey)?;
         if raw_arr[0] != 0xed || raw_arr[1] != 0x01 {
@@ -159,7 +160,7 @@ impl<'de> Deserialize<'de> for Ed25519Did {
         impl serde::de::Visitor<'_> for DidKeyVisitor {
             type Value = Ed25519Did;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.write_str("a did:key string containing an ed25519 public key")
             }
 
@@ -175,7 +176,8 @@ impl<'de> Deserialize<'de> for Ed25519Did {
                 }
 
                 let b58_payload = &v[DID_PREFIX.len()..];
-                let decoded = base58::FromBase58::from_base58(b58_payload)
+                let decoded = bs58::decode(b58_payload)
+                    .into_vec()
                     .map_err(|e| E::custom(format!("base58 decode failed: {e:?}")))?;
 
                 if decoded.len() != 34 {
@@ -250,8 +252,8 @@ impl From<ed25519_dalek::SigningKey> for Ed25519Signer {
     }
 }
 
-impl std::fmt::Display for Ed25519Signer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Ed25519Signer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.did)
     }
 }

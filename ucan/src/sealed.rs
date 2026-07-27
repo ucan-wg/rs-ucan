@@ -4,6 +4,7 @@ use crate::{
     did::{Did, DidSigner},
     unset::Unset,
 };
+use alloc::vec::Vec;
 use ipld_core::cid::Cid;
 
 #[doc(hidden)]

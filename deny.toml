@@ -105,11 +105,9 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    # The Unicode-DFS-2016 license is necessary for unicode-ident because they
-    # use data from the unicode tables to generate the tables which are
-    # included in the application. We do not distribute those data files so
-    # this is not a problem for us. See https://github.com/dtolnay/unicode-ident/pull/9/files
-    { allow = ["Unicode-DFS-2016"], name = "unicode-ident", version = "*"},
+    # unicode-ident uses data from the Unicode tables to generate its lookup
+    # tables. The Unicode-3.0 license applies to those data files.
+    { allow = ["Unicode-3.0"], name = "unicode-ident", version = "*"},
 ]
 
 # Some crates don't have (easily) machine readable licensing information,

@@ -14,32 +14,32 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-async-signature.workspace = true
+async-signature = { workspace = true, default-features = false }
 bytes = { version =  "1.10", optional = true }
 ed25519-dalek = { workspace = true, optional = true }
-ipld-core.workspace = true
+ipld-core = { version = "0.4.2", default-features = false, features = ["serde"] }
 ipld-dagpb = { version = "0.2.1", optional = true }
 k256 = { version = "0.13.4", optional = true }
-leb128 = "0.2.5"
+leb128fmt = { workspace = true }
 p256 = { version = "0.13.2", optional = true }
 p384 = { version = "0.13.1", optional = true }
 p521 = { version = "0.13.3", optional = true }
-rsa = { workspace = true, optional = true }
-serde.workspace = true
-serde_bytes = "0.11.19"
-serde_ipld_dagcbor = { workspace = true, optional = true }
+serde = { workspace = true, default-features = false, features = ["derive", "alloc"] }
+serde_bytes = { version = "0.11.19", default-features = false, features = ["alloc"] }
+serde_ipld_dagcbor = { workspace = true, optional = true, default-features = false }
 serde_ipld_dagjson = { version = "0.2.0", optional = true }
-signature.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
+signature = { workspace = true, default-features = false }
+thiserror = { workspace = true, default-features = false }
+tracing = { workspace = true, default-features = false, features = ["attributes"] }
 
 [dev-dependencies]
 rand = "0.8.5"
 testresult = "0.4.1"
 
 [features]
-default = ["dag_cbor", "es256", "es256k", "ed25519"]
-web_crypto = ["rs256_2048", "rs256_4096", "es256", "es384", "es512", "ed25519"]
+default = ["std", "dag_cbor", "ed25519"]
+std = ["serde/std", "thiserror/std", "serde_ipld_dagcbor?/std", "serde_ipld_dagcbor?/codec", "tracing/std", "ipld-core/std", "ipld-core/codec"]
+web_crypto = ["es256", "es384", "es512", "ed25519"]
 common = ["es256", "es256k", "ed25519"]
 
 identity = []
@@ -47,7 +47,7 @@ jwt = []
 eip191 = []
 
 dag_cbor = ["dep:serde_ipld_dagcbor"]
-dag_json = ["dep:serde_ipld_dagjson"]
+dag_json = ["std", "dep:serde_ipld_dagjson"]
 dag_pb = ["dep:ipld-dagpb", "dep:bytes"]
 
 sha2_256 = []
@@ -63,7 +63,6 @@ keccak256 = []
 keccak384 = []
 keccak512 = []
 
-rsa = ["dep:rsa"]
 secp256k1 = ["dep:k256"]
 secp256r1 = ["dep:p256"]
 secp384r1 = ["dep:p384"]
@@ -73,13 +72,10 @@ edwards448 = []
 edwards25519 = ["dep:ed25519-dalek"]
 
 es256 = ["secp256r1", "sha2_256"]
-es384 = ["secp256r1", "sha2_384"]
-es512 = ["secp256r1", "sha2_512"]
+es384 = ["secp384r1", "sha2_384"]
+es512 = ["secp521r1", "sha2_512"]
 es256k = ["secp256k1", "sha2_256"]
 ed25519 = ["edwards25519", "sha2_512"]
-
-rs256_2048 = ["rsa", "sha2_256"]
-rs256_4096 = ["rsa", "sha2_256"]
 
 [lints]
 workspace = true

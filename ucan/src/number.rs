@@ -1,6 +1,6 @@
 //! [`Ipld`] numerics.
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 use ipld_core::ipld::Ipld;
 use serde::{Deserialize, Serialize};

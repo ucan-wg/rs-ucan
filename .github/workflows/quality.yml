@@ -1,0 +1,112 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          cache: true
+
+      - name: Build workspace
+        run: cargo build --workspace --verbose
+
+      - name: Build workspace with all features
+        run: cargo build --workspace --verbose --all-features
+
+      - name: Check workspace
+        run: cargo check --workspace --verbose --all-features
+
+      - name: Install nightly toolchain
+        run: rustup toolchain install nightly --component rustfmt
+
+      - name: Formatting
+        run: cargo +nightly fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check advisories
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check advisories
+        continue-on-error: true
+
+      - name: Check bans, licenses, and sources
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check bans licenses sources
+
+  no-std:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+
+      - name: Check varsig (no default features)
+        run: cargo check -p varsig --no-default-features
+
+      - name: Check varsig (no_std + dag_cbor + ed25519)
+        run: cargo check -p varsig --no-default-features --features dag_cbor,ed25519
+
+      - name: Check ucan (no default features)
+        run: cargo check -p ucan --no-default-features
+
+      # NOTE: Real embedded target (thumbv6m-none-eabi) is blocked by
+      # upstream `cid` crate pulling in serde_bytes with default features,
+      # which activates serde/std transitively.
+      # Uncomment once cid adds default-features = false on serde_bytes.
+      # - name: Install thumbv6m target
+      #   run: rustup target add thumbv6m-none-eabi
+      # - name: Check varsig on thumbv6m
+      #   run: cargo check -p varsig --no-default-features --target thumbv6m-none-eabi
+      # - name: Check ucan on thumbv6m
+      #   run: cargo check -p ucan --no-default-features --target thumbv6m-none-eabi
+
+  msrv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSRV toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: "1.90"
+          cache: true
+
+      - name: Check MSRV
+        run: cargo check --workspace

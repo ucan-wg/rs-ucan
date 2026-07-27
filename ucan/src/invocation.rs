@@ -15,16 +15,17 @@ use crate::{
     },
     did::{Did, DidSigner},
     envelope::{payload_tag::PayloadTag, Envelope},
-    future::FutureKind,
     promise::{Promised, WaitingOn},
     time::timestamp::Timestamp,
     unset::Unset,
     Delegation,
 };
+use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 use builder::InvocationBuilder;
+use core::{borrow::Borrow, fmt::Debug};
+use future_form::FutureForm;
 use ipld_core::{cid::Cid, ipld::Ipld};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, collections::BTreeMap, fmt::Debug};
 use thiserror::Error;
 use varsig::verify::Verify;
 
@@ -109,7 +110,7 @@ impl<D: Did> Invocation<D> {
 }
 
 impl<D: Did> Debug for Invocation<D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Invocation").field(&self.0).finish()
     }
 }
@@ -231,7 +232,7 @@ impl<D: Did> InvocationPayload<D> {
     /// # Errors
     ///
     /// Returns a [`StoredCheckError`] if the check fails.
-    pub async fn check<K: FutureKind, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
+    pub async fn check<K: FutureForm, T: Borrow<Delegation<D>>, S: DelegationStore<K, D, T>>(
         &self,
         proof_store: &S,
     ) -> Result<(), StoredCheckError<K, D, T, S>> {
@@ -263,7 +264,7 @@ impl<D: Did> InvocationPayload<D> {
         let mut expected_issuer = self.subject();
 
         for proof in proofs {
-            if proof.subject().allows(self.subject()) {
+            if !proof.subject().allows(self.subject()) {
                 return Err(CheckFailed::SubjectNotAllowedByProof);
             }
 
@@ -279,7 +280,7 @@ impl<D: Did> InvocationPayload<D> {
             }
 
             for predicate in proof.policy() {
-                if !predicate.clone().run(&args)? {
+                if !predicate.run(&args)? {
                     return Err(CheckFailed::PredicateFailed(Box::new(predicate.clone())));
                 }
             }
@@ -313,7 +314,7 @@ pub enum CheckFailed {
     WaitingOnPromise(#[from] WaitingOn),
 
     /// Error indicating that the command in the invocation does not match the command in the proof
-    #[error("command mismatch: expected {expected:?}, found {expected:?}")]
+    #[error("command mismatch: expected {expected:?}, found {found:?}")]
     CommandMismatch {
         /// The expected command
         expected: Command,
@@ -345,7 +346,7 @@ pub enum CheckFailed {
 /// Errors that can occur when checking an invocation with proofs stored in a delegation store
 #[derive(Debug, Clone, Error)]
 pub enum StoredCheckError<
-    K: FutureKind,
+    K: FutureForm,
     D: Did,
     T: Borrow<Delegation<D>>,
     S: DelegationStore<K, D, T>,
@@ -369,19 +370,12 @@ mod tests {
     use super::*;
     use testresult::TestResult;
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct EdKey(ed25519_dalek::VerifyingKey);
-
     #[test]
     fn issuer_round_trip() -> TestResult {
         let iss: Ed25519Signer = ed25519_dalek::SigningKey::from_bytes(&[0u8; 32]).into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
-        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let builder: InvocationBuilder<
             Ed25519Signer,
@@ -394,7 +388,7 @@ mod tests {
             .issuer(iss.clone())
             .audience(aud)
             .subject(sub)
-            .command(vec!["read".to_string(), "write".to_string()])
+            .command_from_str("/read/write")?
             .proofs(vec![]);
 
         let invocation = builder.try_build()?;

@@ -1,14 +1,17 @@
 //! Temporal errors.
 
-use std::time::SystemTime;
 use thiserror::Error;
 
-/// An error expressing when a time is larger than 2⁵³ seconds past the Unix epoch
+/// An error expressing when a timestamp is outside the representable range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-#[error("Time out of JsTime (2⁵³) range: {:?}", tried)]
-pub struct OutOfRangeError {
-    /// The [`SystemTime`] that is outside of the [`JsTime`] range (2⁵³).
-    pub tried: SystemTime,
+pub enum OutOfRangeError {
+    /// The timestamp exceeds 2⁵³ seconds past the Unix epoch.
+    #[error("Time exceeds JsTime (2⁵³) range: {0}")]
+    TooLarge(u64),
+
+    /// The timestamp is before the Unix epoch.
+    #[error("Time is before the Unix epoch")]
+    BeforeEpoch,
 }
 
 /// An error expressing when a time is larger than 2⁵³ seconds past the Unix epoch.
@@ -18,9 +21,9 @@ pub enum NumberIsNotATimestamp {
     #[error("Cannot convert IPLD number to JsTime (2⁵³) range: {0}")]
     TriedIpldInt(i128),
 
-    /// A [`SystemTime`] is outside of the [`JsTime`] range.
+    /// A Unix seconds value is outside of the safe range.
     #[error(transparent)]
-    TriedSystemTime(#[from] OutOfRangeError),
+    TriedU64(#[from] OutOfRangeError),
 }
 
 /// An error expressing when a time is not within the bounds of a UCAN.

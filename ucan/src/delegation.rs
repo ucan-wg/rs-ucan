@@ -1,7 +1,7 @@
 //! UCAN Delegation
 //!
 //! The spec for UCAN Delegations can be found at
-//! [the GitHub repo](https://github.com/ucan-wg/invocation/).
+//! [the GitHub repo](https://github.com/ucan-wg/delegation/).
 
 pub mod builder;
 pub mod policy;
@@ -13,19 +13,25 @@ use crate::{
     cid::to_dagcbor_cid,
     command::Command,
     crypto::nonce::Nonce,
-    did::{Did, DidSigner},
+    did::Did,
     envelope::{payload_tag::PayloadTag, Envelope},
     time::timestamp::Timestamp,
     unset::Unset,
 };
+use alloc::{
+    borrow::Cow,
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 use builder::DelegationBuilder;
+use core::{fmt::Debug, marker::PhantomData};
 use ipld_core::{cid::Cid, ipld::Ipld};
 use policy::predicate::Predicate;
 use serde::{
     de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
-use std::{borrow::Cow, collections::BTreeMap, fmt::Debug};
 use varsig::verify::Verify;
 
 /// Top-level UCAN Delegation.
@@ -37,8 +43,7 @@ pub struct Delegation<D: Did>(
 impl<D: Did> Delegation<D> {
     /// Creates a blank [`DelegationBuilder`] instance.
     #[must_use]
-    pub const fn builder<S: DidSigner<Did = D>>() -> DelegationBuilder<S, Unset, Unset, Unset, Unset>
-    {
+    pub const fn builder() -> DelegationBuilder<Unset, Unset, Unset, Unset> {
         DelegationBuilder::new()
     }
 
@@ -94,7 +99,7 @@ impl<D: Did> Delegation<D> {
 }
 
 impl<D: Did> Debug for Delegation<D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Delegation").field(&self.0).finish()
     }
 }
@@ -210,7 +215,7 @@ where
     where
         T: Deserializer<'de>,
     {
-        struct PayloadVisitor<D: Did>(std::marker::PhantomData<D>);
+        struct PayloadVisitor<D: Did>(PhantomData<D>);
 
         impl<'de, D> Visitor<'de> for PayloadVisitor<D>
         where
@@ -223,7 +228,7 @@ where
         {
             type Value = DelegationPayload<D>;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.write_str("a map with keys iss,aud,sub,cmd,pol,exp,nbf,meta,nonce")
             }
 
@@ -373,6 +378,7 @@ where
                 let command = command.ok_or_else(|| de::Error::missing_field("cmd"))?;
                 let policy = policy.ok_or_else(|| de::Error::missing_field("pol"))?;
                 let nonce = nonce.ok_or_else(|| de::Error::missing_field("nonce"))?;
+                let expiration = expiration.ok_or_else(|| de::Error::missing_field("exp"))?;
 
                 Ok(DelegationPayload {
                     issuer,
@@ -381,14 +387,14 @@ where
                     command,
                     policy,
                     nonce,
-                    expiration: expiration.unwrap_or(None),
+                    expiration,
                     not_before: not_before.unwrap_or(None),
                     meta: meta.unwrap_or_default(),
                 })
             }
         }
 
-        deserializer.deserialize_map(PayloadVisitor::<D>(std::marker::PhantomData))
+        deserializer.deserialize_map(PayloadVisitor::<D>(PhantomData))
     }
 }
 
@@ -410,21 +416,13 @@ mod tests {
     use base64::prelude::*;
     use testresult::TestResult;
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct EdKey(ed25519_dalek::VerifyingKey);
-
     #[test]
     fn issuer_round_trip() -> TestResult {
         let iss: Ed25519Signer = ed25519_dalek::SigningKey::from_bytes(&[0u8; 32]).into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
-        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
+        let sub: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let builder: DelegationBuilder<
-            Ed25519Signer,
             Ed25519Signer,
             Ed25519Did,
             DelegatedSubject<Ed25519Did>,
@@ -433,7 +431,7 @@ mod tests {
             .issuer(iss.clone())
             .audience(aud)
             .subject(DelegatedSubject::Specific(sub))
-            .command(vec!["read".to_string(), "write".to_string()]);
+            .command_from_str("/read/write")?;
 
         let delegation = builder.try_build()?;
 
@@ -481,23 +479,19 @@ mod tests {
     fn delegation_payload_any_subject_serializes_to_null() -> TestResult {
         use crate::crypto::nonce::Nonce;
 
-        let iss: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
-        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])
-            .unwrap()
-            .into();
+        let iss: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
+        let aud: Ed25519Did = ed25519_dalek::VerifyingKey::from_bytes(&[0u8; 32])?.into();
 
         let payload = DelegationPayload {
             issuer: iss,
             audience: aud,
             subject: DelegatedSubject::Any,
-            command: Command::new(vec!["/".to_string()]),
+            command: Command::parse("/")?,
             policy: vec![],
             expiration: None,
             not_before: None,
             meta: std::collections::BTreeMap::new(),
-            nonce: Nonce::generate_16().unwrap(),
+            nonce: Nonce::generate_16()?,
         };
 
         assert_eq!(payload.subject(), &DelegatedSubject::Any);
@@ -509,16 +503,18 @@ mod tests {
         let ipld: ipld_core::ipld::Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
 
         // Verify sub is null in the serialized form
-        if let ipld_core::ipld::Ipld::Map(map) = &ipld {
-            let sub = map.get("sub").expect("sub field should exist");
-            assert_eq!(
-                sub,
-                &ipld_core::ipld::Ipld::Null,
-                "sub should be null for Any"
-            );
-        } else {
-            panic!("Expected a map");
-        }
+        let ipld_core::ipld::Ipld::Map(map) = &ipld else {
+            #[allow(clippy::panic)]
+            {
+                panic!("Expected a map")
+            }
+        };
+        let sub = map.get("sub").ok_or("sub field should exist")?;
+        assert_eq!(
+            sub,
+            &ipld_core::ipld::Ipld::Null,
+            "sub should be null for Any"
+        );
 
         Ok(())
     }

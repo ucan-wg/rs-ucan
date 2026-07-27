@@ -1,12 +1,12 @@
 //! Internal IPLD representation.
 //!
-//! This is here becuase `ipld-core` doesn't implement various traits.
+//! This is here because `ipld-core` doesn't implement various traits.
 //! It is not a simple newtype wrapper because IPLD has recursive values,
 //! and this implementation is simpler. If it is a performance bottleneck,
 //! please let the maintainers know.
 
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use ipld_core::{cid::Cid, ipld::Ipld};
-use std::collections::BTreeMap;
 
 use crate::delegation::policy::selector::{error::SelectorErrorReason, selectable::Selectable};
 
